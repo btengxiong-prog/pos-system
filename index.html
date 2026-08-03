@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="lo">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ລະບົບຂາຍເຄື່ອງ POS (Phetsarath OT + Times New Roman)</title>
+    <!-- ໂຫຼດໄລບຼາຣີສະແກນ QR/Barcode -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <style>
+        body { 
+            font-family: 'Phetsarath OT', 'Times New Roman', serif; 
+            background-color: #edf2f7; 
+            margin: 0; 
+            padding: 5px; 
+            color: #2d3748;
+        }
+        .container { 
+            max-width: 980px; 
+            margin: auto; 
+            background: #ffffff; 
+            padding: 10px 15px; 
+            border-radius: 8px; 
+            box-shadow: 0 3px 12px rgba(0,0,0,0.06); 
+        }
+        h2 { 
+            color: #1a365d; 
+            text-align: center; 
+            margin: 2px 0 8px 0; 
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        /* ປຸ່ມເມນູ */
+        .nav-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        .nav-btn {
+            background-color: #e2e8f0;
+            color: #4a5568;
+            border: none;
+            padding: 6px 14px;
+            font-size: 14px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: 'Phetsarath OT', serif;
+            transition: all 0.2s;
+        }
+        .nav-btn:hover { background-color: #cbd5e0; }
+        .nav-btn.active { background-color: #3182ce; color: white; }
+
+        /* ສ່ວນສະແກນກ້ອງ */
+        .scanner-container { 
+            width: 100%; 
+            max-width: 380px; 
+            margin: 0 auto 5px auto; 
+            border: none;
+            background-color: transparent;
+            padding: 0;
+            display: block;
+        }
+        #reader { 
+            width: 100% !important; 
+            border-radius: 6px; 
+            overflow: hidden;
+            border: none !important;
+            background: transparent !important;
+        }
+        #reader img, #reader__dashboard_section, #reader div[style*="text-align: center"] { display: none !important; }
+        #reader__scan_region { background: transparent !important; }
+        #reader__camera_selection {
+            font-family: 'Times New Roman', serif;
+            margin-bottom: 4px;
+            padding: 3px;
+            border-radius: 4px;
+            border: 1px solid #cbd5e0;
+            width: 100%;
+        }
+
+        /* ສ่วนປະຫວັດການຂາຍ */
+        .history-container {
+            display: none;
+            margin-bottom: 8px;
+            background: #f8fafc;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #cbd5e0;
+        }
+
+        /* ຕາຕະລາງ */
+        h3 { color: #2c5282; margin: 6px 0 4px 0; font-size: 16px; border-bottom: 2px solid #bee3f8; padding-bottom: 4px;}
+        table { width: 100%; border-collapse: separate; border-spacing: 0 3px; margin-top: 4px; }
+        th, td { padding: 8px 10px; }
+        th { 
+            background-color: #2b6cb0; 
+            color: #ffffff; 
+            text-align: center; 
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 12px;
+        }
+        th:first-child { border-top-left-radius: 6px; border-bottom-left-radius: 6px; text-align: left; }
+        th:last-child { border-top-right-radius: 6px; border-bottom-right-radius: 6px; }
+        
+        tbody tr { background-color: #f7fafc; border-radius: 6px; }
+        td { border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; }
+        td:first-child { border-left: 1px solid #e2e8f0; text-align: left; }
+        td:last-child { border-right: 1px solid #e2e8f0; }
+        
+        .col-name { width: 40%; }
+        .col-price, .col-qty, .col-total, .col-action { width: 15%; text-align: center; font-family: 'Times New Roman', serif; }
+        .col-name.lao-text { font-family: 'Phetsarath OT', serif; }
+
+        .delete-btn { 
+            background-color: #f56565; color: white; border: none; padding: 3px 8px; 
+            cursor: pointer; border-radius: 4px; font-family: 'Phetsarath OT', serif; font-size: 12px; 
+        }
+        .delete-btn:hover { background-color: #e53e3e; }
+
+        /* ສ່ວນສະຫຼຸບ ແລະ ຊຳລະ */
+        .summary-section { 
+            margin-top: 8px; background-color: #ebf8ff; padding: 8px 12px; 
+            border-radius: 6px; border: 1px solid #bee3f8; 
+        }
+        .summary-row { 
+            display: flex; justify-content: space-between; align-items: center; 
+            margin-bottom: 6px; font-size: 15px; color: #2c5282; font-weight: bold; 
+        }
+        .summary-row:last-child { margin-bottom: 0; }
+        .summary-row span:first-child { font-family: 'Phetsarath OT', serif; }
+        
+        #cash-given { 
+            font-size: 16px; padding: 4px 6px; width: 150px; text-align: right; 
+            border: 2px solid #a0aec0; border-radius: 6px; font-family: 'Times New Roman', serif; background: white; 
+        }
+
+        .total-highlight { color: #2f855a; font-size: 18px; font-family: 'Times New Roman', serif; }
+        .change-highlight { color: #c05621; font-size: 18px; font-family: 'Times New Roman', serif; }
+
+        .checkout-btn { 
+            background-color: #48bb78; color: white; border: none; padding: 10px 15px; 
+            font-size: 16px; cursor: pointer; border-radius: 6px; width: 100%; margin-top: 8px; 
+            font-family: 'Phetsarath OT', serif; font-weight: bold; text-transform: uppercase; 
+        }
+        .checkout-btn:hover { background-color: #38a169; }
+
+        /* ຟຸດເຕີຜູ້ພັດທະນາ */
+        .developer-footer {
+            margin-top: 8px; padding: 6px; background: linear-gradient(135deg, #2b6cb0, #2c5282);
+            color: #ffffff; text-align: center; border-radius: 6px; font-size: 12px;
+            font-family: 'Phetsarath OT', 'Times New Roman', serif;
+        }
+        .developer-footer span { font-weight: bold; color: #f6ad55; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🛒 ລະບົບຂາຍເຄື່ອງ POS ດ້ວຍການສະແກນ</h2>
+
+    <div class="nav-buttons">
+        <button id="btn-scan" class="nav-btn active" onclick="switchTab('scan')">📷 ສະແກນສິນຄ້າ</button>
+        <button id="btn-history" class="nav-btn" onclick="switchTab('history')">📊 ກວດປະຫວັດການຂາຍ</button>
+    </div>
+
+    <div id="scan-section" class="scanner-container">
+        <div id="reader"></div>
+    </div>
+
+    <div id="history-section" class="history-container">
+        <h3 style="margin-top: 0;">📋 ປະຫວັດການຂາຍສິນຄ້າຜ່ານມາ</h3>
+        <div id="history-list" style="font-family: 'Phetsarath OT', serif; font-size: 13px;">ຍັງບໍ່ມີປະຫວັດການຂາຍ</div>
+    </div>
+
+    <h3>📄 ລາຍການສິນຄ້າທີ່ເລືອກ</h3>
+    <table>
+        <thead>
+            <tr>
+                <th class="col-name">ຊື່ສິນຄ້າ</th>
+                <th class="col-price">ລາຄາຊື້ (ກີບ)</th>
+                <th class="col-price">ລາຄາຂາຍ (ກີບ)</th>
+                <th class="col-qty">ຈຳນວນ</th>
+                <th class="col-total">ລວມ (ກີບ)</th>
+                <th class="col-action">ຈັດການ</th>
+            </tr>
+        </thead>
+        <tbody id="cart-items"></tbody>
+    </table>
+
+    <div class="summary-section">
+        <div class="summary-row">
+            <span>ຍອດລວມຂາຍທັງໝົດ:</span>
+            <span id="grand-total" class="total-highlight">0 ກີບ</span>
+        </div>
+        <div class="summary-row">
+            <span>ຈຳນວນເງິນທີ່ລູກຄ້າຈ່າຍຕົວຈິງ:</span>
+            <div class="cash-input-group">
+                <input type="number" id="cash-given" placeholder="ຕົວຢ່າງ: 50,000" oninput="calculateChange()">
+            </div>
+        </div>
+        <div class="summary-row" style="border-top: 1px solid #bee3f8; padding-top: 6px; margin-top: 6px;">
+            <span>ເງິນທອນ:</span>
+            <span id="change-due" class="change-highlight">0 ກີບ</span>
+        </div>
+    </div>
+    
+    <button class="checkout-btn" onclick="checkout()">💰 ຊຳລະເງິນ / ພິມບິນ</button>
+
+    <div class="developer-footer">
+        ✨ ສ້າງ ແລະ ພັດທະນາໂດຍ: <span>ອາຈານ ບຸນແຕ່ງ ຊົ່ງຕົງມົວ</span> | 📞 ໂທ: <span style="font-family: 'Times New Roman', serif;">020 59456999, 020 99444448</span>
+    </div>
+</div>
+
+<script>
+    // 1) ຖານຂໍ້ມູນສິນຄ້າ (Database ຕົວຢ່າງ)
+    const products = {
+        "P001": { name: "ນ້ຳດື່ມ (Drinking Water)", buyPrice: 4500, sellPrice: 5000 },
+        "P002": { name: "ນົມສົ້ມ (Yogurt)", buyPrice: 7200, sellPrice: 8000 },
+        "P003": { name: "ບະໝີ່ກິ່ງສຳເລັດຮູບ (Instant Noodle)", buyPrice: 5400, sellPrice: 6000 },
+        "8851818001016": { name: "ປາກກາ (Ball Pen)", buyPrice: 2000, sellPrice: 3500 }
+    };
+
+    let cart = [];
+    let salesHistory = JSON.parse(localStorage.getItem("salesHistory")) || [];
+
+    function switchTab(tab) {
+        let scanSection = document.getElementById("scan-section");
+        let historySection = document.getElementById("history-section");
+        let btnScan = document.getElementById("btn-scan");
+        let btnHistory = document.getElementById("btn-history");
+
+        if (tab === 'scan') {
+            scanSection.style.display = "block";
+            historySection.style.display = "none";
+            btnScan.classList.add("active");
+            btnHistory.classList.remove("active");
+        } else {
+            scanSection.style.display = "none";
+            historySection.style.display = "block";
+            btnHistory.classList.add("active");
+            btnScan.classList.remove("active");
+            renderHistory();
+        }
+    }
+
+    function addProductToCart(code) {
+        let product = products[code];
+        if (!product) {
+            alert("ບໍ່ພົບສິນຄ້າລະຫັດນີ້: " + code);
+            return;
+        }
+
+        let item = cart.find(i => i.code === code);
+        if (item) {
+            item.qty += 1;
+        } else {
+            cart.push({ code: code, name: product.name, buyPrice: product.buyPrice, sellPrice: product.sellPrice, qty: 1 });
+        }
+        updateCartUI();
+    }
+
+    function removeItem(index) {
+        cart.splice(index, 1);
+        updateCartUI();
+    }
+
+    function updateCartUI() {
+        let tbody = document.getElementById("cart-items");
+        tbody.innerHTML = "";
+        let grandTotal = 0;
+
+        cart.forEach((item, index) => {
+            let total = item.sellPrice * item.qty;
+            grandTotal += total;
+            tbody.innerHTML += `
+                <tr>
+                    <td class="col-name lao-text">${item.name}</td>
+                    <td class="col-price">${item.buyPrice.toLocaleString()}</td>
+                    <td class="col-price">${item.sellPrice.toLocaleString()}</td>
+                    <td class="col-qty">${item.qty}</td>
+                    <td class="col-total">${total.toLocaleString()}</td>
+                    <td class="col-action"><button class="delete-btn" onclick="removeItem(${index})">🗑️ ລຶບ</button></td>
+                </tr>
+            `;
+        });
+
+        document.getElementById("grand-total").innerText = grandTotal.toLocaleString() + " ກີບ";
+        calculateChange();
+    }
+
+    function calculateChange() {
+        let grandTotal = cart.reduce((sum, item) => sum + (item.sellPrice * item.qty), 0);
+        let cashGiven = parseFloat(document.getElementById("cash-given").value) || 0;
+        let change = cashGiven - grandTotal;
+
+        let changeElement = document.getElementById("change-due");
+        if (change >= 0) {
+            changeElement.innerText = change.toLocaleString() + " ກີບ";
+            changeElement.style.color = "#2f855a";
+        } else {
+            changeElement.innerText = "ເງິນຍັງບໍ່ພໍ (" + Math.abs(change).toLocaleString() + " ກີບ)";
+            changeElement.style.color = "#c53030";
+        }
+    }
+
+    // 2) ລະບົບຊຳລະເງິນ ແລະ ພິມບິນ
+    function checkout() {
+        if (cart.length === 0) {
+            alert("ກະລຸນາສະແກນສິນຄ້າກ່ອນ!");
+            return;
+        }
+        let cashGiven = parseFloat(document.getElementById("cash-given").value) || 0;
+        let grandTotal = cart.reduce((sum, item) => sum + (item.sellPrice * item.qty), 0);
+
+        if (cashGiven < grandTotal) {
+            alert("ຈຳນວນເງິນຈ່າຍຕົວຈິງຍັງບໍ່ພໍກັບຍອດລວມ!");
+            return;
+        }
+
+        let change = cashGiven - grandTotal;
+        let saleRecord = {
+            date: new Date().toLocaleString(),
+            items: [...cart],
+            total: grandTotal,
+            cash: cashGiven,
+            change: change
+        };
+
+        // บັນທຶກລົງປະຫວັດ
+        salesHistory.unshift(saleRecord);
+        localStorage.setItem("salesHistory", JSON.stringify(salesHistory));
+
+        // ສ້າງໜ້າພິມບິນ (Receipt)
+        printReceipt(saleRecord);
+
+        alert("ຊຳລະເງິນສຳເລັດແລ້ວ!");
+        cart = [];
+        document.getElementById("cash-given").value = "";
+        updateCartUI();
+    }
+
+    function printReceipt(record) {
+        let win = window.open('', '', 'height=500,width=400');
+        win.document.write('<html><head><title>ໃບຮັບເງິນ / Receipt</title>');
+        win.document.write('<style>body{font-family:sans-serif;padding:10px;font-size:12px;} h3,p{text-align:center;margin:5px 0;} table{width:100%;border-collapse:collapse;margin-top:10px;} th,td{border-bottom:1px dashed #ccc;padding:5px;text-align:left;} th{text-align:center;} .right{text-align:right;}</style>');
+        win.document.write('</head><body>');
+        win.document.write('<h3>🧾 ໃບຮັບເງິນ / RECEIPT</h3>');
+        win.document.write('<p>ວັນທີ: ' + record.date + '</p>');
+        win.document.write('<hr>');
+        win.document.write('<table><thead><tr><th>ສິນຄ້າ</th><th>ຈຳນວນ</th><th class="right">ລວມ</th></tr></thead><tbody>');
+        record.items.forEach(i => {
+            win.document.write(`<tr><td>${i.name}</td><td style="text-align:center;">${i.qty}</td><td class="right">${(i.sellPrice * i.qty).toLocaleString()}</td></tr>`);
+        });
+        win.document.write('</tbody></table>');
+        win.document.write(`<p style="margin-top:10px;" class="right"><b>ຍອດລວມ: ${record.total.toLocaleString()} ກີບ</b></p>`);
+        win.document.write(`<p class="right">ຈ່າຍຕົວຈິງ: ${record.cash.toLocaleString()} ກີບ</p>`);
+        win.document.write(`<p class="right">ເງິນທອນ: ${record.change.toLocaleString()} ກີບ</p>`);
+        win.document.write('<hr><p>🙏 ขอบໃຈທີ່ໃຊ້ບໍລິການ!</p>');
+        win.document.write('</body></html>');
+        win.document.close();
+        win.print();
+    }
+
+    // 3) ລະບົບກວດປະຫວັດການຂາຍ
+    function renderHistory() {
+        let historyList = document.getElementById("history-list");
+        if (salesHistory.length === 0) {
+            historyList.innerHTML = "ຍັງບໍ່ມີປະຫວັດການຂາຍໃນລະບົບ";
+            return;
+        }
+        let html = "";
+        salesHistory.forEach((s, idx) => {
+            html += `<div style="background:white; padding:8px; margin-bottom:6px; border-radius:4px; border:1px solid #e2e8f0;">
+                <b>ບິນທີ່ #${salesHistory.length - idx}</b> | ວັນທີ: ${s.date}<br>
+                ຍອດລວມ: <span style="color:green; font-weight:bold;">${s.total.toLocaleString()} ກີບ</span> 
+                (ຈ່າຍ: ${s.cash.toLocaleString()}, ທອນ: ${s.change.toLocaleString()})
+            </div>`;
+        });
+        historyList.innerHTML = html;
+    }
+
+    let html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 200 }, false);
+    html5QrcodeScanner.render((text) => addProductToCart(text));
+</script>
+
+</body>
+</html>
