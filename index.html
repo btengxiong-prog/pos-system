@@ -39,10 +39,10 @@
                 <button onclick="openReport()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition cursor-pointer">
                     📈 ລາຍງານ
                 </button>
-                <button onclick="openCodeGenerator('qr')" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition cursor-pointer">
+                <button onclick="openExcelGenerator('qr')" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition cursor-pointer">
                     📱 ສ້າງ QR Code
                 </button>
-                <button onclick="openCodeGenerator('barcode')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition cursor-pointer">
+                <button onclick="openExcelGenerator('barcode')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition cursor-pointer">
                     🖨️ ສ້າງ Barcode
                 </button>
             </div>
@@ -286,62 +286,53 @@
         </div>
     </div>
 
-    <!-- Code Generator Modal (ສ້າງ QR Code / Barcode ແຍກກັນ) -->
-    <div id="code-generator-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-xl max-w-lg w-full p-6 max-h-[85vh] overflow-y-auto space-y-4">
-            <h3 id="modal-gen-title" class="text-xl font-bold text-gray-800 flex items-center gap-2 border-b pb-3">
-                <span>🖨️ ສ້າງລະຫັດສິນຄ້າ</span>
-            </h3>
-            
-            <div class="space-y-3">
-                <div>
-                    <label class="block font-semibold text-gray-700 text-sm mb-1">ລະຫັດສິນຄ້າ:</label>
-                    <input type="text" id="gen-code" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 font-semibold" placeholder="ຕົວຢ່າງ: P001 ຫຼື 8851019050016">
+    <!-- Excel-like Table Code Generator Modal -->
+    <div id="excel-generator-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 id="excel-modal-title" class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                    <span>📊 ຕາຕະລາງສ້າງລະຫັດສິນຄ້າແບບ Excel</span>
+                </h3>
+                <div class="flex items-center gap-2">
+                    <button onclick="addExcelRow()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer">+ ເພີ່ມແຖວ</button>
                 </div>
-                <div>
-                    <label class="block font-semibold text-gray-700 text-sm mb-1">ຊື່ສິນຄ້າ:</label>
-                    <input type="text" id="gen-name" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 font-semibold" placeholder="ຕົວຢ່າງ: ນ້ຳດື່ມຫົວເສືອ">
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block font-semibold text-gray-700 text-sm mb-1">ລາຄາຊື້ (ກີບ):</label>
-                        <input type="number" id="gen-cost" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-right font-bold text-blue-600" placeholder="173000">
-                    </div>
-                    <div>
-                        <label class="block font-semibold text-gray-700 text-sm mb-1">ລາຄາຂາຍ (ກີບ):</label>
-                        <input type="number" id="gen-price" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-right font-bold text-green-600" placeholder="208000">
-                    </div>
-                </div>
-                <button onclick="generateSingleCode()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">
-                    ⚙️ ສ້າງລະຫັດ
-                </button>
             </div>
 
-            <!-- Preview & Print Area -->
-            <div id="print-area" class="bg-gray-50 p-4 rounded-xl border space-y-4 text-center hidden">
-                <div class="border-b pb-2">
-                    <h4 id="prev-name" class="font-bold text-gray-800 text-lg"></h4>
-                    <p class="text-xs text-gray-600">ລາຄາຊື້: <span id="prev-cost" class="text-blue-600 font-semibold"></span> | ລາຄາຂາຍ: <span id="prev-price" class="text-green-600 font-bold"></span></p>
-                </div>
-                
-                <div class="flex flex-col items-center justify-center space-y-3">
-                    <div id="barcode-box" class="hidden">
-                        <p class="text-xs font-bold text-gray-600 mb-1">Barcode:</p>
-                        <svg id="barcode-canvas"></svg>
-                    </div>
-                    <div id="qrcode-box" class="hidden">
-                        <p class="text-xs font-bold text-gray-600 mb-1">QR Code:</p>
-                        <div id="qrcode-container" class="inline-block bg-white p-2 rounded shadow-sm"></div>
-                    </div>
-                </div>
+            <!-- Excel Table Container -->
+            <div class="overflow-x-auto border rounded-xl shadow-inner max-h-[50vh]">
+                <table class="w-full text-left border-collapse bg-white">
+                    <thead>
+                        <tr class="bg-gray-100 text-gray-700 text-xs uppercase sticky top-0 border-b">
+                            <th class="p-2 border-r text-center w-12">ລ/ດ</th>
+                            <th class="p-2 border-r">ຊື່ສິນຄ້າ (ລະຫັດ)</th>
+                            <th class="p-2 border-r text-right">ລາຄາຊື້ (ກີບ)</th>
+                            <th class="p-2 border-r text-center w-32">ເປີເຊັນຂາຍ (%)</th>
+                            <th class="p-2 border-r text-right">ລາຄາຂາຍ (ກີບ)</th>
+                            <th class="p-2 text-center w-28">ຈັດການ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="excel-tbody" class="divide-y divide-gray-200 text-sm">
+                        <!-- Rows will be injected here -->
+                    </tbody>
+                </table>
+            </div>
 
-                <button onclick="printCodes()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow flex items-center justify-center gap-2">
-                    🖨️ ພິມປ້າຍລະຫັດສິນຄ້າ
+            <!-- Print Preview Modal / Section -->
+            <div id="excel-print-area" class="bg-gray-50 p-4 rounded-xl border space-y-4 hidden">
+                <h4 class="font-bold text-gray-800 text-sm text-center">🖨️ ຕົວຢ່າງປ້າຍລະຫັດສິນຄ້າ</h4>
+                <div id="excel-preview-cards" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    <!-- Preview cards injected here -->
+                </div>
+                <button onclick="printExcelCodes()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">
+                    🖨️ ພິມປ້າຍທັງໝົດ
                 </button>
             </div>
 
             <div class="flex gap-2 pt-2">
-                <button onclick="closeCodeGenerator()" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ປິດ</button>
+                <button onclick="generateExcelCodes()" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">
+                    ⚙️ ສ້າງລະຫັດທັງໝົດໃນຕາຕະລາງ
+                </button>
+                <button onclick="closeExcelGenerator()" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 px-6 rounded-xl transition cursor-pointer">ປິດ</button>
             </div>
         </div>
     </div>
@@ -385,6 +376,7 @@
         let lastScanTime = 0;
         let globalHistoryList = []; 
         let currentActiveCodeType = 'qr'; // 'qr' ຫລື 'barcode'
+        let excelRows = []; // ເກັບຂໍ້ມູນຕາຕະລາງ Excel
 
         function showAlert(title, message, icon = "✅") {
             document.getElementById('alert-title').innerText = title;
@@ -964,86 +956,174 @@
             document.getElementById('rep-total-profit').innerText = sumProfit.toLocaleString() + " ກີບ";
         }
 
-        // Functions for Separated Code Generator Modal
-        function openCodeGenerator(type) {
+        // Functions for Excel-like Code Generator Modal
+        function openExcelGenerator(type) {
             currentActiveCodeType = type;
-            let titleElem = document.getElementById('modal-gen-title').querySelector('span');
+            let titleSpan = document.getElementById('excel-modal-title').querySelector('span');
             if (type === 'qr') {
-                titleElem.innerText = "📱 ສ້າງ QR Code ສິນຄ້າ";
+                titleSpan.innerText = "📱 ຕາຕະລາງສ້າງ QR Code ສິນຄ້າ";
             } else {
-                titleElem.innerText = "🖨️ ສ້າງ Barcode ສິນຄ້າ";
+                titleSpan.innerText = "🖨️ ຕາຕະລາງສ້າງ Barcode ສິນຄ້າ";
             }
-            document.getElementById('print-area').classList.add('hidden');
-            document.getElementById('code-generator-modal').classList.remove('hidden');
+            
+            // ຖ້າຫາກຍังບໍ່ມີແຖວ ໃຫ້ສ້າງແຖວເລີ່ມຕົ້ນ 3 ແຖວ (ຕົວຢ່າງ P001, P002, P003)
+            if (excelRows.length === 0) {
+                excelRows = [
+                    { name: "P001", cost: 158000, markup: 20, price: 190000 },
+                    { name: "P002", cost: 173000, markup: 20, price: 208000 },
+                    { name: "P003", cost: 188000, markup: 20, price: 226000 }
+                ];
+            }
+            renderExcelTable();
+            document.getElementById('excel-print-area').classList.add('hidden');
+            document.getElementById('excel-generator-modal').classList.remove('hidden');
         }
 
-        function closeCodeGenerator() {
-            document.getElementById('code-generator-modal').classList.add('hidden');
+        function closeExcelGenerator() {
+            document.getElementById('excel-generator-modal').classList.add('hidden');
         }
 
-        function generateSingleCode() {
-            let code = document.getElementById('gen-code').value.trim();
-            let name = document.getElementById('gen-name').value.trim();
-            let cost = parseFloat(document.getElementById('gen-cost').value) || 0;
-            let price = parseFloat(document.getElementById('gen-price').value) || 0;
+        function addExcelRow() {
+            excelRows.push({ name: "", cost: 0, markup: 50, price: 0 });
+            renderExcelTable();
+        }
 
-            if (!code) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນລະຫັດສິນຄ້າ!", "⚠️");
+        function deleteExcelRow(index) {
+            excelRows.splice(index, 1);
+            renderExcelTable();
+        }
+
+        function updateExcelRow(index, field, value) {
+            if (field === 'name') {
+                excelRows[index].name = value;
+            } else if (field === 'cost') {
+                let costVal = parseFloat(value) || 0;
+                excelRows[index].cost = costVal;
+                // ຄຳນວນລາຄາຂາຍອັດຕະໂນມັດຕາມເປີເຊັນ (markup)
+                let markupVal = excelRows[index].markup || 0;
+                excelRows[index].price = Math.round(costVal * (1 + markupVal / 100));
+            } else if (field === 'markup') {
+                let markupVal = parseFloat(value) || 0;
+                excelRows[index].markup = markupVal;
+                let costVal = excelRows[index].cost || 0;
+                excelRows[index].price = Math.round(costVal * (1 + markupVal / 100));
+            } else if (field === 'price') {
+                excelRows[index].price = parseFloat(value) || 0;
+            }
+            renderExcelTable(); // Render ໃໝ່ເພື່ອອັບເດດຄ່າໃນ Input ໃຫ້ຊັດເຈນ
+        }
+
+        function renderExcelTable() {
+            let tbody = document.getElementById('excel-tbody');
+            if (excelRows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນ (ກະລຸນາກົດປຸ່ມ + ເພີ່ມແຖວ)</td></tr>`;
                 return;
             }
-            if (!name) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຊື່ສິນຄ້າ!", "⚠️");
+
+            let html = '';
+            excelRows.forEach((row, index) => {
+                html += `
+                    <tr class="hover:bg-gray-50 border-b">
+                        <td class="p-2 border-r text-center font-bold text-gray-500 text-xs">${index + 1}</td>
+                        <td class="p-2 border-r">
+                            <input type="text" value="${row.name}" oninput="updateExcelRow(${index}, 'name', this.value)" class="w-full border rounded px-2 py-1 text-sm font-semibold outline-none focus:ring-1 focus:ring-blue-500" placeholder="P001">
+                        </td>
+                        <td class="p-2 border-r">
+                            <input type="number" value="${row.cost || ''}" oninput="updateExcelRow(${index}, 'cost', this.value)" class="w-full border rounded px-2 py-1 text-right text-sm font-bold text-blue-600 outline-none focus:ring-1 focus:ring-blue-500" placeholder="0">
+                        </td>
+                        <td class="p-2 border-r text-center">
+                            <div class="flex items-center justify-center gap-1">
+                                <input type="number" value="${row.markup}" oninput="updateExcelRow(${index}, 'markup', this.value)" class="w-16 border rounded px-1 py-1 text-center text-sm font-bold text-orange-600 outline-none focus:ring-1 focus:ring-blue-500">
+                                <span class="text-xs font-bold text-gray-600">%</span>
+                            </div>
+                        </td>
+                        <td class="p-2 border-r">
+                            <input type="number" value="${row.price || ''}" oninput="updateExcelRow(${index}, 'price', this.value)" class="w-full border rounded px-2 py-1 text-right text-sm font-bold text-green-600 outline-none focus:ring-1 focus:ring-blue-500" placeholder="0">
+                        </td>
+                        <td class="p-2 text-center">
+                            <button onclick="deleteExcelRow(${index})" class="text-red-500 hover:text-red-700 font-bold text-xs bg-red-50 px-2 py-1 rounded cursor-pointer">ລຶບ</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        function generateExcelCodes() {
+            if (excelRows.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເພີ່ມຂໍ້ມູນສິນຄ້າໃນຕາຕະລາງກ่อน!", "⚠️");
                 return;
             }
 
-            document.getElementById('prev-name').innerText = name;
-            document.getElementById('prev-cost').innerText = cost.toLocaleString() + " ກີບ";
-            document.getElementById('prev-price').innerText = price.toLocaleString() + " ກີບ";
+            let container = document.getElementById('excel-preview-cards');
+            container.innerHTML = "";
 
-            let barcodeBox = document.getElementById('barcode-box');
-            let qrcodeBox = document.getElementById('qrcode-box');
+            excelRows.forEach((row, index) => {
+                if (!row.name) return;
+                let cardId = `code-card-${index}`;
+                let cardHtml = `
+                    <div id="${cardId}" class="bg-white border rounded-xl p-3 shadow-sm text-center space-y-2 flex flex-col items-center justify-between">
+                        <div class="border-b w-full pb-1">
+                            <h5 class="font-bold text-gray-800 text-sm">${row.name}</h5>
+                            <p class="text-[11px] text-gray-600">ຊື້: ${row.cost.toLocaleString()} | ຂາຍ: <span class="text-green-600 font-bold">${row.price.toLocaleString()}</span></p>
+                        </div>
+                        <div class="py-1 flex items-center justify-center w-full">
+                `;
 
-            barcodeBox.classList.add('hidden');
-            qrcodeBox.classList.add('hidden');
-
-            if (currentActiveCodeType === 'barcode') {
-                barcodeBox.classList.remove('hidden');
-                try {
-                    JsBarcode("#barcode-canvas", code, {
-                        format: "CODE128",
-                        lineColor: "#000",
-                        width: 2,
-                        height: 50,
-                        displayValue: true
-                    });
-                } catch (err) {
-                    console.error("Barcode generation error:", err);
+                if (currentActiveCodeType === 'barcode') {
+                    cardHtml += `<svg id="excel-barcode-${index}" class="max-w-full"></svg>`;
+                } else {
+                    cardHtml += `<div id="excel-qrcode-${index}" class="inline-block bg-white p-1 rounded"></div>`;
                 }
-            } else {
-                qrcodeBox.classList.remove('hidden');
-                let qrContainer = document.getElementById('qrcode-container');
-                qrContainer.innerHTML = ""; 
-                
-                let qrData = `ຊື່ສິນຄ້າ: ${name}\nລາຄາຊື້: ${cost} ກີບ\nລາຄາຂາຍ: ${price} ກີບ\nລະຫັດ: ${code}`;
-                
-                let canvas = document.createElement('canvas');
-                QRCode.toCanvas(canvas, qrData, { width: 150, margin: 1 }, function (error) {
-                    if (error) {
-                        console.error("QR generation error:", error);
+
+                cardHtml += `
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += cardHtml;
+            });
+
+            document.getElementById('excel-print-area').classList.remove('hidden');
+
+            // Render Codes into DOM
+            setTimeout(() => {
+                excelRows.forEach((row, index) => {
+                    if (!row.name) return;
+                    if (currentActiveCodeType === 'barcode') {
+                        try {
+                            JsBarcode(`#excel-barcode-${index}`, row.name, {
+                                format: "CODE128",
+                                lineColor: "#000",
+                                width: 1.5,
+                                height: 40,
+                                displayValue: true,
+                                fontSize: 12
+                            });
+                        } catch (err) {
+                            console.error("Barcode error:", err);
+                        }
                     } else {
-                        qrContainer.appendChild(canvas);
+                        let qrDiv = document.getElementById(`excel-qrcode-${index}`);
+                        if (qrDiv) {
+                            qrDiv.innerHTML = "";
+                            let qrData = `ຊື່ສິນຄ້າ: ${row.name}\nລາຄາຊື້: ${row.cost} ກີບ\nລາຄາຂາຍ: ${row.price} ກີບ`;
+                            let canvas = document.createElement('canvas');
+                            QRCode.toCanvas(canvas, qrData, { width: 120, margin: 1 }, function (error) {
+                                if (!error) {
+                                    qrDiv.appendChild(canvas);
+                                }
+                            });
+                        }
                     }
                 });
-            }
-
-            document.getElementById('print-area').classList.remove('hidden');
+            }, 100);
         }
 
-        function printCodes() {
-            let printContent = document.getElementById('print-area').innerHTML;
+        function printExcelCodes() {
+            let printContent = document.getElementById('excel-print-area').innerHTML;
             let originalContent = document.body.innerHTML;
 
-            document.body.innerHTML = `<div style="padding: 20px; text-align: center; font-family: 'Phetsarath OT', sans-serif;">${printContent}</div>`;
+            document.body.innerHTML = `<div style="padding: 20px; font-family: 'Phetsarath OT', sans-serif;">${printContent}</div>`;
             window.print();
             document.body.innerHTML = originalContent;
             location.reload(); 
