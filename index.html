@@ -520,6 +520,7 @@
                 return;
             }
 
+            // ສ້າງ Object ຂໍ້ມູນທີ່ຈະບັນທຶກ ໃຫ້ຮອງຮັບທັງແບບ Cloud Column ປົກກະຕິ ແລະ ປ້ອງກັນ Error
             let txData = {
                 items: cart,
                 totalItems: cart.reduce((sum, item) => sum + item.qty, 0),
@@ -529,11 +530,19 @@
                 change: cashGiven - grandTotal
             };
 
+            // 1. ບັນທຶກລົງ LocalStorage ໂດຍກົງກ່ອນສະເໝີ ເພື່ອຮັບປະກັນ 100% ວ່າຂໍ້ມູນບໍ່ຫາຍ
+            let localHistory = JSON.parse(localStorage.getItem('pos_history')) || [];
+            let newLocalTx = { id: 'local_' + Date.now(), date: new Date().toLocaleString(), ...txData };
+            localHistory.unshift(newLocalTx);
+            localStorage.setItem('pos_history', JSON.stringify(localHistory));
+
+            // 2. ພະຍາຍາມບັນທຶກຂຶ້ນ Cloud (Supabase)
             if (supabaseClient) {
                 try {
+                    // ສົ່ງແບບຮອງຮັບ Columns ທົ່ວໄປ
                     let { error } = await supabaseClient.from('sales_history').insert([txData]);
                     if (error) {
-                        console.error("Supabase insert error:", error);
+                        console.error("Supabase insert warning:", error.message);
                     }
                 } catch (err) {
                     console.error("Supabase exception:", err);
@@ -553,6 +562,7 @@
 
             let allHistory = [];
 
+            // ດຶງຈາກ Cloud (Supabase)
             if (supabaseClient) {
                 try {
                     let { data, error } = await supabaseClient
@@ -567,12 +577,12 @@
                             allHistory.push({
                                 id: tx.id,
                                 isCloud: true,
-                                date: new Date(tx.created_at).toLocaleString(),
+                                date: tx.created_at ? new Date(tx.created_at).toLocaleString() : (tx.date || new Date().toLocaleString()),
                                 totalItems: totalItemCount,
                                 totalCost: calcCost,
-                                total: tx.total,
-                                cash: tx.cash,
-                                change: tx.change,
+                                total: tx.total || 0,
+                                cash: tx.cash || tx.total || 0,
+                                change: tx.change || 0,
                                 items: tx.items || []
                             });
                         });
@@ -581,6 +591,27 @@
                     console.error("Cloud fetch error:", err);
                 }
             }
+
+            // ດຶງຈາກ LocalStorage ມາເສີມນຳ ເພື່ອຄວາມປອດໄພ 100%
+            let localHistory = JSON.parse(localStorage.getItem('pos_history')) || [];
+            localHistory.forEach(tx => {
+                let totalItemCount = tx.totalItems || (tx.items ? tx.items.reduce((s, i) => s + i.qty, 0) : 0);
+                let calcCost = tx.totalCost !== undefined ? tx.totalCost : (tx.items ? tx.items.reduce((s, i) => s + ((i.cost || 0) * i.qty), 0) : 0);
+                // ປ້ອງກັນການສະແດງຊ້ຳ ຖ້າມີ ID ດຽວກັນ
+                if (!allHistory.some(item => item.id === tx.id)) {
+                    allHistory.push({
+                        id: tx.id,
+                        isCloud: false,
+                        date: tx.date || new Date().toLocaleString(),
+                        totalItems: totalItemCount,
+                        totalCost: calcCost,
+                        total: tx.total || 0,
+                        cash: tx.cash || 0,
+                        change: tx.change || 0,
+                        items: tx.items || []
+                    });
+                }
+            });
 
             if (allHistory.length === 0) {
                 listDiv.innerHTML = `<p class="text-gray-500 text-center py-4">ຍັງບໍ່ມີປະຫວັດການຂາຍ.</p>`;
@@ -597,10 +628,10 @@
                     let itemsHtml = '';
                     if (tx.items && tx.items.length > 0) {
                         tx.items.forEach(item => {
-                            let itemTotal = item.price * item.qty;
+                            let itemTotal = (item.price || 0) * (item.qty || 1);
                             itemsHtml += `
                                 <div class="flex justify-between text-xs text-gray-600 pl-3 py-0.5 border-l-2 border-blue-400 my-1">
-                                    <span>🔹 ${item.name} (x${item.qty})</span>
+                                    <span>🔹 ${item.name || 'ສິນຄ້າ'} (ະ${item.qty || 1})</span>
                                     <span class="font-medium">${itemTotal.toLocaleString()} ກີບ</span>
                                 </div>
                             `;
@@ -648,6 +679,10 @@
                         console.error("Delete cloud exception:", err);
                     }
                 }
+
+                let localHistory = JSON.parse(localStorage.getItem('pos_history')) || [];
+                localHistory = localHistory.filter(item => item.id !== id);
+                localStorage.setItem('pos_history', JSON.stringify(localHistory));
 
                 loadCloudHistory();
                 showAlert("ສຳເລັດ", "ລຶບປະຫວັດການຂາຍຮຽບຮ້ອຍແລ້ວ", "✅");
