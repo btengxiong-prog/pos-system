@@ -474,7 +474,7 @@
             let parsedPrice = 0;
             let parsedCost = 0;
 
-            // 1. ກວດສອບ QR Code ແບບເກົ່າที่มีข้อความกำกับ
+            // 1. ກວດສອບ QR Code ແບບເກົ່າທີ່ມີຂໍ້ຄວາມກຳກັບ
             if (text.includes("ລາຄາຂາຍ") || text.includes("ລາຄາຊື້")) {
                 let lines = text.split(/\r?\n/);
                 for (let line of lines) {
@@ -505,25 +505,31 @@
                 parsedPrice = productsDB[text].price;
                 parsedCost = productsDB[text].cost;
             } else {
-                // 2. ດຶງຂໍ້ມູນຈາກ localStorage (pos_excel_rows) ທີ່ບັນທຶກໄວ້ໃນຕາຕະລາງ Excel
+                // 2. ດຶງຂໍ້ມູນຈາກ localStorage (pos_excel_rows) ຢ່າງຖືກຕ້ອງ
                 let savedRows = localStorage.getItem('pos_excel_rows');
                 let foundItem = null;
                 if (savedRows) {
                     try {
                         let rows = JSON.parse(savedRows);
                         let cleanText = text.trim().toLowerCase();
-                        foundItem = rows.find(r => r.name && String(r.name).trim().toLowerCase() === cleanText);
+                        // ປັບປຸງການຄົ້ນຫາໃຫ້ກວມເອົາທັງ name, code, itemName ຢ່າງแม่ນຍຳ
+                        foundItem = rows.find(r => {
+                            let rName = r.name ? String(r.name).trim().toLowerCase() : "";
+                            let rCode = r.code ? String(r.code).trim().toLowerCase() : "";
+                            let rItemName = r.itemName ? String(r.itemName).trim().toLowerCase() : "";
+                            return (rName && rName === cleanText) || (rCode && rCode === cleanText) || (rItemName && rItemName === cleanText);
+                        });
                     } catch(e) {}
                 }
 
                 if (foundItem) {
-                    parsedName = foundItem.name || text;
+                    parsedName = foundItem.name || foundItem.itemName || foundItem.code || text;
                     
-                    // ແປງຄ່າລາຄາຊື້ໃຫ້ເປັນຕົວເລກຢ່າງຖືກຕ້ອງ 100%
+                    // ດຶງລາຄາຊື້ ແລະ ແປງເປັນຕົວເລກ (Number)
                     let rawCost = String(foundItem.cost || 0).replace(/[^0-9.]/g, '');
                     parsedCost = parseFloat(rawCost) || 0;
 
-                    // ແປງຄ່າລາຄາຂາຍໃຫ້ເປັນຕົວເລກຢ່າງຖືກຕ້ອງ 100%
+                    // ດຶງລາຄາຂາຍ ແລະ ແປງເປັນຕົວເລກ (Number)
                     let rawPrice = String(foundItem.price || 0).replace(/[^0-9.]/g, '');
                     parsedPrice = parseFloat(rawPrice) || 0;
                 } else {
