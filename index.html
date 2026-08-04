@@ -10,7 +10,7 @@
     <script src="https://unpkg.com/html5-qrcode"></script>
     <!-- Supabase JS SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- JsBarcode & QRCode CDN for generating codes -->
+    <!-- JsBarcode & QRCode CDN -->
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
     <!-- Google Fonts -->
@@ -39,8 +39,11 @@
                 <button onclick="openReport()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition cursor-pointer">
                     📈 ລາຍງານ
                 </button>
-                <button onclick="openCodeGenerator()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition cursor-pointer">
-                    🖨️ ສ້າງ QR Code ແລະ Barcode
+                <button onclick="openCodeGenerator('qr')" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition cursor-pointer">
+                    📱 ສ້າງ QR Code
+                </button>
+                <button onclick="openCodeGenerator('barcode')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition cursor-pointer">
+                    🖨️ ສ້າງ Barcode
                 </button>
             </div>
         </div>
@@ -283,16 +286,16 @@
         </div>
     </div>
 
-    <!-- Code Generator Modal (ສ້າງ QR Code ແລະ Barcode) -->
+    <!-- Code Generator Modal (ສ້າງ QR Code / Barcode ແຍກກັນ) -->
     <div id="code-generator-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-xl max-w-lg w-full p-6 max-h-[85vh] overflow-y-auto space-y-4">
-            <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2 border-b pb-3">
-                <span>🖨️ ສ້າງ QR Code ແລະ Barcode ສຳລັບສິນຄ້າ</span>
+            <h3 id="modal-gen-title" class="text-xl font-bold text-gray-800 flex items-center gap-2 border-b pb-3">
+                <span>🖨️ ສ້າງລະຫັດສິນຄ້າ</span>
             </h3>
             
             <div class="space-y-3">
                 <div>
-                    <label class="block font-semibold text-gray-700 text-sm mb-1">ລະຫັດສິນຄ້າ (Code / Barcode Text):</label>
+                    <label class="block font-semibold text-gray-700 text-sm mb-1">ລະຫັດສິນຄ້າ:</label>
                     <input type="text" id="gen-code" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 font-semibold" placeholder="ຕົວຢ່າງ: P001 ຫຼື 8851019050016">
                 </div>
                 <div>
@@ -309,8 +312,8 @@
                         <input type="number" id="gen-price" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-right font-bold text-green-600" placeholder="208000">
                     </div>
                 </div>
-                <button onclick="generateCodes()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">
-                    ⚙️ ສ້າງລະຫັດ (QR & Barcode)
+                <button onclick="generateSingleCode()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">
+                    ⚙️ ສ້າງລະຫັດ
                 </button>
             </div>
 
@@ -322,18 +325,18 @@
                 </div>
                 
                 <div class="flex flex-col items-center justify-center space-y-3">
-                    <div>
+                    <div id="barcode-box" class="hidden">
                         <p class="text-xs font-bold text-gray-600 mb-1">Barcode:</p>
                         <svg id="barcode-canvas"></svg>
                     </div>
-                    <div>
+                    <div id="qrcode-box" class="hidden">
                         <p class="text-xs font-bold text-gray-600 mb-1">QR Code:</p>
                         <div id="qrcode-container" class="inline-block bg-white p-2 rounded shadow-sm"></div>
                     </div>
                 </div>
 
                 <button onclick="printCodes()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow flex items-center justify-center gap-2">
-                    🖨️ พິມປ້າຍລະຫັດສິນຄ້າ
+                    🖨️ ພິມປ້າຍລະຫັດສິນຄ້າ
                 </button>
             </div>
 
@@ -381,6 +384,7 @@
         let lastScannedCode = "";
         let lastScanTime = 0;
         let globalHistoryList = []; 
+        let currentActiveCodeType = 'qr'; // 'qr' ຫລື 'barcode'
 
         function showAlert(title, message, icon = "✅") {
             document.getElementById('alert-title').innerText = title;
@@ -960,8 +964,16 @@
             document.getElementById('rep-total-profit').innerText = sumProfit.toLocaleString() + " ກີບ";
         }
 
-        // Functions for Code Generator Modal
-        function openCodeGenerator() {
+        // Functions for Separated Code Generator Modal
+        function openCodeGenerator(type) {
+            currentActiveCodeType = type;
+            let titleElem = document.getElementById('modal-gen-title').querySelector('span');
+            if (type === 'qr') {
+                titleElem.innerText = "📱 ສ້າງ QR Code ສິນຄ້າ";
+            } else {
+                titleElem.innerText = "🖨️ ສ້າງ Barcode ສິນຄ້າ";
+            }
+            document.getElementById('print-area').classList.add('hidden');
             document.getElementById('code-generator-modal').classList.remove('hidden');
         }
 
@@ -969,7 +981,7 @@
             document.getElementById('code-generator-modal').classList.add('hidden');
         }
 
-        function generateCodes() {
+        function generateSingleCode() {
             let code = document.getElementById('gen-code').value.trim();
             let name = document.getElementById('gen-name').value.trim();
             let cost = parseFloat(document.getElementById('gen-cost').value) || 0;
@@ -988,34 +1000,41 @@
             document.getElementById('prev-cost').innerText = cost.toLocaleString() + " ກີບ";
             document.getElementById('prev-price').innerText = price.toLocaleString() + " ກີບ";
 
-            // 1. Generate Barcode using JsBarcode
-            try {
-                JsBarcode("#barcode-canvas", code, {
-                    format: "CODE128",
-                    lineColor: "#000",
-                    width: 2,
-                    height: 50,
-                    displayValue: true
-                });
-            } catch (err) {
-                console.error("Barcode generation error:", err);
-            }
+            let barcodeBox = document.getElementById('barcode-box');
+            let qrcodeBox = document.getElementById('qrcode-box');
 
-            // 2. Generate QR Code using qrcode library
-            let qrContainer = document.getElementById('qrcode-container');
-            qrContainer.innerHTML = ""; // Clear previous QR
-            
-            // Format data inside QR code to match what scanner expects
-            let qrData = `ຊື່ສິນຄ້າ: ${name}\nລາຄາຊື້: ${cost} ກີບ\nລາຄາຂາຍ: ${price} ກີບ\nລະຫັດ: ${code}`;
-            
-            let canvas = document.createElement('canvas');
-            QRCode.toCanvas(canvas, qrData, { width: 150, margin: 1 }, function (error) {
-                if (error) {
-                    console.error("QR generation error:", error);
-                } else {
-                    qrContainer.appendChild(canvas);
+            barcodeBox.classList.add('hidden');
+            qrcodeBox.classList.add('hidden');
+
+            if (currentActiveCodeType === 'barcode') {
+                barcodeBox.classList.remove('hidden');
+                try {
+                    JsBarcode("#barcode-canvas", code, {
+                        format: "CODE128",
+                        lineColor: "#000",
+                        width: 2,
+                        height: 50,
+                        displayValue: true
+                    });
+                } catch (err) {
+                    console.error("Barcode generation error:", err);
                 }
-            });
+            } else {
+                qrcodeBox.classList.remove('hidden');
+                let qrContainer = document.getElementById('qrcode-container');
+                qrContainer.innerHTML = ""; 
+                
+                let qrData = `ຊື່ສິນຄ້າ: ${name}\nລາຄາຊື້: ${cost} ກີບ\nລາຄາຂາຍ: ${price} ກີບ\nລະຫັດ: ${code}`;
+                
+                let canvas = document.createElement('canvas');
+                QRCode.toCanvas(canvas, qrData, { width: 150, margin: 1 }, function (error) {
+                    if (error) {
+                        console.error("QR generation error:", error);
+                    } else {
+                        qrContainer.appendChild(canvas);
+                    }
+                });
+            }
 
             document.getElementById('print-area').classList.remove('hidden');
         }
@@ -1027,7 +1046,7 @@
             document.body.innerHTML = `<div style="padding: 20px; text-align: center; font-family: 'Phetsarath OT', sans-serif;">${printContent}</div>`;
             window.print();
             document.body.innerHTML = originalContent;
-            location.reload(); // Reload to restore all event listeners and states
+            location.reload(); 
         }
     </script>
 </body>
