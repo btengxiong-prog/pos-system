@@ -367,11 +367,6 @@
             console.error("Supabase initialization warning:", e);
         }
 
-        const productsDB = {
-            "8851019050016": { name: "ນ້ຳດື່ມຫົວເສືອ", cost: 3000, price: 5000 },
-            "8850999012345": { name: "ມາມ້າ ລົດດັ້ງເດີມ", cost: 4000, price: 6000 }
-        };
-
         let cart = [];
         let html5QrCode = null;
         let tempScannedCode = "";
@@ -467,21 +462,21 @@
             });
         }
 
-        // ຟັງຊັນສະແກນແລ້ວດຶງລາຄາຈາກຕາຕະລາງ Excel (localStorage) ມາສະແດງ
+        // ຟັງຊັນສະແກນແລ້ວດຶງລາຄາຈາກຕາຕະລາງ Excel (localStorage) ມາສະແດງຢ່າງຖືກຕ້ອງ 100%
         function showConfirmModal(text) {
-            tempScannedCode = text;
+            tempScannedCode = text.trim();
             
-            let parsedName = text.trim();
+            let parsedName = tempScannedCode;
             let parsedPrice = 0;
             let parsedCost = 0;
 
-            // ໂຫຼດຂໍ້ມູນຈາກຕາຕະລາງ Excel ມາຊອກຫາ
+            // ໂຫຼດຂໍ້ມູນຈາກຕາຕະລາງ Excel (localStorage) ມາຊອກຫາ
             let savedRows = localStorage.getItem('pos_excel_rows');
             let foundItem = null;
             if (savedRows) {
                 try {
                     let rows = JSON.parse(savedRows);
-                    foundItem = rows.find(r => r.name.trim().toLowerCase() === text.trim().toLowerCase());
+                    foundItem = rows.find(r => r.name.trim().toLowerCase() === tempScannedCode.toLowerCase());
                 } catch (e) {}
             }
 
@@ -489,46 +484,9 @@
                 parsedName = foundItem.name;
                 parsedCost = foundItem.cost || 0;
                 parsedPrice = foundItem.price || 0;
-            } else if (text.includes("ລາຄາຂາຍ") || text.includes("ລາຄາຊື້")) {
-                let lines = text.split(/\r?\n/);
-                for (let line of lines) {
-                    let cleanLine = line.trim();
-                    if (cleanLine.includes("ລາຄາຂາຍ")) {
-                        let numStr = cleanLine.replace(/[^0-9]/g, '');
-                        parsedPrice = parseInt(numStr) || 0;
-                    } else if (cleanLine.includes("ລາຄາຊື້")) {
-                        let numStr = cleanLine.replace(/[^0-9]/g, '');
-                        parsedCost = parseInt(numStr) || 0;
-                    } else if (!cleanLine.includes("ກີບ") && cleanLine.length > 0) {
-                        parsedName = cleanLine;
-                    }
-                }
-                if (parsedName === "ສິນຄ້າສະແກນ" && lines.length > 0 && lines[0].trim() !== "") {
-                    parsedName = lines[0].trim();
-                }
-            } else if (text.includes("ລາຄາ")) {
-                let pricePart = text.split(/ລາຄາ[^\d]*[:]/)[1] || text;
-                let priceStr = pricePart.replace(/[^0-9]/g, '');
-                parsedPrice = parseInt(priceStr) || 0;
-                parsedCost = Math.round(parsedPrice * 0.7);
-
-                let namePart = text.split(/ລາຄາ/)[0];
-                namePart = namePart.replace('ຊື່ສິນຄ້າ:', '').replace('ຊື່:', '').trim();
-                if (namePart) {
-                    parsedName = namePart;
-                }
-            } else if (productsDB[text]) {
-                parsedName = productsDB[text].name;
-                parsedPrice = productsDB[text].price;
-                parsedCost = productsDB[text].cost;
-            } else {
-                // ຖ້າບໍ່ພົບໃນ Excel ໃຫ້ຄົ້ນຫາໃນໂປຼແກຼມ ຫຼື ຕັ້ງຄ່າເບື້ອງຕົ້ນ
-                parsedName = text;
-                parsedCost = 0;
-                parsedPrice = 0;
             }
 
-            document.getElementById('modal-code').innerText = text;
+            document.getElementById('modal-code').innerText = tempScannedCode;
             document.getElementById('modal-name').value = parsedName;
             document.getElementById('modal-cost').value = parsedCost > 0 ? parsedCost : "";
             document.getElementById('modal-price').value = parsedPrice > 0 ? parsedPrice : "";
