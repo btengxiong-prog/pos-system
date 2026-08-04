@@ -192,10 +192,9 @@
             <div class="space-y-3">
                 <label class="block font-semibold text-gray-700 text-sm">ເລືອກປະເພດລາຍງານ:</label>
                 <select id="report-type" onchange="toggleReportFilter()" class="w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 font-medium text-gray-800 bg-gray-50">
-                    <option value="weekly">1) ປະຈຳອາທິດ (ເລືອກວັນທີ)</option>
-                    <option value="monthly">2) ປະຈຳເດືອນ (ເລືອກເດືອນລາວ)</option>
-                    <option value="quarterly">3) ປະຈຳໄຕມາດ</option>
-                    <option value="duration">4) ປະຈຳ 3, 6, 9, 12 ເດືອນ (ປີ)</option>
+                    <option value="monthly">1) ປະຈຳເດືອນ (ເລືອກເດືອນລາວ)</option>
+                    <option value="quarterly">2) ປະຈຳໄຕມາດ</option>
+                    <option value="duration">3) ປະຈຳ 3, 6, 9, 12 ເດືອນ (ປີ)</option>
                 </select>
             </div>
 
@@ -213,14 +212,8 @@
                     </select>
                 </div>
 
-                <!-- Weekly Filter -->
-                <div id="filter-weekly" class="report-filter-group space-y-1.5">
-                    <label class="block text-xs font-bold text-gray-700">ເລືອກວັນທີ:</label>
-                    <input type="date" id="report-date" onchange="calculateReport()" class="w-full border rounded-lg px-3 py-2 bg-white outline-none">
-                </div>
-
                 <!-- Monthly Filter -->
-                <div id="filter-monthly" class="report-filter-group space-y-1.5 hidden">
+                <div id="filter-monthly" class="report-filter-group space-y-1.5">
                     <label class="block text-xs font-bold text-gray-700">ເລືອກເດືອນ:</label>
                     <select id="report-month" onchange="calculateReport()" class="w-full border rounded-lg px-3 py-2 bg-white outline-none">
                         <option value="1">ມັງກອນ</option>
@@ -640,7 +633,6 @@
             let d = new Date(dateStr);
             if (!isNaN(d.getTime())) return d;
 
-            // ພະຍາຍາມແປງຮູບແບບ "D/M/YYYY, HH:MM:SS"
             try {
                 let parts = dateStr.split(/[\/,:\s]+/);
                 if (parts.length >= 3) {
@@ -774,10 +766,6 @@
 
         async function openReport() {
             document.getElementById('report-modal').classList.remove('hidden');
-            let today = new Date().toISOString().split('T')[0];
-            if (!document.getElementById('report-date').value) {
-                document.getElementById('report-date').value = today;
-            }
             if (!document.getElementById('report-year').value) {
                 document.getElementById('report-year').value = new Date().getFullYear();
             }
@@ -793,9 +781,7 @@
             let type = document.getElementById('report-type').value;
             document.querySelectorAll('.report-filter-group').forEach(el => el.classList.add('hidden'));
 
-            if (type === 'weekly') {
-                document.getElementById('filter-weekly').classList.remove('hidden');
-            } else if (type === 'monthly') {
+            if (type === 'monthly') {
                 document.getElementById('filter-monthly').classList.remove('hidden');
             } else if (type === 'quarterly') {
                 document.getElementById('filter-quarterly').classList.remove('hidden');
@@ -844,28 +830,7 @@
 
             let finalFiltered = [];
 
-            if (type === 'weekly') {
-                let dateVal = document.getElementById('report-date').value;
-                if (!dateVal) return;
-                
-                let targetDate = new Date(dateVal + "T00:00:00");
-                let day = targetDate.getDay();
-                let diffToMonday = targetDate.getDate() - day + (day === 0 ? -6 : 1);
-                
-                let monday = new Date(targetDate);
-                monday.setDate(diffToMonday);
-                monday.setHours(0, 0, 0, 0);
-                
-                let sunday = new Date(monday);
-                sunday.setDate(monday.getDate() + 6);
-                sunday.setHours(23, 59, 59, 999);
-
-                finalFiltered = reportAllData.filter(tx => {
-                    let d = parseTxDate(tx.createdAt);
-                    if (isNaN(d.getTime())) return false;
-                    return d >= monday && d <= sunday;
-                });
-            } else if (type === 'monthly') {
+            if (type === 'monthly') {
                 let m = parseInt(document.getElementById('report-month').value);
                 finalFiltered = reportAllData.filter(tx => {
                     let d = parseTxDate(tx.createdAt);
