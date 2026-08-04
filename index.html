@@ -266,7 +266,7 @@
         }
 
         function openSelectDeleteModal() {
-            if (cart.length === 0) {
+            if (!cart || cart.length === 0) {
                 showAlert("ແຈ້ງເຕືອນ", "ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ!", "⚠️");
                 return;
             }
@@ -445,7 +445,7 @@
 
         function renderCart() {
             let tbody = document.getElementById('cart-items');
-            if (cart.length === 0) {
+            if (!cart || cart.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ (ກະລຸນາກົດສະແກນສິນຄ້າ)</td></tr>`;
                 document.getElementById('grand-total').innerText = "0 ກີບ";
                 document.getElementById('change-amount').innerText = "0 ກີບ";
@@ -506,7 +506,7 @@
         }
 
         async function checkout() {
-            if (cart.length === 0) {
+            if (!cart || cart.length === 0) {
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າກ່ອນຊຳລະເງິນ!", "⚠️");
                 return;
             }
@@ -529,7 +529,6 @@
                 change: cashGiven - grandTotal
             };
 
-            // ບັນທຶກຂຶ້ນ Supabase Cloud ພ້ອມ Local Fallback ສຳຮອງປ້ອງກັນຜິດພາດ
             if (supabaseClient) {
                 try {
                     let { error } = await supabaseClient.from('sales_history').insert([txData]);
@@ -540,11 +539,6 @@
                     console.error("Supabase exception:", err);
                 }
             }
-
-            let localHistory = JSON.parse(localStorage.getItem('pos_history')) || [];
-            let newLocalTx = { id: 'local_' + Date.now(), date: new Date().toLocaleString(), ...txData };
-            localHistory.unshift(newLocalTx);
-            localStorage.setItem('pos_history', JSON.stringify(localHistory));
 
             showAlert("ສຳເລັດ", "ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ!", "✅");
             cart = [];
@@ -559,7 +553,6 @@
 
             let allHistory = [];
 
-            // ດຶງຈາກ Cloud (Supabase)
             if (supabaseClient) {
                 try {
                     let { data, error } = await supabaseClient
@@ -588,21 +581,6 @@
                     console.error("Cloud fetch error:", err);
                 }
             }
-
-            // ດຶງຈາກ LocalStorage ມາເສີມນຳ ເພື່ອຄວາມປອດໄພ 100% ບໍ່ໃຫ້ປະຫວັດຫວ່າງເປົ່າ
-            let localHistory = JSON.parse(localStorage.getItem('pos_history')) || [];
-            localHistory.forEach(tx => {
-                let totalItemCount = tx.totalItems || (tx.items ? tx.items.reduce((s, i) => s + i.qty, 0) : 0);
-                let calcCost = tx.totalCost !== undefined ? tx.totalCost : (tx.items ? tx.items.reduce((s, i) => s + ((i.cost || 0) * i.qty), 0) : 0);
-                allHistory.push({
-                    id: tx.id,
-                    isCloud: false,
-                    ...tx,
-                    totalItems: totalItemCount,
-                    totalCost: calcCost,
-                    items: tx.items || []
-                });
-            });
 
             if (allHistory.length === 0) {
                 listDiv.innerHTML = `<p class="text-gray-500 text-center py-4">ຍັງບໍ່ມີປະຫວັດການຂາຍ.</p>`;
@@ -670,10 +648,6 @@
                         console.error("Delete cloud exception:", err);
                     }
                 }
-
-                let localHistory = JSON.parse(localStorage.getItem('pos_history')) || [];
-                localHistory = localHistory.filter(item => item.id !== id);
-                localStorage.setItem('pos_history', JSON.stringify(localHistory));
 
                 loadCloudHistory();
                 showAlert("ສຳເລັດ", "ລຶບປະຫວັດການຂາຍຮຽບຮ້ອຍແລ້ວ", "✅");
