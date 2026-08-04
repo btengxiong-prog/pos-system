@@ -68,7 +68,7 @@
                 <div class="text-3xl text-center">📦</div>
                 <h3 class="text-xl font-bold text-gray-800 text-center">ກຳນົດຂໍ້ມູນສິນຄ້າ</h3>
                 <div id="confirm-details" class="bg-gray-50 p-4 rounded-xl text-left text-sm space-y-3 border">
-                    <p><b>ຂໍ້ມູນດິບຈາກ QR:</b> <span id="modal-code" class="text-blue-600 font-bold text-xs break-all"></span></p>
+                    <p><b>ຂໍ້ມູນດິບຈາກ QR/Barcode:</b> <span id="modal-code" class="text-blue-600 font-bold text-xs break-all"></span></p>
                     <div>
                         <label class="block font-semibold text-gray-700 mb-1">ຊື່ສິນຄ້າ:</label>
                         <input type="text" id="modal-name" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-gray-800" placeholder="ປ້ອນຊື່ສິນຄ້າ">
@@ -89,7 +89,7 @@
             </div>
         </div>
 
-        <!-- Custom Beautiful Alert Modal (ปรับ z-index ໃຫ້ສູງสุด z-[100] ເພື່ອບໍ່ໃຫ້ຖືກບັງ) -->
+        <!-- Custom Beautiful Alert Modal -->
         <div id="custom-alert-modal" class="hidden fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
                 <div id="alert-icon" class="text-4xl">✅</div>
@@ -345,7 +345,7 @@
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
             <div class="text-4xl">⚠️</div>
             <h3 class="text-xl font-bold text-gray-800">ຢືນຢັນການລຶບ</h3>
-            <p class="text-gray-600 text-sm leading-relaxed">ທ່ານຕ້ອງການລືບປະຫວັດນີ້ບໍ?</p>
+            <p class="text-gray-600 text-sm leading-relaxed">ທ່ານຕ້ອງການລືບປະຫວັດນີ້ບໍບໍ?</p>
             <div class="flex gap-2 pt-2">
                 <button onclick="closeConfirmDelete(false)" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
                 <button onclick="closeConfirmDelete(true)" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ຕົກລົງ</button>
@@ -467,6 +467,7 @@
             });
         }
 
+        // ຟັງຊັນສະແກນແລ້ວດຶງລາຄາຈາກຕາຕະລາງ Excel (localStorage) ມາສະແດງ
         function showConfirmModal(text) {
             tempScannedCode = text;
             
@@ -474,7 +475,21 @@
             let parsedPrice = 0;
             let parsedCost = 0;
 
-            if (text.includes("ລາຄາຂາຍ") || text.includes("ລາຄາຊື້")) {
+            // ໂຫຼດຂໍ້ມູນຈາກຕາຕະລາງ Excel ມາຊອກຫາ
+            let savedRows = localStorage.getItem('pos_excel_rows');
+            let foundItem = null;
+            if (savedRows) {
+                try {
+                    let rows = JSON.parse(savedRows);
+                    foundItem = rows.find(r => r.name.trim().toLowerCase() === text.trim().toLowerCase());
+                } catch (e) {}
+            }
+
+            if (foundItem) {
+                parsedName = foundItem.name;
+                parsedCost = foundItem.cost || 0;
+                parsedPrice = foundItem.price || 0;
+            } else if (text.includes("ລາຄາຂາຍ") || text.includes("ລາຄາຊື້")) {
                 let lines = text.split(/\r?\n/);
                 for (let line of lines) {
                     let cleanLine = line.trim();
