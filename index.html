@@ -474,25 +474,8 @@
             let parsedPrice = 0;
             let parsedCost = 0;
 
-            // 1. ตรวจสอบจากฐานข้อมูลสินค้า Excel (localStorage)
-            let savedRows = localStorage.getItem('pos_excel_rows');
-            let foundItem = null;
-            if (savedRows) {
-                try {
-                    let rows = JSON.parse(savedRows);
-                    foundItem = rows.find(r => r.name === text);
-                } catch(e) {}
-            }
-
-            if (foundItem) {
-                parsedName = foundItem.name;
-                parsedCost = foundItem.cost || 0;
-                parsedPrice = foundItem.price || 0;
-            } else if (productsDB[text]) {
-                parsedName = productsDB[text].name;
-                parsedPrice = productsDB[text].price;
-                parsedCost = productsDB[text].cost;
-            } else if (text.includes("ລາຄາຂາຍ") || text.includes("ລາຄາຊື້")) {
+            // ກວດສອບ QR Code ແບບເກົ່າที่มีข้อความกำกับ
+            if (text.includes("ລາຄາຂາຍ") || text.includes("ລາຄາຊື້")) {
                 let lines = text.split(/\r?\n/);
                 for (let line of lines) {
                     let cleanLine = line.trim();
@@ -517,11 +500,31 @@
                 if (namePart) {
                     parsedName = namePart;
                 }
+            } else if (productsDB[text]) {
+                parsedName = productsDB[text].name;
+                parsedPrice = productsDB[text].price;
+                parsedCost = productsDB[text].cost;
             } else {
-                // ຖ້າເປັນ Barcode ໃໝ່ທີ່ບໍ່ມີໃນຕາຕະລາງ ໃຫ້ຄ່າເລີ່ມຕົ້ນເປັນ 0 ຢ່າງຖືກຕ້ອງ
-                parsedName = text;
-                parsedCost = 0;
-                parsedPrice = 0;
+                // ດຶງຂໍ້ມູນຈາກ excelRows ທີ່ບັນທຶກໄວ້ໃນ localStorage (ກວດທั้ง name/code)
+                let savedRows = localStorage.getItem('pos_excel_rows');
+                let foundItem = null;
+                if (savedRows) {
+                    try {
+                        let rows = JSON.parse(savedRows);
+                        // ຄົ້ນຫາທັງຊື່/ລະຫັດທີ່ກົງກັບ Barcode ที่สแกน
+                        foundItem = rows.find(r => r.name.trim().toLowerCase() === text.trim().toLowerCase());
+                    } catch(e) {}
+                }
+
+                if (foundItem) {
+                    parsedName = foundItem.name;
+                    parsedCost = foundItem.cost || 0;
+                    parsedPrice = foundItem.price || 0;
+                } else {
+                    parsedName = text;
+                    parsedCost = 0;
+                    parsedPrice = 0;
+                }
             }
 
             document.getElementById('modal-code').innerText = text;
