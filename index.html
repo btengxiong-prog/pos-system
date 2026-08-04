@@ -13,7 +13,7 @@
         @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Lao:wght@400;700&display=swap');
         
         body {
-            font-family: 'Phetsarath OT', 'Noto Serif Lao', 'Times New Roman', Times, serif;
+            font-family: 'Phetsarath OT', 'Saysettha OT', 'Noto Serif Lao', 'Times New Roman', Times, serif;
         }
     </style>
 </head>
@@ -49,17 +49,25 @@
             <button onclick="closeScanner()" class="mt-3 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded w-full font-bold">ປິດກ້ອງ</button>
         </div>
 
-        <!-- Confirmation Popup for Scanned Item -->
+        <!-- Confirmation & Price Input Popup for Scanned Item -->
         <div id="confirm-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-            <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
-                <div class="text-4xl">📦</div>
-                <h3 class="text-xl font-bold text-gray-800">ພົບສິນຄ້າແລ້ວ!</h3>
-                <div id="confirm-details" class="bg-gray-50 p-3 rounded-xl text-left text-sm space-y-1 border">
-                    <!-- Dynamic info -->
+            <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+                <div class="text-3xl text-center">📦</div>
+                <h3 class="text-xl font-bold text-gray-800 text-center">ກຳນົດຂໍ້ມູນສິນຄ້າ</h3>
+                <div id="confirm-details" class="bg-gray-50 p-4 rounded-xl text-left text-sm space-y-3 border">
+                    <p><b>ລະຫັດ QR/Barcode:</b> <span id="modal-code" class="text-blue-600 font-bold"></span></p>
+                    <div>
+                        <label class="block font-semibold text-gray-700 mb-1">ຊື່ສິນຄ້າ:</label>
+                        <input type="text" id="modal-name" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" placeholder="ປ້ອນຊື່ສິນຄ້າ">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-gray-700 mb-1">ລາຄາຂາຍ (ກີບ):</label>
+                        <input type="number" id="modal-price" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-right font-bold text-green-600" placeholder="ຕົວຢ່າງ: 10000">
+                    </div>
                 </div>
                 <div class="flex gap-2 pt-2">
                     <button onclick="cancelScannedItem()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition">ຍົກເລີກ</button>
-                    <button onclick="confirmScannedItem()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition">ຕົກລົງ (ເພີ່ມ)</button>
+                    <button onclick="confirmScannedItem()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition">ຕົກລົງ (ເພີ່ມລົງຕາຕະລາງ)</button>
                 </div>
             </div>
         </div>
@@ -132,10 +140,10 @@
 
     <!-- JavaScript Logic -->
     <script>
+        // ฐานຂໍ້ມູນສິນຄ້າເບื้องຕົ້ນ (ສາມາດເພີ່ມລະຫັດ ແລະ ລາຄາຕື່ມໄດ້ທີ່ນີ້)
         const productsDB = {
             "8851019050016": { name: "ນ້ຳດື່ມຫົວເສືອ", cost: 3000, price: 5000 },
             "8850999012345": { name: "ມາມ້າ ລົດດັ້ງເດີມ", cost: 4000, price: 6000 },
-            "P001": { name: "ນ້ຳດື່ມຫົວເສືອ (P001)", cost: 3000, price: 5000 },
             "123456789": { name: "ສິນຄ້າທົດສອບ 1", cost: 10000, price: 15000 }
         };
 
@@ -162,7 +170,7 @@
                     lastScannedCode = decodedText;
                     lastScanTime = currentTime;
 
-                    // ຢຸດຊົ່ວຄາວແລ້ວສະແດງປັອບອັບຢືນຢັນ
+                    // ສະແດງປັອບອັບໃຫ້ກວດສອບ ຫຼື ປ້ອນລາຄາ
                     showConfirmModal(decodedText);
                 },
                 (errorMessage) => {}
@@ -175,19 +183,34 @@
             tempScannedCode = code;
             let product = productsDB[code] || { name: "ສິນຄ້າລະຫັດ: " + code, cost: 0, price: 10000 };
             
-            let detailsHtml = `
-                <p><b>ລະຫັດ:</b> ${code}</p>
-                <p><b>ຊື່ສິນຄ້າ:</b> ${product.name}</p>
-                <p><b>ລາຄາຂາຍ:</b> ${product.price.toLocaleString()} ກີບ</p>
-            `;
-            document.getElementById('confirm-details').innerHTML = detailsHtml;
+            document.getElementById('modal-code').innerText = code;
+            document.getElementById('modal-name').value = product.name;
+            document.getElementById('modal-price').value = product.price;
+            
             document.getElementById('confirm-modal').classList.remove('hidden');
         }
 
         function confirmScannedItem() {
-            if (tempScannedCode) {
-                addProductByBarcode(tempScannedCode);
+            let nameInput = document.getElementById('modal-name').value.trim();
+            let priceInput = parseFloat(document.getElementById('modal-price').value) || 0;
+
+            if (!nameInput) {
+                alert("ກະລຸນາປ້ອນຊື່ສິນຄ້າ!");
+                return;
             }
+
+            // ບັນທຶກລົງ DB ຖ້າເປັນສິນຄ້າໃໝ່ ເພື່ອຈື່ໄວ້ໃຊ້ງານຄັ້ງຕໍ່ໄປ
+            productsDB[tempScannedCode] = { name: nameInput, cost: 0, price: priceInput };
+
+            // ເພີ່ມລົງກະຕ່າລຽງລົງໄປ
+            let existing = cart.find(item => item.code === tempScannedCode);
+            if (existing) {
+                existing.qty += 1;
+            } else {
+                cart.push({ code: tempScannedCode, name: nameInput, cost: 0, price: priceInput, qty: 1 });
+            }
+            renderCart();
+
             document.getElementById('confirm-modal').classList.add('hidden');
             tempScannedCode = "";
         }
@@ -207,21 +230,6 @@
             } else {
                 document.getElementById('scanner-container').classList.add('hidden');
             }
-        }
-
-        function addProductByBarcode(code) {
-            let product = productsDB[code];
-            if (!product) {
-                product = { name: "ສິນຄ້າລະຫັດ: " + code, cost: 0, price: 10000 };
-            }
-
-            let existing = cart.find(item => item.code === code);
-            if (existing) {
-                existing.qty += 1;
-            } else {
-                cart.push({ code: code, name: product.name, cost: product.cost, price: product.price, qty: 1 });
-            }
-            renderCart();
         }
 
         function updateQty(index, delta) {
