@@ -376,6 +376,24 @@
         let currentActiveCodeType = 'qr'; 
         let excelRows = []; 
 
+        // ໂຫຼດຂໍ້ມູນ Excel ໄວ້ໃນ Global variable ທັນທີຕອນເປີດໜ້າຈໍ
+        function loadExcelRowsFromStorage() {
+            let savedRows = localStorage.getItem('pos_excel_rows');
+            if (savedRows) {
+                try {
+                    excelRows = JSON.parse(savedRows);
+                } catch (e) {
+                    excelRows = [];
+                }
+            }
+            if (excelRows.length === 0) {
+                excelRows = [
+                    { name: "P001", cost: 158000, markup: 20, price: 190000 }
+                ];
+            }
+        }
+        loadExcelRowsFromStorage();
+
         function showAlert(title, message, icon = "✅") {
             document.getElementById('alert-title').innerText = title;
             document.getElementById('alert-message').innerText = message;
@@ -450,13 +468,14 @@
                 { fps: 10, qrbox: 250 },
                 (decodedText) => {
                     let currentTime = new Date().getTime();
-                    if (decodedText.trim() === lastScannedCode && (currentTime - lastScanTime < 500)) {
+                    let cleanText = decodedText.trim();
+                    if (cleanText === lastScannedCode && (currentTime - lastScanTime < 500)) {
                         return;
                     }
-                    lastScannedCode = decodedText.trim();
+                    lastScannedCode = cleanText;
                     lastScanTime = currentTime;
 
-                    showConfirmModal(decodedText);
+                    showConfirmModal(cleanText);
                 },
                 (errorMessage) => {}
             ).catch(err => {
@@ -464,7 +483,7 @@
             });
         }
 
-        // ຟັງຊັນສະແກນແລ້ວດຶງລາຄາສົດໆຈາກ localStorage ຢ່າງຖືກຕ້ອງ 100% ພ້ອມ Trim ຕັດຊ່ອງຫວ່າງ
+        // ຟັງຊັນສະແກນແລ້ວດຶງລາຄາຈາກ excelRows (Global) ໂດຍກົງຢ່າງຖືກຕ້ອງ 100%
         function showConfirmModal(text) {
             tempScannedCode = text.trim();
             
@@ -472,18 +491,14 @@
             let parsedPrice = 0;
             let parsedCost = 0;
 
-            // ຮັບປະກັນວ່າດຶງຄ່າຫຼ້າສຸດ ແລະ ບັນທຶກແລ້ວ
-            let savedRows = localStorage.getItem('pos_excel_rows');
-            if (savedRows) {
-                try {
-                    let rows = JSON.parse(savedRows);
-                    let foundItem = rows.find(r => r.name && r.name.trim().toLowerCase() === tempScannedCode.toLowerCase());
-                    if (foundItem) {
-                        parsedName = foundItem.name.trim();
-                        parsedCost = parseFloat(foundItem.cost) || 0;
-                        parsedPrice = parseFloat(foundItem.price) || 0;
-                    }
-                } catch (e) {}
+            // ອັບເດດຂໍ້ມູນຫຼ້າສຸດຈາກ localStorage ມາກ່ອນສະເໝີ
+            loadExcelRowsFromStorage();
+
+            let foundItem = excelRows.find(r => r.name && r.name.trim().toLowerCase() === tempScannedCode.toLowerCase());
+            if (foundItem) {
+                parsedName = foundItem.name.trim();
+                parsedCost = parseFloat(foundItem.cost) || 0;
+                parsedPrice = parseFloat(foundItem.price) || 0;
             }
 
             document.getElementById('modal-code').innerText = tempScannedCode;
@@ -940,32 +955,21 @@
                 titleSpan.innerText = "🖨️ ຕາຕະລາງສ້າງ Barcode ສິນຄ້າ";
             }
             
-            let savedRows = localStorage.getItem('pos_excel_rows');
-            if (savedRows) {
-                try {
-                    excelRows = JSON.parse(savedRows);
-                } catch (e) {
-                    excelRows = [];
-                }
-            }
-
-            if (excelRows.length === 0) {
-                excelRows = [
-                    { name: "P001", cost: 158000, markup: 20, price: 190000 }
-                ];
-            }
+            loadExcelRowsFromStorage();
             renderExcelTable();
             document.getElementById('excel-print-area').classList.add('hidden');
             document.getElementById('excel-generator-modal').classList.remove('hidden');
         }
 
         function closeExcelGenerator() {
+            saveExcelData(true);
             document.getElementById('excel-generator-modal').classList.add('hidden');
         }
 
         function addExcelRow() {
             excelRows.push({ name: "", cost: 0, markup: 20, price: 0 });
             renderExcelTable();
+            saveExcelData(true);
             setTimeout(() => {
                 let inputs = document.querySelectorAll('.excel-input[data-field="name"]');
                 if (inputs.length > 0) {
@@ -1016,7 +1020,7 @@
                 let priceInput = tr.querySelector('input[data-field="price"]');
 
                 if (excelRows[index]) {
-                    if (nameInput) excelRows[index].name = nameInput.value.trim();
+                    if (nameInput) excelRows[index].name = nameInput.value;
                     if (costInput) excelRows[index].cost = parseFloat(costInput.value.replace(/[^0-9]/g, '')) || 0;
                     if (markupInput) excelRows[index].markup = parseFloat(markupInput.value) || 0;
                     if (priceInput) excelRows[index].price = parseFloat(priceInput.value.replace(/[^0-9]/g, '')) || 0;
