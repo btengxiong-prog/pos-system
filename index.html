@@ -274,14 +274,14 @@
             let listContainer = document.getElementById('delete-items-list');
             let html = '';
             cart.forEach((item, index) => {
-                let itemTotal = item.price * item.qty;
+                let itemTotal = (item.price || 0) * (item.qty || 1);
                 html += `
                     <label class="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg cursor-pointer">
                         <div class="flex items-center gap-3">
                             <input type="checkbox" class="cart-item-checkbox w-4 h-4 rounded text-blue-600" value="${index}" onchange="updateSelectedCount()">
                             <div>
-                                <p class="font-semibold text-gray-800 text-sm">${item.name}</p>
-                                <p class="text-xs text-gray-500">ຈຳນວນ: ${item.qty} | ລາຄາ: ${item.price.toLocaleString()} ກີບ</p>
+                                <p class="font-semibold text-gray-800 text-sm">${item.name || 'ສິນຄ້າ'}</p>
+                                <p class="text-xs text-gray-500">ຈຳນວນ: ${item.qty || 1} | ລາຄາ: ${(item.price || 0).toLocaleString()} ກີບ</p>
                             </div>
                         </div>
                         <span class="font-bold text-sm text-green-600">${itemTotal.toLocaleString()} ກີບ</span>
@@ -321,7 +321,7 @@
                 cart = cart.filter((_, index) => !indicesToRemove.includes(index));
                 renderCart();
                 closeSelectDeleteModal();
-                showAlert("ສຳເລັດ", "ລຶບລາຍການທີ່ເລືອກອອກຈາກກະຕ່າແທ້", "✅");
+                showAlert("ສຳເລັດ", "ລຶບລາຍການທີ່ເລືອກອອກຈາກກະຕ່າແລ້ວ", "✅");
             });
         }
 
@@ -529,22 +529,17 @@
                 change: cashGiven - grandTotal
             };
 
-            // บันทึกบังคับลง Supabase Cloud Database โดยตรง เพื่อให้คอมพิวเตอร์และมือถือเห็นข้อมูลตรงกัน 100%
-            let successCloud = false;
             if (supabaseClient) {
                 try {
                     let { error } = await supabaseClient.from('sales_history').insert([txData]);
-                    if (!error) {
-                        successCloud = true;
-                    } else {
-                        console.error("Supabase insert error:", error.message);
+                    if (error) {
+                        console.error("Supabase insert error:", error);
                     }
                 } catch (err) {
                     console.error("Supabase exception:", err);
                 }
             }
 
-            // สำรองเก็บไว้ใน LocalStorage ด้วยเพื่อความปลอดภัย
             let localHistory = JSON.parse(localStorage.getItem('pos_history')) || [];
             let newLocalTx = { id: 'local_' + Date.now(), date: new Date().toLocaleString(), ...txData };
             localHistory.unshift(newLocalTx);
@@ -563,7 +558,6 @@
 
             let allHistory = [];
 
-            // ດຶງຂໍ້ມູນຫຼັກຈາກ Supabase Cloud Database (เพื่อให้มือถือและคอมพิวเตอร์เห็นข้อมูลตรงกัน)
             if (supabaseClient) {
                 try {
                     let { data, error } = await supabaseClient
@@ -593,7 +587,6 @@
                 }
             }
 
-            // ດຶງຈາກ LocalStorage ມາເສີມນຳສະເພາະລາຍການທີ່ຍັງບໍ່ທັນຊິ້ງ
             let localHistory = JSON.parse(localStorage.getItem('pos_history')) || [];
             localHistory.forEach(tx => {
                 let totalItemCount = tx.totalItems || (tx.items ? tx.items.reduce((s, i) => s + i.qty, 0) : 0);
