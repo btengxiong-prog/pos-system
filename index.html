@@ -204,9 +204,7 @@
         let tempScannedCode = "";
         let lastScannedCode = "";
         let lastScanTime = 0;
-        let deleteTargetId = null;
-        let deleteTargetSource = null; // 'cloud' ຫຼື 'local'
-        let deleteTargetIndex = null;
+        let globalHistoryList = []; // ເກັບລາຍຊື່ປະຫວັດທັງໝົດໄວ້ໃນ Array ສ່ວນກາງ
 
         function showAlert(title, message, icon = "✅") {
             document.getElementById('alert-title').innerText = title;
@@ -219,45 +217,48 @@
             document.getElementById('custom-alert-modal').classList.add('hidden');
         }
 
-        function promptDeleteHistory(id, source, index) {
-            deleteTargetId = id;
-            deleteTargetSource = source;
+        let deleteTargetIndex = null;
+
+        function promptDeleteHistory(index) {
             deleteTargetIndex = index;
             document.getElementById('custom-confirm-delete-modal').classList.remove('hidden');
         }
 
         async function closeConfirmDelete(confirmed) {
             document.getElementById('custom-confirm-delete-modal').classList.add('hidden');
-            if (!confirmed) {
-                deleteTargetId = null;
-                deleteTargetSource = null;
+            if (!confirmed || deleteTargetIndex === null) {
                 deleteTargetIndex = null;
                 return;
             }
 
-            if (deleteTargetSource === 'cloud' && deleteTargetId && supabaseClient) {
+            let targetItem = globalHistoryList[deleteTargetIndex];
+            if (!targetItem) {
+                deleteTargetIndex = null;
+                return;
+            }
+
+            if (targetItem.source === 'cloud' && targetItem.id && supabaseClient) {
                 try {
-                    let { error } = await supabaseClient.from('sales_history').delete().eq('id', deleteTargetId);
+                    let { error } = await supabaseClient.from('sales_history').delete().eq('id', targetItem.id);
                     if (error) {
                         console.error("Supabase delete error:", error);
-                        showAlert("ຜິດພາດ", "ບໍ່ສາມາດລຶບຂໍ້ມູນຈາກ Cloud ได้", "⚠️");
+                        showAlert("ຜິດພາດ", "ບໍ່ສາມາດລຶບຂໍ້ມູນຈາກ Cloud ໄດ້", "⚠️");
+                        deleteTargetIndex = null;
                         return;
                     }
                 } catch (err) {
                     console.error("Supabase delete exception:", err);
                 }
-            } else if (deleteTargetSource === 'local') {
+            } else if (targetItem.source === 'local') {
                 let localHistory = JSON.parse(localStorage.getItem('pos_history')) || [];
-                if (deleteTargetIndex !== null && localHistory[deleteTargetIndex] !== undefined) {
-                    localHistory.splice(deleteTargetIndex, 1);
+                if (targetItem.localIndex !== undefined && localHistory[targetItem.localIndex] !== undefined) {
+                    localHistory.splice(targetItem.localIndex, 1);
                     localStorage.setItem('pos_history', JSON.stringify(localHistory));
                 }
             }
 
             showAlert("ສຳເລັດ", "ສຳເລັດການລຶບຂໍ້ມູນຖີ້ມ", "✅");
             loadCloudHistory();
-            deleteTargetId = null;
-            deleteTargetSource = null;
             deleteTargetIndex = null;
         }
 
@@ -491,7 +492,7 @@
             listDiv.innerHTML = `<p class="text-center py-4">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
             document.getElementById('history-summary').classList.add('hidden');
 
-            let allHistory = [];
+            globalHistoryList = [];
 
             if (supabaseClient) {
                 try {
@@ -504,7 +505,7 @@
                         data.forEach(tx => {
                             let totalItemCount = tx.totalItems || (tx.items ? tx.items.reduce((s, i) => s + i.qty, 0) : 0);
                             let calcCost = tx.totalCost !== undefined ? tx.totalCost : (tx.items ? tx.items.reduce((s, i) => s + ((i.cost || 0) * i.qty), 0) : 0);
-                            allHistory.push({
+                            globalHistoryList.push({
                                 id: tx.id,
                                 source: 'cloud',
                                 date: new Date(tx.created_at).toLocaleString(),
@@ -526,7 +527,7 @@
             localHistory.forEach((tx, idx) => {
                 let totalItemCount = tx.totalItems || (tx.items ? tx.items.reduce((s, i) => s + i.qty, 0) : 0);
                 let calcCost = tx.totalCost !== undefined ? tx.totalCost : (tx.items ? tx.items.reduce((s, i) => s + ((i.cost || 0) * i.qty), 0) : 0);
-                allHistory.push({
+                globalHistoryList.push({
                     id: null,
                     source: 'local',
                     localIndex: idx,
@@ -537,7 +538,7 @@
                 });
             });
 
-            if (allHistory.length === 0) {
+            if (globalHistoryList.length === 0) {
                 listDiv.innerHTML = `<p class="text-gray-500 text-center py-4">ຍັງບໍ່ມີປະຫວັດການຂາຍ.</p>`;
                 document.getElementById('history-summary').classList.add('hidden');
             } else {
@@ -545,7 +546,7 @@
                 let sumCost = 0;
                 let sumPrice = 0;
 
-                allHistory.forEach((tx, index) => {
+                globalHistoryList.forEach((tx, index) => {
                     sumCost += tx.totalCost;
                     sumPrice += tx.total;
 
@@ -568,7 +569,7 @@
                                 <span class="font-bold text-blue-800 text-xs">📅 ${tx.date}</span>
                                 <div class="flex items-center gap-2">
                                     <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">📦 ${tx.totalItems} ລາຍການ</span>
-                                    <button onclick="promptDeleteHistory('${tx.id}', '${tx.source}', ${tx.localIndex !== undefined ? tx.localIndex : null})" class="text-xs bg-red-100 hover:bg-red-200 text-red-600 px-2 py-0.5 rounded font-bold cursor-pointer transition">🗑️ ລຶບ</button>
+                                    <button onclick="promptDeleteHistory(${index})" class="text-xs bg-red-100 hover:bg-red-200 text-red-600 px-2 py-0.5 rounded font-bold cursor-pointer transition">🗑️ ລຶບ</button>
                                 </div>
                             </div>
                             <div class="my-1.5 space-y-1">
