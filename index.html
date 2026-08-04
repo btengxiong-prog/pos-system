@@ -10,6 +10,8 @@
     <script src="https://unpkg.com/html5-qrcode"></script>
     <!-- Supabase JS SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- SheetJS (xlsx) for Excel Import -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <!-- JsBarcode & QRCode CDN -->
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
@@ -288,11 +290,21 @@
         <div class="bg-white rounded-xl max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
                 <h3 id="excel-modal-title" class="text-xl font-bold text-gray-800 flex items-center gap-2">
-                    <span>📊 ຕາຕະລາງສ້າງ QR Code ສິນຄ້າ</span>
+                    <span>📱 ຕາຕະລາງສ້າງ QR Code ສິນຄ້າ</span>
                 </h3>
                 <div class="flex items-center gap-2">
+                    <!-- Input File สำหรับอัปโหลด Excel -->
+                    <label class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer flex items-center gap-1 shadow">
+                        📁 ອັບໂຫລດ Excel
+                        <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" class="hidden" onchange="handleExcelUpload(event)">
+                    </label>
                     <button onclick="addExcelRow()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer">+ ເພີ່ມແຖວ</button>
                 </div>
+            </div>
+
+            <!-- Hint สำหรับการก๊อปปี้วาง -->
+            <div class="bg-blue-50 border border-blue-200 text-blue-800 text-xs p-2 rounded-lg">
+                💡 <b>ຄຳແນະນຳ:</b> ທ່ານສາມາດກ໋ອບປີຂໍ້ມູນ (ຊື່, ລາຄາຊື້, ເປີເຊັນ, ລາຄາຂາຍ) ຈາກ Excel ໃນຄອມ ແລ້ວມາຄລິກເລືອກແຖວໃນຕາຕະລາງນີ້ ແລ້ວກົດປຸ່ມ <b>Ctrl + V</b> ເພື່ອວາງຂໍ້ມູນລົງໄປໄດ້ເລີຍ!
             </div>
 
             <!-- Excel Table Container -->
@@ -342,7 +354,7 @@
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
             <div class="text-4xl">⚠️</div>
             <h3 class="text-xl font-bold text-gray-800">ຢືນຢັນການລຶບ</h3>
-            <p class="text-gray-600 text-sm leading-relaxed">ທ່ານຕ້ອງການລືບປະຫວັດນີ້ບໍບໍ?</p>
+            <p class="text-gray-600 text-sm leading-relaxed">ທ່ານຕ້ອງການລືບປະຫວັດນີ້ບໍ?</p>
             <div class="flex gap-2 pt-2">
                 <button onclick="closeConfirmDelete(false)" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
                 <button onclick="closeConfirmDelete(true)" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ຕົກລົງ</button>
@@ -1081,7 +1093,7 @@
                 let formattedPrice = row.price ? Number(row.price).toLocaleString() : '';
 
                 html += `
-                    <tr class="hover:bg-gray-50 border-b">
+                    <tr class="hover:bg-gray-50 border-b" onpaste="handleTablePaste(event, ${index})">
                         <td class="p-2 border-r text-center font-bold text-gray-500 text-xs">${index + 1}</td>
                         <td class="p-2 border-r">
                             <input type="text" data-field="name" value="${row.name || ''}" oninput="updateExcelRow(${index}, 'name', this.value);" onkeydown="handleTableKeydown(event, ${index}, 'name')" class="excel-input w-full border rounded px-2 py-1 text-sm font-semibold outline-none focus:ring-1 focus:ring-blue-500" placeholder="P001">
@@ -1105,6 +1117,98 @@
                 `;
             });
             tbody.innerHTML = html;
+        }
+
+        // ฟังก์ชันรองรับการ Copy/Paste ข้อมูลจาก Excel เข้าตารางโดยตรง
+        function handleTablePaste(event, startRowIndex) {
+            event.preventDefault();
+            let clipboardData = event.clipboardData || window.clipboardData;
+            let pastedData = clipboardData.getData('Text');
+            if (!pastedData) return;
+
+            let rows = pastedData.split(/\r\n|\n/).filter(r => r.trim() !== "");
+            rows.forEach((rowStr, rIdx) => {
+                let cols = rowStr.split('\t');
+                let targetRowIdx = startRowIndex + rIdx;
+
+                if (targetRowIdx >= excelRows.length) {
+                    excelRows.push({ name: "", cost: 0, markup: 20, price: 0 });
+                }
+
+                if (cols.length > 0 && cols[0]) excelRows[targetRowIdx].name = cols[0].trim();
+                if (cols.length > 1 && cols[1]) {
+                    let costVal = parseFloat(cols[1].replace(/[^0-9.]/g, '')) || 0;
+                    excelRows[targetRowIdx].cost = costVal;
+                    let markup = excelRows[targetRowIdx].markup || 20;
+                    excelRows[targetRowIdx].price = Math.ceil((costVal * (1 + markup / 100)) / 10000) * 10000;
+                }
+                if (cols.length > 2 && cols[2]) {
+                    let markupVal = parseFloat(cols[2].replace(/[^0-9.]/g, '')) || 20;
+                    excelRows[targetRowIdx].markup = markupVal;
+                    let costVal = excelRows[targetRowIdx].cost || 0;
+                    excelRows[targetRowIdx].price = Math.ceil((costVal * (1 + markupVal / 100)) / 10000) * 10000;
+                }
+                if (cols.length > 3 && cols[3]) {
+                    excelRows[targetRowIdx].price = parseFloat(cols[3].replace(/[^0-9.]/g, '')) || 0;
+                }
+            });
+
+            renderExcelTable();
+            saveExcelData(true);
+            showAlert("ສຳເລັດ", "ວາງຂໍ້ມູນຈາກ Excel สำເລັດຮຽບຮ້ອຍ!", "📋");
+        }
+
+        // ฟังก์ชันอัปโหลดไฟล์ Excel (.xlsx, .xls, .csv)
+        function handleExcelUpload(event) {
+            let file = event.target.files[0];
+            if (!file) return;
+
+            let reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    let data = new Uint8Array(e.target.result);
+                    let workbook = XLSX.read(data, { type: 'array' });
+                    let firstSheetName = workbook.SheetNames[0];
+                    let worksheet = workbook.Sheets[firstSheetName];
+                    let json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                    let importedRows = [];
+                    // ข้ามแถวหัวตาราง (เริ่มจากแถວที่ 1 ถ้ามี header)
+                    for (let i = 0; i < json.length; i++) {
+                        let row = json[i];
+                        if (!row || row.length === 0) continue;
+                        // สมมติคอลัมน์: [0] = ชื่อ/รหัส, [1] = ราคาซื้อ, [2] = เปอร์เซ็นต์, [3] = ราคาขาย
+                        let name = row[0] ? String(row[0]).trim() : "";
+                        if (!name && i === 0) continue; // ข้ามแถวแรกสุดถ้าเป็นหัวข้อ
+                        if (!name) continue;
+
+                        let cost = parseFloat(String(row[1] || 0).replace(/[^0-9.]/g, '')) || 0;
+                        let markup = parseFloat(String(row[2] || 20).replace(/[^0-9.]/g, '')) || 20;
+                        let price = parseFloat(String(row[3] || 0).replace(/[^0-9.]/g, '')) || 0;
+
+                        if (price === 0 && cost > 0) {
+                            let rawPrice = cost * (1 + markup / 100);
+                            price = Math.ceil(rawPrice / 10000) * 10000;
+                        }
+
+                        importedRows.push({ name: name, cost: cost, markup: markup, price: price });
+                    }
+
+                    if (importedRows.length > 0) {
+                        excelRows = importedRows;
+                        renderExcelTable();
+                        saveExcelData(true);
+                        showAlert("ສຳເລັດ", `ນຳເຂົ້າຂໍ້ມູນຈາກໄຟລ໌ Excel ສຳເລັດ ${importedRows.length} ລາຍການ!`, "📁");
+                    } else {
+                        showAlert("ແຈ້ງເຕືອນ", "ບໍ່ພົບຂໍ້ມູນໃນໄຟລ໌ Excel ທີ່ອັບໂຫລດ!", "⚠️");
+                    }
+                } catch (err) {
+                    console.error(err);
+                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດອ່ານໄຟລ໌ Excel ได้ (ກະລຸນາກວດສອບรูปแบบໄຟລ໌)", "⚠️");
+                }
+                event.target.value = ""; // รีเซ็ต input file
+            };
+            reader.readAsArrayBuffer(file);
         }
 
         function generateExcelCodes() {
