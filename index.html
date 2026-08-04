@@ -464,7 +464,7 @@
             });
         }
 
-        // ຟັງຊັນສະແກນແລ້ວດຶງລາຄາສົດໆຈາກ localStorage ຕາມ Barcode ທີ່ສະແກນໄດ້ຈິງ
+        // ຟັງຊັນສະແກນແລ້ວດຶງລາຄາສົດໆຈາກ localStorage ຢ່າງຖືກຕ້ອງ 100%
         function showConfirmModal(text) {
             tempScannedCode = text.trim();
             
@@ -472,12 +472,11 @@
             let parsedPrice = 0;
             let parsedCost = 0;
 
-            // ໂຫຼດຂໍ້ມູນຫຼ້າສຸດຈາກ localStorage ມາຊອກຫາທຸກຄັ້ງທີ່ສະແກນ
+            // ໂຫຼດຂໍ້ມູນຫຼ້າສຸດຈາກ localStorage ມາຊອກຫາທຸກຄັ້ງ
             let savedRows = localStorage.getItem('pos_excel_rows');
             if (savedRows) {
                 try {
                     let rows = JSON.parse(savedRows);
-                    // ຊອກຫາ Barcode/ຊື່ສິນຄ້າທີ່ກົງກັນແບບສົມບູນ
                     let foundItem = rows.find(r => r.name && r.name.trim().toLowerCase() === tempScannedCode.toLowerCase());
                     if (foundItem) {
                         parsedName = foundItem.name;
@@ -505,7 +504,6 @@
                 return;
             }
 
-            // ເພີ່ມລາຍການລົງກະຕ່າ
             cart.push({ code: tempScannedCode, name: nameInput, cost: costInput, price: priceInput, qty: 1 });
             renderCart();
 
@@ -1006,9 +1004,27 @@
             } else if (field === 'price') {
                 excelRows[index].price = parseFloat(value) || 0;
             }
+            // ບັນທຶກອັດຕະໂນມັດທຸກຄັ້ງທີ່ມີການພິມປ່ຽນແປງ
+            saveExcelData(true);
         }
 
         function saveExcelData(isSilent = false) {
+            // ອັບເດດຄ່າຈາກ DOM Input ໂດຍກົງກ່ອນບັນທຶກ ເພື່ອຮັບປະກັນວ່າບໍ່ເປັນ 0
+            let rows = document.querySelectorAll('#excel-tbody tr');
+            rows.forEach((tr, index) => {
+                let nameInput = tr.querySelector('input[data-field="name"]');
+                let costInput = tr.querySelector('input[data-field="cost"]');
+                let markupInput = tr.querySelector('input[data-field="markup"]');
+                let priceInput = tr.querySelector('input[data-field="price"]');
+
+                if (excelRows[index]) {
+                    if (nameInput) excelRows[index].name = nameInput.value.trim();
+                    if (costInput) excelRows[index].cost = parseFloat(costInput.value.replace(/[^0-9]/g, '')) || 0;
+                    if (markupInput) excelRows[index].markup = parseFloat(markupInput.value) || 0;
+                    if (priceInput) excelRows[index].price = parseFloat(priceInput.value.replace(/[^0-9]/g, '')) || 0;
+                }
+            });
+
             localStorage.setItem('pos_excel_rows', JSON.stringify(excelRows));
             if (!isSilent) {
                 showAlert("ສຳເລັດ", "ບັນທຶກຂໍ້ມູນຮຽບຮ້ອຍແລ້ວ!", "💾");
@@ -1045,19 +1061,19 @@
                     <tr class="hover:bg-gray-50 border-b">
                         <td class="p-2 border-r text-center font-bold text-gray-500 text-xs">${index + 1}</td>
                         <td class="p-2 border-r">
-                            <input type="text" data-field="name" value="${row.name}" oninput="updateExcelRow(${index}, 'name', this.value); saveExcelData(true);" onkeydown="handleTableKeydown(event, ${index}, 'name')" class="excel-input w-full border rounded px-2 py-1 text-sm font-semibold outline-none focus:ring-1 focus:ring-blue-500" placeholder="P001">
+                            <input type="text" data-field="name" value="${row.name}" oninput="updateExcelRow(${index}, 'name', this.value)" onkeydown="handleTableKeydown(event, ${index}, 'name')" class="excel-input w-full border rounded px-2 py-1 text-sm font-semibold outline-none focus:ring-1 focus:ring-blue-500" placeholder="P001">
                         </td>
                         <td class="p-2 border-r">
-                            <input type="text" data-field="cost" value="${formattedCost}" oninput="let raw = this.value.replace(/[^0-9]/g, ''); updateExcelRow(${index}, 'cost', raw); saveExcelData(true);" onkeydown="handleTableKeydown(event, ${index}, 'cost')" class="excel-input w-full border rounded px-2 py-1 text-right text-sm font-bold text-blue-600 outline-none focus:ring-1 focus:ring-blue-500" placeholder="0">
+                            <input type="text" data-field="cost" value="${formattedCost}" oninput="let raw = this.value.replace(/[^0-9]/g, ''); updateExcelRow(${index}, 'cost', raw)" onkeydown="handleTableKeydown(event, ${index}, 'cost')" class="excel-input w-full border rounded px-2 py-1 text-right text-sm font-bold text-blue-600 outline-none focus:ring-1 focus:ring-blue-500" placeholder="0">
                         </td>
                         <td class="p-2 border-r text-center">
                             <div class="flex items-center justify-center gap-1">
-                                <input type="text" data-field="markup" value="${row.markup}" oninput="let raw = this.value.replace(/[^0-9.]/g, ''); updateExcelRow(${index}, 'markup', raw); saveExcelData(true);" onkeydown="handleTableKeydown(event, ${index}, 'markup')" class="excel-input w-20 border rounded px-2 py-1 text-center text-sm font-bold text-orange-600 outline-none focus:ring-1 focus:ring-blue-500" placeholder="20">
+                                <input type="text" data-field="markup" value="${row.markup}" oninput="let raw = this.value.replace(/[^0-9.]/g, ''); updateExcelRow(${index}, 'markup', raw)" onkeydown="handleTableKeydown(event, ${index}, 'markup')" class="excel-input w-20 border rounded px-2 py-1 text-center text-sm font-bold text-orange-600 outline-none focus:ring-1 focus:ring-blue-500" placeholder="20">
                                 <span class="text-xs font-bold text-gray-600">%</span>
                             </div>
                         </td>
                         <td class="p-2 border-r">
-                            <input type="text" id="price-input-${index}" data-field="price" value="${formattedPrice}" oninput="let raw = this.value.replace(/[^0-9]/g, ''); updateExcelRow(${index}, 'price', raw); saveExcelData(true);" onkeydown="handleTableKeydown(event, ${index}, 'price')" class="excel-input w-full border rounded px-2 py-1 text-right text-sm font-bold text-green-600 outline-none focus:ring-1 focus:ring-blue-500" placeholder="0">
+                            <input type="text" id="price-input-${index}" data-field="price" value="${formattedPrice}" oninput="let raw = this.value.replace(/[^0-9]/g, ''); updateExcelRow(${index}, 'price', raw)" onkeydown="handleTableKeydown(event, ${index}, 'price')" class="excel-input w-full border rounded px-2 py-1 text-right text-sm font-bold text-green-600 outline-none focus:ring-1 focus:ring-blue-500" placeholder="0">
                         </td>
                         <td class="p-2 text-center">
                             <button onclick="deleteExcelRow(${index})" class="text-red-500 hover:text-red-700 font-bold text-xs bg-red-50 px-2 py-1 rounded cursor-pointer">ລຶບ</button>
@@ -1069,6 +1085,7 @@
         }
 
         function generateExcelCodes() {
+            saveExcelData(true); // ບັນທຶກກ່ອນສ້າງປ້າຍ
             if (excelRows.length === 0) {
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເພີ່ມຂໍ້ມູນສິນຄ້າໃນຕາຕະລາງກ່ອນ!", "⚠️");
                 return;
