@@ -107,7 +107,7 @@
             </div>
             <div class="flex justify-between items-center text-gray-700">
                 <span class="font-medium">ຈຳນວນເງິນທີ່ລູກຄ້າຈ່າຍຕົວຈິງ:</span>
-                <input type="number" id="cash-given" oninput="calculateChange()" placeholder="ຕົວຢ່າງ: 250,000" class="border rounded-lg px-3 py-1.5 text-right w-48 focus:ring-2 focus:ring-blue-500 outline-none">
+                <input type="number" id="cash-given" oninput="calculateChange()" placeholder="ຕົວຢ່າງ: 900,000" class="border rounded-lg px-3 py-1.5 text-right w-48 focus:ring-2 focus:ring-blue-500 outline-none">
             </div>
             <div class="flex justify-between items-center text-lg font-bold text-gray-800 border-t pt-2">
                 <span>ເງິນທອນ:</span>
@@ -182,15 +182,11 @@
             let parsedName = "ສິນຄ້າສະແກນ";
             let parsedPrice = 0;
 
-            // ລະບົບແຍກຊື່ ແລະ ລາຄາ ຈາກ QR Code ທີ່ສະແກນໄດ້ຢ່າງแม่ນຍຳ
-            // ຕົວຢ່າງຮູບແບບ: "ຊື່ສິນຄ້າ: P004 ລາຄາສິນຄ້າ: 208,000"
             if (text.includes("ລາຄາ")) {
-                // ແຍກເອົາລາຄາ
                 let pricePart = text.split(/ລາຄາ[^\d]*[:]/)[1] || text;
                 let priceStr = pricePart.replace(/[^0-9]/g, '');
                 parsedPrice = parseInt(priceStr) || 0;
 
-                // ແຍກເອົາຊື່ສິນຄ້າ (ตัดคำว่า ລາຄາ ອອກ)
                 let namePart = text.split(/ລາຄາ/)[0];
                 namePart = namePart.replace('ຊື່ສິນຄ້າ:', '').replace('ຊື່:', '').trim();
                 if (namePart) {
@@ -221,7 +217,6 @@
                 return;
             }
 
-            // ເພີ່ມລົງກະຕ່າລຽງລົງໄປ
             let existing = cart.find(item => item.code === tempScannedCode);
             if (existing) {
                 existing.qty += 1;
@@ -303,13 +298,27 @@
         function calculateChange() {
             let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
             let cashGiven = parseFloat(document.getElementById('cash-given').value) || 0;
-            let change = cashGiven - grandTotal;
             let changeElem = document.getElementById('change-amount');
             
-            if (change >= 0) {
-                changeElem.innerText = change.toLocaleString() + " ກີບ";
+            // ຖ້າຫາກຍັງບໍ່ໄດ້ປ້ອນເງິນຈ່າຍ ໃຫ້ສະແດງເປັນ 0 ກີບ
+            if (!document.getElementById('cash-given').value) {
+                changeElem.innerText = "0 ກີບ";
                 changeElem.className = "text-orange-600 text-xl font-bold";
+                return;
+            }
+
+            let change = cashGiven - grandTotal;
+            
+            if (change > 0) {
+                // กรณีລູກຄ້າຈ່າຍເກີນ -> ທອນເງິນ
+                changeElem.innerText = change.toLocaleString() + " ກີບ";
+                changeElem.className = "text-green-600 text-xl font-bold";
+            } else if (change === 0) {
+                // กรณีຈ່າຍພໍດີ -> ບໍ່ມີການທອນ
+                changeElem.innerText = "0 ກີບ (ຈ່າຍພໍດີ)";
+                changeElem.className = "text-blue-600 text-xl font-bold";
             } else {
+                // กรณีຈ່າຍຍັງບໍ່ພໍ
                 changeElem.innerText = "ເງິນຍັງບໍ່ພໍ (" + Math.abs(change).toLocaleString() + " ກີບ)";
                 changeElem.className = "text-red-600 text-lg font-bold";
             }
