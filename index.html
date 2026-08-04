@@ -8,7 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Html5-qrcode CDN -->
     <script src="https://unpkg.com/html5-qrcode"></script>
-    <!-- Supabase JS SDK (Async load to prevent blocking) -->
+    <!-- Supabase JS SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Google Fonts -->
     <style>
@@ -70,6 +70,16 @@
                     <button onclick="cancelScannedItem()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
                     <button onclick="confirmScannedItem()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ຕົກລົງ (ເພີ່ມລົງຕາຕະລາງ)</button>
                 </div>
+            </div>
+        </div>
+
+        <!-- Custom Beautiful Alert Modal -->
+        <div id="custom-alert-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
+                <div id="alert-icon" class="text-4xl">✅</div>
+                <h3 id="alert-title" class="text-xl font-bold text-gray-800">ແຈ້ງເຕືອນ</h3>
+                <p id="alert-message" class="text-gray-600 text-sm leading-relaxed"></p>
+                <button onclick="closeCustomAlert()" class="w-full bg-[#1e3a8a] hover:bg-blue-900 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">ຕົກລົງ</button>
             </div>
         </div>
 
@@ -167,13 +177,25 @@
         let lastScannedCode = "";
         let lastScanTime = 0;
 
+        // Custom Alert Function
+        function showAlert(title, message, icon = "✅") {
+            document.getElementById('alert-title').innerText = title;
+            document.getElementById('alert-message').innerText = message;
+            document.getElementById('alert-icon').innerText = icon;
+            document.getElementById('custom-alert-modal').classList.remove('hidden');
+        }
+
+        function closeCustomAlert() {
+            document.getElementById('custom-alert-modal').classList.add('hidden');
+        }
+
         function openScanner() {
             document.getElementById('scanner-container').classList.remove('hidden');
             if (!html5QrCode) {
                 try {
                     html5QrCode = new Html5Qrcode("reader");
                 } catch(err) {
-                    alert("ບໍ່ສາມາດເປີດກ້ອງໄດ້: " + err);
+                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດເປີດກ້ອງໄດ້: " + err, "⚠️");
                     return;
                 }
             }
@@ -193,7 +215,7 @@
                 },
                 (errorMessage) => {}
             ).catch(err => {
-                alert("ບໍ່ສາມາດເປີດກ້ອງໄດ້ (ກະລຸນາອະນຸຍາດການໃຊ້ກ້ອງ): " + err);
+                showAlert("ຜິດພາດ", "ບໍ່ສາມາດເປີດກ້ອງໄດ້ (ກະລຸນາອະນຸຍາດການໃຊ້ກ້ອງ): " + err, "⚠️");
             });
         }
 
@@ -234,7 +256,7 @@
             let priceInput = parseFloat(document.getElementById('modal-price').value) || 0;
 
             if (!nameInput) {
-                alert("ກະລຸນາປ້ອນຊື່ສິນຄ້າ!");
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຊື່ສິນຄ້າ!", "⚠️");
                 return;
             }
 
@@ -344,7 +366,7 @@
 
         async function checkout() {
             if (cart.length === 0) {
-                alert("ກະລຸນາເລືອກສິນຄ້າກ່ອນຊຳລະເງິນ!");
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າກ່ອນຊຳລະເງິນ!", "⚠️");
                 return;
             }
             let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
@@ -352,18 +374,18 @@
             let cashGiven = cashInput ? (parseFloat(cashInput) || 0) : grandTotal;
 
             if (cashGiven < grandTotal) {
-                alert("ຈຳນວນເງິນທີ່ລູກຄ້າຈ່າຍຍັງບໍ່ພໍ!");
+                showAlert("ແຈ້ງເຕືອນ", "ຈຳນວນເງິນທີ່ລູກຄ້າຈ່າຍຍັງບໍ່ພໍ!", "⚠️");
                 return;
             }
 
             let txData = {
                 items: cart,
+                totalItems: cart.reduce((sum, item) => sum + item.qty, 0),
                 total: grandTotal,
                 cash: cashGiven,
                 change: cashGiven - grandTotal
             };
 
-            // บันทึกผ่าน Supabase (ถ้าเชื่อมต่อได้)
             if (supabaseClient) {
                 try {
                     let { error } = await supabaseClient.from('sales_history').insert([txData]);
@@ -375,12 +397,11 @@
                 }
             }
 
-            // สำรองบันทึก LocalStorage ໄວ້ສະເໝີ ເພື່ອຄວາມປອດໄພ 100%
             let localHistory = JSON.parse(localStorage.getItem('pos_history')) || [];
             localHistory.unshift({ date: new Date().toLocaleString(), ...txData });
             localStorage.setItem('pos_history', JSON.stringify(localHistory));
 
-            alert("ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ!");
+            showAlert("ສຳເລັດ", "ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ!", "✅");
             cart = [];
             document.getElementById('cash-given').value = '';
             renderCart();
@@ -392,7 +413,6 @@
 
             let allHistory = [];
 
-            // ດึงจาก Supabase ກ່ອນ
             if (supabaseClient) {
                 try {
                     let { data, error } = await supabaseClient
@@ -402,8 +422,10 @@
                     
                     if (!error && data) {
                         data.forEach(tx => {
+                            let totalItemCount = tx.totalItems || (tx.items ? tx.items.reduce((s, i) => s + i.qty, 0) : 0);
                             allHistory.push({
                                 date: new Date(tx.created_at).toLocaleString(),
+                                totalItems: totalItemCount,
                                 total: tx.total,
                                 cash: tx.cash,
                                 change: tx.change,
@@ -416,11 +438,13 @@
                 }
             }
 
-            // ດຶງຈາກ LocalStorage ມາເສີມນຳ ເພື່ອບໍ່ໃຫ້ປະຫວັດຫາຍ
             let localHistory = JSON.parse(localStorage.getItem('pos_history')) || [];
             localHistory.forEach(tx => {
-                // ປ້ອງກັນການສະແດງຊ້ຳ ຖ້າມີແລ້ວ
-                allHistory.push(tx);
+                let totalItemCount = tx.totalItems || (tx.items ? tx.items.reduce((s, i) => s + i.qty, 0) : 0);
+                allHistory.push({
+                    ...tx,
+                    totalItems: totalItemCount
+                });
             });
 
             if (allHistory.length === 0) {
@@ -429,9 +453,10 @@
                 let html = '';
                 allHistory.forEach((tx) => {
                     html += `
-                        <div class="border-b pb-2 mb-2 bg-gray-50 p-2 rounded">
-                            <p class="font-bold text-blue-800">ວັນທີ: ${tx.date}</p>
-                            <p>ຍອດລວມ: <span class="font-semibold text-green-600">${tx.total.toLocaleString()} ກີບ</span> (ຮັບ: ${tx.cash.toLocaleString()} | ທອນ: ${tx.change.toLocaleString()})</p>
+                        <div class="border-b pb-2 mb-2 bg-gray-50 p-2.5 rounded-lg border-l-4 border-blue-600">
+                            <p class="font-bold text-blue-800 text-xs">ວັນທີ: ${tx.date}</p>
+                            <p class="text-gray-700 font-semibold mt-1">📦 ຈຳນວນ: <span class="text-blue-600">${tx.totalItems} ລາຍການ</span></p>
+                            <p class="text-gray-700">ຍອດລວມ: <span class="font-semibold text-green-600">${tx.total.toLocaleString()} ກີບ</span> (ຮັບ: ${tx.cash.toLocaleString()} | ທອນ: ${tx.change.toLocaleString()})</p>
                         </div>
                     `;
                 });
