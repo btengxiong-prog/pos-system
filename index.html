@@ -992,7 +992,7 @@
             renderExcelTable();
         }
 
-        function updateExcelRow(index, field, value, element = null) {
+        function updateExcelRow(index, field, value) {
             if (field === 'name') {
                 excelRows[index].name = value;
             } else if (field === 'cost') {
@@ -1002,7 +1002,6 @@
                 let rawPrice = costVal * (1 + markupVal / 100);
                 excelRows[index].price = Math.ceil(rawPrice / 10000) * 10000;
                 
-                // ອັບເດດສະເພາະ input ລາຄາຂາຍ ໂດຍບໍ່ຣິນເດີທັງຕາຕະລາງ
                 let priceInput = document.getElementById(`price-input-${index}`);
                 if (priceInput) priceInput.value = excelRows[index].price ? excelRows[index].price.toLocaleString() : '';
             } else if (field === 'markup') {
@@ -1016,6 +1015,29 @@
                 if (priceInput) priceInput.value = excelRows[index].price ? excelRows[index].price.toLocaleString() : '';
             } else if (field === 'price') {
                 excelRows[index].price = parseFloat(value) || 0;
+            }
+        }
+
+        // ຟັງຊັນຈັດການກົດ Enter ໃຫ້ເລື່ອນລົງແຖວລຸ່ມອັດຕະໂນມັດ
+        function handleTableKeydown(event, rowIndex, fieldName) {
+            if (event.key === 'Enter') {
+                event.preventDefault(); // ປ້ອງກັນບໍ່ໃຫ້ເກີດພຶດຕິກຳປົກກະຕິຂອງ Enter
+                let inputs = Array.from(document.querySelectorAll(`.excel-input[data-field="${fieldName}"]`));
+                let nextInput = inputs[rowIndex + 1];
+                if (nextInput) {
+                    nextInput.focus();
+                    nextInput.select();
+                } else if (rowIndex === inputs.length - 1) {
+                    // ຖ້າຢູ່ແຖວສຸດທ້າຍແລ້ວໃຫ້ເພີ່ມແຖວໃໝ່ອັດຕະໂນມັດແລ້ວໂຟກັດລົງໄປເລີຍ
+                    addExcelRow();
+                    setTimeout(() => {
+                        let newInputs = Array.from(document.querySelectorAll(`.excel-input[data-field="${fieldName}"]`));
+                        if (newInputs[rowIndex + 1]) {
+                            newInputs[rowIndex + 1].focus();
+                            newInputs[rowIndex + 1].select();
+                        }
+                    }, 50);
+                }
             }
         }
 
@@ -1035,19 +1057,19 @@
                     <tr class="hover:bg-gray-50 border-b">
                         <td class="p-2 border-r text-center font-bold text-gray-500 text-xs">${index + 1}</td>
                         <td class="p-2 border-r">
-                            <input type="text" value="${row.name}" oninput="updateExcelRow(${index}, 'name', this.value)" class="w-full border rounded px-2 py-1 text-sm font-semibold outline-none focus:ring-1 focus:ring-blue-500" placeholder="P001">
+                            <input type="text" data-field="name" value="${row.name}" oninput="updateExcelRow(${index}, 'name', this.value)" onkeydown="handleTableKeydown(event, ${index}, 'name')" class="excel-input w-full border rounded px-2 py-1 text-sm font-semibold outline-none focus:ring-1 focus:ring-blue-500" placeholder="P001">
                         </td>
                         <td class="p-2 border-r">
-                            <input type="text" value="${formattedCost}" oninput="let raw = this.value.replace(/[^0-9]/g, ''); updateExcelRow(${index}, 'cost', raw, this)" class="w-full border rounded px-2 py-1 text-right text-sm font-bold text-blue-600 outline-none focus:ring-1 focus:ring-blue-500" placeholder="0">
+                            <input type="text" data-field="cost" value="${formattedCost}" oninput="let raw = this.value.replace(/[^0-9]/g, ''); updateExcelRow(${index}, 'cost', raw)" onkeydown="handleTableKeydown(event, ${index}, 'cost')" class="excel-input w-full border rounded px-2 py-1 text-right text-sm font-bold text-blue-600 outline-none focus:ring-1 focus:ring-blue-500" placeholder="0">
                         </td>
                         <td class="p-2 border-r text-center">
                             <div class="flex items-center justify-center gap-1">
-                                <input type="text" value="${row.markup}" oninput="let raw = this.value.replace(/[^0-9.]/g, ''); updateExcelRow(${index}, 'markup', raw, this)" class="w-20 border rounded px-2 py-1 text-center text-sm font-bold text-orange-600 outline-none focus:ring-1 focus:ring-blue-500" placeholder="20">
+                                <input type="text" data-field="markup" value="${row.markup}" oninput="let raw = this.value.replace(/[^0-9.]/g, ''); updateExcelRow(${index}, 'markup', raw)" onkeydown="handleTableKeydown(event, ${index}, 'markup')" class="excel-input w-20 border rounded px-2 py-1 text-center text-sm font-bold text-orange-600 outline-none focus:ring-1 focus:ring-blue-500" placeholder="20">
                                 <span class="text-xs font-bold text-gray-600">%</span>
                             </div>
                         </td>
                         <td class="p-2 border-r">
-                            <input type="text" id="price-input-${index}" value="${formattedPrice}" oninput="let raw = this.value.replace(/[^0-9]/g, ''); updateExcelRow(${index}, 'price', raw, this)" class="w-full border rounded px-2 py-1 text-right text-sm font-bold text-green-600 outline-none focus:ring-1 focus:ring-blue-500" placeholder="0">
+                            <input type="text" id="price-input-${index}" data-field="price" value="${formattedPrice}" oninput="let raw = this.value.replace(/[^0-9]/g, ''); updateExcelRow(${index}, 'price', raw)" onkeydown="handleTableKeydown(event, ${index}, 'price')" class="excel-input w-full border rounded px-2 py-1 text-right text-sm font-bold text-green-600 outline-none focus:ring-1 focus:ring-blue-500" placeholder="0">
                         </td>
                         <td class="p-2 text-center">
                             <button onclick="deleteExcelRow(${index})" class="text-red-500 hover:text-red-700 font-bold text-xs bg-red-50 px-2 py-1 rounded cursor-pointer">ລຶບ</button>
