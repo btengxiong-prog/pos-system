@@ -73,6 +73,34 @@
             </div>
         </div>
 
+        <!-- Select Items to Delete Modal (New 3-Step Feature) -->
+        <div id="select-delete-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
+                <div class="flex justify-between items-center border-b pb-3">
+                    <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                        🗑️ ເລືອກລາຍການສິນຄ້າທີ່ຕ້ອງການລຶບອອກຈາກກະຕ່າ
+                    </h3>
+                    <button onclick="closeSelectDeleteModal()" class="text-gray-400 hover:text-gray-600 font-bold text-xl cursor-pointer">&times;</button>
+                </div>
+                
+                <div class="flex justify-between items-center text-xs text-gray-500 bg-gray-50 p-2 rounded-lg">
+                    <label class="flex items-center gap-2 cursor-pointer font-semibold text-blue-700">
+                        <input type="checkbox" id="select-all-checkbox" onchange="toggleSelectAll(this)" class="w-4 h-4 rounded"> ເລືອກທັງໝົດ
+                    </label>
+                    <span id="selected-count-text">ເລືອກແລ້ວ: 0 ລາຍການ</span>
+                </div>
+
+                <div id="delete-items-list" class="overflow-y-auto space-y-2 flex-1 divide-y divide-gray-100 max-h-[40vh]">
+                    <!-- Items injected via JS -->
+                </div>
+
+                <div class="flex gap-2 pt-2 border-t">
+                    <button onclick="closeSelectDeleteModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
+                    <button onclick="executeSelectedDelete()" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">🗑️ ລຶບລາຍການທີ່ເລືອກ</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Custom Beautiful Alert Modal -->
         <div id="custom-alert-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
@@ -90,7 +118,7 @@
                 <h3 class="text-xl font-bold text-gray-800">ຢືນຢັນການລຶບ</h3>
                 <p id="confirm-message" class="text-gray-600 text-sm leading-relaxed">ທ່ານຕ້ອງການລຶບລາຍການນີ້ແທ້ບໍ?</p>
                 <div class="flex gap-2 pt-2">
-                    <button onclick="closeCustomConfirm(false)" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
+                    <button onclick="closeCustomConfirm()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
                     <button id="confirm-yes-btn" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ລຶບ</button>
                 </div>
             </div>
@@ -100,7 +128,9 @@
         <div class="bg-white rounded-xl shadow overflow-hidden mb-6">
             <div class="bg-[#1e3a8a] text-white px-4 py-3 font-semibold flex items-center justify-between">
                 <span>📄 ລາຍການສິນຄ້າທີ່ເລືອກ (ລຽງລົງໄປ)</span>
-                <button onclick="clearCart()" class="text-xs bg-red-600 hover:bg-red-700 text-white px-2.5 py-1 rounded transition cursor-pointer">🗑️ ລຶບທັງໝົດໃນກະຕ່າ</button>
+                <button onclick="openSelectDeleteModal()" class="text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg transition cursor-pointer shadow font-medium flex items-center gap-1">
+                    🗑️ ລຶບທັງໝົດໃນກະຕ່າ
+                </button>
             </div>
             
             <div class="overflow-x-auto">
@@ -217,13 +247,11 @@
             document.getElementById('custom-alert-modal').classList.add('hidden');
         }
 
-        // Custom Confirm Dialog Handler
         function showCustomConfirm(message, onYesCallback) {
             document.getElementById('confirm-message').innerText = message;
             document.getElementById('custom-confirm-modal').classList.remove('hidden');
             
             let yesBtn = document.getElementById('confirm-yes-btn');
-            // Remove old event listeners to prevent duplicate triggers
             let newYesBtn = yesBtn.cloneNode(true);
             yesBtn.parentNode.replaceChild(newYesBtn, yesBtn);
 
@@ -236,6 +264,69 @@
         function closeCustomConfirm() {
             document.getElementById('custom-confirm-modal').classList.add('hidden');
         }
+
+        // --- 3-Step Clear Cart Functions ---
+        function openSelectDeleteModal() {
+            if (cart.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ!", "⚠️");
+                return;
+            }
+
+            let listContainer = document.getElementById('delete-items-list');
+            let html = '';
+            cart.forEach((item, index) => {
+                let itemTotal = item.price * item.qty;
+                html += `
+                    <label class="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg cursor-pointer">
+                        <div class="flex items-center gap-3">
+                            <input type="checkbox" class="cart-item-checkbox w-4 h-4 rounded text-blue-600" value="${index}" onchange="updateSelectedCount()">
+                            <div>
+                                <p class="font-semibold text-gray-800 text-sm">${item.name}</p>
+                                <p class="text-xs text-gray-500">ຈຳນວນ: ${item.qty} | ລາຄາ: ${item.price.toLocaleString()} ກີບ</p>
+                            </div>
+                        </div>
+                        <span class="font-bold text-sm text-green-600">${itemTotal.toLocaleString()} ກີບ</span>
+                    </label>
+                `;
+            });
+            listContainer.innerHTML = html;
+            document.getElementById('select-all-checkbox').checked = false;
+            document.getElementById('selected-count-text').innerText = "ເລືອກແລ້ວ: 0 ລາຍການ";
+            document.getElementById('select-delete-modal').classList.remove('hidden');
+        }
+
+        function closeSelectDeleteModal() {
+            document.getElementById('select-delete-modal').classList.add('hidden');
+        }
+
+        function toggleSelectAll(source) {
+            let checkboxes = document.querySelectorAll('.cart-item-checkbox');
+            checkboxes.forEach(cb => cb.checked = source.checked);
+            updateSelectedCount();
+        }
+
+        function updateSelectedCount() {
+            let checkedCount = document.querySelectorAll('.cart-item-checkbox:checked').length;
+            document.getElementById('selected-count-text').innerText = `ເລືອກແລ້ວ: ${checkedCount} ລາຍການ`;
+        }
+
+        function executeSelectedDelete() {
+            let checkboxes = document.querySelectorAll('.cart-item-checkbox:checked');
+            if (checkboxes.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກລາຍການທີ່ຕ້ອງການລຶບກ່ອນ!", "⚠️");
+                return;
+            }
+
+            showCustomConfirm(`ທ່ານຕ້ອງການລຶບ ${checkboxes.length} ລາຍການທີ່ເລືອກອອກຈາກກະຕ່າແທ້ບໍ?`, function() {
+                let indicesToRemove = Array.from(checkboxes).map(cb => parseInt(cb.value));
+                // Filter out selected items
+                cart = cart.filter((_, index) => !indicesToRemove.includes(index));
+                renderCart();
+                closeSelectDeleteModal();
+                showAlert("ສຳເລັດ", "ລຶບລາຍການທີ່ເລືອກອອກຈາກກະຕ່າແລ້ວ", "✅");
+            });
+        }
+        // -----------------------------------
 
         function openScanner() {
             document.getElementById('scanner-container').classList.remove('hidden');
@@ -353,14 +444,6 @@
         function removeItem(index) {
             cart.splice(index, 1);
             renderCart();
-        }
-
-        function clearCart() {
-            if (cart.length === 0) return;
-            showCustomConfirm("ທ່ານຕ້ອງການລຶບສິນຄ້າທັງໝົດໃນກະຕ່າແທ້ບໍ?", function() {
-                cart = [];
-                renderCart();
-            });
         }
 
         function renderCart() {
