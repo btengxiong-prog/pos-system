@@ -10,6 +10,9 @@
     <script src="https://unpkg.com/html5-qrcode"></script>
     <!-- Supabase JS SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- JsBarcode & QRCode CDN for generating codes -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
     <!-- Google Fonts -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Lao:wght@400;700&display=swap');
@@ -35,6 +38,9 @@
                 </button>
                 <button onclick="openReport()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition cursor-pointer">
                     📈 ລາຍງານ
+                </button>
+                <button onclick="openCodeGenerator()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition cursor-pointer">
+                    🖨️ ສ້າງ QR Code ແລະ Barcode
                 </button>
             </div>
         </div>
@@ -223,7 +229,7 @@
                         <option value="5">ພຶດສະພາ</option>
                         <option value="6">ມິຖຸນາ</option>
                         <option value="7">ກໍລະກົດ</option>
-                        <option value="8" selected>ສິງຫາ</option>
+                        <option value="8">ສິງຫາ</option>
                         <option value="9">ກັນຍາ</option>
                         <option value="10">ຕຸລາ</option>
                         <option value="11">ພະຈິກ</option>
@@ -273,6 +279,66 @@
 
             <div class="flex gap-2 pt-2">
                 <button onclick="closeReport()" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ປິດ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Code Generator Modal (ສ້າງ QR Code ແລະ Barcode) -->
+    <div id="code-generator-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl max-w-lg w-full p-6 max-h-[85vh] overflow-y-auto space-y-4">
+            <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2 border-b pb-3">
+                <span>🖨️ ສ້າງ QR Code ແລະ Barcode ສຳລັບສິນຄ້າ</span>
+            </h3>
+            
+            <div class="space-y-3">
+                <div>
+                    <label class="block font-semibold text-gray-700 text-sm mb-1">ລະຫັດສິນຄ້າ (Code / Barcode Text):</label>
+                    <input type="text" id="gen-code" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 font-semibold" placeholder="ຕົວຢ່າງ: P001 ຫຼື 8851019050016">
+                </div>
+                <div>
+                    <label class="block font-semibold text-gray-700 text-sm mb-1">ຊື່ສິນຄ້າ:</label>
+                    <input type="text" id="gen-name" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 font-semibold" placeholder="ຕົວຢ່າງ: ນ້ຳດື່ມຫົວເສືອ">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-gray-700 text-sm mb-1">ລາຄາຊື້ (ກີບ):</label>
+                        <input type="number" id="gen-cost" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-right font-bold text-blue-600" placeholder="173000">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-gray-700 text-sm mb-1">ລາຄາຂາຍ (ກີບ):</label>
+                        <input type="number" id="gen-price" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-right font-bold text-green-600" placeholder="208000">
+                    </div>
+                </div>
+                <button onclick="generateCodes()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">
+                    ⚙️ ສ້າງລະຫັດ (QR & Barcode)
+                </button>
+            </div>
+
+            <!-- Preview & Print Area -->
+            <div id="print-area" class="bg-gray-50 p-4 rounded-xl border space-y-4 text-center hidden">
+                <div class="border-b pb-2">
+                    <h4 id="prev-name" class="font-bold text-gray-800 text-lg"></h4>
+                    <p class="text-xs text-gray-600">ລາຄາຊື້: <span id="prev-cost" class="text-blue-600 font-semibold"></span> | ລາຄາຂາຍ: <span id="prev-price" class="text-green-600 font-bold"></span></p>
+                </div>
+                
+                <div class="flex flex-col items-center justify-center space-y-3">
+                    <div>
+                        <p class="text-xs font-bold text-gray-600 mb-1">Barcode:</p>
+                        <svg id="barcode-canvas"></svg>
+                    </div>
+                    <div>
+                        <p class="text-xs font-bold text-gray-600 mb-1">QR Code:</p>
+                        <div id="qrcode-container" class="inline-block bg-white p-2 rounded shadow-sm"></div>
+                    </div>
+                </div>
+
+                <button onclick="printCodes()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow flex items-center justify-center gap-2">
+                    🖨️ พິມປ້າຍລະຫັດສິນຄ້າ
+                </button>
+            </div>
+
+            <div class="flex gap-2 pt-2">
+                <button onclick="closeCodeGenerator()" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ປິດ</button>
             </div>
         </div>
     </div>
@@ -628,13 +694,11 @@
             renderCart();
         }
 
-        // ຟັງຊັນສະກັດເອົາ (ວັນ, ເດືອນ, ປີ) ຈາກຂໍ້ຄວາມວັນທີທຸກຮູບແບບຢ່າງแม่ນຍຳ
         function extractDayMonthYear(dateStr) {
             if (!dateStr) return null;
             try {
-                // ຖ້າເປັນຮູບແບບ ISO (Supabase created_at) ຕົວຢ່າງ "2026-08-04T07:19:49..."
                 if (typeof dateStr === 'string' && dateStr.includes('-') && dateStr.includes('T')) {
-                    let datePart = dateStr.split('T')[0]; // "2026-08-04"
+                    let datePart = dateStr.split('T')[0];
                     let parts = datePart.split('-');
                     return {
                         year: parseInt(parts[0]),
@@ -643,13 +707,11 @@
                     };
                 }
 
-                // ຖ້າເປັນຮູບແບບ LocalString ຕົວຢ່າງ "4/8/2026, 14:19:49" ຫລື "04/08/2026"
-                let cleanStr = dateStr.split(',')[0].trim(); // ເອົາສະເພາະສ່ວນວັນທີ
+                let cleanStr = dateStr.split(',')[0].trim();
                 let sep = cleanStr.includes('/') ? '/' : (cleanStr.includes('-') ? '-' : null);
                 if (sep) {
                     let parts = cleanStr.split(sep);
                     if (parts.length >= 3) {
-                        // ກວດສອບວ່າອັນໃດແມ່ນປີ (ຖ້າຂະໜາດ 4 ຕົວເລກ)
                         if (parts[2].length === 4) {
                             return {
                                 day: parseInt(parts[0]),
@@ -896,6 +958,76 @@
             document.getElementById('rep-total-cost').innerText = sumCost.toLocaleString() + " ກີບ";
             document.getElementById('rep-total-price').innerText = sumPrice.toLocaleString() + " ກີບ";
             document.getElementById('rep-total-profit').innerText = sumProfit.toLocaleString() + " ກີບ";
+        }
+
+        // Functions for Code Generator Modal
+        function openCodeGenerator() {
+            document.getElementById('code-generator-modal').classList.remove('hidden');
+        }
+
+        function closeCodeGenerator() {
+            document.getElementById('code-generator-modal').classList.add('hidden');
+        }
+
+        function generateCodes() {
+            let code = document.getElementById('gen-code').value.trim();
+            let name = document.getElementById('gen-name').value.trim();
+            let cost = parseFloat(document.getElementById('gen-cost').value) || 0;
+            let price = parseFloat(document.getElementById('gen-price').value) || 0;
+
+            if (!code) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນລະຫັດສິນຄ້າ!", "⚠️");
+                return;
+            }
+            if (!name) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຊື່ສິນຄ້າ!", "⚠️");
+                return;
+            }
+
+            document.getElementById('prev-name').innerText = name;
+            document.getElementById('prev-cost').innerText = cost.toLocaleString() + " ກີບ";
+            document.getElementById('prev-price').innerText = price.toLocaleString() + " ກີບ";
+
+            // 1. Generate Barcode using JsBarcode
+            try {
+                JsBarcode("#barcode-canvas", code, {
+                    format: "CODE128",
+                    lineColor: "#000",
+                    width: 2,
+                    height: 50,
+                    displayValue: true
+                });
+            } catch (err) {
+                console.error("Barcode generation error:", err);
+            }
+
+            // 2. Generate QR Code using qrcode library
+            let qrContainer = document.getElementById('qrcode-container');
+            qrContainer.innerHTML = ""; // Clear previous QR
+            
+            // Format data inside QR code to match what scanner expects
+            let qrData = `ຊື່ສິນຄ້າ: ${name}\nລາຄາຊື້: ${cost} ກີບ\nລາຄາຂາຍ: ${price} ກີບ\nລະຫັດ: ${code}`;
+            
+            let canvas = document.createElement('canvas');
+            QRCode.toCanvas(canvas, qrData, { width: 150, margin: 1 }, function (error) {
+                if (error) {
+                    console.error("QR generation error:", error);
+                } else {
+                    qrContainer.appendChild(canvas);
+                }
+            });
+
+            document.getElementById('print-area').classList.remove('hidden');
+        }
+
+        function printCodes() {
+            let printContent = document.getElementById('print-area').innerHTML;
+            let originalContent = document.body.innerHTML;
+
+            document.body.innerHTML = `<div style="padding: 20px; text-align: center; font-family: 'Phetsarath OT', sans-serif;">${printContent}</div>`;
+            window.print();
+            document.body.innerHTML = originalContent;
+            location.reload(); // Reload to restore all event listeners and states
         }
     </script>
 </body>
