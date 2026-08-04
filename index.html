@@ -3,15 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ລະບົບຂາຍເຄື່ອງ POS</title>
+    <title>ລະບົບຂາຍເຄື່ອງ POS - Realtime Sync</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Html5-qrcode CDN ສຳລັບສະແກນບາໂຄດ -->
+    <!-- Html5-qrcode CDN -->
     <script src="https://unpkg.com/html5-qrcode"></script>
-    <!-- Google Fonts: Phetsarath ແລະ Times New Roman Style -->
+    <!-- Supabase JS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Google Fonts -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Lao:wght@400;700&display=swap');
-        
         body {
             font-family: 'Phetsarath OT', 'Saysettha OT', 'Noto Serif Lao', 'Times New Roman', Times, serif;
         }
@@ -23,14 +24,14 @@
     <header class="bg-[#1e3a8a] text-white py-4 shadow-md">
         <div class="container mx-auto px-4 text-center">
             <h1 class="text-2xl font-bold flex items-center justify-center gap-2">
-                🛒 ລະບົບຂາຍເຄື່ອງ POS ດ້ວຍການສະແກນ
+                🛒 ລະບົບຂາຍເຄື່ອງ POS (ແຊຣ໌ຂໍ້ມູນທຸກເຄື່ອງ)
             </h1>
             <div class="mt-3 flex justify-center gap-3">
                 <button onclick="openScanner()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition">
                     📷 ສະແກນສິນຄ້າ
                 </button>
                 <button onclick="openHistory()" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition">
-                    📊 ກວດປະຫວັດການຂາຍ
+                    📊 ກວດປະຫວັດການຂາຍ (ທຸກເຄື່ອງ)
                 </button>
             </div>
         </div>
@@ -39,7 +40,7 @@
     <!-- Main Content -->
     <main class="container mx-auto px-4 mt-6 max-w-4xl">
         
-        <!-- Scanner Modal / Box -->
+        <!-- Scanner Modal -->
         <div id="scanner-container" class="hidden mb-6 bg-white p-4 rounded-xl shadow border">
             <div class="flex justify-between items-center mb-2">
                 <h3 class="font-bold text-lg text-gray-700">📷 ກຳລັງສະແກນ QR / ບາໂຄດ</h3>
@@ -49,7 +50,7 @@
             <button onclick="closeScanner()" class="mt-3 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded w-full font-bold">ປິດກ້ອງ</button>
         </div>
 
-        <!-- Confirmation & Price Input Popup for Scanned Item -->
+        <!-- Confirmation & Price Input Popup -->
         <div id="confirm-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
                 <div class="text-3xl text-center">📦</div>
@@ -128,11 +129,14 @@
     </footer>
 
     <!-- History Modal -->
-    <div id="history-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl max-w-lg w-full p-5 max-h-[80vh] overflow-y-auto">
-            <h3 class="text-lg font-bold mb-3 text-gray-800">📊 ປະຫວັດການຂາຍ</h3>
+    <div id="history-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl max-w-xl w-full p-5 max-h-[80vh] overflow-y-auto">
+            <h3 class="text-lg font-bold mb-3 text-gray-800 flex justify-between items-center">
+                <span>📊 ປະຫວັດການຂາຍ (Sync ຮ່ວມກັນທຸກເຄື່ອງ)</span>
+                <button onclick="loadCloudHistory()" class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">🔄 ໂຫຼດໃໝ່</button>
+            </h3>
             <div id="history-list" class="space-y-2 text-sm text-gray-600">
-                <p>ຍັງບໍ່ມີປະຫວັດການຂາຍ.</p>
+                <p class="text-center py-4">ກຳລັງໂຫຼດຂໍ້ມູນຈາກ Cloud Database...</p>
             </div>
             <button onclick="closeHistory()" class="mt-4 bg-gray-500 text-white px-4 py-2 rounded w-full">ປິດ</button>
         </div>
@@ -140,6 +144,11 @@
 
     <!-- JavaScript Logic -->
     <script>
+        const SUPABASE_URL = "https://omvrghcnswikqxixgcza.supabase.co"; 
+        const SUPABASE_ANON_KEY = "sb_publishable_3E0MYF88KNsZ1PaQED-Ihg_Y11UQ4RD";
+        
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
         const productsDB = {
             "8851019050016": { name: "ນ້ຳດື່ມຫົວເສືອ", cost: 3000, price: 5000 },
             "8850999012345": { name: "ມາມ້າ ລົດດັ້ງເດີມ", cost: 4000, price: 6000 }
@@ -300,7 +309,6 @@
             let cashInput = document.getElementById('cash-given').value;
             let changeElem = document.getElementById('change-amount');
             
-            // ຖ້າບໍ່ປ້ອນເງິນ (ປ່ອຍຫວ່າງ) ຖືວ່າຈ່າຍພໍດີ
             if (!cashInput) {
                 changeElem.innerText = "0 ກີບ (ຈ່າຍພໍດີ)";
                 changeElem.className = "text-blue-600 text-xl font-bold";
@@ -322,7 +330,7 @@
             }
         }
 
-        function checkout() {
+        async function checkout() {
             if (cart.length === 0) {
                 alert("ກະລຸນາເລືອກສິນຄ້າກ່ອນຊຳລະເງິນ!");
                 return;
@@ -336,43 +344,54 @@
                 return;
             }
 
-            let transaction = {
-                date: new Date().toLocaleString(),
-                items: [...cart],
-                total: grandTotal,
-                cash: cashGiven,
-                change: cashGiven - grandTotal
-            };
+            const { data, error } = await supabase.from('sales_history').insert([
+                {
+                    items: cart,
+                    total: grandTotal,
+                    cash: cashGiven,
+                    change: cashGiven - grandTotal
+                }
+            ]);
 
-            let history = JSON.parse(localStorage.getItem('pos_history')) || [];
-            history.unshift(transaction);
-            localStorage.setItem('pos_history', JSON.stringify(history));
-
-            alert("ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ!");
-            
-            cart = [];
-            document.getElementById('cash-given').value = '';
-            renderCart();
+            if (error) {
+                alert("ເກີດຂໍ້ຜິດພາດໃນການບັນທຶກຂໍ້ມູນ: " + error.message);
+            } else {
+                alert("ຊຳລະເງິນສຳເລັດ! ບັນທຶກຂໍ້ມູນຂຶ້ນ Cloud ຮຽບຮ້ອຍ.");
+                cart = [];
+                document.getElementById('cash-given').value = '';
+                renderCart();
+            }
         }
 
-        function openHistory() {
-            let history = JSON.parse(localStorage.getItem('pos_history')) || [];
+        async function loadCloudHistory() {
             let listDiv = document.getElementById('history-list');
-            if (history.length === 0) {
-                listDiv.innerHTML = `<p class="text-gray-500">ຍັງບໍ່ມີປະຫວັດການຂາຍ.</p>`;
+            listDiv.innerHTML = `<p class="text-center py-4">ກຳລັງໂຫຼດຂໍ້ມູນ...</p>`;
+
+            const { data: history, error } = await supabase
+                .from('sales_history')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error || !history || history.length === 0) {
+                listDiv.innerHTML = `<p class="text-gray-500 text-center py-4">ຍັງບໍ່ມີປະຫວັດການຂາຍເທິງ Cloud.</p>`;
             } else {
                 let html = '';
                 history.forEach((tx) => {
+                    let dateStr = new Date(tx.created_at).toLocaleString();
                     html += `
-                        <div class="border-b pb-2 mb-2">
-                            <p class="font-bold text-blue-800">ວັນທີ: ${tx.date}</p>
+                        <div class="border-b pb-2 mb-2 bg-gray-50 p-2 rounded">
+                            <p class="font-bold text-blue-800">ວັນທີ: ${dateStr}</p>
                             <p>ຍອດລວມ: <span class="font-semibold text-green-600">${tx.total.toLocaleString()} ກີບ</span> (ຮັບ: ${tx.cash.toLocaleString()} | ທອນ: ${tx.change.toLocaleString()})</p>
                         </div>
                     `;
                 });
                 listDiv.innerHTML = html;
             }
+        }
+
+        function openHistory() {
             document.getElementById('history-modal').classList.remove('hidden');
+            loadCloudHistory();
         }
 
         function closeHistory() {
