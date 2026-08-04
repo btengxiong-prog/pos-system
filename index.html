@@ -304,11 +304,12 @@
                     <thead>
                         <tr class="bg-gray-100 text-gray-700 text-xs uppercase sticky top-0 border-b">
                             <th class="p-2 border-r text-center w-12">ລ/ດ</th>
-                            <th class="p-2 border-r">ຊື່ສິນຄ້າ (ລະຫັດ)</th>
-                            <th class="p-2 border-r text-right">ລາຄາຊື້ (ກີບ)</th>
-                            <th class="p-2 border-r text-center w-36">ເປີເຊັນຂາຍ (%)</th>
-                            <th class="p-2 border-r text-right">ລາຄາຂາຍ (ກີບ)</th>
-                            <th class="p-2 text-center w-28">ຈັດການ</th>
+                            <th class="p-2 border-r w-36">ລະຫັດ / Barcode</th>
+                            <th class="p-2 border-r">ຊື່ສິນຄ້າ</th>
+                            <th class="p-2 border-r text-right w-28">ລາຄາຊື້ (ກີບ)</th>
+                            <th class="p-2 border-r text-center w-24">ເປີເຊັນ (%)</th>
+                            <th class="p-2 border-r text-right w-28">ລາຄາຂາຍ (ກີບ)</th>
+                            <th class="p-2 text-center w-20">ຈັດການ</th>
                         </tr>
                     </thead>
                     <tbody id="excel-tbody" class="divide-y divide-gray-200 text-sm">
@@ -474,7 +475,7 @@
             let parsedPrice = 0;
             let parsedCost = 0;
 
-            // 1. ກວດສອບ QR Code ແບບເກົ່າที่มีข้อความกำกับ (ຮັກສາໄວ້ 100% ບໍ່ໃຫ້ຖືກກວນ)
+            // 1. ກວດສອບ QR Code ແບບເກົ່າที่มีข้อความกำกับ
             if (text.includes("ລາຄາຂາຍ") || text.includes("ລາຄາຊື້")) {
                 let lines = text.split(/\r?\n/);
                 for (let line of lines) {
@@ -505,18 +506,22 @@
                 parsedPrice = productsDB[text].price;
                 parsedCost = productsDB[text].cost;
             } else {
-                // 2. ສ່ວນ Barcode / ລະຫັດສິນຄ້າ: ຄົ້ນຫາໃນ localStorage (pos_excel_rows) ຢ່າງຖືກຕ້ອງ
+                // 2. ຄົ້ນຫາ Barcode ຈາກ ລະຫັດສິນຄ້າ (code) ໃນຕາຕະລາງ Excel ທີ່ບັນທຶກໄວ້
                 let savedRows = localStorage.getItem('pos_excel_rows');
                 let foundItem = null;
                 if (savedRows) {
                     try {
                         let rows = JSON.parse(savedRows);
-                        foundItem = rows.find(r => r.name && r.name.trim().toLowerCase() === text.trim().toLowerCase());
+                        // ຄົ້ນຫາຈາກລະຫັດ (code) ຫຼື ຊື່ (name) ທີ່ກົງກັນ
+                        foundItem = rows.find(r => 
+                            (r.code && r.code.trim().toLowerCase() === text.trim().toLowerCase()) ||
+                            (r.name && r.name.trim().toLowerCase() === text.trim().toLowerCase())
+                        );
                     } catch(e) {}
                 }
 
                 if (foundItem) {
-                    parsedName = foundItem.name;
+                    parsedName = foundItem.itemName || foundItem.name;
                     parsedCost = parseFloat(foundItem.cost) || 0;
                     parsedPrice = parseFloat(foundItem.price) || 0;
                 } else {
@@ -993,9 +998,9 @@
 
             if (excelRows.length === 0) {
                 excelRows = [
-                    { name: "P001", cost: 158000, markup: 20, price: 190000 },
-                    { name: "P002", cost: 173000, markup: 20, price: 208000 },
-                    { name: "P003", cost: 188000, markup: 20, price: 226000 }
+                    { code: "P001", itemName: "ສິນຄ້າ 1", cost: 158000, markup: 20, price: 190000 },
+                    { code: "P002", itemName: "ສິນຄ້າ 2", cost: 173000, markup: 20, price: 208000 },
+                    { code: "P003", itemName: "ສິນຄ້າ 3", cost: 188000, markup: 20, price: 226000 }
                 ];
             }
             renderExcelTable();
@@ -1008,10 +1013,10 @@
         }
 
         function addExcelRow() {
-            excelRows.push({ name: "", cost: 0, markup: 20, price: 0 });
+            excelRows.push({ code: "", itemName: "", cost: 0, markup: 20, price: 0 });
             renderExcelTable();
             setTimeout(() => {
-                let inputs = document.querySelectorAll('.excel-input[data-field="name"]');
+                let inputs = document.querySelectorAll('.excel-input[data-field="code"]');
                 if (inputs.length > 0) {
                     inputs[inputs.length - 1].focus();
                 }
@@ -1025,8 +1030,10 @@
         }
 
         function updateExcelRow(index, field, value) {
-            if (field === 'name') {
-                excelRows[index].name = value;
+            if (field === 'code') {
+                excelRows[index].code = value;
+            } else if (field === 'itemName') {
+                excelRows[index].itemName = value;
             } else if (field === 'cost') {
                 let costVal = parseFloat(value) || 0;
                 excelRows[index].cost = costVal;
@@ -1074,7 +1081,7 @@
         function renderExcelTable() {
             let tbody = document.getElementById('excel-tbody');
             if (excelRows.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນ (ກະລຸນາກົດປຸ່ມ + ເພີ່ມແຖວ)</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນ (ກະລຸນາກົດປຸ່ມ + ເພີ່ມແຖວ)</td></tr>`;
                 return;
             }
 
@@ -1082,19 +1089,24 @@
             excelRows.forEach((row, index) => {
                 let formattedCost = row.cost ? row.cost.toLocaleString() : '';
                 let formattedPrice = row.price ? row.price.toLocaleString() : '';
+                let codeVal = row.code || '';
+                let nameVal = row.itemName || row.name || '';
 
                 html += `
                     <tr class="hover:bg-gray-50 border-b">
                         <td class="p-2 border-r text-center font-bold text-gray-500 text-xs">${index + 1}</td>
                         <td class="p-2 border-r">
-                            <input type="text" data-field="name" value="${row.name}" oninput="updateExcelRow(${index}, 'name', this.value); saveExcelData(true);" onkeydown="handleTableKeydown(event, ${index}, 'name')" class="excel-input w-full border rounded px-2 py-1 text-sm font-semibold outline-none focus:ring-1 focus:ring-blue-500" placeholder="P001">
+                            <input type="text" data-field="code" value="${codeVal}" oninput="updateExcelRow(${index}, 'code', this.value); saveExcelData(true);" onkeydown="handleTableKeydown(event, ${index}, 'code')" class="excel-input w-full border rounded px-2 py-1 text-sm font-semibold outline-none focus:ring-1 focus:ring-blue-500" placeholder="P001">
+                        </td>
+                        <td class="p-2 border-r">
+                            <input type="text" data-field="itemName" value="${nameVal}" oninput="updateExcelRow(${index}, 'itemName', this.value); saveExcelData(true);" onkeydown="handleTableKeydown(event, ${index}, 'itemName')" class="excel-input w-full border rounded px-2 py-1 text-sm font-semibold outline-none focus:ring-1 focus:ring-blue-500" placeholder="ຊື່ສິນຄ້າ">
                         </td>
                         <td class="p-2 border-r">
                             <input type="text" data-field="cost" value="${formattedCost}" oninput="let raw = this.value.replace(/[^0-9]/g, ''); updateExcelRow(${index}, 'cost', raw); saveExcelData(true);" onkeydown="handleTableKeydown(event, ${index}, 'cost')" class="excel-input w-full border rounded px-2 py-1 text-right text-sm font-bold text-blue-600 outline-none focus:ring-1 focus:ring-blue-500" placeholder="0">
                         </td>
                         <td class="p-2 border-r text-center">
                             <div class="flex items-center justify-center gap-1">
-                                <input type="text" data-field="markup" value="${row.markup}" oninput="let raw = this.value.replace(/[^0-9.]/g, ''); updateExcelRow(${index}, 'markup', raw); saveExcelData(true);" onkeydown="handleTableKeydown(event, ${index}, 'markup')" class="excel-input w-20 border rounded px-2 py-1 text-center text-sm font-bold text-orange-600 outline-none focus:ring-1 focus:ring-blue-500" placeholder="20">
+                                <input type="text" data-field="markup" value="${row.markup || 20}" oninput="let raw = this.value.replace(/[^0-9.]/g, ''); updateExcelRow(${index}, 'markup', raw); saveExcelData(true);" onkeydown="handleTableKeydown(event, ${index}, 'markup')" class="excel-input w-16 border rounded px-2 py-1 text-center text-sm font-bold text-orange-600 outline-none focus:ring-1 focus:ring-blue-500" placeholder="20">
                                 <span class="text-xs font-bold text-gray-600">%</span>
                             </div>
                         </td>
@@ -1120,13 +1132,14 @@
             container.innerHTML = "";
 
             excelRows.forEach((row, index) => {
-                if (!row.name) return;
+                let targetCode = row.code || row.name;
+                if (!targetCode) return;
                 let cardId = `code-card-${index}`;
                 let cardHtml = `
                     <div id="${cardId}" class="bg-white border rounded-xl p-3 shadow-sm text-center space-y-2 flex flex-col items-center justify-between">
                         <div class="border-b w-full pb-1">
-                            <h5 class="font-bold text-gray-800 text-sm">${row.name}</h5>
-                            <p class="text-[11px] text-gray-600">ຊື້: ${row.cost.toLocaleString()} | ຂາຍ: <span class="text-green-600 font-bold">${row.price.toLocaleString()}</span></p>
+                            <h5 class="font-bold text-gray-800 text-sm">${row.itemName || row.name || targetCode}</h5>
+                            <p class="text-[11px] text-gray-600">ລະຫັດ: ${targetCode} | ຂາຍ: <span class="text-green-600 font-bold">${(row.price || 0).toLocaleString()}</span></p>
                         </div>
                         <div class="py-1 flex items-center justify-center w-full">
                 `;
@@ -1148,10 +1161,11 @@
 
             setTimeout(() => {
                 excelRows.forEach((row, index) => {
-                    if (!row.name) return;
+                    let targetCode = row.code || row.name;
+                    if (!targetCode) return;
                     if (currentActiveCodeType === 'barcode') {
                         try {
-                            JsBarcode(`#excel-barcode-${index}`, row.name, {
+                            JsBarcode(`#excel-barcode-${index}`, targetCode, {
                                 format: "CODE128",
                                 lineColor: "#000",
                                 width: 1.5,
@@ -1166,7 +1180,7 @@
                         let qrDiv = document.getElementById(`excel-qrcode-${index}`);
                         if (qrDiv) {
                             qrDiv.innerHTML = "";
-                            let qrData = `ຊື່ສິນຄ້າ: ${row.name}\nລາຄາຊື້: ${row.cost} ກີບ\nລາຄາຂາຍ: ${row.price} ກີບ`;
+                            let qrData = `ຊື່ສິນຄ້າ: ${row.itemName || row.name || targetCode}\nລາຄາຊື້: ${row.cost || 0} ກີບ\nລາຄາຂາຍ: ${row.price || 0} ກີບ`;
                             let canvas = document.createElement('canvas');
                             QRCode.toCanvas(canvas, qrData, { width: 120, margin: 1 }, function (error) {
                                 if (!error) {
