@@ -73,7 +73,7 @@
             </div>
         </div>
 
-        <!-- Select Items to Delete Modal -->
+        <!-- Select Items to Delete Modal (New 3-Step Feature) -->
         <div id="select-delete-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
             <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
                 <div class="flex justify-between items-center border-b pb-3">
@@ -111,7 +111,7 @@
             </div>
         </div>
 
-        <!-- Custom Beautiful Confirm Modal -->
+        <!-- Custom Beautiful Confirm Modal (For Deleting) -->
         <div id="custom-confirm-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
                 <div class="text-4xl">⚠️</div>
@@ -265,8 +265,9 @@
             document.getElementById('custom-confirm-modal').classList.add('hidden');
         }
 
+        // --- 3-Step Clear Cart Functions ---
         function openSelectDeleteModal() {
-            if (!cart || cart.length === 0) {
+            if (cart.length === 0) {
                 showAlert("ແຈ້ງເຕືອນ", "ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ!", "⚠️");
                 return;
             }
@@ -274,14 +275,14 @@
             let listContainer = document.getElementById('delete-items-list');
             let html = '';
             cart.forEach((item, index) => {
-                let itemTotal = (item.price || 0) * (item.qty || 1);
+                let itemTotal = item.price * item.qty;
                 html += `
                     <label class="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg cursor-pointer">
                         <div class="flex items-center gap-3">
                             <input type="checkbox" class="cart-item-checkbox w-4 h-4 rounded text-blue-600" value="${index}" onchange="updateSelectedCount()">
                             <div>
-                                <p class="font-semibold text-gray-800 text-sm">${item.name || 'ສິນຄ້າ'}</p>
-                                <p class="text-xs text-gray-500">ຈຳນວນ: ${item.qty || 1} | ລາຄາ: ${(item.price || 0).toLocaleString()} ກີບ</p>
+                                <p class="font-semibold text-gray-800 text-sm">${item.name}</p>
+                                <p class="text-xs text-gray-500">ຈຳນວນ: ${item.qty} | ລາຄາ: ${item.price.toLocaleString()} ກີບ</p>
                             </div>
                         </div>
                         <span class="font-bold text-sm text-green-600">${itemTotal.toLocaleString()} ກີບ</span>
@@ -318,12 +319,14 @@
 
             showCustomConfirm(`ທ່ານຕ້ອງການລຶບ ${checkboxes.length} ລາຍການທີ່ເລືອກອອກຈາກກະຕ່າແທ້ບໍ?`, function() {
                 let indicesToRemove = Array.from(checkboxes).map(cb => parseInt(cb.value));
+                // Filter out selected items
                 cart = cart.filter((_, index) => !indicesToRemove.includes(index));
                 renderCart();
                 closeSelectDeleteModal();
                 showAlert("ສຳເລັດ", "ລຶບລາຍການທີ່ເລືອກອອກຈາກກະຕ່າແລ້ວ", "✅");
             });
         }
+        // -----------------------------------
 
         function openScanner() {
             document.getElementById('scanner-container').classList.remove('hidden');
@@ -445,7 +448,7 @@
 
         function renderCart() {
             let tbody = document.getElementById('cart-items');
-            if (!cart || cart.length === 0) {
+            if (cart.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ (ກະລຸນາກົດສະແກນສິນຄ້າ)</td></tr>`;
                 document.getElementById('grand-total').innerText = "0 ກີບ";
                 document.getElementById('change-amount').innerText = "0 ກີບ";
@@ -506,7 +509,7 @@
         }
 
         async function checkout() {
-            if (!cart || cart.length === 0) {
+            if (cart.length === 0) {
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າກ່ອນຊຳລະເງິນ!", "⚠️");
                 return;
             }
@@ -572,12 +575,12 @@
                             allHistory.push({
                                 id: tx.id,
                                 isCloud: true,
-                                date: tx.created_at ? new Date(tx.created_at).toLocaleString() : (tx.date || new Date().toLocaleString()),
+                                date: new Date(tx.created_at).toLocaleString(),
                                 totalItems: totalItemCount,
                                 totalCost: calcCost,
-                                total: tx.total || 0,
-                                cash: tx.cash || tx.total || 0,
-                                change: tx.change || 0,
+                                total: tx.total,
+                                cash: tx.cash,
+                                change: tx.change,
                                 items: tx.items || []
                             });
                         });
@@ -591,19 +594,14 @@
             localHistory.forEach(tx => {
                 let totalItemCount = tx.totalItems || (tx.items ? tx.items.reduce((s, i) => s + i.qty, 0) : 0);
                 let calcCost = tx.totalCost !== undefined ? tx.totalCost : (tx.items ? tx.items.reduce((s, i) => s + ((i.cost || 0) * i.qty), 0) : 0);
-                if (!allHistory.some(item => item.total === tx.total && item.date === tx.date)) {
-                    allHistory.push({
-                        id: tx.id,
-                        isCloud: false,
-                        date: tx.date || new Date().toLocaleString(),
-                        totalItems: totalItemCount,
-                        totalCost: calcCost,
-                        total: tx.total || 0,
-                        cash: tx.cash || 0,
-                        change: tx.change || 0,
-                        items: tx.items || []
-                    });
-                }
+                allHistory.push({
+                    id: tx.id,
+                    isCloud: false,
+                    ...tx,
+                    totalItems: totalItemCount,
+                    totalCost: calcCost,
+                    items: tx.items || []
+                });
             });
 
             if (allHistory.length === 0) {
@@ -621,18 +619,17 @@
                     let itemsHtml = '';
                     if (tx.items && tx.items.length > 0) {
                         tx.items.forEach(item => {
-                            let itemTotal = (item.price || 0) * (item.qty || 1);
+                            let itemTotal = item.price * item.qty;
                             itemsHtml += `
                                 <div class="flex justify-between text-xs text-gray-600 pl-3 py-0.5 border-l-2 border-blue-400 my-1">
-                                    <span>🔹 ${item.name || 'ສິນຄ້າ'} (x${item.qty || 1})</span>
+                                    <span>🔹 ${item.name} (x${item.qty})</span>
                                     <span class="font-medium">${itemTotal.toLocaleString()} ກີບ</span>
                                 </div>
                             `;
                         });
                     }
 
-                    // ປັບການສົ່ງ ID ເຂົ້າຟັງຊັນລຶບ ໃຫ້ຮັບຮອງທັງ string ແລະ number ຢ່າງຖືກຕ້ອງປອດໄພ
-                    let txIdArg = typeof tx.id === 'number' ? tx.id : `'${tx.id}'`;
+                    let deleteParamId = tx.isCloud ? tx.id : `'${tx.id}'`;
 
                     html += `
                         <div class="border-b pb-3 mb-3 bg-gray-50 p-3 rounded-xl border-l-4 border-blue-600 shadow-sm relative">
@@ -640,7 +637,7 @@
                                 <span class="font-bold text-blue-800 text-xs">📅 ${tx.date}</span>
                                 <div class="flex items-center gap-2">
                                     <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">📦 ${tx.totalItems} ລາຍການ</span>
-                                    <button onclick="deleteHistoryItem(${txIdArg}, ${tx.isCloud})" class="text-red-500 hover:text-red-700 text-xs font-bold px-2 py-0.5 bg-red-50 hover:bg-red-100 rounded cursor-pointer transition">🗑️ ລຶບ</button>
+                                    <button onclick="deleteHistoryItem(${deleteParamId}, ${tx.isCloud})" class="text-red-500 hover:text-red-700 text-xs font-bold px-2 py-0.5 bg-red-50 hover:bg-red-100 rounded cursor-pointer transition">🗑️ ລຶບ</button>
                                 </div>
                             </div>
                             <div class="my-1.5 space-y-1">
@@ -663,25 +660,25 @@
             }
         }
 
-        async function deleteHistoryItem(id, isCloud) {
+        function deleteHistoryItem(id, isCloud) {
             showCustomConfirm("ທ່ານຕ້ອງການລຶບປະຫວັດການຂາຍລາຍການນີ້ແທ້ບໍ?", async function() {
                 if (isCloud && supabaseClient) {
                     try {
                         let { error } = await supabaseClient.from('sales_history').delete().eq('id', id);
                         if (error) {
-                            console.error("Delete cloud error:", error);
+                            showAlert("ຜິດພາດ", "ລຶບຈາກ Cloud ບໍ່ສຳເລັດ: " + error.message, "⚠️");
+                            return;
                         }
                     } catch (err) {
-                        console.error("Delete cloud exception:", err);
+                        console.error("Delete cloud error:", err);
                     }
+                } else {
+                    let localHistory = JSON.parse(localStorage.getItem('pos_history')) || [];
+                    localHistory = localHistory.filter(item => item.id !== id);
+                    localStorage.setItem('pos_history', JSON.stringify(localHistory));
                 }
 
-                let localHistory = JSON.parse(localStorage.getItem('pos_history')) || [];
-                localHistory = localHistory.filter(item => item.id !== id);
-                localStorage.setItem('pos_history', JSON.stringify(localHistory));
-
                 loadCloudHistory();
-                showAlert("ສຳເລັດ", "ລຶບປະຫວັດການຂາຍຮຽບຮ້ອຍແລ້ວ", "✅");
             });
         }
 
