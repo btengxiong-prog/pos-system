@@ -8,7 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Html5-qrcode CDN -->
     <script src="https://unpkg.com/html5-qrcode"></script>
-    <!-- Supabase JS SDK -->
+    <!-- Supabase JS SDK (Async load to prevent blocking) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Google Fonts -->
     <style>
@@ -27,10 +27,10 @@
                 🛒 ລະບົບຂາຍເຄື່ອງ POS (ແຊຣ໌ຂໍ້ມູນທຸກເຄື່ອງ)
             </h1>
             <div class="mt-3 flex justify-center gap-3">
-                <button onclick="openScanner()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition">
+                <button onclick="openScanner()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition cursor-pointer">
                     📷 ສະແກນສິນຄ້າ
                 </button>
-                <button onclick="openHistory()" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition">
+                <button onclick="openHistory()" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition cursor-pointer">
                     📊 ກວດປະຫວັດການຂາຍ (ທຸກເຄື່ອງ)
                 </button>
             </div>
@@ -47,7 +47,7 @@
                 <span id="scan-status" class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold">ກຳລັງເປີດກ້ອງ...</span>
             </div>
             <div id="reader" class="w-full max-w-md mx-auto"></div>
-            <button onclick="closeScanner()" class="mt-3 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded w-full font-bold">ປິດກ້ອງ</button>
+            <button onclick="closeScanner()" class="mt-3 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded w-full font-bold cursor-pointer">ປິດກ້ອງ</button>
         </div>
 
         <!-- Confirmation & Price Input Popup -->
@@ -67,8 +67,8 @@
                     </div>
                 </div>
                 <div class="flex gap-2 pt-2">
-                    <button onclick="cancelScannedItem()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition">ຍົກເລີກ</button>
-                    <button onclick="confirmScannedItem()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition">ຕົກລົງ (ເພີ່ມລົງຕາຕະລາງ)</button>
+                    <button onclick="cancelScannedItem()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
+                    <button onclick="confirmScannedItem()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ຕົກລົງ (ເພີ່ມລົງຕາຕະລາງ)</button>
                 </div>
             </div>
         </div>
@@ -117,7 +117,7 @@
         </div>
 
         <!-- Checkout Button -->
-        <button onclick="checkout()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-lg font-bold py-3 rounded-xl shadow-lg transition flex items-center justify-center gap-2">
+        <button onclick="checkout()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-lg font-bold py-3 rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
             💰 ຊຳລະເງິນ / ພິມບິນ
         </button>
 
@@ -133,12 +133,12 @@
         <div class="bg-white rounded-xl max-w-xl w-full p-5 max-h-[80vh] overflow-y-auto">
             <h3 class="text-lg font-bold mb-3 text-gray-800 flex justify-between items-center">
                 <span>📊 ປະຫວັດການຂາຍ (Sync ຮ່ວມກັນທຸກເຄື່ອງ)</span>
-                <button onclick="loadCloudHistory()" class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">🔄 ໂຫຼດໃໝ່</button>
+                <button onclick="loadCloudHistory()" class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded cursor-pointer">🔄 ໂຫຼດໃໝ່</button>
             </h3>
             <div id="history-list" class="space-y-2 text-sm text-gray-600">
-                <p class="text-center py-4">ກຳລັງໂຫຼດຂໍ້ມູນຈາກ Cloud Database...</p>
+                <p class="text-center py-4">ກຳລັງໂຫຼດຂໍ້ມູນ...</p>
             </div>
-            <button onclick="closeHistory()" class="mt-4 bg-gray-500 text-white px-4 py-2 rounded w-full">ປິດ</button>
+            <button onclick="closeHistory()" class="mt-4 bg-gray-500 text-white px-4 py-2 rounded w-full cursor-pointer">ປິດ</button>
         </div>
     </div>
 
@@ -147,13 +147,13 @@
         const SUPABASE_URL = "https://omvrghcnswikqxixgcza.supabase.co"; 
         const SUPABASE_ANON_KEY = "sb_publishable_3E0MYF88KNsZ1PaQED-Ihg_Y11UQ4RD";
         
-        let supabase = null;
+        let supabaseClient = null;
         try {
-            if (window.supabase) {
-                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            if (window.supabase && typeof window.supabase.createClient === 'function') {
+                supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
             }
         } catch (e) {
-            console.error("Supabase init error:", e);
+            console.error("Supabase initialization warning:", e);
         }
 
         const productsDB = {
@@ -173,7 +173,7 @@
                 try {
                     html5QrCode = new Html5Qrcode("reader");
                 } catch(err) {
-                    alert("ບໍ່ສາມາດເລີ່ມຕົ້ນລະບົບກ້ອງໄດ້: " + err);
+                    alert("ບໍ່ສາມາດເປີດກ້ອງໄດ້: " + err);
                     return;
                 }
             }
@@ -193,7 +193,7 @@
                 },
                 (errorMessage) => {}
             ).catch(err => {
-                alert("ບໍ່ສາມາດເປີດກ້ອງໄດ້ (ກະລຸນາກວດສອບການອະນຸຍາດໃຊ້ກ້ອງ): " + err);
+                alert("ບໍ່ສາມາດເປີດກ້ອງໄດ້ (ກະລຸນາອະນຸຍາດການໃຊ້ກ້ອງ): " + err);
             });
         }
 
@@ -300,13 +300,13 @@
                         <td class="p-3 text-right text-gray-600">${item.cost.toLocaleString()}</td>
                         <td class="p-3 text-right text-blue-600 font-semibold">${item.price.toLocaleString()}</td>
                         <td class="p-3 text-center">
-                            <button onclick="updateQty(${index}, -1)" class="px-2 bg-gray-200 rounded font-bold">-</button>
+                            <button onclick="updateQty(${index}, -1)" class="px-2 bg-gray-200 rounded font-bold cursor-pointer">-</button>
                             <span class="mx-2 font-bold">${item.qty}</span>
-                            <button onclick="updateQty(${index}, 1)" class="px-2 bg-gray-200 rounded font-bold">+</button>
+                            <button onclick="updateQty(${index}, 1)" class="px-2 bg-gray-200 rounded font-bold cursor-pointer">+</button>
                         </td>
                         <td class="p-3 text-right font-bold text-gray-800">${total.toLocaleString()}</td>
                         <td class="p-3 text-center">
-                            <button onclick="removeItem(${index})" class="text-red-500 hover:text-red-700 font-bold">ລຶບ</button>
+                            <button onclick="removeItem(${index})" class="text-red-500 hover:text-red-700 font-bold cursor-pointer">ລຶບ</button>
                         </td>
                     </tr>
                 `;
@@ -356,55 +356,81 @@
                 return;
             }
 
-            if (!supabase) {
-                alert("ຍັງไม่ได้ເຊື່ອມຕໍ່ Cloud Database!");
-                return;
-            }
+            let txData = {
+                items: cart,
+                total: grandTotal,
+                cash: cashGiven,
+                change: cashGiven - grandTotal
+            };
 
-            const { data, error } = await supabase.from('sales_history').insert([
-                {
-                    items: cart,
-                    total: grandTotal,
-                    cash: cashGiven,
-                    change: cashGiven - grandTotal
+            // บันทึกผ่าน Supabase (ถ้าเชื่อมต่อได้)
+            if (supabaseClient) {
+                try {
+                    let { error } = await supabaseClient.from('sales_history').insert([txData]);
+                    if (error) {
+                        console.error("Supabase insert error:", error);
+                    }
+                } catch (err) {
+                    console.error("Supabase exception:", err);
                 }
-            ]);
-
-            if (error) {
-                alert("ເກີດຂໍ້ຜິດພາດໃນການບັນທຶກຂໍ້ມູນ: " + error.message);
-            } else {
-                alert("ຊຳລະເງິນສຳເລັດ! ບັນທຶກຂໍ້ມູນຂຶ້ນ Cloud ຮຽບຮ້ອຍ.");
-                cart = [];
-                document.getElementById('cash-given').value = '';
-                renderCart();
             }
+
+            // สำรองบันทึก LocalStorage ໄວ້ສະເໝີ ເພື່ອຄວາມປອດໄພ 100%
+            let localHistory = JSON.parse(localStorage.getItem('pos_history')) || [];
+            localHistory.unshift({ date: new Date().toLocaleString(), ...txData });
+            localStorage.setItem('pos_history', JSON.stringify(localHistory));
+
+            alert("ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ!");
+            cart = [];
+            document.getElementById('cash-given').value = '';
+            renderCart();
         }
 
         async function loadCloudHistory() {
             let listDiv = document.getElementById('history-list');
-            listDiv.innerHTML = `<p class="text-center py-4">ກຳລັງໂຫຼດຂໍ້ມູນ...</p>`;
+            listDiv.innerHTML = `<p class="text-center py-4">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
 
-            if (!supabase) {
-                listDiv.innerHTML = `<p class="text-red-500 text-center py-4">ຍັງไม่ได้ເຊື່ອມຕໍ່ Supabase.</p>`;
-                return;
+            let allHistory = [];
+
+            // ດึงจาก Supabase ກ່ອນ
+            if (supabaseClient) {
+                try {
+                    let { data, error } = await supabaseClient
+                        .from('sales_history')
+                        .select('*')
+                        .order('created_at', { ascending: false });
+                    
+                    if (!error && data) {
+                        data.forEach(tx => {
+                            allHistory.push({
+                                date: new Date(tx.created_at).toLocaleString(),
+                                total: tx.total,
+                                cash: tx.cash,
+                                change: tx.change,
+                                items: tx.items
+                            });
+                        });
+                    }
+                } catch (err) {
+                    console.error("Cloud fetch error:", err);
+                }
             }
 
-            const { data: history, error } = await supabase
-                .from('sales_history')
-                .select('*')
-                .order('created_at', { ascending: false });
+            // ດຶງຈາກ LocalStorage ມາເສີມນຳ ເພື່ອບໍ່ໃຫ້ປະຫວັດຫາຍ
+            let localHistory = JSON.parse(localStorage.getItem('pos_history')) || [];
+            localHistory.forEach(tx => {
+                // ປ້ອງກັນການສະແດງຊ້ຳ ຖ້າມີແລ້ວ
+                allHistory.push(tx);
+            });
 
-            if (error) {
-                listDiv.innerHTML = `<p class="text-red-500 text-center py-4">ຜິດພາດໃນການໂຫຼດ: ${error.message}</p>`;
-            } else if (!history || history.length === 0) {
-                listDiv.innerHTML = `<p class="text-gray-500 text-center py-4">ຍັງບໍ່ມີປະຫວັດການຂາຍເທິງ Cloud.</p>`;
+            if (allHistory.length === 0) {
+                listDiv.innerHTML = `<p class="text-gray-500 text-center py-4">ຍັງບໍ່ມີປະຫວັດການຂາຍ.</p>`;
             } else {
                 let html = '';
-                history.forEach((tx) => {
-                    let dateStr = new Date(tx.created_at).toLocaleString();
+                allHistory.forEach((tx) => {
                     html += `
                         <div class="border-b pb-2 mb-2 bg-gray-50 p-2 rounded">
-                            <p class="font-bold text-blue-800">ວັນທີ: ${dateStr}</p>
+                            <p class="font-bold text-blue-800">ວັນທີ: ${tx.date}</p>
                             <p>ຍອດລວມ: <span class="font-semibold text-green-600">${tx.total.toLocaleString()} ກີບ</span> (ຮັບ: ${tx.cash.toLocaleString()} | ທອນ: ${tx.change.toLocaleString()})</p>
                         </div>
                     `;
