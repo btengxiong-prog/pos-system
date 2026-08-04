@@ -55,14 +55,14 @@
                 <div class="text-3xl text-center">📦</div>
                 <h3 class="text-xl font-bold text-gray-800 text-center">ກຳນົດຂໍ້ມູນສິນຄ້າ</h3>
                 <div id="confirm-details" class="bg-gray-50 p-4 rounded-xl text-left text-sm space-y-3 border">
-                    <p><b>ລະຫັດ QR/Barcode:</b> <span id="modal-code" class="text-blue-600 font-bold"></span></p>
+                    <p><b>ຂໍ້ມູນດິບຈາກ QR:</b> <span id="modal-code" class="text-blue-600 font-bold text-xs break-all"></span></p>
                     <div>
                         <label class="block font-semibold text-gray-700 mb-1">ຊື່ສິນຄ້າ:</label>
                         <input type="text" id="modal-name" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" placeholder="ປ້ອນຊື່ສິນຄ້າ">
                     </div>
                     <div>
                         <label class="block font-semibold text-gray-700 mb-1">ລາຄາຂາຍ (ກີບ):</label>
-                        <input type="number" id="modal-price" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-right font-bold text-green-600" placeholder="ຕົວຢ່າງ: 10000">
+                        <input type="number" id="modal-price" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-right font-bold text-green-600 text-lg" placeholder="ຕົວຢ່າງ: 193000">
                     </div>
                 </div>
                 <div class="flex gap-2 pt-2">
@@ -107,7 +107,7 @@
             </div>
             <div class="flex justify-between items-center text-gray-700">
                 <span class="font-medium">ຈຳນວນເງິນທີ່ລູກຄ້າຈ່າຍຕົວຈິງ:</span>
-                <input type="number" id="cash-given" oninput="calculateChange()" placeholder="ຕົວຢ່າງ: 50,000" class="border rounded-lg px-3 py-1.5 text-right w-48 focus:ring-2 focus:ring-blue-500 outline-none">
+                <input type="number" id="cash-given" oninput="calculateChange()" placeholder="ຕົວຢ່າງ: 200,000" class="border rounded-lg px-3 py-1.5 text-right w-48 focus:ring-2 focus:ring-blue-500 outline-none">
             </div>
             <div class="flex justify-between items-center text-lg font-bold text-gray-800 border-t pt-2">
                 <span>ເງິນທອນ:</span>
@@ -140,7 +140,6 @@
 
     <!-- JavaScript Logic -->
     <script>
-        // ฐานຂໍ້ມູນສິນຄ້າເບื้องຕົ້ນ (ສາມາດເພີ່ມລະຫັດ ແລະ ລາຄາຕື່ມໄດ້ທີ່ນີ້)
         const productsDB = {
             "8851019050016": { name: "ນ້ຳດື່ມຫົວເສືອ", cost: 3000, price: 5000 },
             "8850999012345": { name: "ມາມ້າ ລົດດັ້ງເດີມ", cost: 4000, price: 6000 },
@@ -170,7 +169,6 @@
                     lastScannedCode = decodedText;
                     lastScanTime = currentTime;
 
-                    // ສະແດງປັອບອັບໃຫ້ກວດສອບ ຫຼື ປ້ອນລາຄາ
                     showConfirmModal(decodedText);
                 },
                 (errorMessage) => {}
@@ -179,13 +177,35 @@
             });
         }
 
-        function showConfirmModal(code) {
-            tempScannedCode = code;
-            let product = productsDB[code] || { name: "ສິນຄ້າລະຫັດ: " + code, cost: 0, price: 10000 };
+        function showConfirmModal(text) {
+            tempScannedCode = text;
             
-            document.getElementById('modal-code').innerText = code;
-            document.getElementById('modal-name').value = product.name;
-            document.getElementById('modal-price').value = product.price;
+            let parsedName = "ສິນຄ້າສະແກນ";
+            let parsedPrice = 0;
+
+            // ພະຍາຍາມແຍກຊື່ ແລະ ລາຄາ ຈາກຂໍ້ຄວາມໃນ QR ທີ່ຖືກສະແກນອອກມາ
+            // ຕົວຢ່າງ: "ຊື່ສິນຄ້າ: P001 ລາຄາສິນຄ້າ: 193,000"
+            if (text.includes("ລາຄາ")) {
+                let parts = text.split(/ລາຄາ[^\d]*[:]/);
+                if (parts.length > 1) {
+                    let priceStr = parts[1].replace(/[^0-9]/g, '');
+                    parsedPrice = parseInt(priceStr) || 0;
+                }
+                let nameParts = text.split(/ລາຄາ/)[0].replace('ຊື່ສິນຄ້າ:', '').trim();
+                if (nameParts) parsedName = nameParts;
+            } else if (productsDB[text]) {
+                parsedName = productsDB[text].name;
+                parsedPrice = productsDB[text].price;
+            } else {
+                // ຖ້າເປັນລະຫັດທຳມະດາ ໃຫ້ດຶງຕົວເລກທັງໝົດ ຫຼື ຕັ້ງຄ່າເລີ່ມຕົ້ນ
+                parsedName = "ສິນຄ້າລະຫັດ: " + text;
+                let numCheck = parseInt(text.replace(/[^0-9]/g, ''));
+                parsedPrice = (numCheck > 1000) ? numCheck : 10000;
+            }
+
+            document.getElementById('modal-code').innerText = text;
+            document.getElementById('modal-name').value = parsedName;
+            document.getElementById('modal-price').value = parsedPrice > 0 ? parsedPrice : "";
             
             document.getElementById('confirm-modal').classList.remove('hidden');
         }
@@ -198,9 +218,6 @@
                 alert("ກະລຸນາປ້ອນຊື່ສິນຄ້າ!");
                 return;
             }
-
-            // ບັນທຶກລົງ DB ຖ້າເປັນສິນຄ້າໃໝ່ ເພື່ອຈື່ໄວ້ໃຊ້ງານຄັ້ງຕໍ່ໄປ
-            productsDB[tempScannedCode] = { name: nameInput, cost: 0, price: priceInput };
 
             // ເພີ່ມລົງກະຕ່າລຽງລົງໄປ
             let existing = cart.find(item => item.code === tempScannedCode);
