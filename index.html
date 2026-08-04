@@ -505,24 +505,32 @@
                 parsedPrice = productsDB[text].price;
                 parsedCost = productsDB[text].cost;
             } else {
-                // 2. ຄົ້ນຫາ Barcode ຈາກ localStorage (pos_excel_rows) ຢ່າງຖືກຕ້ອງຮອງຮັບທຸກ Property
+                // 2. ຄົ້ນຫາ Barcode ຈາກ localStorage (pos_excel_rows) ຢ່າງแม่ນຍຳ
                 let savedRows = localStorage.getItem('pos_excel_rows');
                 let foundItem = null;
                 if (savedRows) {
                     try {
                         let rows = JSON.parse(savedRows);
-                        foundItem = rows.find(r => 
-                            (r.name && r.name.trim().toLowerCase() === text.trim().toLowerCase()) ||
-                            (r.code && r.code.trim().toLowerCase() === text.trim().toLowerCase()) ||
-                            (r.itemName && r.itemName.trim().toLowerCase() === text.trim().toLowerCase())
-                        );
+                        let cleanText = text.trim().toLowerCase();
+                        foundItem = rows.find(r => {
+                            let rName = r.name ? String(r.name).trim().toLowerCase() : "";
+                            let rCode = r.code ? String(r.code).trim().toLowerCase() : "";
+                            let rItemName = r.itemName ? String(r.itemName).trim().toLowerCase() : "";
+                            return (rName && rName === cleanText) || (rCode && rCode === cleanText) || (rItemName && rItemName === cleanText);
+                        });
                     } catch(e) {}
                 }
 
                 if (foundItem) {
-                    parsedName = foundItem.name || foundItem.itemName || text;
-                    parsedCost = parseFloat(foundItem.cost) || 0;
-                    parsedPrice = parseFloat(foundItem.price) || 0;
+                    parsedName = foundItem.name || foundItem.itemName || foundItem.code || text;
+                    // ແປງຄ່າລາຄາຊື້-ຂາຍທີ່ອາດຈະເປັນ string ໃຫ້ເປັນ number ຢ່າງຖືກຕ້ອງ
+                    let rawCost = foundItem.cost;
+                    if (typeof rawCost === 'string') rawCost = rawCost.replace(/[^0-9.]/g, '');
+                    parsedCost = parseFloat(rawCost) || 0;
+
+                    let rawPrice = foundItem.price;
+                    if (typeof rawPrice === 'string') rawPrice = rawPrice.replace(/[^0-9.]/g, '');
+                    parsedPrice = parseFloat(rawPrice) || 0;
                 } else {
                     parsedName = text;
                     parsedCost = 0;
