@@ -467,7 +467,6 @@
             });
         }
 
-        // ຟັງຊັນ showConfirmModal ທີ່ປັບປຸງໃໝ່ - ສາມາດອ່ານຂໍ້ມູນໄດ້ຫຼາຍຮູບແບບ
         function showConfirmModal(text) {
             tempScannedCode = text;
             
@@ -475,170 +474,61 @@
             let parsedPrice = 0;
             let parsedCost = 0;
 
-            // ລ້າງຊ່ອງຫວ່າງ ແລະ ແຍກບັນທັດ
-            let cleanText = text.trim();
-            let lines = cleanText.split(/\n/).map(line => line.trim()).filter(line => line.length > 0);
-            
-            console.log("QR Code lines:", lines); // ໃຊ້ສຳລັບ Debug
+            // 1. ກວດສອບ QR Code ແບບເກົ່າที่มีข้อความกำกับ (ຮັກສາໄວ້ 100% ບໍ່ໃຫ້ຖືກກວນ)
+            if (text.includes("ລາຄາຂາຍ") || text.includes("ລາຄາຊື້")) {
+                let lines = text.split(/\r?\n/);
+                for (let line of lines) {
+                    let cleanLine = line.trim();
+                    if (cleanLine.includes("ລາຄາຂາຍ")) {
+                        let numStr = cleanLine.replace(/[^0-9]/g, '');
+                        parsedPrice = parseInt(numStr) || 0;
+                    } else if (cleanLine.includes("ລາຄາຊື້")) {
+                        let numStr = cleanLine.replace(/[^0-9]/g, '');
+                        parsedCost = parseInt(numStr) || 0;
+                    } else if (!cleanLine.includes("ກີບ") && cleanLine.length > 0) {
+                        parsedName = cleanLine;
+                    }
+                }
+            } else if (text.includes("ລາຄາ")) {
+                let pricePart = text.split(/ລາຄາ[^\d]*[:]/)[1] || text;
+                let priceStr = pricePart.replace(/[^0-9]/g, '');
+                parsedPrice = parseInt(priceStr) || 0;
+                parsedCost = 0;
 
-            // ກວດສອບຮູບແບບທີ່ມີຫຼາຍບັນທັດ
-            if (lines.length >= 3) {
-                // ດຶງຂໍ້ມູນຈາກແຕ່ລະບັນທັດ
-                lines.forEach(line => {
-                    // ກວດສອບຊື່ສິນຄ້າ
-                    if (line.match(/^(ຊື່ສິນຄ້າ|ຊື່|Name|Product)/i)) {
-                        let nameMatch = line.match(/^(ຊື່ສິນຄ້າ:|ຊື່:|Name:|Product:)\s*(.+)/i);
-                        if (nameMatch) {
-                            parsedName = nameMatch[2].trim();
-                        } else {
-                            // ຖ້າບໍ່ມີຄຳນຳໜ້າ ໃຫ້ໃຊ້ທັງບັນທັດ
-                            parsedName = line;
-                        }
-                    }
-                    // ກວດສອບລາຄາຊື້
-                    else if (line.match(/ລາຄາຊື້|Cost|cost/i)) {
-                        let costMatch = line.match(/(\d+[\d,.]*)/);
-                        if (costMatch) {
-                            parsedCost = parseFloat(costMatch[1].replace(/,/g, '')) || 0;
-                        }
-                    }
-                    // ກວດສອບລາຄາຂາຍ
-                    else if (line.match(/ລາຄາຂາຍ|Price|price/i)) {
-                        let priceMatch = line.match(/(\d+[\d,.]*)/);
-                        if (priceMatch) {
-                            parsedPrice = parseFloat(priceMatch[1].replace(/,/g, '')) || 0;
-                        }
-                    }
-                });
-
-                // ຖ້າຍັງບໍ່ມີຊື່ ໃຫ້ໃຊ້ບັນທັດທຳອິດ
-                if (parsedName === text) {
-                    let firstLine = lines[0] || text;
-                    // ຖ້າບັນທັດທຳອິດບໍ່ແມ່ນຂໍ້ມູນລາຄາ
-                    if (!firstLine.match(/ລາຄາ|Price|Cost|cost/)) {
-                        parsedName = firstLine;
-                    }
+                let namePart = text.split(/ລາຄາ/)[0];
+                namePart = namePart.replace('ຊື່ສິນຄ້າ:', '').replace('ຊື່:', '').trim();
+                if (namePart) {
+                    parsedName = namePart;
                 }
-            }
-            // ກວດສອບຮູບແບບທີ່ມີພຽງບັນທັດດຽວ ແຕ່ມີຂໍ້ມູນຫຼາຍ
-            else if (lines.length === 1) {
-                let singleLine = lines[0];
-                
-                // ກວດສອບຮູບແບບ "ຊື່ສິນຄ້າ: ຊື່, ລາຄາຊື້: 1000, ລາຄາຂາຍ: 2000"
-                if (singleLine.includes(':') && (singleLine.includes('ລາຄາ') || singleLine.includes('Price') || singleLine.includes('Cost'))) {
-                    // ແຍກຂໍ້ມູນດ້ວຍເຄື່ອງໝາຍວັກຕອນຕ່າງໆ
-                    let parts = singleLine.split(/[,;:|\t]+/);
-                    
-                    parts.forEach(part => {
-                        part = part.trim();
-                        if (part.match(/ຊື່|Name|Product/i) && !part.match(/ລາຄາ|Price|Cost/i)) {
-                            let nameMatch = part.match(/^(ຊື່ສິນຄ້າ|ຊື່|Name|Product):?\s*(.+)/i);
-                            if (nameMatch) {
-                                parsedName = nameMatch[2].trim();
-                            } else {
-                                parsedName = part;
-                            }
-                        }
-                        if (part.match(/ລາຄາຊື້|Cost|cost/i)) {
-                            let costMatch = part.match(/(\d+[\d,.]*)/);
-                            if (costMatch) {
-                                parsedCost = parseFloat(costMatch[1].replace(/,/g, '')) || 0;
-                            }
-                        }
-                        if (part.match(/ລາຄາຂາຍ|Price|price/i)) {
-                            let priceMatch = part.match(/(\d+[\d,.]*)/);
-                            if (priceMatch) {
-                                parsedPrice = parseFloat(priceMatch[1].replace(/,/g, '')) || 0;
-                            }
-                        }
-                    });
-                }
-                // ກວດສອບຮູບແບບທີ່ມີເຄື່ອງໝາຍຈຸດ ຫຼື ຍີ່ຫໍ້
-                else if (singleLine.includes(',') || singleLine.includes('\t')) {
-                    let parts = singleLine.split(/[,\t]+/);
-                    // ຖ້າມີ 3 ສ່ວນ: ຊື່, ລາຄາຊື້, ລາຄາຂາຍ
-                    if (parts.length >= 3) {
-                        parsedName = parts[0].trim();
-                        // ກວດສອບວ່າ 2 ຕົວສຸດທ້າຍເປັນຕົວເລກ
-                        let lastTwo = parts.slice(-2);
-                        let costVal = parseFloat(lastTwo[0].replace(/,/g, '')) || 0;
-                        let priceVal = parseFloat(lastTwo[1].replace(/,/g, '')) || 0;
-                        // ຖ້າທັງສອງເປັນຕົວເລກ
-                        if (costVal > 0 && priceVal > 0) {
-                            parsedCost = costVal;
-                            parsedPrice = priceVal;
-                        }
-                    }
-                }
-                // ກວດສອບຮູບແບບ "ຊື່ - ລາຄາຊື້ - ລາຄາຂາຍ"
-                else if (singleLine.includes('-')) {
-                    let parts = singleLine.split('-').map(p => p.trim());
-                    if (parts.length >= 3) {
-                        parsedName = parts[0];
-                        let costVal = parseFloat(parts[1].replace(/[^0-9.]/g, '')) || 0;
-                        let priceVal = parseFloat(parts[2].replace(/[^0-9.]/g, '')) || 0;
-                        if (costVal > 0 && priceVal > 0) {
-                            parsedCost = costVal;
-                            parsedPrice = priceVal;
-                        }
-                    }
-                }
-            }
-
-            // ຖ້າຍັງບໍ່ມີຂໍ້ມູນ ໃຫ້ກວດສອບໃນ productsDB ແລະ excelRows
-            if (parsedPrice === 0 && parsedCost === 0) {
-                // ລອງກວດສອບຈາກ excelRows
+            } else if (productsDB[text]) {
+                parsedName = productsDB[text].name;
+                parsedPrice = productsDB[text].price;
+                parsedCost = productsDB[text].cost;
+            } else {
+                // 2. ສ່ວນ Barcode / ລະຫັດສິນຄ້າ: ຄົ້ນຫາໃນ localStorage (pos_excel_rows)
                 let savedRows = localStorage.getItem('pos_excel_rows');
+                let foundItem = null;
                 if (savedRows) {
                     try {
                         let rows = JSON.parse(savedRows);
-                        // ຄົ້ນຫາຈາກທັງຊື່ ແລະ ລະຫັດ
-                        let foundItem = rows.find(r => 
-                            r.name && (r.name.trim().toLowerCase() === text.trim().toLowerCase() || 
-                                      text.trim().toLowerCase().includes(r.name.trim().toLowerCase()))
-                        );
-                        if (foundItem) {
-                            parsedName = foundItem.name;
-                            parsedCost = foundItem.cost || 0;
-                            parsedPrice = foundItem.price || 0;
-                        }
-                    } catch(e) {
-                        console.error("Error parsing excel rows:", e);
-                    }
+                        // ຄົ້ນຫາຊື່/ລະຫັດທີ່ກົງກັນ (ບໍ່ສົນຕົວພິມໃຫຍ່-ນ້ອຍ)
+                        foundItem = rows.find(r => r.name && r.name.trim().toLowerCase() === text.trim().toLowerCase());
+                    } catch(e) {}
                 }
 
-                // ຖ້າຍັງບໍ່ເຫັນ ໃຫ້ກວດສອບຈາກ productsDB
-                if (parsedPrice === 0 && parsedCost === 0) {
-                    // ລອງກວດສອບທັງຊື່ ແລະ ລະຫັດ
-                    for (let [key, value] of Object.entries(productsDB)) {
-                        if (text.includes(key) || text.includes(value.name)) {
-                            parsedName = value.name;
-                            parsedCost = value.cost || 0;
-                            parsedPrice = value.price || 0;
-                            break;
-                        }
-                    }
+                if (foundItem) {
+                    parsedName = foundItem.name;
+                    parsedCost = foundItem.cost || 0;
+                    parsedPrice = foundItem.price || 0;
+                } else {
+                    parsedName = text;
+                    parsedCost = 0;
+                    parsedPrice = 0;
                 }
             }
 
-            // ກວດສອບວ່າມີຕົວເລກໃນຂໍ້ມູນດິບ ຖ້າຍັງບໍ່ມີລາຄາ
-            if (parsedPrice === 0 && parsedCost === 0) {
-                // ລອງຄົ້ນຫາຕົວເລກທັງໝົດໃນຂໍ້ມູນ
-                let allNumbers = text.match(/\d+[\d,.]*/g);
-                if (allNumbers && allNumbers.length >= 2) {
-                    let nums = allNumbers.map(n => parseFloat(n.replace(/,/g, '')) || 0);
-                    // ສົມມຸດວ່າຄ່ານ້ອຍກວ່າເປັນລາຄາຊື້ ແລະ ຄ່າໃຫຍ່ກວ່າເປັນລາຄາຂາຍ
-                    let sorted = [...nums].sort((a, b) => a - b);
-                    if (sorted.length >= 2) {
-                        parsedCost = sorted[0];
-                        parsedPrice = sorted[1];
-                    }
-                }
-            }
-
-            // ຕັ້ງຄ່າໃສ່ Modal
             document.getElementById('modal-code').innerText = text;
-            document.getElementById('modal-name').value = parsedName || text;
+            document.getElementById('modal-name').value = parsedName;
             document.getElementById('modal-cost').value = parsedCost > 0 ? parsedCost : "";
             document.getElementById('modal-price').value = parsedPrice > 0 ? parsedPrice : "";
             
@@ -1277,7 +1167,6 @@
                         let qrDiv = document.getElementById(`excel-qrcode-${index}`);
                         if (qrDiv) {
                             qrDiv.innerHTML = "";
-                            // ສ້າງຂໍ້ມູນ QR Code ໃຫ້ຄົບຖ້ວນ
                             let qrData = `ຊື່ສິນຄ້າ: ${row.name}\nລາຄາຊື້: ${row.cost} ກີບ\nລາຄາຂາຍ: ${row.price} ກີບ`;
                             let canvas = document.createElement('canvas');
                             QRCode.toCanvas(canvas, qrData, { width: 120, margin: 1 }, function (error) {
