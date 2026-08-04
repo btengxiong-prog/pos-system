@@ -628,24 +628,30 @@
             renderCart();
         }
 
-        function parseTxDate(dateStr) {
-            if (!dateStr) return new Date(NaN);
-            let d = new Date(dateStr);
-            if (!isNaN(d.getTime())) return d;
-
+        // ຟັງຊັນສຳລັບສະກັດເອົາ (ວັນ, ເດືອນ, ປີ) ຈາກຂໍ້ຄວາມວັນທີແບບ "4/8/2026, 14:19:49" ໂດຍກົງ
+        function extractDayMonthYear(dateStr) {
+            if (!dateStr) return null;
             try {
+                // ຖ້າເປັນ ISO string ຫລື Standard Date
+                let d = new Date(dateStr);
+                if (!isNaN(d.getTime())) {
+                    return {
+                        day: d.getDate(),
+                        month: d.getMonth() + 1,
+                        year: d.getFullYear()
+                    };
+                }
+                // ຖ້າເປັນ string ຈາກ toLocaleString() ເຊັ່ນ "4/8/2026, 14:19:49"
                 let parts = dateStr.split(/[\/,:\s]+/);
                 if (parts.length >= 3) {
-                    let day = parseInt(parts[0]);
-                    let month = parseInt(parts[1]) - 1;
-                    let year = parseInt(parts[2]);
-                    let hour = parts[3] ? parseInt(parts[3]) : 0;
-                    let minute = parts[4] ? parseInt(parts[4]) : 0;
-                    let second = parts[5] ? parseInt(parts[5]) : 0;
-                    return new Date(year, month, day, hour, minute, second);
+                    return {
+                        day: parseInt(parts[0]),
+                        month: parseInt(parts[1]),
+                        year: parseInt(parts[2])
+                    };
                 }
             } catch (e) {}
-            return new Date(NaN);
+            return null;
         }
 
         async function loadCloudHistory() {
@@ -831,29 +837,27 @@
             let finalFiltered = [];
 
             if (type === 'monthly') {
-                let m = parseInt(document.getElementById('report-month').value);
+                let targetMonth = parseInt(document.getElementById('report-month').value);
                 finalFiltered = reportAllData.filter(tx => {
-                    let d = parseTxDate(tx.createdAt);
-                    if (isNaN(d.getTime())) return false;
-                    return d.getFullYear() === selectedYear && (d.getMonth() + 1) === m;
+                    let ymd = extractDayMonthYear(tx.createdAt);
+                    if (!ymd) return false;
+                    return ymd.year === selectedYear && ymd.month === targetMonth;
                 });
             } else if (type === 'quarterly') {
                 let q = parseInt(document.getElementById('report-quarter').value);
                 let startMonth = (q - 1) * 3 + 1;
                 let endMonth = q * 3;
                 finalFiltered = reportAllData.filter(tx => {
-                    let d = parseTxDate(tx.createdAt);
-                    if (isNaN(d.getTime())) return false;
-                    let month = d.getMonth() + 1;
-                    return d.getFullYear() === selectedYear && month >= startMonth && month <= endMonth;
+                    let ymd = extractDayMonthYear(tx.createdAt);
+                    if (!ymd) return false;
+                    return ymd.year === selectedYear && ymd.month >= startMonth && ymd.month <= endMonth;
                 });
             } else if (type === 'duration') {
                 let maxMonths = parseInt(document.getElementById('report-duration-months').value);
                 finalFiltered = reportAllData.filter(tx => {
-                    let d = parseTxDate(tx.createdAt);
-                    if (isNaN(d.getTime())) return false;
-                    let month = d.getMonth() + 1;
-                    return d.getFullYear() === selectedYear && month >= 1 && month <= maxMonths;
+                    let ymd = extractDayMonthYear(tx.createdAt);
+                    if (!ymd) return false;
+                    return ymd.year === selectedYear && ymd.month >= 1 && ymd.month <= maxMonths;
                 });
             }
 
