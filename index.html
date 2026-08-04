@@ -116,12 +116,20 @@
 
         <!-- Summary & Calculation -->
         <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 shadow mb-6 space-y-3">
+            <div class="flex justify-between items-center text-base font-semibold text-gray-700">
+                <span>ລວມຍອດຊື້:</span>
+                <span id="grand-total-cost" class="text-blue-700 text-lg">0 ກີບ</span>
+            </div>
             <div class="flex justify-between items-center text-lg font-bold text-gray-800">
-                <span>ຍອດລວມຂາຍທັງໝົດ:</span>
+                <span>ລວມຍອດຂາຍ:</span>
                 <span id="grand-total" class="text-green-600 text-xl">0 ກີບ</span>
             </div>
-            <div class="flex justify-between items-center text-gray-700">
-                <span class="font-medium">ຈຳນວນເງິນທີ່ລູກຄ້າຈ່າຍຕົວຈິງ (ຖ້າມີທອນ):</span>
+            <div class="flex justify-between items-center text-base font-bold text-gray-800 border-t pt-2">
+                <span>ກຳໄລເບື້ອງຕົ້ນ (ຂາຍ - ຊື້):</span>
+                <span id="grand-total-profit" class="text-emerald-700 text-lg">0 ກີບ</span>
+            </div>
+            <div class="flex justify-between items-center text-gray-700 border-t pt-2">
+                <span class="font-medium">ເງິນລູກຄ້າຈ່າຍ (ຖ້າມີທອນ):</span>
                 <input type="number" id="cash-given" oninput="calculateChange()" placeholder="ບໍ່ຈຳເປັນຕ້ອງປ້ອນ ຖ້າຈ່າຍພໍດີ" class="border rounded-lg px-3 py-1.5 text-right w-52 focus:ring-2 focus:ring-blue-500 outline-none">
             </div>
             <div class="flex justify-between items-center text-lg font-bold text-gray-800 border-t pt-2">
@@ -303,7 +311,6 @@
             let parsedPrice = 0;
             let parsedCost = 0;
 
-            // ຈັດການແຍກຂໍ້ຄວາມຈາກ QR ທີ່ຮູບແບບມີ "ລາຄາຊື້:" ແລະ "ລາຄາຂາຍ:"
             if (text.includes("ລາຄາຂາຍ") || text.includes("ລາຄາຊື້")) {
                 let lines = text.split(/\r?\n/);
                 for (let line of lines) {
@@ -318,7 +325,6 @@
                         parsedName = cleanLine;
                     }
                 }
-                // ຖ້າຊື່ຍັງເປັນຄ່າເລີ່ມຕົ້ນ ໃຫ້ເອົາบรรทัดแรกสุด
                 if (parsedName === "ສິນຄ້າສະແກນ" && lines.length > 0 && lines[0].trim() !== "") {
                     parsedName = lines[0].trim();
                 }
@@ -408,16 +414,23 @@
             let tbody = document.getElementById('cart-items');
             if (cart.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ (ກະລຸນາກົດສະແກນສິນຄ້າ)</td></tr>`;
+                document.getElementById('grand-total-cost').innerText = "0 ກີບ";
                 document.getElementById('grand-total').innerText = "0 ກີບ";
+                document.getElementById('grand-total-profit').innerText = "0 ກີບ";
                 document.getElementById('change-amount').innerText = "0 ກີບ";
                 return;
             }
 
             let html = '';
             let grandTotal = 0;
+            let grandTotalCost = 0;
+
             cart.forEach((item, index) => {
                 let total = item.price * item.qty;
+                let totalCost = item.cost * item.qty;
                 grandTotal += total;
+                grandTotalCost += totalCost;
+
                 html += `
                     <tr class="hover:bg-gray-50 border-b">
                         <td class="p-3 font-medium text-gray-800">${item.name}</td>
@@ -435,8 +448,13 @@
                     </tr>
                 `;
             });
+
+            let grandTotalProfit = grandTotal - grandTotalCost;
+
             tbody.innerHTML = html;
+            document.getElementById('grand-total-cost').innerText = grandTotalCost.toLocaleString() + " ກີບ";
             document.getElementById('grand-total').innerText = grandTotal.toLocaleString() + " ກີບ";
+            document.getElementById('grand-total-profit').innerText = grandTotalProfit.toLocaleString() + " ກີບ";
             calculateChange();
         }
 
