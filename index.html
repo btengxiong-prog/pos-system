@@ -42,9 +42,6 @@
                 <button onclick="openExcelGenerator('qr')" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition cursor-pointer">
                     📱 ສ້າງ QR Code
                 </button>
-                <button onclick="openExcelGenerator('barcode')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition cursor-pointer">
-                    🖨️ ສ້າງ Barcode
-                </button>
             </div>
         </div>
     </header>
@@ -291,7 +288,7 @@
         <div class="bg-white rounded-xl max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
                 <h3 id="excel-modal-title" class="text-xl font-bold text-gray-800 flex items-center gap-2">
-                    <span>📊 ຕາຕະລາງສ້າງລະຫັດສິນຄ້າແບບ Excel</span>
+                    <span>📊 ຕາຕະລາງສ້າງ QR Code ສິນຄ້າ</span>
                 </h3>
                 <div class="flex items-center gap-2">
                     <button onclick="addExcelRow()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer">+ ເພີ່ມແຖວ</button>
@@ -333,7 +330,7 @@
                     💾 ບັນທຶກຂໍ້ມູນ
                 </button>
                 <button onclick="generateExcelCodes()" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">
-                    ⚙️ ສ້າງລະຫັດທັງໝົດໃນຕາຕະລາງ
+                    ⚙️ ສ້າງ QR Code ທັງໝົດ
                 </button>
                 <button onclick="closeExcelGenerator()" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 px-6 rounded-xl transition cursor-pointer">ປິດ</button>
             </div>
@@ -378,7 +375,6 @@
         let lastScannedCode = "";
         let lastScanTime = 0;
         let globalHistoryList = []; 
-        let currentActiveCodeType = 'qr'; 
         let excelRows = []; 
 
         function showAlert(title, message, icon = "✅") {
@@ -474,7 +470,6 @@
             let parsedPrice = 0;
             let parsedCost = 0;
 
-            // 1. ກວດສອບ QR Code ແບບເກົ່າທີ່ມີຂໍ້ຄວາມກຳກັບ
             if (text.includes("ລາຄາຂາຍ") || text.includes("ລາຄາຊື້")) {
                 let lines = text.split(/\r?\n/);
                 for (let line of lines) {
@@ -505,7 +500,6 @@
                 parsedPrice = productsDB[text].price;
                 parsedCost = productsDB[text].cost;
             } else {
-                // 2. ດຶງຂໍ້ມູນຈາກ localStorage (pos_excel_rows) ຢ່າງຖືກຕ້ອງສົມບູນ
                 let savedRows = localStorage.getItem('pos_excel_rows');
                 let foundItem = null;
                 if (savedRows) {
@@ -518,12 +512,8 @@
 
                 if (foundItem) {
                     parsedName = foundItem.name || text;
-                    
-                    // ດຶງຄ່າ cost ໂດຍກົງຈາກ localStorage
-                    parsedCost = parseFloat(foundItem.cost) || 0;
-
-                    // ດຶງຄ່າ price ໂດຍກົງຈາກ localStorage
-                    parsedPrice = parseFloat(foundItem.price) || 0;
+                    parsedCost = parseFloat(String(foundItem.cost || 0).replace(/[^0-9.]/g, '')) || 0;
+                    parsedPrice = parseFloat(String(foundItem.price || 0).replace(/[^0-9.]/g, '')) || 0;
                 } else {
                     parsedName = text;
                     parsedCost = 0;
@@ -977,15 +967,10 @@
             document.getElementById('rep-total-profit').innerText = sumProfit.toLocaleString() + " ກີບ";
         }
 
-        // Functions for Excel-like Code Generator Modal
+        // Functions for QR Code Generator Modal
         function openExcelGenerator(type) {
-            currentActiveCodeType = type;
             let titleSpan = document.getElementById('excel-modal-title').querySelector('span');
-            if (type === 'qr') {
-                titleSpan.innerText = "📱 ຕາຕະລາງສ້າງ QR Code ສິນຄ້າ";
-            } else {
-                titleSpan.innerText = "🖨️ ຕາຕະລາງສ້າງ Barcode ສິນຄ້າ";
-            }
+            titleSpan.innerText = "📱 ຕາຕະລາງສ້າງ QR Code ສິນຄ້າ";
             
             let savedRows = localStorage.getItem('pos_excel_rows');
             if (savedRows) {
@@ -1053,7 +1038,6 @@
             } else if (field === 'price') {
                 excelRows[index].price = parseFloat(value) || 0;
             }
-            // ບັນທຶກລົງ localStorage ທັນທີອັດຕະໂນມັດທຸກຄັ້ງที่มีການພິມ
             saveExcelData(true);
         }
 
@@ -1129,7 +1113,6 @@
                 return;
             }
 
-            // ບັນທຶກຂໍ້ມູນລົງ localStorage ທຸກຄັ້ງທີ່กดສ້າງລະຫັດ
             saveExcelData(true);
 
             let container = document.getElementById('excel-preview-cards');
@@ -1148,15 +1131,7 @@
                             <p class="text-[11px] text-gray-600">ຊື້: ${costNum.toLocaleString()} | ຂາຍ: <span class="text-green-600 font-bold">${priceNum.toLocaleString()}</span></p>
                         </div>
                         <div class="py-1 flex items-center justify-center w-full">
-                `;
-
-                if (currentActiveCodeType === 'barcode') {
-                    cardHtml += `<svg id="excel-barcode-${index}" class="max-w-full"></svg>`;
-                } else {
-                    cardHtml += `<div id="excel-qrcode-${index}" class="inline-block bg-white p-1 rounded"></div>`;
-                }
-
-                cardHtml += `
+                            <div id="excel-qrcode-${index}" class="inline-block bg-white p-1 rounded"></div>
                         </div>
                     </div>
                 `;
@@ -1168,32 +1143,16 @@
             setTimeout(() => {
                 excelRows.forEach((row, index) => {
                     if (!row.name) return;
-                    if (currentActiveCodeType === 'barcode') {
-                        try {
-                            JsBarcode(`#excel-barcode-${index}`, row.name, {
-                                format: "CODE128",
-                                lineColor: "#000",
-                                width: 2,
-                                height: 50,
-                                displayValue: true,
-                                fontSize: 14,
-                                textMargin: 2
-                            });
-                        } catch (err) {
-                            console.error("Barcode error:", err);
-                        }
-                    } else {
-                        let qrDiv = document.getElementById(`excel-qrcode-${index}`);
-                        if (qrDiv) {
-                            qrDiv.innerHTML = "";
-                            let qrData = `ຊື່ສິນຄ້າ: ${row.name}\nລາຄາຊື້: ${row.cost} ກີບ\nລາຄາຂາຍ: ${row.price} ກີບ`;
-                            let canvas = document.createElement('canvas');
-                            QRCode.toCanvas(canvas, qrData, { width: 120, margin: 1 }, function (error) {
-                                if (!error) {
-                                    qrDiv.appendChild(canvas);
-                                }
-                            });
-                        }
+                    let qrDiv = document.getElementById(`excel-qrcode-${index}`);
+                    if (qrDiv) {
+                        qrDiv.innerHTML = "";
+                        let qrData = `ຊື່ສິນຄ້າ: ${row.name}\nລາຄາຊື້: ${row.cost} ກີບ\nລາຄາຂາຍ: ${row.price} ກີບ`;
+                        let canvas = document.createElement('canvas');
+                        QRCode.toCanvas(canvas, qrData, { width: 120, margin: 1 }, function (error) {
+                            if (!error) {
+                                qrDiv.appendChild(canvas);
+                            }
+                        });
                     }
                 });
             }, 100);
