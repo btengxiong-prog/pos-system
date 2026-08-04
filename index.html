@@ -505,33 +505,25 @@
                 parsedPrice = productsDB[text].price;
                 parsedCost = productsDB[text].cost;
             } else {
-                // 2. ດຶງຂໍ້ມູນຈາກ localStorage (pos_excel_rows) ຢ່າງຖືກຕ້ອງ
+                // 2. ດຶງຂໍ້ມູນຈາກ localStorage (pos_excel_rows) ຢ່າງຖືກຕ້ອງສົມບູນ
                 let savedRows = localStorage.getItem('pos_excel_rows');
                 let foundItem = null;
                 if (savedRows) {
                     try {
                         let rows = JSON.parse(savedRows);
                         let cleanText = text.trim().toLowerCase();
-                        // ປັບປຸງການຄົ້ນຫາໃຫ້ກວມເອົາທັງ name, code, itemName ຢ່າງแม่ນຍຳ
-                        foundItem = rows.find(r => {
-                            let rName = r.name ? String(r.name).trim().toLowerCase() : "";
-                            let rCode = r.code ? String(r.code).trim().toLowerCase() : "";
-                            let rItemName = r.itemName ? String(r.itemName).trim().toLowerCase() : "";
-                            return (rName && rName === cleanText) || (rCode && rCode === cleanText) || (rItemName && rItemName === cleanText);
-                        });
+                        foundItem = rows.find(r => r.name && String(r.name).trim().toLowerCase() === cleanText);
                     } catch(e) {}
                 }
 
                 if (foundItem) {
-                    parsedName = foundItem.name || foundItem.itemName || foundItem.code || text;
+                    parsedName = foundItem.name || text;
                     
-                    // ດຶງລາຄາຊື້ ແລະ ແປງເປັນຕົວເລກ (Number)
-                    let rawCost = String(foundItem.cost || 0).replace(/[^0-9.]/g, '');
-                    parsedCost = parseFloat(rawCost) || 0;
+                    // ດຶງຄ່າ cost ໂດຍກົງຈາກ localStorage
+                    parsedCost = parseFloat(foundItem.cost) || 0;
 
-                    // ດຶງລາຄາຂາຍ ແລະ ແປງເປັນຕົວເລກ (Number)
-                    let rawPrice = String(foundItem.price || 0).replace(/[^0-9.]/g, '');
-                    parsedPrice = parseFloat(rawPrice) || 0;
+                    // ດຶງຄ່າ price ໂດຍກົງຈາກ localStorage
+                    parsedPrice = parseFloat(foundItem.price) || 0;
                 } else {
                     parsedName = text;
                     parsedCost = 0;
@@ -1061,6 +1053,8 @@
             } else if (field === 'price') {
                 excelRows[index].price = parseFloat(value) || 0;
             }
+            // ບັນທຶກລົງ localStorage ທັນທີອັດຕະໂນມັດທຸກຄັ້ງที่มีການພິມ
+            saveExcelData(true);
         }
 
         function saveExcelData(isSilent = false) {
@@ -1106,19 +1100,19 @@
                     <tr class="hover:bg-gray-50 border-b">
                         <td class="p-2 border-r text-center font-bold text-gray-500 text-xs">${index + 1}</td>
                         <td class="p-2 border-r">
-                            <input type="text" data-field="name" value="${row.name || ''}" oninput="updateExcelRow(${index}, 'name', this.value); saveExcelData(true);" onkeydown="handleTableKeydown(event, ${index}, 'name')" class="excel-input w-full border rounded px-2 py-1 text-sm font-semibold outline-none focus:ring-1 focus:ring-blue-500" placeholder="P001">
+                            <input type="text" data-field="name" value="${row.name || ''}" oninput="updateExcelRow(${index}, 'name', this.value);" onkeydown="handleTableKeydown(event, ${index}, 'name')" class="excel-input w-full border rounded px-2 py-1 text-sm font-semibold outline-none focus:ring-1 focus:ring-blue-500" placeholder="P001">
                         </td>
                         <td class="p-2 border-r">
-                            <input type="text" data-field="cost" value="${formattedCost}" oninput="let raw = this.value.replace(/[^0-9]/g, ''); updateExcelRow(${index}, 'cost', raw); saveExcelData(true);" onkeydown="handleTableKeydown(event, ${index}, 'cost')" class="excel-input w-full border rounded px-2 py-1 text-right text-sm font-bold text-blue-600 outline-none focus:ring-1 focus:ring-blue-500" placeholder="0">
+                            <input type="text" data-field="cost" value="${formattedCost}" oninput="let raw = this.value.replace(/[^0-9]/g, ''); updateExcelRow(${index}, 'cost', raw);" onkeydown="handleTableKeydown(event, ${index}, 'cost')" class="excel-input w-full border rounded px-2 py-1 text-right text-sm font-bold text-blue-600 outline-none focus:ring-1 focus:ring-blue-500" placeholder="0">
                         </td>
                         <td class="p-2 border-r text-center">
                             <div class="flex items-center justify-center gap-1">
-                                <input type="text" data-field="markup" value="${row.markup || 20}" oninput="let raw = this.value.replace(/[^0-9.]/g, ''); updateExcelRow(${index}, 'markup', raw); saveExcelData(true);" onkeydown="handleTableKeydown(event, ${index}, 'markup')" class="excel-input w-20 border rounded px-2 py-1 text-center text-sm font-bold text-orange-600 outline-none focus:ring-1 focus:ring-blue-500" placeholder="20">
+                                <input type="text" data-field="markup" value="${row.markup || 20}" oninput="let raw = this.value.replace(/[^0-9.]/g, ''); updateExcelRow(${index}, 'markup', raw);" onkeydown="handleTableKeydown(event, ${index}, 'markup')" class="excel-input w-20 border rounded px-2 py-1 text-center text-sm font-bold text-orange-600 outline-none focus:ring-1 focus:ring-blue-500" placeholder="20">
                                 <span class="text-xs font-bold text-gray-600">%</span>
                             </div>
                         </td>
                         <td class="p-2 border-r">
-                            <input type="text" id="price-input-${index}" data-field="price" value="${formattedPrice}" oninput="let raw = this.value.replace(/[^0-9]/g, ''); updateExcelRow(${index}, 'price', raw); saveExcelData(true);" onkeydown="handleTableKeydown(event, ${index}, 'price')" class="excel-input w-full border rounded px-2 py-1 text-right text-sm font-bold text-green-600 outline-none focus:ring-1 focus:ring-blue-500" placeholder="0">
+                            <input type="text" id="price-input-${index}" data-field="price" value="${formattedPrice}" oninput="let raw = this.value.replace(/[^0-9]/g, ''); updateExcelRow(${index}, 'price', raw);" onkeydown="handleTableKeydown(event, ${index}, 'price')" class="excel-input w-full border rounded px-2 py-1 text-right text-sm font-bold text-green-600 outline-none focus:ring-1 focus:ring-blue-500" placeholder="0">
                         </td>
                         <td class="p-2 text-center">
                             <button onclick="deleteExcelRow(${index})" class="text-red-500 hover:text-red-700 font-bold text-xs bg-red-50 px-2 py-1 rounded cursor-pointer">ລຶບ</button>
@@ -1134,6 +1128,9 @@
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເພີ່ມຂໍ້ມູນສິນຄ້າໃນຕາຕະລາງກ່ອນ!", "⚠️");
                 return;
             }
+
+            // ບັນທຶກຂໍ້ມູນລົງ localStorage ທຸກຄັ້ງທີ່กดສ້າງລະຫັດ
+            saveExcelData(true);
 
             let container = document.getElementById('excel-preview-cards');
             container.innerHTML = "";
