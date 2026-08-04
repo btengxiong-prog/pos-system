@@ -1,1077 +1,604 @@
 <!DOCTYPE html>
-
 <html lang="lo">
-
 <head>
-
     <meta charset="UTF-8">
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>ລະບົບຂາຍເຄື່ອງ POS - Realtime Sync</title>
-
     <!-- Tailwind CSS CDN -->
-
     <script src="https://cdn.tailwindcss.com"></script>
-
     <!-- Html5-qrcode CDN -->
-
     <script src="https://unpkg.com/html5-qrcode"></script>
-
     <!-- Supabase JS SDK -->
-
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
     <!-- Google Fonts -->
-
     <style>
-
         @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Lao:wght@400;700&display=swap');
-
         body {
-
             font-family: 'Phetsarath OT', 'Saysettha OT', 'Noto Serif Lao', 'Times New Roman', Times, serif;
-
         }
-
     </style>
-
 </head>
-
 <body class="bg-gray-100 min-h-screen pb-10">
 
-
-
     <!-- Header -->
-
     <header class="bg-[#1e3a8a] text-white py-4 shadow-md">
-
         <div class="container mx-auto px-4 text-center">
-
             <h1 class="text-2xl font-bold flex items-center justify-center gap-2">
-
                 🛒 ລະບົບຂາຍເຄື່ອງ POS (ແຊຣ໌ຂໍ້ມູນທຸກເຄື່ອງ)
-
             </h1>
-
             <div class="mt-3 flex justify-center gap-3">
-
                 <button onclick="openScanner()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition cursor-pointer">
-
                     📷 ສະແກນສິນຄ້າ
-
                 </button>
-
                 <button onclick="openHistory()" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition cursor-pointer">
-
                     📊 ກວດປະຫວັດການຂາຍ (ທຸກເຄື່ອງ)
-
                 </button>
-
             </div>
-
         </div>
-
     </header>
 
-
-
     <!-- Main Content -->
-
     <main class="container mx-auto px-4 mt-6 max-w-4xl">
-
-       
-
+        
         <!-- Scanner Modal -->
-
         <div id="scanner-container" class="hidden mb-6 bg-white p-4 rounded-xl shadow border">
-
             <div class="flex justify-between items-center mb-2">
-
                 <h3 class="font-bold text-lg text-gray-700">📷 ກຳລັງສະແກນ QR / ບາໂຄດ</h3>
-
                 <span id="scan-status" class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold">ກຳລັງເປີດກ້ອງ...</span>
-
             </div>
-
             <div id="reader" class="w-full max-w-md mx-auto"></div>
-
             <button onclick="closeScanner()" class="mt-3 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded w-full font-bold cursor-pointer">ປິດກ້ອງ</button>
-
         </div>
-
-
 
         <!-- Confirmation & Price Input Popup -->
-
         <div id="confirm-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-
             <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-
                 <div class="text-3xl text-center">📦</div>
-
                 <h3 class="text-xl font-bold text-gray-800 text-center">ກຳນົດຂໍ້ມູນສິນຄ້າ</h3>
-
                 <div id="confirm-details" class="bg-gray-50 p-4 rounded-xl text-left text-sm space-y-3 border">
-
                     <p><b>ຂໍ້ມູນດິບຈາກ QR:</b> <span id="modal-code" class="text-blue-600 font-bold text-xs break-all"></span></p>
-
                     <div>
-
                         <label class="block font-semibold text-gray-700 mb-1">ຊື່ສິນຄ້າ:</label>
-
                         <input type="text" id="modal-name" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-gray-800" placeholder="ປ້ອນຊື່ສິນຄ້າ">
-
                     </div>
-
                     <div>
-
                         <label class="block font-semibold text-gray-700 mb-1">ລາຄາຂາຍ (ກີບ):</label>
-
                         <input type="number" id="modal-price" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-right font-bold text-green-600 text-lg" placeholder="ຕົວຢ່າງ: 208000">
-
                     </div>
-
                 </div>
-
                 <div class="flex gap-2 pt-2">
-
                     <button onclick="cancelScannedItem()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
-
                     <button onclick="confirmScannedItem()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ຕົກລົງ (ເພີ່ມລົງຕາຕະລາງ)</button>
-
                 </div>
-
             </div>
-
         </div>
-
-
 
         <!-- Custom Beautiful Alert Modal -->
-
         <div id="custom-alert-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-
             <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
-
                 <div id="alert-icon" class="text-4xl">✅</div>
-
                 <h3 id="alert-title" class="text-xl font-bold text-gray-800">ແຈ້ງເຕືອນ</h3>
-
                 <p id="alert-message" class="text-gray-600 text-sm leading-relaxed"></p>
-
                 <button onclick="closeCustomAlert()" class="w-full bg-[#1e3a8a] hover:bg-blue-900 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">ຕົກລົງ</button>
-
             </div>
-
         </div>
 
-
+        <!-- Custom Confirm Delete Modal -->
+        <div id="custom-confirm-delete-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
+                <div class="text-4xl">⚠️</div>
+                <h3 class="text-xl font-bold text-gray-800">ຢືນຢັນການລຶບ</h3>
+                <p class="text-gray-600 text-sm leading-relaxed">ທ່ານຕ້ອງການລືບປະຫວັດນີ້ບໍ?</p>
+                <div class="flex gap-2 pt-2">
+                    <button onclick="closeConfirmDelete(false)" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
+                    <button onclick="closeConfirmDelete(true)" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ຕົກລົງ</button>
+                </div>
+            </div>
+        </div>
 
         <!-- Cart Section -->
-
         <div class="bg-white rounded-xl shadow overflow-hidden mb-6">
-
             <div class="bg-[#1e3a8a] text-white px-4 py-3 font-semibold flex items-center gap-2">
-
                 📄 ລາຍການສິນຄ້າທີ່ເລືອກ (ລຽງລົງໄປ)
-
             </div>
-
-           
-
+            
             <div class="overflow-x-auto">
-
                 <table class="w-full text-left border-collapse">
-
                     <thead>
-
                         <tr class="bg-blue-900 text-white text-sm">
-
                             <th class="p-3">ຊື່ສິນຄ້າ</th>
-
                             <th class="p-3 text-right">ລາຄາຊື້ (ກີບ)</th>
-
                             <th class="p-3 text-right">ລາຄາຂາຍ (ກີບ)</th>
-
                             <th class="p-3 text-center">ຈຳນວນ</th>
-
                             <th class="p-3 text-right">ລວມ (ກີບ)</th>
-
                             <th class="p-3 text-center">ຈັດການ</th>
-
                         </tr>
-
                     </thead>
-
                     <tbody id="cart-items" class="divide-y divide-gray-200 text-sm">
-
                         <tr>
-
                             <td colspan="6" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ (ກະລຸນາກົດສະແກນສິນຄ້າ)</td>
-
                         </tr>
-
                     </tbody>
-
                 </table>
-
             </div>
-
         </div>
-
-
 
         <!-- Summary & Calculation -->
-
         <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 shadow mb-6 space-y-3">
-
             <div class="flex justify-between items-center text-lg font-bold text-gray-800">
-
                 <span>ຍອດລວມຂາຍທັງໝົດ:</span>
-
                 <span id="grand-total" class="text-green-600 text-xl">0 ກີບ</span>
-
             </div>
-
             <div class="flex justify-between items-center text-gray-700">
-
                 <span class="font-medium">ຈຳນວນເງິນທີ່ລູກຄ້າຈ່າຍຕົວຈິງ (ຖ້າມີທອນ):</span>
-
                 <input type="number" id="cash-given" oninput="calculateChange()" placeholder="ບໍ່ຈຳເປັນຕ້ອງປ້ອນ ຖ້າຈ່າຍພໍດີ" class="border rounded-lg px-3 py-1.5 text-right w-52 focus:ring-2 focus:ring-blue-500 outline-none">
-
             </div>
-
             <div class="flex justify-between items-center text-lg font-bold text-gray-800 border-t pt-2">
-
                 <span>ເງິນທອນ:</span>
-
                 <span id="change-amount" class="text-orange-600 text-xl">0 ກີບ</span>
-
             </div>
-
         </div>
 
-
-
         <!-- Checkout Button -->
-
         <button onclick="checkout()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-lg font-bold py-3 rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
-
             💰 ຊຳລະເງິນ / ພິມບິນ
-
         </button>
-
-
 
     </main>
 
-
-
     <!-- Footer -->
-
     <footer class="mt-12 bg-[#1e3a8a] text-white py-3 text-center text-xs">
-
         ✨ ສ້າງ ແລະ ພັດທະນາໂດຍ: <span class="text-yellow-400 font-semibold">ອາຈານ ບຸນແຕ່ງ ຊົ່ງຕືມື</span> | 📞 ໂທ: 020 59456999, 020 99444448
-
     </footer>
 
-
-
     <!-- History Modal -->
-
     <div id="history-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-
         <div class="bg-white rounded-xl max-w-xl w-full p-5 max-h-[80vh] overflow-y-auto">
-
             <h3 class="text-lg font-bold mb-3 text-gray-800 flex justify-between items-center">
-
                 <span>📊 ປະຫວັດການຂາຍ (Sync ຮ່ວມກັນທຸກເຄື່ອງ)</span>
-
                 <button onclick="loadCloudHistory()" class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded cursor-pointer">🔄 ໂຫຼດໃໝ່</button>
-
             </h3>
-
             <div id="history-list" class="space-y-3 text-sm text-gray-600">
-
                 <p class="text-center py-4">ກຳລັງໂຫຼດຂໍ້ມູນ...</p>
-
             </div>
-
             <!-- Summary Footer inside History Modal -->
-
             <div id="history-summary" class="mt-4 pt-3 border-t-2 border-dashed border-gray-300 bg-blue-50 p-3 rounded-xl space-y-1.5 hidden">
-
                 <div class="flex justify-between text-xs font-semibold text-gray-700">
-
                     <span>ລວມລາຄາຊື້ທັງໝົດ:</span>
-
                     <span id="sum-total-cost" class="text-blue-700">0 ກີບ</span>
-
                 </div>
-
                 <div class="flex justify-between text-xs font-semibold text-gray-700">
-
                     <span>ລວມລາຄາຂາຍທັງໝົດ:</span>
-
                     <span id="sum-total-price" class="text-green-600">0 ກີບ</span>
-
                 </div>
-
                 <div class="flex justify-between text-sm font-bold text-gray-900 border-t pt-1">
-
                     <span>ລວມກຳໄລເບື້ອງຕົ້ນ:</span>
-
                     <span id="sum-total-profit" class="text-emerald-700">0 ກີບ</span>
-
                 </div>
-
             </div>
-
             <button onclick="closeHistory()" class="mt-4 bg-gray-500 text-white px-4 py-2 rounded w-full cursor-pointer">ປິດ</button>
-
         </div>
-
     </div>
 
-
-
     <!-- JavaScript Logic -->
-
     <script>
-
-        const SUPABASE_URL = "https://omvrghcnswikqxixgcza.supabase.co";
-
+        const SUPABASE_URL = "https://omvrghcnswikqxixgcza.supabase.co"; 
         const SUPABASE_ANON_KEY = "sb_publishable_3E0MYF88KNsZ1PaQED-Ihg_Y11UQ4RD";
-
-       
-
+        
         let supabaseClient = null;
-
         try {
-
             if (window.supabase && typeof window.supabase.createClient === 'function') {
-
                 supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
             }
-
         } catch (e) {
-
             console.error("Supabase initialization warning:", e);
-
         }
-
-
 
         const productsDB = {
-
             "8851019050016": { name: "ນ້ຳດື່ມຫົວເສືອ", cost: 3000, price: 5000 },
-
             "8850999012345": { name: "ມາມ້າ ລົດດັ້ງເດີມ", cost: 4000, price: 6000 }
-
         };
 
-
-
         let cart = [];
-
         let html5QrCode = null;
-
         let tempScannedCode = "";
-
         let lastScannedCode = "";
-
         let lastScanTime = 0;
-
-
+        let deleteTargetId = null;
+        let deleteTargetSource = null; // 'cloud' ຫຼື 'local'
+        let deleteTargetIndex = null;
 
         function showAlert(title, message, icon = "✅") {
-
             document.getElementById('alert-title').innerText = title;
-
             document.getElementById('alert-message').innerText = message;
-
             document.getElementById('alert-icon').innerText = icon;
-
             document.getElementById('custom-alert-modal').classList.remove('hidden');
-
         }
-
-
 
         function closeCustomAlert() {
-
             document.getElementById('custom-alert-modal').classList.add('hidden');
-
         }
 
+        function promptDeleteHistory(id, source, index) {
+            deleteTargetId = id;
+            deleteTargetSource = source;
+            deleteTargetIndex = index;
+            document.getElementById('custom-confirm-delete-modal').classList.remove('hidden');
+        }
 
+        async function closeConfirmDelete(confirmed) {
+            document.getElementById('custom-confirm-delete-modal').classList.add('hidden');
+            if (!confirmed) {
+                deleteTargetId = null;
+                deleteTargetSource = null;
+                deleteTargetIndex = null;
+                return;
+            }
+
+            if (deleteTargetSource === 'cloud' && deleteTargetId && supabaseClient) {
+                try {
+                    let { error } = await supabaseClient.from('sales_history').delete().eq('id', deleteTargetId);
+                    if (error) {
+                        console.error("Supabase delete error:", error);
+                        showAlert("ຜິດພາດ", "ບໍ່ສາມາດລຶບຂໍ້ມູນຈາກ Cloud ได้", "⚠️");
+                        return;
+                    }
+                } catch (err) {
+                    console.error("Supabase delete exception:", err);
+                }
+            } else if (deleteTargetSource === 'local') {
+                let localHistory = JSON.parse(localStorage.getItem('pos_history')) || [];
+                if (deleteTargetIndex !== null && localHistory[deleteTargetIndex] !== undefined) {
+                    localHistory.splice(deleteTargetIndex, 1);
+                    localStorage.setItem('pos_history', JSON.stringify(localHistory));
+                }
+            }
+
+            showAlert("ສຳເລັດ", "ສຳເລັດການລຶບຂໍ້ມູນຖີ້ມ", "✅");
+            loadCloudHistory();
+            deleteTargetId = null;
+            deleteTargetSource = null;
+            deleteTargetIndex = null;
+        }
 
         function openScanner() {
-
             document.getElementById('scanner-container').classList.remove('hidden');
-
             if (!html5QrCode) {
-
                 try {
-
                     html5QrCode = new Html5Qrcode("reader");
-
                 } catch(err) {
-
                     showAlert("ຜິດພາດ", "ບໍ່ສາມາດເປີດກ້ອງໄດ້: " + err, "⚠️");
-
                     return;
-
                 }
-
             }
-
-           
-
+            
             html5QrCode.start(
-
                 { facingMode: "environment" },
-
                 { fps: 10, qrbox: 250 },
-
                 (decodedText) => {
-
                     let currentTime = new Date().getTime();
-
                     if (decodedText === lastScannedCode && (currentTime - lastScanTime < 3000)) {
-
                         return;
-
                     }
-
                     lastScannedCode = decodedText;
-
                     lastScanTime = currentTime;
 
-
-
                     showConfirmModal(decodedText);
-
                 },
-
                 (errorMessage) => {}
-
             ).catch(err => {
-
                 showAlert("ຜິດພາດ", "ບໍ່ສາມາດເປີດກ້ອງໄດ້ (ກະລຸນາອະນຸຍາດການໃຊ້ກ້ອງ): " + err, "⚠️");
-
             });
-
         }
-
-
 
         function showConfirmModal(text) {
-
             tempScannedCode = text;
-
-           
-
+            
             let parsedName = "ສິນຄ້າສະແກນ";
-
             let parsedPrice = 0;
-
             let parsedCost = 0;
 
-
-
             if (text.includes("ລາຄາ")) {
-
                 let pricePart = text.split(/ລາຄາ[^\d]*[:]/)[1] || text;
-
                 let priceStr = pricePart.replace(/[^0-9]/g, '');
-
                 parsedPrice = parseInt(priceStr) || 0;
 
-
-
                 let namePart = text.split(/ລາຄາ/)[0];
-
                 namePart = namePart.replace('ຊື່ສິນຄ້າ:', '').replace('ຊື່:', '').trim();
-
                 if (namePart) {
-
                     parsedName = namePart;
-
                 }
-
             } else if (productsDB[text]) {
-
                 parsedName = productsDB[text].name;
-
                 parsedPrice = productsDB[text].price;
-
                 parsedCost = productsDB[text].cost;
-
             } else {
-
                 parsedName = text;
-
                 let numCheck = parseInt(text.replace(/[^0-9]/g, ''));
-
                 parsedPrice = (numCheck > 1000) ? numCheck : 10000;
-
-                parsedCost = Math.round(parsedPrice * 0.7); // ຄິດໄລ່ຕົ້ນທຶນເບື້ອງຕົ້ນ 70% ຖ້າບໍ່ມີໃນຖານຂໍ້ມູນ
-
+                parsedCost = Math.round(parsedPrice * 0.7);
             }
-
-
 
             document.getElementById('modal-code').innerText = text;
-
             document.getElementById('modal-name').value = parsedName;
-
             document.getElementById('modal-price').value = parsedPrice > 0 ? parsedPrice : "";
-
-           
-
+            
             window.tempScannedCost = parsedCost;
-
             document.getElementById('confirm-modal').classList.remove('hidden');
-
         }
-
-
 
         function confirmScannedItem() {
-
             let nameInput = document.getElementById('modal-name').value.trim();
-
             let priceInput = parseFloat(document.getElementById('modal-price').value) || 0;
-
             let costInput = window.tempScannedCost || 0;
 
-
-
             if (!nameInput) {
-
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຊື່ສິນຄ້າ!", "⚠️");
-
                 return;
-
             }
-
-
 
             let existing = cart.find(item => item.code === tempScannedCode);
-
             if (existing) {
-
                 existing.qty += 1;
-
             } else {
-
                 cart.push({ code: tempScannedCode, name: nameInput, cost: costInput, price: priceInput, qty: 1 });
-
             }
-
             renderCart();
 
-
-
             document.getElementById('confirm-modal').classList.add('hidden');
-
             tempScannedCode = "";
-
         }
-
-
 
         function cancelScannedItem() {
-
             document.getElementById('confirm-modal').classList.add('hidden');
-
             tempScannedCode = "";
-
         }
-
-
 
         function closeScanner() {
-
             if (html5QrCode) {
-
                 html5QrCode.stop().then(() => {
-
                     document.getElementById('scanner-container').classList.add('hidden');
-
                 }).catch(err => {
-
                     document.getElementById('scanner-container').classList.add('hidden');
-
                 });
-
             } else {
-
                 document.getElementById('scanner-container').classList.add('hidden');
-
             }
-
         }
-
-
 
         function updateQty(index, delta) {
-
             cart[index].qty += delta;
-
             if (cart[index].qty <= 0) {
-
                 cart.splice(index, 1);
-
             }
-
             renderCart();
-
         }
-
-
 
         function removeItem(index) {
-
             cart.splice(index, 1);
-
             renderCart();
-
         }
-
-
 
         function renderCart() {
-
             let tbody = document.getElementById('cart-items');
-
             if (cart.length === 0) {
-
                 tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ (ກະລຸນາກົດສະແກນສິນຄ້າ)</td></tr>`;
-
                 document.getElementById('grand-total').innerText = "0 ກີບ";
-
                 document.getElementById('change-amount').innerText = "0 ກີບ";
-
                 return;
-
             }
-
-
 
             let html = '';
-
             let grandTotal = 0;
-
             cart.forEach((item, index) => {
-
                 let total = item.price * item.qty;
-
                 grandTotal += total;
-
                 html += `
-
                     <tr class="hover:bg-gray-50 border-b">
-
                         <td class="p-3 font-medium text-gray-800">${item.name}</td>
-
                         <td class="p-3 text-right text-gray-600">${item.cost.toLocaleString()}</td>
-
                         <td class="p-3 text-right text-blue-600 font-semibold">${item.price.toLocaleString()}</td>
-
                         <td class="p-3 text-center">
-
                             <button onclick="updateQty(${index}, -1)" class="px-2 bg-gray-200 rounded font-bold cursor-pointer">-</button>
-
                             <span class="mx-2 font-bold">${item.qty}</span>
-
                             <button onclick="updateQty(${index}, 1)" class="px-2 bg-gray-200 rounded font-bold cursor-pointer">+</button>
-
                         </td>
-
                         <td class="p-3 text-right font-bold text-gray-800">${total.toLocaleString()}</td>
-
                         <td class="p-3 text-center">
-
                             <button onclick="removeItem(${index})" class="text-red-500 hover:text-red-700 font-bold cursor-pointer">ລຶບ</button>
-
                         </td>
-
                     </tr>
-
                 `;
-
             });
-
             tbody.innerHTML = html;
-
             document.getElementById('grand-total').innerText = grandTotal.toLocaleString() + " ກີບ";
-
             calculateChange();
-
         }
-
-
 
         function calculateChange() {
-
             let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-
             let cashInput = document.getElementById('cash-given').value;
-
             let changeElem = document.getElementById('change-amount');
-
-           
-
+            
             if (!cashInput) {
-
                 changeElem.innerText = "0 ກີບ (ຈ່າຍພໍດີ)";
-
                 changeElem.className = "text-blue-600 text-xl font-bold";
-
                 return;
-
             }
-
-
 
             let cashGiven = parseFloat(cashInput) || 0;
-
             let change = cashGiven - grandTotal;
-
-           
-
+            
             if (change > 0) {
-
                 changeElem.innerText = change.toLocaleString() + " ກີບ";
-
                 changeElem.className = "text-green-600 text-xl font-bold";
-
             } else if (change === 0) {
-
                 changeElem.innerText = "0 ກີບ (ຈ່າຍພໍດີ)";
-
                 changeElem.className = "text-blue-600 text-xl font-bold";
-
             } else {
-
                 changeElem.innerText = "ເງິນຍັງບໍ່ພໍ (" + Math.abs(change).toLocaleString() + " ກີບ)";
-
                 changeElem.className = "text-red-600 text-lg font-bold";
-
             }
-
         }
-
-
 
         async function checkout() {
-
             if (cart.length === 0) {
-
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າກ່ອນຊຳລະເງິນ!", "⚠️");
-
                 return;
-
             }
-
             let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-
             let totalCost = cart.reduce((sum, item) => sum + ((item.cost || 0) * item.qty), 0);
-
             let cashInput = document.getElementById('cash-given').value;
-
             let cashGiven = cashInput ? (parseFloat(cashInput) || 0) : grandTotal;
 
-
-
             if (cashGiven < grandTotal) {
-
                 showAlert("ແຈ້ງເຕືອນ", "ຈຳນວນເງິນທີ່ລູກຄ້າຈ່າຍຍັງບໍ່ພໍ!", "⚠️");
-
                 return;
-
             }
-
-
 
             let txData = {
-
                 items: cart,
-
                 totalItems: cart.reduce((sum, item) => sum + item.qty, 0),
-
                 totalCost: totalCost,
-
                 total: grandTotal,
-
                 cash: cashGiven,
-
                 change: cashGiven - grandTotal
-
             };
 
-
-
             if (supabaseClient) {
-
                 try {
-
                     let { error } = await supabaseClient.from('sales_history').insert([txData]);
-
                     if (error) {
-
                         console.error("Supabase insert error:", error);
-
                     }
-
                 } catch (err) {
-
                     console.error("Supabase exception:", err);
-
                 }
-
             }
 
-
-
             let localHistory = JSON.parse(localStorage.getItem('pos_history')) || [];
-
             localHistory.unshift({ date: new Date().toLocaleString(), ...txData });
-
             localStorage.setItem('pos_history', JSON.stringify(localHistory));
 
-
-
             showAlert("ສຳເລັດ", "ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ!", "✅");
-
             cart = [];
-
             document.getElementById('cash-given').value = '';
-
             renderCart();
-
         }
 
-
-
         async function loadCloudHistory() {
-
             let listDiv = document.getElementById('history-list');
-
             listDiv.innerHTML = `<p class="text-center py-4">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
-
             document.getElementById('history-summary').classList.add('hidden');
-
-
 
             let allHistory = [];
 
-
-
             if (supabaseClient) {
-
                 try {
-
                     let { data, error } = await supabaseClient
-
                         .from('sales_history')
-
                         .select('*')
-
                         .order('created_at', { ascending: false });
-
-                   
-
+                    
                     if (!error && data) {
-
                         data.forEach(tx => {
-
                             let totalItemCount = tx.totalItems || (tx.items ? tx.items.reduce((s, i) => s + i.qty, 0) : 0);
-
                             let calcCost = tx.totalCost !== undefined ? tx.totalCost : (tx.items ? tx.items.reduce((s, i) => s + ((i.cost || 0) * i.qty), 0) : 0);
-
                             allHistory.push({
-
+                                id: tx.id,
+                                source: 'cloud',
                                 date: new Date(tx.created_at).toLocaleString(),
-
                                 totalItems: totalItemCount,
-
                                 totalCost: calcCost,
-
                                 total: tx.total,
-
                                 cash: tx.cash,
-
                                 change: tx.change,
-
                                 items: tx.items || []
-
                             });
-
                         });
-
                     }
-
                 } catch (err) {
-
                     console.error("Cloud fetch error:", err);
-
                 }
-
             }
-
-
 
             let localHistory = JSON.parse(localStorage.getItem('pos_history')) || [];
-
-            localHistory.forEach(tx => {
-
+            localHistory.forEach((tx, idx) => {
                 let totalItemCount = tx.totalItems || (tx.items ? tx.items.reduce((s, i) => s + i.qty, 0) : 0);
-
                 let calcCost = tx.totalCost !== undefined ? tx.totalCost : (tx.items ? tx.items.reduce((s, i) => s + ((i.cost || 0) * i.qty), 0) : 0);
-
                 allHistory.push({
-
+                    id: null,
+                    source: 'local',
+                    localIndex: idx,
                     ...tx,
-
                     totalItems: totalItemCount,
-
                     totalCost: calcCost,
-
                     items: tx.items || []
-
                 });
-
             });
 
-
-
             if (allHistory.length === 0) {
-
                 listDiv.innerHTML = `<p class="text-gray-500 text-center py-4">ຍັງບໍ່ມີປະຫວັດການຂາຍ.</p>`;
-
                 document.getElementById('history-summary').classList.add('hidden');
-
             } else {
-
                 let html = '';
-
                 let sumCost = 0;
-
                 let sumPrice = 0;
 
-
-
-                allHistory.forEach((tx) => {
-
+                allHistory.forEach((tx, index) => {
                     sumCost += tx.totalCost;
-
                     sumPrice += tx.total;
 
-
-
                     let itemsHtml = '';
-
                     if (tx.items && tx.items.length > 0) {
-
                         tx.items.forEach(item => {
-
                             let itemTotal = item.price * item.qty;
-
                             itemsHtml += `
-
                                 <div class="flex justify-between text-xs text-gray-600 pl-3 py-0.5 border-l-2 border-blue-400 my-1">
-
                                     <span>🔹 ${item.name} (x${item.qty})</span>
-
                                     <span class="font-medium">${itemTotal.toLocaleString()} ກີບ</span>
-
                                 </div>
-
                             `;
-
                         });
-
                     }
 
-
-
                     html += `
-
                         <div class="border-b pb-3 mb-3 bg-gray-50 p-3 rounded-xl border-l-4 border-blue-600 shadow-sm">
-
                             <div class="flex justify-between items-center mb-1">
-
                                 <span class="font-bold text-blue-800 text-xs">📅 ${tx.date}</span>
-
-                                <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">📦 ${tx.totalItems} ລາຍການ</span>
-
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">📦 ${tx.totalItems} ລາຍການ</span>
+                                    <button onclick="promptDeleteHistory('${tx.id}', '${tx.source}', ${tx.localIndex !== undefined ? tx.localIndex : null})" class="text-xs bg-red-100 hover:bg-red-200 text-red-600 px-2 py-0.5 rounded font-bold cursor-pointer transition">🗑️ ລຶບ</button>
+                                </div>
                             </div>
-
                             <div class="my-1.5 space-y-1">
-
                                 ${itemsHtml}
-
                             </div>
-
                             <div class="border-t pt-1.5 mt-1 flex justify-between items-center text-xs font-bold text-gray-800">
-
                                 <span>ຍອດລວມ: <span class="text-green-600">${tx.total.toLocaleString()} ກີບ</span></span>
-
                                 <span class="text-gray-500 font-normal">ຮັບ: ${tx.cash.toLocaleString()} | ທອນ: ${tx.change.toLocaleString()}</span>
-
                             </div>
-
                         </div>
-
                     `;
-
                 });
-
                 listDiv.innerHTML = html;
 
-
-
-                // ຄິດໄລ່ລວມກຳໄລເບື້ອງຕົ້ນ
-
                 let sumProfit = sumPrice - sumCost;
-
                 document.getElementById('sum-total-cost').innerText = sumCost.toLocaleString() + " ກີບ";
-
                 document.getElementById('sum-total-price').innerText = sumPrice.toLocaleString() + " ກີບ";
-
                 document.getElementById('sum-total-profit').innerText = sumProfit.toLocaleString() + " ກີບ";
-
                 document.getElementById('history-summary').classList.remove('hidden');
-
             }
-
         }
-
-
 
         function openHistory() {
-
             document.getElementById('history-modal').classList.remove('hidden');
-
             loadCloudHistory();
-
         }
-
-
 
         function closeHistory() {
-
             document.getElementById('history-modal').classList.add('hidden');
-
         }
-
     </script>
-
 </body>
-
 </html>
