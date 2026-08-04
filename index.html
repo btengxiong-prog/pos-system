@@ -50,29 +50,6 @@
             <button onclick="closeScanner()" class="mt-3 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded w-full font-bold cursor-pointer">ປິດກ້ອງ</button>
         </div>
 
-        <!-- Confirmation & Price Input Popup -->
-        <div id="confirm-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-            <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-                <div class="text-3xl text-center">📦</div>
-                <h3 class="text-xl font-bold text-gray-800 text-center">ກຳນົດຂໍ້ມູນສິນຄ້າ</h3>
-                <div id="confirm-details" class="bg-gray-50 p-4 rounded-xl text-left text-sm space-y-3 border">
-                    <p><b>ຂໍ້ມູນດິບຈາກ QR:</b> <span id="modal-code" class="text-blue-600 font-bold text-xs break-all"></span></p>
-                    <div>
-                        <label class="block font-semibold text-gray-700 mb-1">ຊື່ສິນຄ້າ:</label>
-                        <input type="text" id="modal-name" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-gray-800" placeholder="ປ້ອນຊື່ສິນຄ້າ">
-                    </div>
-                    <div>
-                        <label class="block font-semibold text-gray-700 mb-1">ລາຄາຂາຍ (ກີບ):</label>
-                        <input type="number" id="modal-price" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-right font-bold text-green-600 text-lg" placeholder="ຕົວຢ່າງ: 208000">
-                    </div>
-                </div>
-                <div class="flex gap-2 pt-2">
-                    <button onclick="cancelScannedItem()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
-                    <button onclick="confirmScannedItem()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ຕົກລົງ (ເພີ່ມລົງຕາຕະລາງ)</button>
-                </div>
-            </div>
-        </div>
-
         <!-- Custom Beautiful Alert Modal -->
         <div id="custom-alert-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
@@ -167,7 +144,7 @@
         </div>
     </div>
 
-    <!-- Custom Confirm Delete Modal (ເພີ່ມເຂົ້າມາໃຫ້ແລ້ວ) -->
+    <!-- Custom Confirm Delete Modal -->
     <div id="custom-confirm-delete-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
             <div class="text-4xl">⚠️</div>
@@ -201,7 +178,6 @@
 
         let cart = [];
         let html5QrCode = null;
-        let tempScannedCode = "";
         let lastScannedCode = "";
         let lastScanTime = 0;
         let globalHistoryList = []; 
@@ -284,7 +260,7 @@
                     lastScannedCode = decodedText;
                     lastScanTime = currentTime;
 
-                    showConfirmModal(decodedText);
+                    processScannedData(decodedText);
                 },
                 (errorMessage) => {}
             ).catch(err => {
@@ -292,67 +268,51 @@
             });
         }
 
-        function showConfirmModal(text) {
-            tempScannedCode = text;
-            
+        // ฟังก์ชันแกะรหัส QR Code ตามรูปแบบที่ส่งมา (P002 \n ລາຄາຊື້: 173,000 ກີບ \n ລາຄາຂາຍ: 208,000 ກີບ)
+        function processScannedData(text) {
             let parsedName = "ສິນຄ້າສະແກນ";
-            let parsedPrice = 0;
             let parsedCost = 0;
+            let parsedPrice = 0;
 
-            if (text.includes("ລາຄາ")) {
-                let pricePart = text.split(/ລາຄາ[^\d]*[:]/)[1] || text;
-                let priceStr = pricePart.replace(/[^0-9]/g, '');
-                parsedPrice = parseInt(priceStr) || 0;
+            // ดึงชื่อสินค้า (บรรทัดแรก หรือ ก่อนคำว่า "ລາຄາຊື້")
+            let lines = text.split(/\r?\n/);
+            if (lines.length > 0 && lines[0].trim() !== "") {
+                parsedName = lines[0].trim();
+            }
 
-                let namePart = text.split(/ລາຄາ/)[0];
-                namePart = namePart.replace('ຊື່ສິນຄ້າ:', '').replace('ຊື່:', '').trim();
-                if (namePart) {
-                    parsedName = namePart;
-                }
-            } else if (productsDB[text]) {
-                parsedName = productsDB[text].name;
-                parsedPrice = productsDB[text].price;
-                parsedCost = productsDB[text].cost;
-            } else {
-                parsedName = text;
+            // ค้นหาราคาซื้อ
+            let costMatch = text.match(/ລາຄາຊື້[^\d]*([\d,]+)/);
+            if (costMatch) {
+                parsedCost = parseInt(costMatch[1].replace(/,/g, '')) || 0;
+            }
+
+            // ค้นหาราคาขาย
+            let priceMatch = text.match(/ລາຄາຂາຍ[^\d]*([\d,]+)/);
+            if (priceMatch) {
+                parsedPrice = parseInt(priceMatch[1].replace(/,/g, '')) || 0;
+            }
+
+            // เผื่อกรณี QR Code รูปแบบอื่น
+            if (parsedPrice === 0) {
                 let numCheck = parseInt(text.replace(/[^0-9]/g, ''));
                 parsedPrice = (numCheck > 1000) ? numCheck : 10000;
                 parsedCost = Math.round(parsedPrice * 0.7);
             }
 
-            document.getElementById('modal-code').innerText = text;
-            document.getElementById('modal-name').value = parsedName;
-            document.getElementById('modal-price').value = parsedPrice > 0 ? parsedPrice : "";
-            
-            window.tempScannedCost = parsedCost;
-            document.getElementById('confirm-modal').classList.remove('hidden');
-        }
-
-        function confirmScannedItem() {
-            let nameInput = document.getElementById('modal-name').value.trim();
-            let priceInput = parseFloat(document.getElementById('modal-price').value) || 0;
-            let costInput = window.tempScannedCost || 0;
-
-            if (!nameInput) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຊື່ສິນຄ້າ!", "⚠️");
-                return;
-            }
-
-            let existing = cart.find(item => item.code === tempScannedCode);
+            let codeKey = lines[0] ? lines[0].trim() : text;
+            let existing = cart.find(item => item.code === codeKey);
             if (existing) {
                 existing.qty += 1;
             } else {
-                cart.push({ code: tempScannedCode, name: nameInput, cost: costInput, price: priceInput, qty: 1 });
+                cart.push({ 
+                    code: codeKey, 
+                    name: parsedName, 
+                    cost: parsedCost, 
+                    price: parsedPrice, 
+                    qty: 1 
+                });
             }
             renderCart();
-
-            document.getElementById('confirm-modal').classList.add('hidden');
-            tempScannedCode = "";
-        }
-
-        function cancelScannedItem() {
-            document.getElementById('confirm-modal').classList.add('hidden');
-            tempScannedCode = "";
         }
 
         function closeScanner() {
