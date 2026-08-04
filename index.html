@@ -83,24 +83,11 @@
             </div>
         </div>
 
-        <!-- Custom Beautiful Confirm Modal (For Deleting) -->
-        <div id="custom-confirm-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-            <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
-                <div class="text-4xl">⚠️</div>
-                <h3 class="text-xl font-bold text-gray-800">ຢືນຢັນການລຶບ</h3>
-                <p id="confirm-message" class="text-gray-600 text-sm leading-relaxed">ທ່ານຕ້ອງການລຶບລາຍການນີ້ແທ້ບໍ?</p>
-                <div class="flex gap-2 pt-2">
-                    <button onclick="closeCustomConfirm(false)" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
-                    <button id="confirm-yes-btn" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ລຶບ</button>
-                </div>
-            </div>
-        </div>
-
         <!-- Cart Section -->
         <div class="bg-white rounded-xl shadow overflow-hidden mb-6">
             <div class="bg-[#1e3a8a] text-white px-4 py-3 font-semibold flex items-center justify-between">
                 <span>📄 ລາຍການສິນຄ້າທີ່ເລືອກ (ລຽງລົງໄປ)</span>
-                <button onclick="clearCart()" class="text-xs bg-red-600 hover:bg-red-700 text-white px-2.5 py-1 rounded transition cursor-pointer">🗑️ ລຶບທັງໝົດໃນກະຕ່າ</button>
+                <button onclick="clearCart()" class="text-xs bg-red-600 hover:bg-red-700 text-white px-2.5 py-1 rounded transition cursor-pointer">🗑️ ลຶບທັງໝົດໃນກະຕ່າ</button>
             </div>
             
             <div class="overflow-x-auto">
@@ -215,26 +202,6 @@
 
         function closeCustomAlert() {
             document.getElementById('custom-alert-modal').classList.add('hidden');
-        }
-
-        // Custom Confirm Dialog Handler
-        function showCustomConfirm(message, onYesCallback) {
-            document.getElementById('confirm-message').innerText = message;
-            document.getElementById('custom-confirm-modal').classList.remove('hidden');
-            
-            let yesBtn = document.getElementById('confirm-yes-btn');
-            // Remove old event listeners to prevent duplicate triggers
-            let newYesBtn = yesBtn.cloneNode(true);
-            yesBtn.parentNode.replaceChild(newYesBtn, yesBtn);
-
-            newYesBtn.onclick = function() {
-                document.getElementById('custom-confirm-modal').classList.add('hidden');
-                if (onYesCallback) onYesCallback();
-            };
-        }
-
-        function closeCustomConfirm() {
-            document.getElementById('custom-confirm-modal').classList.add('hidden');
         }
 
         function openScanner() {
@@ -357,10 +324,10 @@
 
         function clearCart() {
             if (cart.length === 0) return;
-            showCustomConfirm("ທ່ານຕ້ອງການລຶບສິນຄ້າທັງໝົດໃນກະຕ່າແທ້ບໍ?", function() {
+            if (confirm("ທ່ານຕ້ອງການລຶບສິນຄ້າທັງໝົດໃນກະຕ່າແທ້ບໍ?")) {
                 cart = [];
                 renderCart();
-            });
+            }
         }
 
         function renderCart() {
@@ -577,26 +544,26 @@
             }
         }
 
-        function deleteHistoryItem(id, isCloud) {
-            showCustomConfirm("ທ່ານຕ້ອງການລຶບປະຫວັດການຂາຍລາຍການນີ້ແທ້ບໍ?", async function() {
-                if (isCloud && supabaseClient) {
-                    try {
-                        let { error } = await supabaseClient.from('sales_history').delete().eq('id', id);
-                        if (error) {
-                            showAlert("ຜິດພາດ", "ລຶບຈາກ Cloud ບໍ່ສຳເລັດ: " + error.message, "⚠️");
-                            return;
-                        }
-                    } catch (err) {
-                        console.error("Delete cloud error:", err);
-                    }
-                } else {
-                    let localHistory = JSON.parse(localStorage.getItem('pos_history')) || [];
-                    localHistory = localHistory.filter(item => item.id !== id);
-                    localStorage.setItem('pos_history', JSON.stringify(localHistory));
-                }
+        async function deleteHistoryItem(id, isCloud) {
+            if (!confirm("ທ່ານຕ້ອງການລຶບປະຫວັດການຂາຍລາຍການນີ້ແທ້ບໍ?")) return;
 
-                loadCloudHistory();
-            });
+            if (isCloud && supabaseClient) {
+                try {
+                    let { error } = await supabaseClient.from('sales_history').delete().eq('id', id);
+                    if (error) {
+                        alert("ລຶບຈາກ Cloud ບໍ່ສຳເລັດ: " + error.message);
+                        return;
+                    }
+                } catch (err) {
+                    console.error("Delete cloud error:", err);
+                }
+            } else {
+                let localHistory = JSON.parse(localStorage.getItem('pos_history')) || [];
+                localHistory = localHistory.filter(item => item.id !== id);
+                localStorage.setItem('pos_history', JSON.stringify(localHistory));
+            }
+
+            loadCloudHistory();
         }
 
         function openHistory() {
