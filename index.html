@@ -147,7 +147,14 @@
         const SUPABASE_URL = "https://omvrghcnswikqxixgcza.supabase.co"; 
         const SUPABASE_ANON_KEY = "sb_publishable_3E0MYF88KNsZ1PaQED-Ihg_Y11UQ4RD";
         
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        let supabase = null;
+        try {
+            if (window.supabase) {
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            }
+        } catch (e) {
+            console.error("Supabase init error:", e);
+        }
 
         const productsDB = {
             "8851019050016": { name: "ນ້ຳດື່ມຫົວເສືອ", cost: 3000, price: 5000 },
@@ -163,7 +170,12 @@
         function openScanner() {
             document.getElementById('scanner-container').classList.remove('hidden');
             if (!html5QrCode) {
-                html5QrCode = new Html5Qrcode("reader");
+                try {
+                    html5QrCode = new Html5Qrcode("reader");
+                } catch(err) {
+                    alert("ບໍ່ສາມາດເລີ່ມຕົ້ນລະບົບກ້ອງໄດ້: " + err);
+                    return;
+                }
             }
             
             html5QrCode.start(
@@ -181,7 +193,7 @@
                 },
                 (errorMessage) => {}
             ).catch(err => {
-                alert("ບໍ່ສາມາດເປີດກ້ອງໄດ້: " + err);
+                alert("ບໍ່ສາມາດເປີດກ້ອງໄດ້ (ກະລຸນາກວດສອບການອະນຸຍາດໃຊ້ກ້ອງ): " + err);
             });
         }
 
@@ -344,6 +356,11 @@
                 return;
             }
 
+            if (!supabase) {
+                alert("ຍັງไม่ได้ເຊື່ອມຕໍ່ Cloud Database!");
+                return;
+            }
+
             const { data, error } = await supabase.from('sales_history').insert([
                 {
                     items: cart,
@@ -367,12 +384,19 @@
             let listDiv = document.getElementById('history-list');
             listDiv.innerHTML = `<p class="text-center py-4">ກຳລັງໂຫຼດຂໍ້ມູນ...</p>`;
 
+            if (!supabase) {
+                listDiv.innerHTML = `<p class="text-red-500 text-center py-4">ຍັງไม่ได้ເຊື່ອມຕໍ່ Supabase.</p>`;
+                return;
+            }
+
             const { data: history, error } = await supabase
                 .from('sales_history')
                 .select('*')
                 .order('created_at', { ascending: false });
 
-            if (error || !history || history.length === 0) {
+            if (error) {
+                listDiv.innerHTML = `<p class="text-red-500 text-center py-4">ຜິດພາດໃນການໂຫຼດ: ${error.message}</p>`;
+            } else if (!history || history.length === 0) {
                 listDiv.innerHTML = `<p class="text-gray-500 text-center py-4">ຍັງບໍ່ມີປະຫວັດການຂາຍເທິງ Cloud.</p>`;
             } else {
                 let html = '';
