@@ -148,6 +148,21 @@
             <div id="history-list" class="space-y-3 text-sm text-gray-600">
                 <p class="text-center py-4">ກຳລັງໂຫຼດຂໍ້ມູນ...</p>
             </div>
+            <!-- Summary Footer inside History Modal -->
+            <div id="history-summary" class="mt-4 pt-3 border-t-2 border-dashed border-gray-300 bg-blue-50 p-3 rounded-xl space-y-1.5 hidden">
+                <div class="flex justify-between text-xs font-semibold text-gray-700">
+                    <span>ລວມລາຄາຊື້ທັງໝົດ:</span>
+                    <span id="sum-total-cost" class="text-blue-700">0 ກີບ</span>
+                </div>
+                <div class="flex justify-between text-xs font-semibold text-gray-700">
+                    <span>ລວມລາຄາຂາຍທັງໝົດ:</span>
+                    <span id="sum-total-price" class="text-green-600">0 ກີບ</span>
+                </div>
+                <div class="flex justify-between text-sm font-bold text-gray-900 border-t pt-1">
+                    <span>ລວມກຳໄລເບື້ອງຕົ້ນ:</span>
+                    <span id="sum-total-profit" class="text-emerald-700">0 ກີບ</span>
+                </div>
+            </div>
             <button onclick="closeHistory()" class="mt-4 bg-gray-500 text-white px-4 py-2 rounded w-full cursor-pointer">ປິດ</button>
         </div>
     </div>
@@ -223,6 +238,7 @@
             
             let parsedName = "ສິນຄ້າສະແກນ";
             let parsedPrice = 0;
+            let parsedCost = 0;
 
             if (text.includes("ລາຄາ")) {
                 let pricePart = text.split(/ລາຄາ[^\d]*[:]/)[1] || text;
@@ -237,22 +253,26 @@
             } else if (productsDB[text]) {
                 parsedName = productsDB[text].name;
                 parsedPrice = productsDB[text].price;
+                parsedCost = productsDB[text].cost;
             } else {
                 parsedName = text;
                 let numCheck = parseInt(text.replace(/[^0-9]/g, ''));
                 parsedPrice = (numCheck > 1000) ? numCheck : 10000;
+                parsedCost = Math.round(parsedPrice * 0.7); // ຄິດໄລ່ຕົ້ນທຶນເບື້ອງຕົ້ນ 70% ຖ້າບໍ່ມີໃນຖານຂໍ້ມູນ
             }
 
             document.getElementById('modal-code').innerText = text;
             document.getElementById('modal-name').value = parsedName;
             document.getElementById('modal-price').value = parsedPrice > 0 ? parsedPrice : "";
             
+            window.tempScannedCost = parsedCost;
             document.getElementById('confirm-modal').classList.remove('hidden');
         }
 
         function confirmScannedItem() {
             let nameInput = document.getElementById('modal-name').value.trim();
             let priceInput = parseFloat(document.getElementById('modal-price').value) || 0;
+            let costInput = window.tempScannedCost || 0;
 
             if (!nameInput) {
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຊື່ສິນຄ້າ!", "⚠️");
@@ -263,7 +283,7 @@
             if (existing) {
                 existing.qty += 1;
             } else {
-                cart.push({ code: tempScannedCode, name: nameInput, cost: 0, price: priceInput, qty: 1 });
+                cart.push({ code: tempScannedCode, name: nameInput, cost: costInput, price: priceInput, qty: 1 });
             }
             renderCart();
 
@@ -369,6 +389,7 @@
                 return;
             }
             let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            let totalCost = cart.reduce((sum, item) => sum + ((item.cost || 0) * item.qty), 0);
             let cashInput = document.getElementById('cash-given').value;
             let cashGiven = cashInput ? (parseFloat(cashInput) || 0) : grandTotal;
 
@@ -380,6 +401,7 @@
             let txData = {
                 items: cart,
                 totalItems: cart.reduce((sum, item) => sum + item.qty, 0),
+                totalCost: totalCost,
                 total: grandTotal,
                 cash: cashGiven,
                 change: cashGiven - grandTotal
@@ -409,6 +431,7 @@
         async function loadCloudHistory() {
             let listDiv = document.getElementById('history-list');
             listDiv.innerHTML = `<p class="text-center py-4">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
+            document.getElementById('history-summary').classList.add('hidden');
 
             let allHistory = [];
 
@@ -422,9 +445,11 @@
                     if (!error && data) {
                         data.forEach(tx => {
                             let totalItemCount = tx.totalItems || (tx.items ? tx.items.reduce((s, i) => s + i.qty, 0) : 0);
+                            let calcCost = tx.totalCost !== undefined ? tx.totalCost : (tx.items ? tx.items.reduce((s, i) => s + ((i.cost || 0) * i.qty), 0) : 0);
                             allHistory.push({
                                 date: new Date(tx.created_at).toLocaleString(),
                                 totalItems: totalItemCount,
+                                totalCost: calcCost,
                                 total: tx.total,
                                 cash: tx.cash,
                                 change: tx.change,
@@ -440,19 +465,27 @@
             let localHistory = JSON.parse(localStorage.getItem('pos_history')) || [];
             localHistory.forEach(tx => {
                 let totalItemCount = tx.totalItems || (tx.items ? tx.items.reduce((s, i) => s + i.qty, 0) : 0);
+                let calcCost = tx.totalCost !== undefined ? tx.totalCost : (tx.items ? tx.items.reduce((s, i) => s + ((i.cost || 0) * i.qty), 0) : 0);
                 allHistory.push({
                     ...tx,
                     totalItems: totalItemCount,
+                    totalCost: calcCost,
                     items: tx.items || []
                 });
             });
 
             if (allHistory.length === 0) {
                 listDiv.innerHTML = `<p class="text-gray-500 text-center py-4">ຍັງບໍ່ມີປະຫວັດການຂາຍ.</p>`;
+                document.getElementById('history-summary').classList.add('hidden');
             } else {
                 let html = '';
+                let sumCost = 0;
+                let sumPrice = 0;
+
                 allHistory.forEach((tx) => {
-                    // ສ້າງລາຍການສິນຄ້າຍ່ອຍລຽງລົງໄປ
+                    sumCost += tx.totalCost;
+                    sumPrice += tx.total;
+
                     let itemsHtml = '';
                     if (tx.items && tx.items.length > 0) {
                         tx.items.forEach(item => {
@@ -483,6 +516,13 @@
                     `;
                 });
                 listDiv.innerHTML = html;
+
+                // ຄິດໄລ່ລວມກຳໄລເບື້ອງຕົ້ນ
+                let sumProfit = sumPrice - sumCost;
+                document.getElementById('sum-total-cost').innerText = sumCost.toLocaleString() + " ກີບ";
+                document.getElementById('sum-total-price').innerText = sumPrice.toLocaleString() + " ກີບ";
+                document.getElementById('sum-total-profit').innerText = sumProfit.toLocaleString() + " ກີບ";
+                document.getElementById('history-summary').classList.remove('hidden');
             }
         }
 
