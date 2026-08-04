@@ -321,7 +321,7 @@
                 cart = cart.filter((_, index) => !indicesToRemove.includes(index));
                 renderCart();
                 closeSelectDeleteModal();
-                showAlert("ສຳເລັດ", "ລຶບລາຍການທີ່ເລືອກອອກຈາກກະຕ່າແລ້ວ", "✅");
+                showAlert("ສຳເລັດ", "ລຶບລາຍການທີ່ເລືອກອອກຈາກກະຕ່າແທ້", "✅");
             });
         }
 
@@ -520,7 +520,6 @@
                 return;
             }
 
-            // ສ້າງ Object ຂໍ້ມູນທີ່ຈະບັນທຶກ ໃຫ້ຮອງຮັບທັງແບບ Cloud Column ປົກກະຕິ ແລະ ປ້ອງກັນ Error
             let txData = {
                 items: cart,
                 totalItems: cart.reduce((sum, item) => sum + item.qty, 0),
@@ -530,24 +529,26 @@
                 change: cashGiven - grandTotal
             };
 
-            // 1. ບັນທຶກລົງ LocalStorage ໂດຍກົງກ່ອນສະເໝີ ເພື່ອຮັບປະກັນ 100% ວ່າຂໍ້ມູນບໍ່ຫາຍ
-            let localHistory = JSON.parse(localStorage.getItem('pos_history')) || [];
-            let newLocalTx = { id: 'local_' + Date.now(), date: new Date().toLocaleString(), ...txData };
-            localHistory.unshift(newLocalTx);
-            localStorage.setItem('pos_history', JSON.stringify(localHistory));
-
-            // 2. ພະຍາຍາມບັນທຶກຂຶ້ນ Cloud (Supabase)
+            // บันทึกบังคับลง Supabase Cloud Database โดยตรง เพื่อให้คอมพิวเตอร์และมือถือเห็นข้อมูลตรงกัน 100%
+            let successCloud = false;
             if (supabaseClient) {
                 try {
-                    // ສົ່ງແບບຮອງຮັບ Columns ທົ່ວໄປ
                     let { error } = await supabaseClient.from('sales_history').insert([txData]);
-                    if (error) {
-                        console.error("Supabase insert warning:", error.message);
+                    if (!error) {
+                        successCloud = true;
+                    } else {
+                        console.error("Supabase insert error:", error.message);
                     }
                 } catch (err) {
                     console.error("Supabase exception:", err);
                 }
             }
+
+            // สำรองเก็บไว้ใน LocalStorage ด้วยเพื่อความปลอดภัย
+            let localHistory = JSON.parse(localStorage.getItem('pos_history')) || [];
+            let newLocalTx = { id: 'local_' + Date.now(), date: new Date().toLocaleString(), ...txData };
+            localHistory.unshift(newLocalTx);
+            localStorage.setItem('pos_history', JSON.stringify(localHistory));
 
             showAlert("ສຳເລັດ", "ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ!", "✅");
             cart = [];
@@ -562,7 +563,7 @@
 
             let allHistory = [];
 
-            // ດຶງຈາກ Cloud (Supabase)
+            // ດຶງຂໍ້ມູນຫຼັກຈາກ Supabase Cloud Database (เพื่อให้มือถือและคอมพิวเตอร์เห็นข้อมูลตรงกัน)
             if (supabaseClient) {
                 try {
                     let { data, error } = await supabaseClient
@@ -592,13 +593,12 @@
                 }
             }
 
-            // ດຶງຈາກ LocalStorage ມາເສີມນຳ ເພື່ອຄວາມປອດໄພ 100%
+            // ດຶງຈາກ LocalStorage ມາເສີມນຳສະເພາະລາຍການທີ່ຍັງບໍ່ທັນຊິ້ງ
             let localHistory = JSON.parse(localStorage.getItem('pos_history')) || [];
             localHistory.forEach(tx => {
                 let totalItemCount = tx.totalItems || (tx.items ? tx.items.reduce((s, i) => s + i.qty, 0) : 0);
                 let calcCost = tx.totalCost !== undefined ? tx.totalCost : (tx.items ? tx.items.reduce((s, i) => s + ((i.cost || 0) * i.qty), 0) : 0);
-                // ປ້ອງກັນການສະແດງຊ້ຳ ຖ້າມີ ID ດຽວກັນ
-                if (!allHistory.some(item => item.id === tx.id)) {
+                if (!allHistory.some(item => item.total === tx.total && item.date === tx.date)) {
                     allHistory.push({
                         id: tx.id,
                         isCloud: false,
@@ -631,7 +631,7 @@
                             let itemTotal = (item.price || 0) * (item.qty || 1);
                             itemsHtml += `
                                 <div class="flex justify-between text-xs text-gray-600 pl-3 py-0.5 border-l-2 border-blue-400 my-1">
-                                    <span>🔹 ${item.name || 'ສິນຄ້າ'} (ະ${item.qty || 1})</span>
+                                    <span>🔹 ${item.name || 'ສິນຄ້າ'} (x${item.qty || 1})</span>
                                     <span class="font-medium">${itemTotal.toLocaleString()} ກີບ</span>
                                 </div>
                             `;
