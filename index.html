@@ -145,7 +145,7 @@
                 <span>📊 ປະຫວັດການຂາຍ (Sync ຮ່ວມກັນທຸກເຄື່ອງ)</span>
                 <button onclick="loadCloudHistory()" class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded cursor-pointer">🔄 ໂຫຼດໃໝ່</button>
             </h3>
-            <div id="history-list" class="space-y-2 text-sm text-gray-600">
+            <div id="history-list" class="space-y-3 text-sm text-gray-600">
                 <p class="text-center py-4">ກຳລັງໂຫຼດຂໍ້ມູນ...</p>
             </div>
             <button onclick="closeHistory()" class="mt-4 bg-gray-500 text-white px-4 py-2 rounded w-full cursor-pointer">ປິດ</button>
@@ -177,7 +177,6 @@
         let lastScannedCode = "";
         let lastScanTime = 0;
 
-        // Custom Alert Function
         function showAlert(title, message, icon = "✅") {
             document.getElementById('alert-title').innerText = title;
             document.getElementById('alert-message').innerText = message;
@@ -429,7 +428,7 @@
                                 total: tx.total,
                                 cash: tx.cash,
                                 change: tx.change,
-                                items: tx.items
+                                items: tx.items || []
                             });
                         });
                     }
@@ -443,7 +442,8 @@
                 let totalItemCount = tx.totalItems || (tx.items ? tx.items.reduce((s, i) => s + i.qty, 0) : 0);
                 allHistory.push({
                     ...tx,
-                    totalItems: totalItemCount
+                    totalItems: totalItemCount,
+                    items: tx.items || []
                 });
             });
 
@@ -452,11 +452,33 @@
             } else {
                 let html = '';
                 allHistory.forEach((tx) => {
+                    // ສ້າງລາຍການສິນຄ້າຍ່ອຍລຽງລົງໄປ
+                    let itemsHtml = '';
+                    if (tx.items && tx.items.length > 0) {
+                        tx.items.forEach(item => {
+                            let itemTotal = item.price * item.qty;
+                            itemsHtml += `
+                                <div class="flex justify-between text-xs text-gray-600 pl-3 py-0.5 border-l-2 border-blue-400 my-1">
+                                    <span>🔹 ${item.name} (x${item.qty})</span>
+                                    <span class="font-medium">${itemTotal.toLocaleString()} ກີບ</span>
+                                </div>
+                            `;
+                        });
+                    }
+
                     html += `
-                        <div class="border-b pb-2 mb-2 bg-gray-50 p-2.5 rounded-lg border-l-4 border-blue-600">
-                            <p class="font-bold text-blue-800 text-xs">ວັນທີ: ${tx.date}</p>
-                            <p class="text-gray-700 font-semibold mt-1">📦 ຈຳນວນ: <span class="text-blue-600">${tx.totalItems} ລາຍການ</span></p>
-                            <p class="text-gray-700">ຍອດລວມ: <span class="font-semibold text-green-600">${tx.total.toLocaleString()} ກີບ</span> (ຮັບ: ${tx.cash.toLocaleString()} | ທອນ: ${tx.change.toLocaleString()})</p>
+                        <div class="border-b pb-3 mb-3 bg-gray-50 p-3 rounded-xl border-l-4 border-blue-600 shadow-sm">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-bold text-blue-800 text-xs">📅 ${tx.date}</span>
+                                <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">📦 ${tx.totalItems} ລາຍການ</span>
+                            </div>
+                            <div class="my-1.5 space-y-1">
+                                ${itemsHtml}
+                            </div>
+                            <div class="border-t pt-1.5 mt-1 flex justify-between items-center text-xs font-bold text-gray-800">
+                                <span>ຍອດລວມ: <span class="text-green-600">${tx.total.toLocaleString()} ກີບ</span></span>
+                                <span class="text-gray-500 font-normal">ຮັບ: ${tx.cash.toLocaleString()} | ທອນ: ${tx.change.toLocaleString()}</span>
+                            </div>
                         </div>
                     `;
                 });
