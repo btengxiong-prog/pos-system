@@ -292,13 +292,17 @@
                 <h3 id="excel-modal-title" class="text-xl font-bold text-gray-800 flex items-center gap-2">
                     <span>📱 ຕາຕະລາງສ້າງ QR Code ສິນຄ້າ</span>
                 </h3>
-                <div class="flex items-center gap-2">
-                    <!-- Input File สำหรับอัปโหลด Excel -->
+                <div class="flex items-center gap-2 flex-wrap">
+                    <!-- ปุ่มอัปโหลด Excel -->
                     <label class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer flex items-center gap-1 shadow">
                         📁 ອັບໂຫລດ Excel
                         <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" class="hidden" onchange="handleExcelUpload(event)">
                     </label>
-                    <button onclick="addExcelRow()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer">+ ເພີ່ມແຖວ</button>
+                    <!-- ปุ่มล้างข้อมูลที่ยังไม่บันทึก -->
+                    <button onclick="clearUnsavedRows()" class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow flex items-center gap-1">
+                        🧹 ລຶບຂໍ້ມູນທີ່ຍັງບໍ່ທັນບັນທຶກ
+                    </button>
+                    <button onclick="addExcelRow()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow">+ ເພີ່ມແຖວ</button>
                 </div>
             </div>
 
@@ -1026,6 +1030,22 @@
             saveExcelData(true); 
         }
 
+        // ฟังก์ชันล้างข้อมูลที่ยังไม่ได้บันทึก (รีเซ็ตกลับไปเป็นข้อมูลที่บันทຶກໄວ້ຫຼ້າສຸດ)
+        function clearUnsavedRows() {
+            let savedRows = localStorage.getItem('pos_excel_rows');
+            if (savedRows) {
+                try {
+                    excelRows = JSON.parse(savedRows);
+                } catch (e) {
+                    excelRows = [];
+                }
+            } else {
+                excelRows = [];
+            }
+            renderExcelTable();
+            showAlert("ສຳເລັດ", "ລຶບຂໍ້ມູນທີ່ຍັງບໍ່ທັນບັນທຶກຮຽບຮ້ອຍແລ້ວ!", "🧹");
+        }
+
         function updateExcelRow(index, field, value) {
             if (field === 'name') {
                 excelRows[index].name = value;
@@ -1135,7 +1155,14 @@
                     excelRows.push({ name: "", cost: 0, markup: 20, price: 0 });
                 }
 
-                if (cols.length > 0 && cols[0]) excelRows[targetRowIdx].name = cols[0].trim();
+                if (cols.length > 0 && cols[0]) {
+                    let val = cols[0].trim();
+                    // ตัดหัวข้อทิ้งถ้าเผลอก๊อปปี้หัวตารางมาด้วย
+                    let lower = val.toLowerCase();
+                    if (lower !== 'ຊື່ສິນຄ້າ' && lower !== 'name' && lower !== 'code' && lower !== 'ຊື່ສິນຄ້າ (ລະຫັດ)') {
+                        excelRows[targetRowIdx].name = val;
+                    }
+                }
                 if (cols.length > 1 && cols[1]) {
                     let costVal = parseFloat(cols[1].replace(/[^0-9.]/g, '')) || 0;
                     excelRows[targetRowIdx].cost = costVal;
@@ -1158,7 +1185,7 @@
             showAlert("ສຳເລັດ", "ວາງຂໍ້ມູນຈາກ Excel สำເລັດຮຽບຮ້ອຍ!", "📋");
         }
 
-        // ฟังก์ชันอัปโหลดไฟล์ Excel (.xlsx, .xls, .csv)
+        // ฟังก์ชันอัปโหลดไฟล์ Excel (.xlsx, .xls, .csv) พร้อมกรองหัวข้อออก
         function handleExcelUpload(event) {
             let file = event.target.files[0];
             if (!file) return;
@@ -1173,14 +1200,18 @@
                     let json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
                     let importedRows = [];
-                    // ข้ามแถวหัวตาราง (เริ่มจากแถວที่ 1 ถ้ามี header)
                     for (let i = 0; i < json.length; i++) {
                         let row = json[i];
                         if (!row || row.length === 0) continue;
-                        // สมมติคอลัมน์: [0] = ชื่อ/รหัส, [1] = ราคาซื้อ, [2] = เปอร์เซ็นต์, [3] = ราคาขาย
+
                         let name = row[0] ? String(row[0]).trim() : "";
-                        if (!name && i === 0) continue; // ข้ามแถวแรกสุดถ้าเป็นหัวข้อ
                         if (!name) continue;
+
+                        // ตรวจสอบและตัดหัวข้อแถวแรกออก (เช่น คำว่า "ຊື່ສິນຄ້າ", "name", "code")
+                        let lowerName = name.toLowerCase();
+                        if (lowerName.includes("ຊື່ສິນຄ້າ") || lowerName.includes("name") || lowerName.includes("code") || lowerName.includes("ລ/ດ") || lowerName.includes("ລາຄາ")) {
+                            continue;
+                        }
 
                         let cost = parseFloat(String(row[1] || 0).replace(/[^0-9.]/g, '')) || 0;
                         let markup = parseFloat(String(row[2] || 20).replace(/[^0-9.]/g, '')) || 20;
@@ -1200,13 +1231,13 @@
                         saveExcelData(true);
                         showAlert("ສຳເລັດ", `ນຳເຂົ້າຂໍ້ມູນຈາກໄຟລ໌ Excel ສຳເລັດ ${importedRows.length} ລາຍການ!`, "📁");
                     } else {
-                        showAlert("ແຈ້ງເຕືອນ", "ບໍ່ພົບຂໍ້ມູນໃນໄຟລ໌ Excel ທີ່ອັບໂຫລດ!", "⚠️");
+                        showAlert("ແຈ້ງເຕືອນ", "ບໍ່ພົບຂໍ້ມູນໃນໄຟລ໌ Excel ທີ່ອັບໂຫລດ (ຫຼື ຂໍ້ມູນເປັນຄ່າວ່າງ)!", "⚠️");
                     }
                 } catch (err) {
                     console.error(err);
-                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດອ່ານໄຟລ໌ Excel ได้ (ກະລຸນາກວດສອບรูปแบบໄຟລ໌)", "⚠️");
+                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດອ່ານໄຟລ໌ Excel ໄດ້ (ກະລຸນາກວດສອບຮູບແບບໄຟລ໌)", "⚠️");
                 }
-                event.target.value = ""; // รีเซ็ต input file
+                event.target.value = ""; 
             };
             reader.readAsArrayBuffer(file);
         }
