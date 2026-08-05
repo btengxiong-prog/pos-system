@@ -106,9 +106,27 @@
             <div class="bg-gray-50 p-3 rounded-xl border">
                 <p id="my-device-id-text" class="font-mono font-bold text-blue-600 text-sm break-all"></p>
             </div>
+            <div class="space-y-2">
+                <button onclick="copyMyDeviceId()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">📋 ກ໋ອບປີ ID</button>
+                <!-- ປຸ່ມຜູກ ID ເຄື່ອງໃໝ່ (ສຳລັບເຄື່ອງທີ່ປົດລັອກແລ້ວ ຕ້ອງການຜູກເຄື່ອງອື່ນເພີ່ມ) -->
+                <button onclick="openLinkDeviceModal()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">🔗 ຜູກ ID ເຄື່ອງໃໝ່ (Multi-Device)</button>
+                <button onclick="closeMyDeviceModal()" class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl text-sm transition cursor-pointer">ປິດ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Link New Device Modal (Popup ສוףຜູກ ID) -->
+    <div id="link-device-modal" class="hidden fixed inset-0 bg-black/70 z-[280] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
+            <div class="text-4xl">🔗</div>
+            <h3 class="text-lg font-bold text-gray-800">ຜູກ ID ເຄື່ອງໃໝ່</h3>
+            <p class="text-xs text-gray-600">ປ້ອນ Device ID ຂອງເຄື່ອງທີ່ຕ້ອງການຜູກ (ເຄື່ອງທີ 2, 3...) ເພື່ອໃຫ້ເປັນສະຖານະຖາວອນທັນທີ</p>
+            <div>
+                <input type="text" id="target-device-id-input" placeholder="ປ້ອນ Device ID ເຄື່ອງໃໝ່" class="w-full border rounded-lg px-3 py-2.5 text-center font-mono font-bold text-sm outline-none focus:ring-2 focus:ring-amber-500">
+            </div>
             <div class="flex gap-2">
-                <button onclick="copyMyDeviceId()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer">📋 ກ໋ອບປີ ID</button>
-                <button onclick="closeMyDeviceModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl text-sm transition cursor-pointer">ປິດ</button>
+                <button onclick="closeLinkDeviceModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl text-sm transition cursor-pointer">ຍົກເລີກ</button>
+                <button onclick="confirmLinkDevice()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">ຕົກລົງ</button>
             </div>
         </div>
     </div>
@@ -170,7 +188,7 @@
                     🆔 ລະຫັດ ID ເຄື່ອງຂ້ອຍ
                 </button>
 
-                <!-- ປຸ່ມອອກຈາກລະບົບ (Logout) ສະແດງໃຫ້ທັງ Admin ແລະ ຜູ້ໃຊ້ທົດລອງ -->
+                <!-- ປຸ່ມອອກຈາກລະບົບ (Logout) -->
                 <button id="admin-logout-btn" onclick="adminLogout()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition cursor-pointer">
                     🚪 ອອກຈາກລະບົບ
                 </button>
@@ -528,7 +546,6 @@
                 return;
             }
 
-            // ຖ້າເປັນໂໝດ trial 15 ວັນ
             document.getElementById('admin-manage-btn').classList.add('hidden');
             document.getElementById('show-my-id-btn').classList.remove('hidden');
             checkTrialLicense();
@@ -585,10 +602,65 @@
 
         function copyMyDeviceId() {
             navigator.clipboard.writeText(deviceId).then(() => {
-                showAlert("ສຳເລັດ", "ກ໋ອບປີ Device ID เรียบร້ອຍແລ້ວ!", "📋");
+                showAlert("ສຳເລັດ", "ກ໋ອບປີ Device ID ຮຽບຮ້ອຍແລ້ວ!", "📋");
             }).catch(() => {
                 showAlert("ຜິດພາດ", "ບໍ່ສາມາດກ໋ອບປີໄດ້", "⚠️");
             });
+        }
+
+        // ຟັງຊັນຜູກ ID ເຄື່ອງໃໝ່ (Multi-Device Linking)
+        function openLinkDeviceModal() {
+            document.getElementById('my-device-modal').classList.add('hidden');
+            document.getElementById('target-device-id-input').value = '';
+            document.getElementById('link-device-modal').classList.remove('hidden');
+        }
+
+        function closeLinkDeviceModal() {
+            document.getElementById('link-device-modal').classList.add('hidden');
+        }
+
+        async function confirmLinkDevice() {
+            let targetId = document.getElementById('target-device-id-input').value.trim();
+            if (!targetId) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ Device ID ເຄື່ອງທີ່ຕ້ອງການຜູກ!", "⚠️");
+                return;
+            }
+
+            if (!supabaseClient) {
+                showAlert("ຜິດພາດ", "ບໍ່ສາມາດເຊື່ອມຕໍ່ Supabase ໄດ້", "⚠️");
+                return;
+            }
+
+            try {
+                // ກວດສອບວ່າ ID ເປ้าໝາຍມີໃນລະບົບແລ້ວຫຼືຍັງ
+                let { data: existing } = await supabaseClient
+                    .from('licenses')
+                    .select('*')
+                    .eq('device_id', targetId)
+                    .single();
+
+                if (existing) {
+                    // ຖ້າມີແລ້ວ ให้อັບເດດສະຖານະເປັນ permanent
+                    await supabaseClient
+                        .from('licenses')
+                        .update({ status: 'permanent' })
+                        .eq('device_id', targetId);
+                } else {
+                    // ຖ້າຫາກຍັງບໍ່ມີໃນຕາຕະລາງ ໃຫ້ສ້າງໃໝ່ເປັນ permanent ເລີຍ
+                    await supabaseClient
+                        .from('licenses')
+                        .insert([{
+                            device_id: targetId,
+                            trial_start: new Date().toISOString(),
+                            status: 'permanent'
+                        }]);
+                }
+
+                document.getElementById('link-device-modal').classList.add('hidden');
+                showAlert("ສຳເລັດ", `ຜູກ Device ID [${targetId}] ເປັນຜູ້ໃຊ້ງານຖາວອນສຳເລັດຮຽບຮ້ອຍ!`, "🔗");
+            } catch (e) {
+                showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການຜູກ ID", "⚠️");
+            }
         }
 
         async function checkTrialLicense() {
