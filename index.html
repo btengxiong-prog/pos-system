@@ -21,25 +21,6 @@
         body {
             font-family: 'Phetsarath OT', 'Saysettha OT', 'Noto Serif Lao', 'Times New Roman', Times, serif;
         }
-        /* CSS ສຳລັບເວລາສັ່ງພິມ: ซ่อนเมนูอื่นๆ ให้ເຫຼືອແຕ່ QR Code */
-        @media print {
-            body * {
-                visibility: hidden;
-            }
-            #excel-print-area, #excel-print-area * {
-                visibility: visible;
-            }
-            #excel-print-area {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-            }
-            /* ซ่อนปุ่มพิมพ์ตอนปรินท์ */
-            #print-btn-element {
-                display: none;
-            }
-        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen pb-10">
@@ -399,6 +380,20 @@
             }
         } catch (e) {
             console.error("Supabase initialization warning:", e);
+        }
+
+        // Realtime Listener: ฟังการเปลี่ยนแปลงใน Supabase เพื่อให้ทุกเครื่องอัปเดตข้อมูลอัตโนมัติ
+        if (supabaseClient) {
+            supabaseClient
+                .channel('public:sales_history')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sales_history' }, payload => {
+                    console.log('Realtime sync update received:', payload);
+                    // ถ้าเปิดหน้าประวัติหรือรายงานอยู่ ให้โหลดข้อมูลใหม่ทันที
+                    if (!document.getElementById('history-modal').classList.contains('hidden')) {
+                        loadCloudHistory();
+                    }
+                })
+                .subscribe();
         }
 
         const productsDB = {
@@ -1255,7 +1250,7 @@
             reader.readAsArrayBuffer(file);
         }
 
-        // ฟังก์ชันสร้าง QR Code พร้อมตัดราคาซื้อออก เหลือแต่ชื่อและราคาขาย
+        // แก้ไขฟังก์ชันสร้าง QR Code ให้เรนเดอร์ทั้งบนหน้าจอและเวลาสั่งพิมพ์ผ่าน window.print() ได้อย่างสมบูรณ์
         function generateExcelCodes() {
             if (excelRows.length === 0) {
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເພີ່ມຂໍ້ມູນສິນຄ້າໃນຕາຕະລາງກ່ອນ!", "⚠️");
@@ -1273,12 +1268,12 @@
                 let priceNum = parseFloat(row.price) || 0;
 
                 let cardHtml = `
-                    <div id="${cardId}" class="bg-white border rounded-xl p-3 shadow-sm text-center space-y-2 flex flex-col items-center justify-between">
-                        <div class="border-b w-full pb-1">
-                            <h5 class="font-bold text-gray-800 text-sm">${row.name}</h5>
-                            <p class="text-[11px] text-gray-600">ຂາຍ: <span class="text-green-600 font-bold">${priceNum.toLocaleString()} ກີບ</span></p>
+                    <div id="${cardId}" class="bg-white border rounded-xl p-3 shadow-sm text-center space-y-2 flex flex-col items-center justify-between" style="page-break-inside: avoid; border: 1px solid #e5e7eb; margin-bottom: 15px;">
+                        <div class="border-b w-full pb-1" style="border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">
+                            <h5 style="font-weight: bold; font-size: 16px; margin: 0 0 5px 0; color: #1f2937;">${row.name}</h5>
+                            <p style="font-size: 13px; color: #4b5563; margin: 0;">ຂາຍ: <span style="color: #16a34a; font-weight: bold;">${priceNum.toLocaleString()} ກີບ</span></p>
                         </div>
-                        <div class="py-1 flex items-center justify-center w-full">
+                        <div class="py-1 flex items-center justify-center w-full" style="padding: 10px 0;">
                             <div id="excel-qrcode-${index}" class="inline-block bg-white p-1 rounded"></div>
                         </div>
                     </div>
@@ -1288,6 +1283,7 @@
 
             document.getElementById('excel-print-area').classList.remove('hidden');
 
+            // วาด QR Code ทันทีลงใน Canvas
             setTimeout(() => {
                 excelRows.forEach((row, index) => {
                     if (!row.name) return;
@@ -1296,7 +1292,7 @@
                         qrDiv.innerHTML = "";
                         let qrData = `ຊື່ສິນຄ້າ: ${row.name}\nລາຄາຂາຍ: ${row.price} ກີບ`;
                         let canvas = document.createElement('canvas');
-                        QRCode.toCanvas(canvas, qrData, { width: 120, margin: 1 }, function (error) {
+                        QRCode.toCanvas(canvas, qrData, { width: 140, margin: 1 }, function (error) {
                             if (!error) {
                                 qrDiv.appendChild(canvas);
                             }
@@ -1306,7 +1302,6 @@
             }, 100);
         }
 
-        // ฟังก์ชันสั่งพิมพ์แบบใช้ CSS Print พร้อมสร้าง QR Code ให้ครบถ้วนสมบูรณ์
         function printExcelCodes() {
             window.print();
         }
