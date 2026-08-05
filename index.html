@@ -720,7 +720,7 @@
             document.getElementById('link-device-modal').classList.add('hidden');
         }
 
-        // --- ຟັງຊັນຊິງ໌ລາຍຊື່ ID ທີ່ຜູກກັນຈາກ Cloud 100% (Two-way sync across all devices) ---
+        // --- ຟັງຊັນດຶງລາຍຊື່ ID ທັງໝົດໃນກຸ່ມແບບ Global Sync (Two-way Global Sync) ---
         async function getLinkedDeviceIds() {
             let linkedSet = new Set([deviceId]);
             
@@ -728,25 +728,31 @@
             let localLinked = JSON.parse(localStorage.getItem('pos_linked_devices') || '[]');
             localLinked.forEach(id => linkedSet.add(id));
 
-            // 2. ດຶງຈາກ Cloud Supabase (licenses) ເພື່ອລວມ ID ທັງໝົດທີ່ກ່ຽວຂ້ອງໃນກຸ່ມ
+            // 2. ດຶງຈາກ Cloud Supabase (licenses) ທຸກແຖວມາກັ່ນຕອງຫາ gộp ທີ່ກ່ຽວຂ້ອງກັນ
             if (supabaseClient) {
                 try {
                     let { data: allLicenses } = await supabaseClient.from('licenses').select('device_id, linked_devices');
                     if (allLicenses) {
-                        // ກວດສອບວ່າ deviceId ນີ້ ຫຼື ID ໃນກຸ່ມ ມີການບັນທຶກ linked_devices ໄວ້ໃນ Cloud ບໍ
-                        allLicenses.forEach(row => {
-                            let cloudLinked = row.linked_devices ? JSON.parse(row.linked_devices) : [];
-                            if (row.device_id === deviceId || linkedSet.has(row.device_id) || cloudLinked.includes(deviceId) || cloudLinked.some(id => linkedSet.has(id))) {
-                                linkedSet.add(row.device_id);
-                                cloudLinked.forEach(id => linkedSet.add(id));
-                            }
-                        });
+                        // ວົນລູບກວດສອບເບິ່ງວ່າ ID ໃດໃນ Cloud ມີການເຊື່ອມໂຍງກັນ
+                        let added = true;
+                        while(added) {
+                            added = false;
+                            allLicenses.forEach(row => {
+                                let cloudLinked = row.linked_devices ? JSON.parse(row.linked_devices) : [];
+                                let rowHasMatch = linkedSet.has(row.device_id) || cloudLinked.some(id => linkedSet.has(id));
+                                if (rowHasMatch) {
+                                    if (!linkedSet.has(row.device_id)) { linkedSet.add(row.device_id); added = true; }
+                                    cloudLinked.forEach(id => {
+                                        if (!linkedSet.has(id)) { linkedSet.add(id); added = true; }
+                                    });
+                                }
+                            });
+                        }
                     }
                 } catch (e) {}
             }
 
             let finalArr = Array.from(linkedSet);
-            // ບັນທຶກລົງ LocalStorage ໄວ້ເບື້ອງຕົ້ນສະເໝີ
             localStorage.setItem('pos_linked_devices', JSON.stringify(finalArr));
             return finalArr;
         }
@@ -794,10 +800,15 @@
 
             if (supabaseClient) {
                 try {
-                    let { data: row } = await supabaseClient.from('licenses').select('linked_devices').eq('device_id', deviceId).single();
-                    if (row && row.linked_devices) {
-                        let cloudLinked = JSON.parse(row.linked_devices).filter(id => id !== targetId);
-                        await supabaseClient.from('licenses').update({ linked_devices: JSON.stringify(cloudLinked) }).eq('device_id', deviceId);
+                    let { data: allLicenses } = await supabaseClient.from('licenses').select('device_id, linked_devices');
+                    if (allLicenses) {
+                        for (let row of allLicenses) {
+                            let cloudLinked = row.linked_devices ? JSON.parse(row.linked_devices) : [];
+                            if (cloudLinked.includes(targetId)) {
+                                let newCloud = cloudLinked.filter(id => id !== targetId);
+                                await supabaseClient.from('licenses').update({ linked_devices: JSON.stringify(newCloud) }).eq('device_id', row.device_id);
+                            }
+                        }
                     }
                 } catch (e) {}
             }
@@ -826,7 +837,7 @@
             navigator.clipboard.writeText("1006000000470").then(() => {}).catch(() => {});
         }
 
-        // --- ຜູກ ID ແບບສອງທາງ (Sync ທັງກຸ່ມລົງ Cloud Supabase ອັດຕະໂນມັດ 100%) ---
+        // --- ຜູກ ID ແບບ Global Sync: ລວມກຸ່ມ ID ທັງໝົດແລ້ວອັບເດດລົງ Cloud Supabase ໃຫ້ທຸກເຄື່ອງເຫັນກັນครบ 100% ---
         async function confirmLinkDevice() {
             let targetId = document.getElementById('target-device-id-input').value.trim();
             if (!targetId) {
@@ -834,33 +845,37 @@
                 return;
             }
 
-            // 1. ດຶງກຸ່ມ ID ປະຈຸບັນມາລວມກັນ
-            let linkedList = JSON.parse(localStorage.getItem('pos_linked_devices') || '[]');
-            if (!linkedList.includes(deviceId)) linkedList.push(deviceId);
-            if (!linkedList.includes(targetId)) linkedList.push(targetId);
+            // 1. ດຶງກຸ່ມ ID ປະຈຸບັນທັງໝົດ (ລວມທັງຝั่ง Target ຖ້າມີໃນ Cloud)
+            let linkedSet = new Set([deviceId, targetId]);
+            let localLinked = JSON.parse(localStorage.getItem('pos_linked_devices') || '[]');
+            localLinked.forEach(id => linkedSet.add(id));
 
             if (supabaseClient) {
                 try {
-                    // ດຶງຂໍ້ມູນຈາກ Cloud ຂອງ targetId ມານຳ (ຖ້າມີການຜູກກ່ອນໜ້ານີ້ແລ້ວ)
                     let { data: targetRow } = await supabaseClient.from('licenses').select('linked_devices').eq('device_id', targetId).single();
                     if (targetRow && targetRow.linked_devices) {
                         let targetCloud = JSON.parse(targetRow.linked_devices);
-                        targetCloud.forEach(id => {
-                            if (!linkedList.includes(id)) linkedList.push(id);
-                        });
+                        targetCloud.forEach(id => linkedSet.add(id));
+                    }
+                    
+                    let { data: myRow } = await supabaseClient.from('licenses').select('linked_devices').eq('device_id', deviceId).single();
+                    if (myRow && myRow.linked_devices) {
+                        let myCloud = JSON.parse(myRow.linked_devices);
+                        myCloud.forEach(id => linkedSet.add(id));
                     }
                 } catch (e) {}
             }
 
-            localStorage.setItem('pos_linked_devices', JSON.stringify(linkedList));
+            let fullGroupList = Array.from(linkedSet);
+            localStorage.setItem('pos_linked_devices', JSON.stringify(fullGroupList));
 
-            // 2. ອັບເດດລາຍຊື່ gộp (linkedList) ນີ້ທັງໝົດຂຶ້ນໄປໃສ່ Cloud Supabase ໃຫ້ທຸກເຄື່ອງໃນກຸ່ມ
+            // 2. ບັງຄັບອັບເດດ Array gộp (fullGroupList) ນີ້ທັງໝົດລົງໄປໃນ Cloud ຂອງທຸກ Device ID ໃນກຸ່ມພ້ອມກັນ
             if (supabaseClient) {
                 try {
-                    for (let id of linkedList) {
+                    for (let id of fullGroupList) {
                         await supabaseClient.from('licenses').upsert({
                             device_id: id,
-                            linked_devices: JSON.stringify(linkedList),
+                            linked_devices: JSON.stringify(fullGroupList),
                             status: 'permanent'
                         }, { onConflict: 'device_id' });
                     }
@@ -868,7 +883,7 @@
             }
 
             document.getElementById('link-device-modal').classList.add('hidden');
-            showAlert("ສຳເລັດ", `ຜູກ Device ID [${targetId}] ສຳເລັດ! ທັງ 3 ເຄື່ອງຈະເຫັນຂໍ້ມູນ ແລະ ID ຮ່ວມກັນແລ້ວ.`, "🔗");
+            showAlert("ສຳເລັດ", `ຜູກ Device ID [${targetId}] ສຳເລັດ! ທຸກເຄື່ອງໃນກຸ່ມຈະເຫັນ ID ແລະ ຂໍ້ມູນຮ່ວມກັນครบຖ້ວນແລ້ວ.`, "🔗");
         }
 
         async function checkTrialLicense() {
@@ -1059,6 +1074,7 @@
             document.getElementById('alert-title').innerText = title;
             document.getElementById('alert-message').innerText = message;
             document.getElementById('alert-icon').innerText = icon;
+            document.getElementById('custom-alert-modal').classList.add('hidden'); // fix
             document.getElementById('custom-alert-modal').classList.remove('hidden');
         }
 
@@ -1304,7 +1320,6 @@
             }
         }
 
-        // --- ຊຳລະເງິນ: ສົ່ງຂຶ້ນ Cloud Supabase ພ້ອມ device_id ຢ່າງຖືກຕ້ອງ ---
         async function checkout() {
             if (cart.length === 0) {
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າກ່ອນຊຳລະເງິນ!", "⚠️");
@@ -1363,7 +1378,6 @@
             renderCart();
         }
 
-        // --- ໂຫຼດປະຫວັດ: ດຶງຂໍ້ມູນຈາກ Cloud ມາລວມກັບເຄື່ອງທີ່ຜູກ ID ເຂົ້າກັນ (ຜ່ານ Cloud Two-way Sync) ---
         async function loadCloudHistory() {
             let listDiv = document.getElementById('history-list');
             listDiv.innerHTML = `<p class="text-center py-4">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
@@ -1705,7 +1719,7 @@
                         <td class="p-2 border-r"><input type="text" value="${row.name || ''}" oninput="updateExcelRow(${index}, 'name', this.value)" onpaste="handleTablePaste(event, ${index}, 0)" class="w-full border rounded px-2 py-1 text-sm font-semibold outline-none"></td>
                         <td class="p-2 border-r"><input type="text" value="${row.cost ? Number(row.cost).toLocaleString() : ''}" oninput="let raw = this.value.replace(/[^0-9]/g, ''); updateExcelRow(${index}, 'cost', raw);" onpaste="handleTablePaste(event, ${index}, 1)" class="w-full border rounded px-2 py-1 text-right text-sm font-bold text-blue-600 outline-none"></td>
                         <td class="p-2 border-r text-center"><input type="text" value="${row.markup || 20}" oninput="let raw = this.value.replace(/[^0-9.]/g, ''); updateExcelRow(${index}, 'markup', raw);" onpaste="handleTablePaste(event, ${index}, 2)" class="w-20 border rounded px-2 py-1 text-center text-sm font-bold text-orange-600 outline-none"> %</td>
-                        <td class="p-2 border-r"><input type="text" id="price-input-${index}" value="${row.price ? Number(row.price).toLocaleString() : ''}" oninput="let raw = this.value.replace(/[^0-9]/g, ''); updateExcelRow(${index}, 'price', raw);" onpaste="handleTablePaste(event, ${index}, 3)" class="w-full border rounded px-2 py-1 text-right text-sm font-bold text-green-600 outline-none"></td>
+                        <td class="p-2 border-r"><input type="text" id="price-input-${index}" value="${row.price ? Number(row.price).toLocaleString() : ''}" oninput="let raw = this.value.replace(/[^0-9.]/g, ''); updateExcelRow(${index}, 'price', raw);" onpaste="handleTablePaste(event, ${index}, 3)" class="w-full border rounded px-2 py-1 text-right text-sm font-bold text-green-600 outline-none"></td>
                         <td class="p-2 text-center"><button onclick="deleteExcelRow(${index})" class="text-red-500 font-bold text-xs bg-red-50 px-2 py-1 rounded cursor-pointer">ລຶບ</button></td>
                     </tr>
                 `;
