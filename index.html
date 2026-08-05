@@ -42,7 +42,7 @@
 </head>
 <body class="bg-gray-100 min-h-screen pb-10">
 
-    <!-- Role Selection Modal (เหลือ 2 ປຸ່ມ: ທົດລອງ VS ລັອກອິນ) -->
+    <!-- Role Selection Modal (บังคับเด้ງຂຶ້ນມາທຸກຄັ້ງທີ່ເປີດລິ້ງໃໝ່) -->
     <div id="role-select-modal" class="fixed inset-0 bg-black/80 z-[300] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
             <div class="text-4xl">🔐</div>
@@ -94,7 +94,7 @@
             
             <!-- ຟອມສ້າງ Username & Password ໃຫ້ສະມາຊິກຖາວອນ -->
             <div class="bg-blue-50 p-4 rounded-xl border border-blue-200 space-y-3">
-                <h4 class="font-bold text-blue-900 text-sm">➕ ສ້າງ Username & Password ໃຫ້ສະມາຊິກຖາວອນ</h4>
+                <h4 class="font-bold text-blue-900 text-sm">➕ ສ້າງ Username ໃຫ້ສະມາຊິກຖາວອນ</h4>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <input type="text" id="new-admin-user" placeholder="ປ້ອນ Username (ຕົວຢ່າງ: SHOP001)" class="border rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none bg-white">
                     <input type="text" id="new-admin-pass" placeholder="ປ້ອນ Password" class="border rounded-lg px-3 py-2 text-xs font-semibold outline-none bg-white">
@@ -257,8 +257,8 @@
                 <button id="admin-manage-btn" onclick="openAdminManager()" class="hidden w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     ⚙️ ຈັດການລະບົບ
                 </button>
-                <button id="admin-logout-btn" onclick="adminLogout()" class="hidden w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
-                    🚪 ອອກຈາກລະບົບ
+                <button onclick="adminLogout()" class="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
+                    🚪 ປ່ຽນໂໝດ / ອອກລະບົບ
                 </button>
             </div>
         </div>
@@ -629,34 +629,27 @@
             return `POS-${blockChar}${paddedSeq}`;
         }
 
+        // --- ບັງຄັບໃຫ້ເด้ງປ໊ອບອັບເລືອກໂໝດທຸກຄັ້ງທີ່ເປີດລິ້ງເຂົ້າມາໃໝ່ ---
         function checkRoleAndLicense() {
-            let userRole = localStorage.getItem('pos_user_role');
-            let localStatus = localStorage.getItem('pos_license_status');
-
-            if (userRole === 'admin' || localStatus === 'permanent' || currentUsername) {
-                if (userRole === 'admin') {
-                    document.getElementById('admin-manage-btn').classList.remove('hidden');
-                    document.getElementById('admin-logout-btn').classList.remove('hidden');
-                    document.getElementById('license-status-badge').innerText = "🛡️ ສະຖານະ: ເຂົ້າລະບົບ Admin (Full Access)";
-                } else if (currentUsername) {
-                    document.getElementById('admin-manage-btn').classList.add('hidden');
-                    document.getElementById('admin-logout-btn').classList.remove('hidden');
-                    document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ສະມາຊິກ [${currentUsername}] (Permanent User)`;
-                } else {
-                    document.getElementById('admin-manage-btn').classList.add('hidden');
-                    document.getElementById('admin-logout-btn').classList.add('hidden');
-                    document.getElementById('license-status-badge').innerText = "⭐ ສະຖານະ: ຜູ້ໃຊ້ງານຖາວອນ (Permanent User)";
-                }
-                document.getElementById('role-select-modal').classList.add('hidden');
-                document.getElementById('unified-login-modal').classList.add('hidden');
-                return;
-            }
-
+            // ເປີດ Modal ໃຫ້ເລືອກທຸກຄັ້ງທີ່ໂຫຼດໜ້າຈໍ
             document.getElementById('role-select-modal').classList.remove('hidden');
-            document.getElementById('admin-logout-btn').classList.add('hidden');
+            document.getElementById('unified-login-modal').classList.add('hidden');
+
+            let userRole = localStorage.getItem('pos_user_role');
+            if (userRole === 'admin') {
+                document.getElementById('admin-manage-btn').classList.remove('hidden');
+                document.getElementById('license-status-badge').innerText = "🛡️ ສະຖານະ: ເຂົ້າລະບົບ Admin (Full Access)";
+            } else if (currentUsername) {
+                document.getElementById('admin-manage-btn').classList.add('hidden');
+                document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ສະມາຊິກ [${currentUsername}] (Permanent User)`;
+            } else {
+                document.getElementById('admin-manage-btn').classList.add('hidden');
+                document.getElementById('license-status-badge').innerText = "⏳ ສະຖານະ: ທົດລອງໃຊ້ 15 ວັນ";
+            }
         }
 
         function selectRole(role) {
+            // ຖ້າເລືອກທົດລອງໃຊ້ ໃຫ້ປິດປ໊ອບອັບແລ້ວເຂົ້າໜ້າ POS ທັນທີ
             document.getElementById('role-select-modal').classList.add('hidden');
             document.getElementById('unified-login-modal').classList.add('hidden');
             checkTrialLicense();
@@ -685,7 +678,10 @@
             if (u === "POSXIONG" && p === "POS@21082007") {
                 localStorage.setItem('pos_user_role', 'admin');
                 document.getElementById('unified-login-modal').classList.add('hidden');
-                checkRoleAndLicense();
+                document.getElementById('role-select-modal').classList.add('hidden');
+                document.getElementById('admin-manage-btn').classList.remove('hidden');
+                document.getElementById('license-status-badge').innerText = "🛡️ ສະຖານະ: ເຂົ້າລະບົບ Admin (Full Access)";
+                showAlert("ສຳເລັດ", "ລັອກອິນເຂົ້າສູ່ລະບົບ Admin ສຳເລັດ!", "🛡️");
                 return;
             }
 
@@ -711,6 +707,7 @@
                         localStorage.setItem('pos_current_username', currentUsername);
                         localStorage.setItem('pos_device_id', deviceId);
                         localStorage.setItem('pos_license_status', 'permanent');
+                        localStorage.removeItem('pos_user_role');
 
                         if (oldDeviceId && oldDeviceId !== formattedU) {
                             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
@@ -724,8 +721,10 @@
                         }
 
                         document.getElementById('unified-login-modal').classList.add('hidden');
+                        document.getElementById('role-select-modal').classList.add('hidden');
+                        document.getElementById('admin-manage-btn').classList.add('hidden');
+                        document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ສະມາຊິກ [${currentUsername}] (Permanent User)`;
                         showAlert("ສຳເລັດ", `ລັອກອິນເຂົ້າສູ່ລະບົບ [${formattedU}] ສຳເລັດຮຽບຮ້ອຍ!`, "⭐");
-                        location.reload();
                     } else {
                         showAlert("ແຈ້ງເຕືອນ", "ບັນຊີນີ້ຍັງບໍ່ໄດ້ເປີດໃຊ້ງານຖາວອນ!", "⚠️");
                     }
@@ -960,7 +959,7 @@
                                     ${isPerm ? '⭐ ຖາວອນ' : '⏳ ທົດລອງ'}
                                 </span>
                                 <button onclick="toggleDeviceStatus('${item.device_id}', '${isPerm ? 'trial' : 'permanent'}')" class="px-2.5 py-1 rounded font-bold ${isPerm ? 'bg-amber-200 text-amber-800' : 'bg-green-200 text-green-800'} cursor-pointer">
-                                    ${isPerm ? 'ປ່ຽເປັນ Trial' : 'ເປີດໃຊ້ຖາວອນ'}
+                                    ${isPerm ? 'ປ່ຽນເປັນ Trial' : 'ເປີດໃຊ້ຖາວອນ'}
                                 </button>
                             </div>
                         </div>
@@ -976,7 +975,7 @@
             let p = document.getElementById('new-admin-pass').value.trim();
 
             if (!u || !p) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ Username ແລະ Password ໃຫ້ครบຖ້ວນ!", "⚠️");
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ Username ແລະ Password ໃຫ້ຄົບຖ້ວນ!", "⚠️");
                 return;
             }
 
