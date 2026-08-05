@@ -108,14 +108,13 @@
             </div>
             <div class="space-y-2">
                 <button onclick="copyMyDeviceId()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">📋 ກ໋ອບປີ ID</button>
-                <!-- ປຸ່ມຜູກ ID ເຄື່ອງໃໝ່ (ສຳລັບເຄື່ອງທີ່ປົດລັອກແລ້ວ ຕ້ອງການຜູກເຄື່ອງອື່ນເພີ່ມ) -->
                 <button onclick="openLinkDeviceModal()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">🔗 ຜູກ ID ເຄື່ອງໃໝ່ (Multi-Device)</button>
                 <button onclick="closeMyDeviceModal()" class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl text-sm transition cursor-pointer">ປິດ</button>
             </div>
         </div>
     </div>
 
-    <!-- Link New Device Modal (Popup ສוףຜູກ ID) -->
+    <!-- Link New Device Modal -->
     <div id="link-device-modal" class="hidden fixed inset-0 bg-black/70 z-[280] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
             <div class="text-4xl">🔗</div>
@@ -188,8 +187,8 @@
                     🆔 ລະຫັດ ID ເຄື່ອງຂ້ອຍ
                 </button>
 
-                <!-- ປຸ່ມອອກຈາກລະບົບ (Logout) -->
-                <button id="admin-logout-btn" onclick="adminLogout()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition cursor-pointer">
+                <!-- ປຸ່ມອອກຈາກລະບົບ (ສະແດງສະເພາະ Admin ເທົ່ານັ້ນ) -->
+                <button id="admin-logout-btn" onclick="adminLogout()" class="hidden bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition cursor-pointer">
                     🚪 ອອກຈາກລະບົບ
                 </button>
             </div>
@@ -532,29 +531,43 @@
 
         function checkRoleAndLicense() {
             let userRole = localStorage.getItem('pos_user_role');
-            
-            if (!userRole) {
-                document.getElementById('role-select-modal').classList.remove('hidden');
-                return;
-            }
+            let localStatus = localStorage.getItem('pos_license_status');
 
-            if (userRole === 'admin') {
-                document.getElementById('admin-manage-btn').classList.remove('hidden');
-                document.getElementById('show-my-id-btn').classList.add('hidden');
-                document.getElementById('license-status-badge').innerText = "🛡️ ສະຖານະ: ເຂົ້າລະບົບ Admin (Full Access)";
+            // ຖ້າເປັນເຄື່ອງຖາວອນ (Permanent) ຫຼື Admin ໃຫ້ເຂົ້າໃຊ້ງານໄດ້ເລີຍ ໂດຍບໍ່ມີຂໍ້ຈຳກັດ
+            if (userRole === 'admin' || localStatus === 'permanent') {
+                if (userRole === 'admin') {
+                    document.getElementById('admin-manage-btn').classList.remove('hidden');
+                    document.getElementById('show-my-id-btn').classList.add('hidden');
+                    document.getElementById('admin-logout-btn').classList.remove('hidden');
+                    document.getElementById('license-status-badge').innerText = "🛡️ ສະຖານະ: ເຂົ້າລະບົບ Admin (Full Access)";
+                } else {
+                    document.getElementById('admin-manage-btn').classList.add('hidden');
+                    document.getElementById('show-my-id-btn').classList.add('hidden');
+                    document.getElementById('admin-logout-btn').classList.add('hidden');
+                    document.getElementById('license-status-badge').innerText = "⭐ ສະຖານະ: ຜູ້ໃຊ້ງານຖາວອນ (Permanent User)";
+                }
+                document.getElementById('role-select-modal').classList.add('hidden');
                 document.getElementById('license-modal').classList.add('hidden');
                 return;
             }
 
-            document.getElementById('admin-manage-btn').classList.add('hidden');
-            document.getElementById('show-my-id-btn').classList.remove('hidden');
-            checkTrialLicense();
+            // ສຳລັບຜູ້ໃຊ້ທົດລອງ 15 ວັນ: ບังຄັບໃຫ້ເລືອກໂໝດ (Admin / Trial) ທุกຄັ້ງທີ່ເຂົ້າມາໃໝ່
+            if (!userRole || userRole === 'trial') {
+                localStorage.removeItem('pos_user_role'); // ລຶບອອກເພື່ອໃຫ້ຖາມໃໝ່ທຸກຄັ້ງ
+                document.getElementById('role-select-modal').classList.remove('hidden');
+                document.getElementById('admin-logout-btn').classList.add('hidden'); // ຕັດປຸ່ມອອກຈາກລະບົບອອກສຳລັບຜູ້ໃຊ້ທົດລອງ
+                document.getElementById('show-my-id-btn').classList.remove('hidden');
+                return;
+            }
         }
 
         function selectRole(role) {
-            localStorage.setItem('pos_user_role', role);
+            if (role === 'trial') {
+                localStorage.setItem('pos_user_role', 'trial');
+            }
             document.getElementById('role-select-modal').classList.add('hidden');
             checkRoleAndLicense();
+            checkTrialLicense();
         }
 
         function showAdminLogin() {
@@ -608,7 +621,6 @@
             });
         }
 
-        // ຟັງຊັນຜູກ ID ເຄື່ອງໃໝ່ (Multi-Device Linking)
         function openLinkDeviceModal() {
             document.getElementById('my-device-modal').classList.add('hidden');
             document.getElementById('target-device-id-input').value = '';
@@ -632,7 +644,6 @@
             }
 
             try {
-                // ກວດສອບວ່າ ID ເປ้าໝາຍມີໃນລະບົບແລ້ວຫຼືຍັງ
                 let { data: existing } = await supabaseClient
                     .from('licenses')
                     .select('*')
@@ -640,13 +651,11 @@
                     .single();
 
                 if (existing) {
-                    // ຖ້າມີແລ້ວ ให้อັບເດດສະຖານະເປັນ permanent
                     await supabaseClient
                         .from('licenses')
                         .update({ status: 'permanent' })
                         .eq('device_id', targetId);
                 } else {
-                    // ຖ້າຫາກຍັງບໍ່ມີໃນຕາຕະລາງ ໃຫ້ສ້າງໃໝ່ເປັນ permanent ເລີຍ
                     await supabaseClient
                         .from('licenses')
                         .insert([{
@@ -664,19 +673,17 @@
         }
 
         async function checkTrialLicense() {
+            let localStatus = localStorage.getItem('pos_license_status');
+            if (localStatus === 'permanent') {
+                return;
+            }
+
             let modal = document.getElementById('license-modal');
             let msg = document.getElementById('license-message');
             let formContainer = document.getElementById('license-form-container');
             let badge = document.getElementById('license-status-badge');
             let displayDevId = document.getElementById('display-device-id');
             displayDevId.innerText = deviceId;
-
-            let localStatus = localStorage.getItem('pos_license_status');
-            if (localStatus === 'permanent') {
-                badge.innerText = "⭐ ສະຖານະ: ຜູ້ໃຊ້ງານຖາວອນ (Permanent User)";
-                modal.classList.add('hidden');
-                return;
-            }
 
             let trialStart = localStorage.getItem('pos_trial_start');
             if (!trialStart) {
