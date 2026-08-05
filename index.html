@@ -119,8 +119,8 @@
     <div id="linked-devices-modal" class="hidden fixed inset-0 bg-black/70 z-[280] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 text-center space-y-4 shadow-2xl">
             <div class="text-4xl">🔗</div>
-            <h3 class="text-lg font-bold text-gray-800">ລາຍຊື່ Device ID ທີ່ຜູກກັນ</h3>
-            <p class="text-xs text-gray-600">ທ່ານສາມາດກົດລຶບ ID ທີ່ບໍ່ຕ້ອງການອອກຈາກກຸ່ມໄດ້ທີ່ນີ້</p>
+            <h3 class="text-lg font-bold text-gray-800">ລາຍຊື່ Device ID ທີ່ຜູກກັນ (Sync ທັງກຸ່ມ)</h3>
+            <p class="text-xs text-gray-600">ເຄື່ອງທັງໝົດໃນລາຍຊື່ນີ້ຈະເຫັນຂໍ້ມູນ ແລະ ຍອດຂາຍລວມກັນ 100%</p>
             
             <div id="linked-devices-container" class="space-y-2 text-left max-h-60 overflow-y-auto bg-gray-50 p-3 rounded-xl border text-xs">
                 <p class="text-center text-gray-500">ກຳລັງໂຫຼດ...</p>
@@ -210,13 +210,13 @@
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
             <div class="text-4xl">🔗</div>
             <h3 class="text-lg font-bold text-gray-800">ຜູກ ID ເຄື່ອງໃໝ່</h3>
-            <p class="text-xs text-gray-600">ປ້ອນ Device ID ຂອງເຄື່ອງທີ່ຕ້ອງການຜູກ (ເຄື່ອງທີ 2, 3...) ເພື່ອໃຫ້ເປັນສະຖານະຖາວອນທັນທີ</p>
+            <p class="text-xs text-gray-600">ປ້ອນ Device ID ຂອງເຄື່ອງທີ່ຕ້ອງການຜູກ ເພື່ອໃຫ້ທັງສອງເຄື່ອງເຫັນຂໍ້ມູນຮ່ວມກັນ</p>
             <div>
                 <input type="text" id="target-device-id-input" placeholder="ປ້ອນ Device ID ເຄື່ອງໃໝ່" class="w-full border rounded-lg px-3 py-2.5 text-center font-mono font-bold text-sm outline-none focus:ring-2 focus:ring-amber-500">
             </div>
             <div class="flex gap-2">
-                <button onclick="closeLinkDeviceModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl text-sm transition cursor-pointer">ຍົກເລີກ</button>
-                <button onclick="confirmLinkDevice()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">ຕົກລົງ</button>
+                <button onclick="closeLinkDeviceModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
+                <button onclick="confirmLinkDevice()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">ຕົກລົງ</button>
             </div>
         </div>
     </div>
@@ -720,15 +720,40 @@
             document.getElementById('link-device-modal').classList.add('hidden');
         }
 
-        // --- ຟັງຊັນຈັດການເບິ່ງ ແລະ ລຶບ ID ທີ່ຜູກກັນ ---
-        function openLinkedDevicesModal() {
+        // --- ຟັງຊັນຊິງ໌ ແລະ ດຶງລາຍຊື່ ID ທີ່ຜູກກັນຈາກ Cloud Supabase 100% ---
+        async function getLinkedDeviceIds() {
+            let linkedSet = new Set([deviceId]);
+            
+            // 1. ດຶງຈາກ LocalStorage
+            let localLinked = JSON.parse(localStorage.getItem('pos_linked_devices') || '[]');
+            localLinked.forEach(id => linkedSet.add(id));
+
+            // 2. ດຶງຈາກ Cloud Supabase (licenses) ເພື່ອໃຫ້ທັງເຄື່ອງ 1 ແລະ ເຄື່ອງ 2 ເຫັນກັນອັດຕະໂນມັດ
+            if (supabaseClient) {
+                try {
+                    let { data: allLicenses } = await supabaseClient.from('licenses').select('device_id, linked_devices');
+                    if (allLicenses) {
+                        allLicenses.forEach(row => {
+                            let cloudLinked = row.linked_devices ? JSON.parse(row.linked_devices) : [];
+                            // ຖ້າເຄື່ອງໃດເຄື່ອງໜຶ່ງໃນກຸ່ມມີ deviceId ນี้ ຫຼື ຖືກຜູກກັນ
+                            if (row.device_id === deviceId || cloudLinked.includes(deviceId) || cloudLinked.some(id => linkedSet.has(id))) {
+                                linkedSet.add(row.device_id);
+                                cloudLinked.forEach(id => linkedSet.add(id));
+                            }
+                        });
+                    }
+                } catch (e) {}
+            }
+
+            return Array.from(linkedSet);
+        }
+
+        async function openLinkedDevicesModal() {
             document.getElementById('my-device-modal').classList.add('hidden');
             let container = document.getElementById('linked-devices-container');
-            
-            let linkedList = JSON.parse(localStorage.getItem('pos_linked_devices') || '[]');
-            if (!linkedList.includes(deviceId)) {
-                linkedList.unshift(deviceId);
-            }
+            container.innerHTML = `<p class="text-center text-gray-500 py-2">ກຳລັງໂຫຼດລາຍຊື່...</p>`;
+
+            let linkedList = await getLinkedDeviceIds();
 
             if (linkedList.length === 0) {
                 container.innerHTML = `<p class="text-center text-gray-500 py-2">ຍັງບໍ່ມີ Device ID ອື່ນຖືກຜູກກັນ.</p>`;
@@ -759,10 +784,21 @@
             document.getElementById('my-device-modal').classList.remove('hidden');
         }
 
-        function removeLinkedDevice(targetId) {
+        async function removeLinkedDevice(targetId) {
             let linkedList = JSON.parse(localStorage.getItem('pos_linked_devices') || '[]');
             linkedList = linkedList.filter(id => id !== targetId);
             localStorage.setItem('pos_linked_devices', JSON.stringify(linkedList));
+
+            if (supabaseClient) {
+                try {
+                    let { data: row } = await supabaseClient.from('licenses').select('linked_devices').eq('device_id', deviceId).single();
+                    if (row && row.linked_devices) {
+                        let cloudLinked = JSON.parse(row.linked_devices).filter(id => id !== targetId);
+                        await supabaseClient.from('licenses').update({ linked_devices: JSON.stringify(cloudLinked) }).eq('device_id', deviceId);
+                    }
+                } catch (e) {}
+            }
+
             showAlert("ສຳເລັດ", `ລຶບ Device ID [${targetId}] ອອກຈາກກຸ່ມຮຽບຮ້ອຍແລ້ວ!`, "🗑️");
             openLinkedDevicesModal();
         }
@@ -787,6 +823,7 @@
             navigator.clipboard.writeText("1006000000470").then(() => {}).catch(() => {});
         }
 
+        // --- ຜູກ ID ແບບສອງທາງ (Sync ຜ່ານ Cloud Supabase ໃຫ້ທັງເຄື່ອງ 1 ແລະ ເຄື່ອງ 2 ເຫັນກັນທັນທີ) ---
         async function confirmLinkDevice() {
             let targetId = document.getElementById('target-device-id-input').value.trim();
             if (!targetId) {
@@ -794,13 +831,37 @@
                 return;
             }
 
+            // 1. ບັນທຶກລົງ LocalStorage ຂອງເຄື່ອງນີ້
             let linkedList = JSON.parse(localStorage.getItem('pos_linked_devices') || '[]');
             if (!linkedList.includes(deviceId)) linkedList.push(deviceId);
             if (!linkedList.includes(targetId)) linkedList.push(targetId);
             localStorage.setItem('pos_linked_devices', JSON.stringify(linkedList));
 
+            // 2. ບັນທຶກ ແລະ ສ້າງການເຊື່ອມໂຍງສອງທາງລົງ Cloud Supabase (licenses)
+            if (supabaseClient) {
+                try {
+                    // ອັບເດດฝั่ง Device ID ปัจจุบัน
+                    let { data: row1 } = await supabaseClient.from('licenses').select('linked_devices').eq('device_id', deviceId).single();
+                    let cloudLinked1 = row1 && row1.linked_devices ? JSON.parse(row1.linked_devices) : [];
+                    if (!cloudLinked1.includes(targetId)) cloudLinked1.push(targetId);
+                    if (!cloudLinked1.includes(deviceId)) cloudLinked1.push(deviceId);
+                    
+                    await supabaseClient.from('licenses')
+                        .upsert({ device_id: deviceId, linked_devices: JSON.stringify(cloudLinked1), status: 'permanent' }, { onConflict: 'device_id' });
+
+                    // ອັບເດດฝั่ง Target Device ID ໃຫ້ຮູ້ຈັກ Device ID ນີ້ຄືກັນ (Two-way sync 100%)
+                    let { data: row2 } = await supabaseClient.from('licenses').select('linked_devices').eq('device_id', targetId).single();
+                    let cloudLinked2 = row2 && row2.linked_devices ? JSON.parse(row2.linked_devices) : [];
+                    if (!cloudLinked2.includes(deviceId)) cloudLinked2.push(deviceId);
+                    if (!cloudLinked2.includes(targetId)) cloudLinked2.push(targetId);
+
+                    await supabaseClient.from('licenses')
+                        .upsert({ device_id: targetId, linked_devices: JSON.stringify(cloudLinked2), status: 'permanent' }, { onConflict: 'device_id' });
+                } catch (e) {}
+            }
+
             document.getElementById('link-device-modal').classList.add('hidden');
-            showAlert("ສຳເລັດ", `ຜູກ Device ID [${targetId}] ຮຽບຮ້ອຍແລ້ວ!`, "🔗");
+            showAlert("ສຳເລັດ", `ຜູກ Device ID [${targetId}] ສຳເລັດ! ທັງສອງເຄື່ອງຈະເຫັນຂໍ້ມູນຮ່ວມກັນແລ້ວ.`, "🔗");
         }
 
         async function checkTrialLicense() {
@@ -1236,7 +1297,7 @@
             }
         }
 
-        // --- ບັນທຶກການຂາຍ: ສົ່ງຂຶ້ນ Cloud Supabase ພ້ອມ device_id ຢ່າງຖືກຕ້ອງ ---
+        // --- ຊຳລະເງິນ: ສົ່ງຂຶ້ນ Cloud Supabase ພ້ອມ device_id ຢ່າງຖືກຕ້ອງ ---
         async function checkout() {
             if (cart.length === 0) {
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າກ່ອນຊຳລະເງິນ!", "⚠️");
@@ -1295,18 +1356,14 @@
             renderCart();
         }
 
-        // --- ໂຫຼດປະຫວັດ: ດຶງຂໍ້ມູນຈາກ Cloud ມາລວມກັບເຄື່ອງທີ່ຜູກ ID ເຂົ້າກັນ ---
+        // --- ໂຫຼດປະຫວັດ: ດຶງຂໍ້ມູນຈາກ Cloud ມາລວມກັບເຄື່ອງທີ່ຜູກ ID ເຂົ້າກັນ (ຜ່ານ Cloud Two-way Sync) ---
         async function loadCloudHistory() {
             let listDiv = document.getElementById('history-list');
             listDiv.innerHTML = `<p class="text-center py-4">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
             document.getElementById('history-summary').classList.add('hidden');
             globalHistoryList = [];
 
-            // ດຶງ Device ID ທີ່ຜູກກັນຈາກ LocalStorage + ເຄື່ອງນີ້ເອງ
-            let linkedDevices = JSON.parse(localStorage.getItem('pos_linked_devices') || '[]');
-            if (!linkedDevices.includes(deviceId)) {
-                linkedDevices.push(deviceId);
-            }
+            let linkedDevices = await getLinkedDeviceIds();
 
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
             let combinedMap = new Map();
@@ -1444,10 +1501,7 @@
             let type = document.getElementById('report-type').value;
             let selectedYear = parseInt(document.getElementById('report-year').value) || new Date().getFullYear();
             
-            let linkedDevices = JSON.parse(localStorage.getItem('pos_linked_devices') || '[]');
-            if (!linkedDevices.includes(deviceId)) {
-                linkedDevices.push(deviceId);
-            }
+            let linkedDevices = await getLinkedDeviceIds();
 
             let reportAllData = [];
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
@@ -1712,7 +1766,7 @@
             }, 100);
         }
 
-        function printExcelCodes() {
+        printExcelCodes = function() {
             window.print();
         }
     </script>
