@@ -397,9 +397,10 @@
         try {
             if (window.supabase && typeof window.supabase.createClient === 'function') {
                 supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                console.log("Supabase initialized successfully!");
             }
         } catch (e) {
-            console.error("Supabase initialization warning:", e);
+            console.error("Supabase initialization error:", e);
         }
 
         if (supabaseClient) {
@@ -734,6 +735,8 @@
                     let { error } = await supabaseClient.from('sales_history').insert([txData]);
                     if (error) {
                         console.error("Supabase insert error:", error);
+                        showAlert("ຜິດພາດ", "ບໍ່ສາມາດບັນທຶກລົງ Cloud ໄດ້: " + error.message, "⚠️");
+                        return;
                     }
                 } catch (err) {
                     console.error("Supabase exception:", err);
@@ -751,7 +754,6 @@
             renderCart();
         }
 
-        // ฟังก์ชันช่วยดึงข้อมูลเก่าจากเครื่องมือถือส่งขึ้น Cloud
         async function syncLocalToCloud() {
             if (!supabaseClient) {
                 showAlert("ຜິດພາດ", "ບໍ່ສາມາດເຊື່ອມຕໍ່ Supabase ໄດ້", "⚠️");
@@ -841,7 +843,12 @@
                         .select('*')
                         .order('created_at', { ascending: false });
                     
-                    if (!error && data) {
+                    console.log("Supabase fetch result:", { data, error });
+
+                    if (error) {
+                        console.error("Supabase fetch error details:", error);
+                        showAlert("ຜິດພາດ", "ດຶງຂໍ້ມູນຈາກ Cloud ບໍ່ໄດ້: " + error.message, "⚠️");
+                    } else if (data) {
                         data.forEach(tx => {
                             let totalItemCount = tx.totalItems || (tx.items ? tx.items.reduce((s, i) => s + i.qty, 0) : 0);
                             let calcCost = tx.totalCost !== undefined ? tx.totalCost : (tx.items ? tx.items.reduce((s, i) => s + ((i.cost || 0) * i.qty), 0) : 0);
@@ -860,7 +867,7 @@
                         });
                     }
                 } catch (err) {
-                    console.error("Cloud fetch error:", err);
+                    console.error("Cloud fetch exception:", err);
                 }
             }
 
