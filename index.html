@@ -108,9 +108,26 @@
             </div>
             <div class="space-y-2">
                 <button onclick="copyMyDeviceId()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">📋 ກ໋ອບປີ ID</button>
+                <button onclick="openChangeDeviceIdModal()" class="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">✏️ ປ່ຽນ / ຕັ້ງຄ່າ ID ເຄື່ອງນີ້ເອງ</button>
                 <button onclick="openLinkDeviceModal()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">🔗 ຜູກ ID ເຄື່ອງໃໝ່ (Multi-Device)</button>
                 <button onclick="openLinkedDevicesModal()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">📋 ເບິ່ງ ID ທີ່ຜູກກັນແລ້ວ</button>
                 <button onclick="closeMyDeviceModal()" class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl text-sm transition cursor-pointer">ປິດ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change / Custom Device ID Modal -->
+    <div id="change-device-id-modal" class="hidden fixed inset-0 bg-black/70 z-[280] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
+            <div class="text-4xl">✏️</div>
+            <h3 class="text-lg font-bold text-gray-800">ຕັ້ງຄ່າ Device ID ເອງ</h3>
+            <p class="text-xs text-gray-600">ປ້ອນລະຫັດ ID ທີ່ຕ້ອງການ (ຕົວຢ່າງ: POS-A0001)</p>
+            <div>
+                <input type="text" id="custom-device-id-input" placeholder="ປ້ອນ Device ID ໃໝ່" class="w-full border rounded-lg px-3 py-2.5 text-center font-mono font-bold text-sm outline-none focus:ring-2 focus:ring-cyan-500 uppercase">
+            </div>
+            <div class="flex gap-2">
+                <button onclick="closeChangeDeviceIdModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
+                <button onclick="saveCustomDeviceId()" class="flex-1 bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">ບັນທຶກ ID</button>
             </div>
         </div>
     </div>
@@ -212,7 +229,7 @@
             <h3 class="text-lg font-bold text-gray-800">ຜູກ ID ເຄື່ອງໃໝ່</h3>
             <p class="text-xs text-gray-600">ປ້ອນ Device ID ຂອງເຄື່ອງທີ່ຕ້ອງການຜູກ ເພື່ອໃຫ້ທັງສອງເຄື່ອງເຫັນຂໍ້ມູນຮ່ວມກັນ</p>
             <div>
-                <input type="text" id="target-device-id-input" placeholder="ປ້ອນ Device ID ເຄື່ອງໃໝ່" class="w-full border rounded-lg px-3 py-2.5 text-center font-mono font-bold text-sm outline-none focus:ring-2 focus:ring-amber-500">
+                <input type="text" id="target-device-id-input" placeholder="ປ້ອນ Device ID ເຄື່ອງໃໝ່" class="w-full border rounded-lg px-3 py-2.5 text-center font-mono font-bold text-sm outline-none focus:ring-2 focus:ring-amber-500 uppercase">
             </div>
             <div class="flex gap-2">
                 <button onclick="closeLinkDeviceModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
@@ -617,11 +634,39 @@
             console.error("Supabase initialization warning:", e);
         }
 
-        // --- DEVICE & ROLE MANAGEMENT SYSTEM ---
+        // --- DEVICE ID SYSTEM: Auto Generate POS-A0001, POS-A0002... & Manual Input ---
         let deviceId = localStorage.getItem('pos_device_id');
-        if (!deviceId) {
-            deviceId = 'DEV-' + Math.random().toString(36).substring(2, 9).toUpperCase() + '-' + Date.now().toString(36).toUpperCase();
-            localStorage.setItem('pos_device_id', deviceId);
+
+        async function initDeviceId() {
+            if (!deviceId) {
+                if (supabaseClient) {
+                    try {
+                        // ດຶງຈຳນວນ Device ID ທັງໝົດຈາກ Cloud Supabase ເພື່ອນຳມາຮັນຕໍ່ເລກລຳດັບ
+                        let { count, error } = await supabaseClient.from('licenses').select('*', { count: 'exact', head: true });
+                        let nextNum = (!error && count !== null) ? count + 1 : 1;
+                        
+                        deviceId = formatDeviceSeqId(nextNum);
+                    } catch (e) {
+                        deviceId = 'POS-A0001';
+                    }
+                } else {
+                    deviceId = 'POS-A0001';
+                }
+                localStorage.setItem('pos_device_id', deviceId);
+            }
+        }
+
+        // ຟັງຊັນຈັດຮູບແບບເລກລຳດັບ (POS-A0001 ເຖິງ POS-A9999 ແລະ POS-B0001...)
+        function formatDeviceSeqId(num) {
+            let blockChar = 'A';
+            let seq = num;
+            if (num > 9999) {
+                let blockIndex = Math.floor((num - 1) / 9999);
+                blockChar = String.fromCharCode(65 + blockIndex); // A, B, C...
+                seq = ((num - 1) % 9999) + 1;
+            }
+            let paddedSeq = String(seq).padStart(4, '0');
+            return `POS-${blockChar}${paddedSeq}`;
         }
 
         function checkRoleAndLicense() {
@@ -708,6 +753,31 @@
             }).catch(() => {
                 showAlert("ຜິດພາດ", "ບໍ່ສາມາດກ໋ອບປີໄດ້", "⚠️");
             });
+        }
+
+        // --- ຟັງຊັນປ່ຽນ / ຕັ້ງຄ່າ Device ID ເອງ ---
+        function openChangeDeviceIdModal() {
+            document.getElementById('my-device-modal').classList.add('hidden');
+            document.getElementById('custom-device-id-input').value = deviceId;
+            document.getElementById('change-device-id-modal').classList.remove('hidden');
+        }
+
+        function closeChangeDeviceIdModal() {
+            document.getElementById('change-device-id-modal').classList.add('hidden');
+            document.getElementById('my-device-modal').classList.remove('hidden');
+        }
+
+        async function saveCustomDeviceId() {
+            let newId = document.getElementById('custom-device-id-input').value.trim().toUpperCase();
+            if (!newId) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ Device ID!", "⚠️");
+                return;
+            }
+            deviceId = newId;
+            localStorage.setItem('pos_device_id', deviceId);
+            document.getElementById('change-device-id-modal').classList.add('hidden');
+            showAlert("ສຳເລັດ", `ປ່ຽນ Device ID ເປັນ [${deviceId}] ຮຽບຮ້ອຍແລ້ວ!`, "✅");
+            checkTrialLicense();
         }
 
         function openLinkDeviceModal() {
@@ -836,7 +906,7 @@
 
         // --- ຜູກ ID ແບບ Global Sync: ດຶງທຸກ ID ທີ່ກ່ຽວຂ້ອງມາລວມກັນເປັນກຸ່ມດຽວແລ້ວອັບເດດລົງ Cloud Supabase ໃຫ້ທຸກເຄື່ອງເຫັນກັນครบທັງໝົດ ---
         async function confirmLinkDevice() {
-            let targetId = document.getElementById('target-device-id-input').value.trim();
+            let targetId = document.getElementById('target-device-id-input').value.trim().toUpperCase();
             if (!targetId) {
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ Device ID ເຄື່ອງທີ່ຕ້ອງການຜູກ!", "⚠️");
                 return;
@@ -1015,7 +1085,7 @@
                                     ${isPerm ? '⭐ ຖາວອນ' : '⏳ ທົດລອງ 15 ວັນ'}
                                 </span>
                                 <button onclick="toggleDeviceStatus('${item.device_id}', '${isPerm ? 'trial' : 'permanent'}')" class="text-xs px-2 py-1 rounded font-bold ${isPerm ? 'bg-amber-200 text-amber-800 hover:bg-amber-300' : 'bg-green-200 text-green-800 hover:bg-green-300'} cursor-pointer">
-                                    ${isPerm ? 'ປ່ຽເປັນ Trial' : 'ປ່ຽນເປັນຖາວອນ'}
+                                    ${isPerm ? 'ປ່ຽນເປັນ Trial' : 'ປ່ຽນເປັນຖາວອນ'}
                                 </button>
                             </div>
                         </div>
@@ -1047,7 +1117,8 @@
             }
         }
 
-        window.addEventListener('DOMContentLoaded', () => {
+        window.addEventListener('DOMContentLoaded', async () => {
+            await initDeviceId();
             checkRoleAndLicense();
         });
 
