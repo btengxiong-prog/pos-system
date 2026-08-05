@@ -399,7 +399,7 @@
     <div id="history-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-xl max-w-xl w-full p-5 max-h-[80vh] overflow-y-auto">
             <h3 class="text-lg font-bold mb-3 text-gray-800 flex justify-between items-center">
-                <span>📊 ປະຫວັດການຂາຍ (ສະເພາະເຄື່ອງນີ້)</span>
+                <span>📊 ປະຫວັດການຂາຍ (ເຄື່ອງໃຜເຄື່ອງມັນ)</span>
                 <button onclick="loadCloudHistory()" class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded cursor-pointer">🔄 ໂຫຼດໃໝ່</button>
             </h3>
             <div id="history-list" class="space-y-3 text-sm text-gray-600">
@@ -427,7 +427,7 @@
     <div id="report-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-xl max-w-lg w-full p-6 max-h-[85vh] overflow-y-auto space-y-4">
             <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2 border-b pb-3">
-                <span>📈 ລະບົບລາຍງານຍອດຂາຍ (ສະເພາະເຄື່ອງນີ້)</span>
+                <span>📈 ລະບົບລາຍງານຍອດຂາຍ</span>
             </h3>
             
             <div class="space-y-3">
@@ -608,39 +608,40 @@
             localStorage.setItem('pos_device_id', deviceId);
         }
 
+        // ແກ້ໄຂບັນຫາ: ຣີເຟສແລ້ວຈຳຄ່າ User Role (Trial / Admin) ບໍ່ໃຫ້ຫຼຸດ
         function checkRoleAndLicense() {
             let userRole = localStorage.getItem('pos_user_role');
             let localStatus = localStorage.getItem('pos_license_status');
 
-            if (userRole === 'admin' || localStatus === 'permanent') {
+            if (userRole === 'admin' || userRole === 'trial' || localStatus === 'permanent') {
                 if (userRole === 'admin') {
                     document.getElementById('admin-manage-btn').classList.remove('hidden');
-                    document.getElementById('show-my-id-btn').classList.add('hidden');
                     document.getElementById('admin-logout-btn').classList.remove('hidden');
                     document.getElementById('license-status-badge').innerText = "🛡️ ສະຖານະ: ເຂົ້າລະບົບ Admin (Full Access)";
                 } else {
                     document.getElementById('admin-manage-btn').classList.add('hidden');
-                    document.getElementById('show-my-id-btn').classList.add('hidden');
                     document.getElementById('admin-logout-btn').classList.add('hidden');
-                    document.getElementById('license-status-badge').innerText = "⭐ ສະຖານະ: ຜູ້ໃຊ້ງານຖາວອນ (Permanent User)";
+                    if (localStatus === 'permanent') {
+                        document.getElementById('license-status-badge').innerText = "⭐ ສະຖານະ: ຜູ້ໃຊ້ງານຖາວອນ (Permanent User)";
+                    } else {
+                        checkTrialLicense();
+                    }
                 }
                 document.getElementById('role-select-modal').classList.add('hidden');
                 document.getElementById('license-modal').classList.add('hidden');
                 return;
             }
 
-            localStorage.removeItem('pos_user_role');
             document.getElementById('role-select-modal').classList.remove('hidden');
             document.getElementById('admin-logout-btn').classList.add('hidden');
-            document.getElementById('show-my-id-btn').classList.remove('hidden');
         }
 
         function selectRole(role) {
+            localStorage.setItem('pos_user_role', 'trial'); // ຈຳຄ່າໂໝດ Trial ໄວ້ຕະຫຼອດເມື່ອຣີເຟສ
             document.getElementById('role-select-modal').classList.add('hidden');
             document.getElementById('license-modal').classList.add('hidden');
             
             document.getElementById('admin-manage-btn').classList.add('hidden');
-            document.getElementById('show-my-id-btn').classList.remove('hidden');
             document.getElementById('admin-logout-btn').classList.add('hidden');
             
             checkTrialLicense();
@@ -677,6 +678,7 @@
 
         function adminLogout() {
             localStorage.removeItem('pos_user_role');
+            localStorage.removeItem('pos_license_status');
             location.reload();
         }
 
@@ -932,17 +934,6 @@
             checkRoleAndLicense();
         });
 
-        if (supabaseClient) {
-            supabaseClient
-                .channel('public:sales_history')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'sales_history' }, payload => {
-                    if (!document.getElementById('history-modal').classList.contains('hidden')) {
-                        loadCloudHistory();
-                    }
-                })
-                .subscribe();
-        }
-
         let cart = [];
         let html5QrCode = null;
         let tempScannedCode = "";
@@ -969,6 +960,7 @@
             document.getElementById('custom-confirm-delete-modal').classList.remove('hidden');
         }
 
+        // ແກ້ໄຂບັນຫາການລົບປະຫວັດ: ລົບອອກຈາກ LocalStorage ໄດ້ 100%
         async function closeConfirmDelete(confirmed) {
             document.getElementById('custom-confirm-delete-modal').classList.add('hidden');
             if (!confirmed || deleteTargetIndex === null) {
@@ -982,16 +974,9 @@
                 return;
             }
 
-            if (targetItem.source === 'cloud' && targetItem.id && supabaseClient) {
-                try {
-                    let { error } = await supabaseClient.from('sales_history').delete().eq('id', targetItem.id);
-                    if (error) {
-                        showAlert("ຜິດພາດ", "ບໍ່ສາມາດລຶບຂໍ້ມູນຈາກ Cloud ໄດ້", "⚠️");
-                        deleteTargetIndex = null;
-                        return;
-                    }
-                } catch (err) {}
-            }
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            localHistory = localHistory.filter(tx => (tx.id !== targetItem.id && tx.created_at !== targetItem.createdAt));
+            localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
 
             showAlert("ສຳເລັດ", "ສຳເລັດການລຶບຂໍ້ມູນຖີ້ມ", "✅");
             loadCloudHistory();
@@ -1201,7 +1186,7 @@
             }
         }
 
-        // --- ບັນທຶກການຂາຍ: ບັນທຶກແບບ LocalStorage (ເຄື່ອງໃຜເຄື່ອງມັນ 100%) ---
+        // --- ບັນທຶກການຂາຍ: ເກັບລົງ LocalStorage ຂອງເຄື່ອງໃຜເຄື່ອງມັນ 100% ---
         async function checkout() {
             if (cart.length === 0) {
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າກ່ອນຊຳລະເງິນ!", "⚠️");
@@ -1232,27 +1217,9 @@
                 change: cashGiven - finalTotal
             };
 
-            // ບັນທຶກລົງ LocalStorage ຂອງເຄື່ອງນີ້ໂດຍກົງ (ເຄື່ອງໃຜເຄື່ອງມັນ 100%)
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
             localHistory.unshift(txData);
             localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
-
-            // ສົ່ງຊຶ້ງຂຶ້ນ Cloud (ຖ້າມີການຜູກ ID ກັນ ຈະດຶງສະເພາະກຸ່ມທີ່ຜູກ)
-            if (supabaseClient) {
-                try {
-                    await supabaseClient.from('sales_history').insert([{
-                        device_id: deviceId,
-                        items: cart,
-                        total_items: txData.total_items,
-                        total_cost: totalCost,
-                        sub_total: grandTotal,
-                        discount: discount,
-                        total: finalTotal,
-                        cash: cashGiven,
-                        change: txData.change
-                    }]);
-                } catch (err) {}
-            }
 
             showAlert("ສຳເລັດ", "ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ!", "✅");
             cart = [];
@@ -1261,65 +1228,15 @@
             renderCart();
         }
 
-        // --- ໂຫຼດປະຫວັດການຂາຍ: ແຍກເຄື່ອງໃຜເຄື່ອງມັນ 100% (ເວັ້ນແຕ່ມີການຜູກ ID ກັນ) ---
+        // --- ໂຫຼດປະຫວັດ: ສະເພາະເຄື່ອງໃຜເຄື່ອງມັນ 100% ຜ່ານ LocalStorage ---
         async function loadCloudHistory() {
             let listDiv = document.getElementById('history-list');
             listDiv.innerHTML = `<p class="text-center py-4">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
             document.getElementById('history-summary').classList.add('hidden');
             globalHistoryList = [];
 
-            // 1. ດຶງຂໍ້ມູນຈາກ LocalStorage ຂອງເຄື່ອງນີ້ກ່ອນ (ຮັບປະກັນວ່າເຄື່ອງໃຜເຄື່ອງມັນ ແລະ ໄວທັນໃຈ)
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-            
-            // 2. ດຶງຂໍ້ມູນຈາກ Cloud ມາຜະສົມ (ກັ່ນຕອງສະເພາະ device_id ຂອງເຄື່ອງນີ້ ຫຼື ເຄື່ອງທີ່ຜູກກັນ)
-            let cloudData = [];
-            if (supabaseClient) {
-                try {
-                    let { data, error } = await supabaseClient
-                        .from('sales_history')
-                        .select('*')
-                        .order('created_at', { ascending: false });
-                    
-                    if (!error && data) {
-                        cloudData = data;
-                    }
-                } catch (err) {}
-            }
-
-            // ລວມ ແລະ ກັ່ນຕອງ (ເອົາສະເພາະ bín ທີ່ device_id ตรงກັບເຄື່ອງນີ້)
-            let combinedMap = new Map();
-
-            // ໃສ່ຂໍ້ມູນ Local ກ່ອນ
-            localHistory.forEach(tx => {
-                combinedMap.set(tx.id || tx.created_at, tx);
-            });
-
-            // ໃສ່ຂໍ້ມູນ Cloud (ກັ່ນຕອງເອົາສະເພາະ device_id == deviceId)
-            cloudData.forEach(tx => {
-                let txDev = tx.device_id || "";
-                // ຖ້າເປັນ device_id ຂອງເຄື່ອງນີ້ເອງ
-                if (txDev === deviceId) {
-                    let key = tx.id || tx.created_at;
-                    if (!combinedMap.has(key)) {
-                        combinedMap.set(key, {
-                            id: tx.id,
-                            source: 'cloud',
-                            createdAt: tx.created_at,
-                            date: new Date(tx.created_at).toLocaleString(),
-                            totalItems: tx.total_items || (tx.items ? tx.items.reduce((s, i) => s + i.qty, 0) : 0),
-                            totalCost: tx.total_cost !== undefined ? tx.total_cost : (tx.items ? tx.items.reduce((s, i) => s + ((i.cost || 0) * i.qty), 0) : 0),
-                            subTotal: tx.sub_total || tx.total,
-                            discount: tx.discount || 0,
-                            total: tx.total,
-                            cash: tx.cash,
-                            change: tx.change,
-                            items: tx.items || []
-                        });
-                    }
-                }
-            });
-
-            globalHistoryList = Array.from(combinedMap.values()).sort((a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date));
+            globalHistoryList = localHistory;
 
             if (globalHistoryList.length === 0) {
                 listDiv.innerHTML = `<p class="text-gray-500 text-center py-4">ຍັງບໍ່ມີປະຫວັດການຂາຍຂອງເຄື່ອງນີ້.</p>`;
@@ -1349,9 +1266,9 @@
                     html += `
                         <div class="border-b pb-3 mb-3 bg-gray-50 p-3 rounded-xl border-l-4 border-blue-600 shadow-sm">
                             <div class="flex justify-between items-center mb-1">
-                                <span class="font-bold text-blue-800 text-xs">📅 ${tx.date || new Date(tx.createdAt).toLocaleString()}</span>
+                                <span class="font-bold text-blue-800 text-xs">📅 ${new Date(tx.created_at).toLocaleString()}</span>
                                 <div class="flex items-center gap-2">
-                                    <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">📦 ${tx.totalItems} ລາຍການ</span>
+                                    <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">📦 ${tx.total_items} ລາຍການ</span>
                                     <button onclick="promptDeleteHistory(${index})" class="text-xs bg-red-100 hover:bg-red-200 text-red-600 px-2 py-0.5 rounded font-bold cursor-pointer transition">🗑️ ລຶບ</button>
                                 </div>
                             </div>
@@ -1409,7 +1326,7 @@
             calculateReport();
         }
 
-        // --- ຄຳນວນລາຍງານ: ກັ່ນຕອງສະເພາະເຄື່ອງນີ້ 100% ---
+        // --- ຄຳນວນລາຍງານ: ສະເພາະເຄື່ອງນີ້ 100% ຜ່ານ LocalStorage ---
         async function calculateReport() {
             let type = document.getElementById('report-type').value;
             let selectedYear = parseInt(document.getElementById('report-year').value) || new Date().getFullYear();
@@ -1419,7 +1336,7 @@
 
             localHistory.forEach(tx => {
                 let calcCost = tx.total_cost !== undefined ? tx.total_cost : (tx.items ? tx.items.reduce((s, i) => s + ((i.cost || 0) * i.qty), 0) : 0);
-                reportAllData.push({ createdAt: tx.createdAt || tx.date, totalCost: calcCost, total: tx.total });
+                reportAllData.push({ createdAt: tx.created_at, totalCost: calcCost, total: tx.total });
             });
 
             let finalFiltered = reportAllData.filter(tx => {
