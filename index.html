@@ -181,12 +181,9 @@
     <!-- History Modal -->
     <div id="history-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-xl max-w-xl w-full p-5 max-h-[80vh] overflow-y-auto">
-            <h3 class="text-lg font-bold mb-3 text-gray-800 flex justify-between items-center flex-wrap gap-2">
+            <h3 class="text-lg font-bold mb-3 text-gray-800 flex justify-between items-center">
                 <span>📊 ປະຫວັດການຂາຍ</span>
-                <div class="flex items-center gap-2">
-                    <button onclick="syncLocalToCloud()" class="text-xs bg-amber-500 hover:bg-amber-600 text-white px-2 py-1.5 rounded cursor-pointer font-bold shadow">☁️ ຊິ້ງຂໍ້ມູນເກົ່າຂຶ້ນ Cloud</button>
-                    <button onclick="loadCloudHistory()" class="text-xs bg-blue-100 text-blue-700 px-2 py-1.5 rounded cursor-pointer font-bold">🔄 ໂຫຼດໃໝ່</button>
-                </div>
+                <button onclick="loadCloudHistory()" class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded cursor-pointer">🔄 ໂຫຼດໃໝ່</button>
             </h3>
             <div id="history-list" class="space-y-3 text-sm text-gray-600">
                 <p class="text-center py-4">ກຳລັງໂຫຼດຂໍ້ມູນ...</p>
@@ -711,6 +708,7 @@
                 return;
             }
             let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            let totalCost = cart.reduce((sum, item) => sum + ((item.cost || 0) * item.qty), 0);
             let cashInput = document.getElementById('cash-given').value;
             let cashGiven = cashInput ? (parseFloat(cashInput) || 0) : grandTotal;
 
@@ -722,6 +720,7 @@
             let txData = {
                 items: cart,
                 totalItems: cart.reduce((sum, item) => sum + item.qty, 0),
+                totalCost: totalCost,
                 total: grandTotal,
                 cash: cashGiven,
                 change: cashGiven - grandTotal
@@ -732,8 +731,6 @@
                     let { error } = await supabaseClient.from('sales_history').insert([txData]);
                     if (error) {
                         console.error("Supabase insert error:", error);
-                        showAlert("ຜິດພາດ", "ບໍ່ສາມາດບັນທຶກລົງ Cloud ໄດ້: " + error.message, "⚠️");
-                        return;
                     }
                 } catch (err) {
                     console.error("Supabase exception:", err);
@@ -749,34 +746,6 @@
             cart = [];
             document.getElementById('cash-given').value = '';
             renderCart();
-        }
-
-        async function syncLocalToCloud() {
-            if (!supabaseClient) {
-                showAlert("ຜິດພາດ", "ບໍ່ສາມາດເຊື່ອມຕໍ່ Supabase ໄດ້", "⚠️");
-                return;
-            }
-            let localHistory = JSON.parse(localStorage.getItem('pos_history')) || [];
-            if (localHistory.length === 0) {
-                showAlert("ແຈ້ງເຕືອນ", "ບໍ່ມີຂໍ້ມູນໃນເຄື່ອງນີ້ໃຫ້ຊິ້ງ", "ℹ️");
-                return;
-            }
-
-            let count = 0;
-            for (let tx of localHistory) {
-                let txData = {
-                    items: tx.items,
-                    totalItems: tx.totalItems,
-                    total: tx.total,
-                    cash: tx.cash,
-                    change: tx.change
-                };
-                let { error } = await supabaseClient.from('sales_history').insert([txData]);
-                if (!error) count++;
-            }
-
-            showAlert("ສຳເລັດ", `ຊິ້ງຂໍ້ມູນເກົ່າຂຶ້ນ Cloud ສຳເລັດ ${count} ລາຍການ!`, "☁️");
-            loadCloudHistory();
         }
 
         function extractDayMonthYear(dateStr) {
@@ -839,12 +808,10 @@
                         .select('*')
                         .order('created_at', { ascending: false });
                     
-                    if (error) {
-                        console.error("Supabase fetch error:", error);
-                    } else if (data) {
+                    if (!error && data) {
                         data.forEach(tx => {
                             let totalItemCount = tx.totalItems || (tx.items ? tx.items.reduce((s, i) => s + i.qty, 0) : 0);
-                            let calcCost = tx.items ? tx.items.reduce((s, i) => s + ((i.cost || 0) * i.qty), 0) : 0;
+                            let calcCost = tx.totalCost !== undefined ? tx.totalCost : (tx.items ? tx.items.reduce((s, i) => s + ((i.cost || 0) * i.qty), 0) : 0);
                             globalHistoryList.push({
                                 id: tx.id,
                                 source: 'cloud',
@@ -860,7 +827,7 @@
                         });
                     }
                 } catch (err) {
-                    console.error("Cloud fetch exception:", err);
+                    console.error("Cloud fetch error:", err);
                 }
             }
 
@@ -979,7 +946,7 @@
                     let { data, error } = await supabaseClient.from('sales_history').select('*');
                     if (!error && data) {
                         data.forEach(tx => {
-                            let calcCost = tx.items ? tx.items.reduce((s, i) => s + ((i.cost || 0) * i.qty), 0) : 0;
+                            let calcCost = tx.totalCost !== undefined ? tx.totalCost : (tx.items ? tx.items.reduce((s, i) => s + ((i.cost || 0) * i.qty), 0) : 0);
                             reportAllData.push({
                                 createdAt: tx.created_at,
                                 totalCost: calcCost,
@@ -1047,6 +1014,7 @@
             document.getElementById('rep-total-profit').innerText = sumProfit.toLocaleString() + " ກີບ";
         }
 
+        // Functions for QR Code Generator Modal
         function openExcelGenerator(type) {
             let titleSpan = document.getElementById('excel-modal-title').querySelector('span');
             titleSpan.innerText = "📱 ຕາຕະລາງສ້າງ QR Code ສິນຄ້າ";
@@ -1297,6 +1265,7 @@
             reader.readAsArrayBuffer(file);
         }
 
+        // ฟังก์ชันสร้าง QR Code: บันทึกทั้งราคาซื้อและราคาขายไว้ข้างใน แต่ซ่อนราคาซื้อไม่ให้แสดงบนป้ายสติ๊กเกอร์
         function generateExcelCodes() {
             if (excelRows.length === 0) {
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເພີ່ມຂໍ້ມູນສິນຄ້າໃນຕາຕະລາງກ່ອນ!", "⚠️");
@@ -1313,6 +1282,7 @@
                 let cardId = `code-card-${index}`;
                 let priceNum = parseFloat(row.price) || 0;
 
+                // แสดงผลบนป้ายสติ๊กเกอร์เฉพาะ ชื่อสินค้า และ ราคาขาย (ซ่อนราคาซื้อ)
                 let cardHtml = `
                     <div id="${cardId}" class="bg-white border rounded-xl p-3 shadow-sm text-center space-y-2 flex flex-col items-center justify-between" style="page-break-inside: avoid; border: 1px solid #e5e7eb; margin-bottom: 15px;">
                         <div class="border-b w-full pb-1" style="border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">
@@ -1329,6 +1299,7 @@
 
             document.getElementById('excel-print-area').classList.remove('hidden');
 
+            // บรรจุข้อมูล QR Code (มีทั้งราคาซื้อและราคาขายซ่อนอยู่ข้างใน เพื่อให้เวลาสเก็นเอาไปใช้ขายหรือคำนวณกำไรได้ถูกต้อง)
             setTimeout(() => {
                 excelRows.forEach((row, index) => {
                     if (!row.name) return;
