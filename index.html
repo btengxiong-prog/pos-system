@@ -21,6 +21,23 @@
         body {
             font-family: 'Phetsarath OT', 'Saysettha OT', 'Noto Serif Lao', 'Times New Roman', Times, serif;
         }
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #excel-print-area, #excel-print-area * {
+                visibility: visible;
+            }
+            #excel-print-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
+            #print-btn-element {
+                display: none;
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen pb-10">
@@ -370,6 +387,7 @@
 
     <!-- JavaScript Logic -->
     <script>
+        // ⚠️ ໃຫ້ປ່ຽນ URL ແລະ Anon Key ດ້ານล่างນີ້ໃຫ້ເປັນຄ່າຕົວຈິງຈາກ Project Supabase ຂອງຮ້ານທ່ານ
         const SUPABASE_URL = "https://omvrghcnswikqxixgcza.supabase.co"; 
         const SUPABASE_ANON_KEY = "sb_publishable_3E0MYF88KNsZ1PaQED-Ihg_Y11UQ4RD";
         
@@ -388,7 +406,6 @@
                 .channel('public:sales_history')
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sales_history' }, payload => {
                     console.log('Realtime sync update received:', payload);
-                    // ถ้าเปิดหน้าประวัติหรือรายงานอยู่ ให้โหลดข้อมูลใหม่ทันที
                     if (!document.getElementById('history-modal').classList.contains('hidden')) {
                         loadCloudHistory();
                     }
@@ -1250,7 +1267,6 @@
             reader.readAsArrayBuffer(file);
         }
 
-        // แก้ไขฟังก์ชันสร้าง QR Code ให้เรนเดอร์ทั้งบนหน้าจอและเวลาสั่งพิมพ์ผ่าน window.print() ได้อย่างสมบูรณ์
         function generateExcelCodes() {
             if (excelRows.length === 0) {
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເພີ່ມຂໍ້ມູນສິນຄ້າໃນຕາຕະລາງກ່ອນ!", "⚠️");
@@ -1283,7 +1299,6 @@
 
             document.getElementById('excel-print-area').classList.remove('hidden');
 
-            // วาด QR Code ทันทีลงใน Canvas
             setTimeout(() => {
                 excelRows.forEach((row, index) => {
                     if (!row.name) return;
