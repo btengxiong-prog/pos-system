@@ -97,7 +97,7 @@
         </div>
     </div>
 
-    <!-- Show My Device ID Modal (For Trial Users) -->
+    <!-- Show My Device ID Modal (Updated with Link Check Button) -->
     <div id="my-device-modal" class="hidden fixed inset-0 bg-black/60 z-[250] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
             <div class="text-4xl">🆔</div>
@@ -109,8 +109,24 @@
             <div class="space-y-2">
                 <button onclick="copyMyDeviceId()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">📋 ກ໋ອບປີ ID</button>
                 <button onclick="openLinkDeviceModal()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">🔗 ຜູກ ID ເຄື່ອງໃໝ່ (Multi-Device)</button>
+                <button onclick="openLinkedDevicesModal()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">📋 ກວດເບິ່ງ ID ທີ່ຜູກກັນ</button>
                 <button onclick="closeMyDeviceModal()" class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl text-sm transition cursor-pointer">ປິດ</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Linked Devices List Modal (New Modal to View & Unlink IDs) -->
+    <div id="linked-devices-modal" class="hidden fixed inset-0 bg-black/70 z-[285] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 text-center space-y-4 shadow-2xl">
+            <div class="text-4xl">🔗</div>
+            <h3 class="text-lg font-bold text-gray-800">ລາຍຊື່ ID ທີ່ຜູກເຂົ້າກັນ</h3>
+            <p class="text-xs text-gray-600">ເຄື່ອງເຫຼົ່ານີ້ສາມາດເຫັນຂໍ້ມູນ ແລະ ສິງ໌ປະຫວັດການຂາຍຮ່ວມກັນໄດ້</p>
+            
+            <div id="linked-devices-container" class="space-y-2 text-left max-h-60 overflow-y-auto bg-gray-50 p-3 rounded-xl border text-xs">
+                <p class="text-center text-gray-500 py-2">ກຳລັງໂຫຼດ...</p>
+            </div>
+
+            <button onclick="closeLinkedDevicesModal()" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer">ປິດ</button>
         </div>
     </div>
 
@@ -608,7 +624,6 @@
             localStorage.setItem('pos_device_id', deviceId);
         }
 
-        // ຣີເຟສແລ້ວໃຫ້ຖາມເລືອກໂໝດ (Trial / Admin) ໃໝ່ທຸກຄັ້ງ
         function checkRoleAndLicense() {
             let userRole = localStorage.getItem('pos_user_role');
             let localStatus = localStorage.getItem('pos_license_status');
@@ -705,6 +720,54 @@
             document.getElementById('link-device-modal').classList.add('hidden');
         }
 
+        // --- ຟັງຊັນເປີດໜ້າຕ່າງກວດສອບ ແລະ ລຶບ ID ທີ່ຜູກກັນ ---
+        async function openLinkedDevicesModal() {
+            document.getElementById('my-device-modal').classList.add('hidden');
+            let container = document.getElementById('linked-devices-container');
+            container.innerHTML = `<p class="text-center text-gray-500 py-2">ກຳລັງໂຫຼດ...</p>`;
+            document.getElementById('linked-devices-modal').classList.remove('hidden');
+
+            let linkedIds = JSON.parse(localStorage.getItem('pos_linked_devices') || '[]');
+            if (!linkedIds.includes(deviceId)) {
+                linkedIds.push(deviceId);
+            }
+
+            if (linkedIds.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-500 py-2">ຍັງບໍ່ມີ ID ໃດຖືກຜູກກັນ.</p>';
+                return;
+            }
+
+            let html = `<div class="space-y-2">`;
+            linkedIds.forEach((id, idx) => {
+                let isMe = id === deviceId;
+                html += `
+                    <div class="flex justify-between items-center bg-white p-2.5 rounded-lg border shadow-sm">
+                        <div>
+                            <span class="font-mono font-bold text-blue-600 text-xs">${id}</span>
+                            ${isMe ? '<span class="ml-1 text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold">ເຄື່ອງນີ້</span>' : ''}
+                        </div>
+                        ${!isMe ? `<button onclick="unlinkDevice('${id}')" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold cursor-pointer transition">🗑️ ລຶບ</button>` : ''}
+                    </div>
+                `;
+            });
+            html += `</div>`;
+            container.innerHTML = html;
+        }
+
+        function closeLinkedDevicesModal() {
+            document.getElementById('linked-devices-modal').classList.add('hidden');
+        }
+
+        // --- ຟັງຊັນລຶບ/ຍົກເລີກການຜູກ Device ID ---
+        function unlinkDevice(targetId) {
+            let linkedIds = JSON.parse(localStorage.getItem('pos_linked_devices') || '[]');
+            linkedIds = linkedIds.filter(id => id !== targetId);
+            localStorage.setItem('pos_linked_devices', JSON.stringify(linkedIds));
+            
+            showAlert("ສຳເລັດ", `ຍົກເລີກການຜູກ Device ID [${targetId}] ຮຽບຮ້ອຍແລ້ວ!`, "🗑️");
+            openLinkedDevicesModal(); // โหลดตารางใหม่
+        }
+
         function openRegisterModal() {
             document.getElementById('register-payment-modal').classList.remove('hidden');
         }
@@ -732,38 +795,39 @@
                 return;
             }
 
-            if (!supabaseClient) {
-                showAlert("ຜິດພາດ", "ບໍ່ສາມາດເຊື່ອມຕໍ່ Supabase ໄດ້", "⚠️");
-                return;
+            // ບັນທຶກການຜູກ ID ລົງໃນ LocalStorage ຂອງເຄື່ອງນີ້ (ສາມາດຜູກຫຼາຍເຄື່ອງຮ່ວມກັນໄດ້)
+            let linkedIds = JSON.parse(localStorage.getItem('pos_linked_devices') || '[]');
+            if (!linkedIds.includes(deviceId)) linkedIds.push(deviceId);
+            if (!linkedIds.includes(targetId)) linkedIds.push(targetId);
+            localStorage.setItem('pos_linked_devices', JSON.stringify(linkedIds));
+
+            if (supabaseClient) {
+                try {
+                    let { data: existing } = await supabaseClient
+                        .from('licenses')
+                        .select('*')
+                        .eq('device_id', targetId)
+                        .single();
+
+                    if (existing) {
+                        await supabaseClient
+                            .from('licenses')
+                            .update({ status: 'permanent' })
+                            .eq('device_id', targetId);
+                    } else {
+                        await supabaseClient
+                            .from('licenses')
+                            .insert([{
+                                device_id: targetId,
+                                trial_start: new Date().toISOString(),
+                                status: 'permanent'
+                            }]);
+                    }
+                } catch (e) {}
             }
 
-            try {
-                let { data: existing } = await supabaseClient
-                    .from('licenses')
-                    .select('*')
-                    .eq('device_id', targetId)
-                    .single();
-
-                if (existing) {
-                    await supabaseClient
-                        .from('licenses')
-                        .update({ status: 'permanent' })
-                        .eq('device_id', targetId);
-                } else {
-                    await supabaseClient
-                        .from('licenses')
-                        .insert([{
-                            device_id: targetId,
-                            trial_start: new Date().toISOString(),
-                            status: 'permanent'
-                        }]);
-                }
-
-                document.getElementById('link-device-modal').classList.add('hidden');
-                showAlert("ສຳເລັດ", `ຜູກ Device ID [${targetId}] ເປັນຜູ້ໃຊ້ງານຖາວອນສຳເລັດຮຽບຮ້ອຍ!`, "🔗");
-            } catch (e) {
-                showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການຜູກ ID", "⚠️");
-            }
+            document.getElementById('link-device-modal').classList.add('hidden');
+            showAlert("ສຳເລັດ", `ຜູກ Device ID [${targetId}] ຮຽບຮ້ອຍແລ້ວ! ຂໍ້ມູນການຂາຍຈະຖືກລວມເຂົ້າກັນ`, "🔗");
         }
 
         async function checkTrialLicense() {
@@ -981,12 +1045,10 @@
                 return;
             }
 
-            // ລົບຈາກ LocalStorage
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
             localHistory = localHistory.filter(tx => (tx.id !== targetItem.id && tx.created_at !== targetItem.createdAt));
             localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
 
-            // ຖ້າມີ id ຈາກ Cloud ໃຫ້ລົບອອກຈາກ Cloud ນຳ
             if (targetItem.source === 'cloud' && targetItem.id && supabaseClient) {
                 try {
                     await supabaseClient.from('sales_history').delete().eq('id', targetItem.id);
@@ -1201,7 +1263,6 @@
             }
         }
 
-        // --- ບັນທຶກການຂາຍ: ບັນທຶກລົງທັງ LocalStorage ແລະ Cloud Supabase ພ້ອມ device_id ---
         async function checkout() {
             if (cart.length === 0) {
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າກ່ອນຊຳລະເງິນ!", "⚠️");
@@ -1232,12 +1293,10 @@
                 change: cashGiven - finalTotal
             };
 
-            // ບັນທຶກລົງ LocalStorage ຂອງເຄື່ອງນີ້
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
             localHistory.unshift(txData);
             localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
 
-            // ສົ່ງຂຶ້ນ Cloud Supabase ເພື່ອໃຫ້ເຄື່ອງທີ່ຜູກ ID ກັນສາມາດດຶງມารວມກันໄດ້
             if (supabaseClient) {
                 try {
                     await supabaseClient.from('sales_history').insert([{
@@ -1262,41 +1321,29 @@
             renderCart();
         }
 
-        // --- ໂຫຼດປະຫວັດ: ດຶງສະເພາະເຄື່ອງນີ້ + ເຄື່ອງທີ່ຜູກ ID ເຂົ້າກັນມารວມກັນ ---
+        // --- ໂຫຼດປະຫວັດ: ລວມຂໍ້ມູນທັງໝົດຈາກທຸກເຄື່ອງທີ່ຜູກ ID ເຂົ້າກັນ ---
         async function loadCloudHistory() {
             let listDiv = document.getElementById('history-list');
             listDiv.innerHTML = `<p class="text-center py-4">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
             document.getElementById('history-summary').classList.add('hidden');
             globalHistoryList = [];
 
-            // 1. ດຶງ Device ID ທີ່ຜູກກັນທັງໝົດໃນກຸ່ມ (ຖ້າມີການຜູກ)
-            let allowedDeviceIds = [deviceId]; // ຕັ້ງຕົ້ນໃຫ້ມີ ID ເຄື່ອງນີ້ເອງ
-
-            if (supabaseClient) {
-                try {
-                    // ກວດສອບຈາກຕາຕະລາງ licenses ວ່າ device_id ນີ້ມີສະຖານະ permanent ຫຼື ຖືກຜູກກັນໄວ້
-                    // (ໃນທີ່ນີ້ ຖ້າຕ້ອງການໃຫ້ເຄື່ອງທີ່ຜູກ ID ເຫັນຂໍ້ມູນຮ່ວມກັນ ເຮົາຈະດຶງ device_id ທັງໝົດທີ່ມີສະຖານະ permanent ມາລວມກັນ ຫຼື ຕາມກຸ່ມຜູກ)
-                    let { data: licenseData } = await supabaseClient.from('licenses').select('device_id, status');
-                    if (licenseData) {
-                        licenseData.forEach(item => {
-                            if (item.status === 'permanent' && !allowedDeviceIds.includes(item.device_id)) {
-                                allowedDeviceIds.push(item.device_id);
-                            }
-                        });
-                    }
-                } catch (e) {}
+            // ດຶງ Device IDs ທັງໝົດທີ່ຖືກຜູກກັນໃນກຸ່ມ (ຈາກ LocalStorage)
+            let linkedIds = JSON.parse(localStorage.getItem('pos_linked_devices') || '[]');
+            if (!linkedIds.includes(deviceId)) {
+                linkedIds.push(deviceId);
             }
 
-            // 2. ດຶງຂໍ້ມູນຈາກ LocalStorage ຂອງເຄື່ອງນີ້
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
             let combinedMap = new Map();
 
+            // ໃສ່ຂໍ້ມູນ Local (ສະເພາະເຄື່ອງນີ້)
             localHistory.forEach(tx => {
                 let key = tx.id || tx.created_at;
                 combinedMap.set(key, tx);
             });
 
-            // 3. ດຶງຂໍ້ມູນຈາກ Cloud Supabase ມາສະແກນກັ່ນຕອງສະເພາະ Device ID ທີ່ຢູ່ໃນກຸ່ມທີ່ຜູກກັນ
+            // ດຶງຂໍ້ມູນຈາກ Cloud Supabase ສຳລັບທຸກ Device ID ທີ່ຜູກກັນ
             if (supabaseClient) {
                 try {
                     let { data: cloudSales, error } = await supabaseClient
@@ -1307,8 +1354,8 @@
                     if (!error && cloudSales) {
                         cloudSales.forEach(tx => {
                             let txDev = tx.device_id || "";
-                            // ຖ້າບິນນີ້ມາຈາກ Device ID ທີ່ຢູ່ໃນກຸ່ມທີ່ຜູກກັນ (allowedDeviceIds)
-                            if (allowedDeviceIds.includes(txDev)) {
+                            // ຖ້າ Device ID ຂອງບິນນີ້ຢູ່ໃນກຸ່ມທີ່ຜູກກັນ
+                            if (linkedIds.includes(txDev)) {
                                 let key = tx.id || tx.created_at;
                                 if (!combinedMap.has(key)) {
                                     combinedMap.set(key, {
@@ -1427,18 +1474,9 @@
             let type = document.getElementById('report-type').value;
             let selectedYear = parseInt(document.getElementById('report-year').value) || new Date().getFullYear();
             
-            let allowedDeviceIds = [deviceId];
-            if (supabaseClient) {
-                try {
-                    let { data: licenseData } = await supabaseClient.from('licenses').select('device_id, status');
-                    if (licenseData) {
-                        licenseData.forEach(item => {
-                            if (item.status === 'permanent' && !allowedDeviceIds.includes(item.device_id)) {
-                                allowedDeviceIds.push(item.device_id);
-                            }
-                        });
-                    }
-                } catch (e) {}
+            let linkedIds = JSON.parse(localStorage.getItem('pos_linked_devices') || '[]');
+            if (!linkedIds.includes(deviceId)) {
+                linkedIds.push(deviceId);
             }
 
             let reportAllData = [];
@@ -1455,7 +1493,7 @@
                     if (cloudSales) {
                         cloudSales.forEach(tx => {
                             let txDev = tx.device_id || "";
-                            if (allowedDeviceIds.includes(txDev)) {
+                            if (linkedIds.includes(txDev)) {
                                 let calcCost = tx.total_cost !== undefined ? tx.total_cost : (tx.items ? tx.items.reduce((s, i) => s + ((i.cost || 0) * i.qty), 0) : 0);
                                 reportAllData.push({ createdAt: tx.created_at, totalCost: calcCost, total: tx.total });
                             }
