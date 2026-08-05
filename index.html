@@ -308,7 +308,7 @@
 
             <!-- Hint สำหรับการก๊อปปี้วาง -->
             <div class="bg-blue-50 border border-blue-200 text-blue-800 text-xs p-2 rounded-lg">
-                💡 <b>ຄຳແນະນຳ:</b> ທ່ານສາມາດກ໋ອບປີຂໍ້ມູນ (ຊື່, ລາຄາຊື້, ເປີເຊັນ, ລາຄາຂາຍ) ຈາກ Excel ໃນຄອມ ແລ້ວມາຄລິກເລືອກແຖວໃນຕາຕະລາງນີ້ ແລ້ວກົດປຸ່ມ <b>Ctrl + V</b> ເພື່ອວາງຂໍ້ມູນລົງໄປໄດ້ເລີຍ!
+                💡 <b>ຄຳແນະນຳ:</b> ທ່ານສາມາດກ໋ອບປີຂໍ້ມູນ (ຊື່, ລາຄາຊື້, ເປີເຊັນ, ລາຄາຂາຍ) ຈາກ Excel ໃນຄອມ ແລ້ວມາຄລິກເລືອກແຖວໃນຕາຕະລາງນີ້ ແລ້ວກົດປຸ່ມ <b>Ctrl + V</b> ເພື່ອວາງຂໍ້ມູນລົງໄປໄດ້ເລີຍ! (ຂໍ້ມູນຈະຍັງບໍ່ບັນທຶກຈົນกว่าທ່ານຈະກົດປຸ່ມ 'ບັນທຶກຂໍ້ມູນ' ດ້ານລຸ່ມ)
             </div>
 
             <!-- Excel Table Container -->
@@ -1027,10 +1027,10 @@
         function deleteExcelRow(index) {
             excelRows.splice(index, 1);
             renderExcelTable();
-            saveExcelData(true); 
+            // ບໍ່ສັ່ງ save ອັດຕະໂນມັດ ໃຫ້ຜູ້ໃຊ້ກົດປຸ່ມບັນທຶກເອງ
         }
 
-        // ฟังก์ชันล้างข้อมูลที่ยังไม่ได้บันทึก (รีเซ็ตกลับไปเป็นข้อมูลที่บันทຶກໄວ້ຫຼ້າສຸດ)
+        // ฟังก์ชันล้างข้อมูลที่ยังไม่ได้บันทึก (รีเซ็ตกลับไปเป็นข้อมูลที่บันทึกไว้ล่าสุด)
         function clearUnsavedRows() {
             let savedRows = localStorage.getItem('pos_excel_rows');
             if (savedRows) {
@@ -1070,7 +1070,7 @@
             } else if (field === 'price') {
                 excelRows[index].price = parseFloat(value) || 0;
             }
-            saveExcelData(true);
+            // ปิดการบันทึกอัตโนมัติ ให้ผู้ใช้กดปุ่ม 'บันทึกข้อมูล' เอง
         }
 
         function saveExcelData(isSilent = false) {
@@ -1139,7 +1139,7 @@
             tbody.innerHTML = html;
         }
 
-        // ฟังก์ชันรองรับการ Copy/Paste ข้อมูลจาก Excel เข้าตารางโดยตรง
+        // ฟังก์ชันรองรับการ Copy/Paste ข้อมูลจาก Excel เข้าตารางโดยกรองหัวข้อออก
         function handleTablePaste(event, startRowIndex) {
             event.preventDefault();
             let clipboardData = event.clipboardData || window.clipboardData;
@@ -1157,11 +1157,11 @@
 
                 if (cols.length > 0 && cols[0]) {
                     let val = cols[0].trim();
-                    // ตัดหัวข้อทิ้งถ้าเผลอก๊อปปี้หัวตารางมาด้วย
                     let lower = val.toLowerCase();
-                    if (lower !== 'ຊື່ສິນຄ້າ' && lower !== 'name' && lower !== 'code' && lower !== 'ຊື່ສິນຄ້າ (ລະຫັດ)') {
-                        excelRows[targetRowIdx].name = val;
+                    if (lower.includes('ຊື່ສິນຄ້າ') || lower.includes('name') || lower.includes('code') || lower.includes('ລ/ດ') || lower.includes('ລາຄາຊື້') || lower.includes('ລາຄາຂາຍ')) {
+                        return; // ข้ามแถวที่เป็นหัวข้อ
                     }
+                    excelRows[targetRowIdx].name = val;
                 }
                 if (cols.length > 1 && cols[1]) {
                     let costVal = parseFloat(cols[1].replace(/[^0-9.]/g, '')) || 0;
@@ -1181,11 +1181,10 @@
             });
 
             renderExcelTable();
-            saveExcelData(true);
-            showAlert("ສຳເລັດ", "ວາງຂໍ້ມູນຈາກ Excel สำເລັດຮຽບຮ້ອຍ!", "📋");
+            showAlert("ສຳເລັດ", "ວາງຂໍ້ມູນຈາກ Excel ສຳເລັດຮຽບຮ້ອຍ! (ກະລຸນາກົດປຸ່ມ ບັນທຶກຂໍ້ມູນ ເພື່ອບັນທຶກ)", "📋");
         }
 
-        // ฟังก์ชันอัปโหลดไฟล์ Excel (.xlsx, .xls, .csv) พร้อมกรองหัวข้อออก
+        // ฟังก์ชันอัปโหลดไฟล์ Excel พร้อมกรองหัวข้อออกอย่างเข้มงวด
         function handleExcelUpload(event) {
             let file = event.target.files[0];
             if (!file) return;
@@ -1207,9 +1206,9 @@
                         let name = row[0] ? String(row[0]).trim() : "";
                         if (!name) continue;
 
-                        // ตรวจสอบและตัดหัวข้อแถวแรกออก (เช่น คำว่า "ຊື່ສິນຄ້າ", "name", "code")
+                        // ตรวจสอบและตัดหัวข้อแถวแรกออกอย่างละเอียด
                         let lowerName = name.toLowerCase();
-                        if (lowerName.includes("ຊື່ສິນຄ້າ") || lowerName.includes("name") || lowerName.includes("code") || lowerName.includes("ລ/ດ") || lowerName.includes("ລາຄາ")) {
+                        if (lowerName.includes("ຊື່ສິນຄ້າ") || lowerName.includes("name") || lowerName.includes("code") || lowerName.includes("ລ/ດ") || lowerName.includes("ລາຄາຊື້") || lowerName.includes("ລາຄາຂາຍ") || lowerName.includes("ເປີເຊັນ")) {
                             continue;
                         }
 
@@ -1228,10 +1227,9 @@
                     if (importedRows.length > 0) {
                         excelRows = importedRows;
                         renderExcelTable();
-                        saveExcelData(true);
-                        showAlert("ສຳເລັດ", `ນຳເຂົ້າຂໍ້ມູນຈາກໄຟລ໌ Excel ສຳເລັດ ${importedRows.length} ລາຍການ!`, "📁");
+                        showAlert("ສຳເລັດ", `ນຳເຂົ້າຂໍ້ມູນຈາກໄຟລ໌ Excel ສຳເລັດ ${importedRows.length} ລາຍການ! (ກະລຸນາກົດປຸ່ມ 💾 ບັນທຶກຂໍ້ມູນ)`, "📁");
                     } else {
-                        showAlert("ແຈ້ງເຕືອນ", "ບໍ່ພົບຂໍ້ມູນໃນໄຟລ໌ Excel ທີ່ອັບໂຫລດ (ຫຼື ຂໍ້ມູນເປັນຄ່າວ່າງ)!", "⚠️");
+                        showAlert("ແຈ້ງເຕືອນ", "ບໍ່ພົບຂໍ້ມູນໃນໄຟລ໌ Excel ທີ່ອັບໂຫລດ!", "⚠️");
                     }
                 } catch (err) {
                     console.error(err);
