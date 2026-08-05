@@ -741,7 +741,7 @@
             document.getElementById('link-device-modal').classList.add('hidden');
         }
 
-        // --- ຟັງຊັນດຶງລາຍຊື່ ID ທັງໝົດໃນກຸ່ມແບບ Global Sync 100% ---
+        // --- ຟັງຊັນດຶງລາຍຊື່ ID ທັງໝົດໃນກຸ່ມແບບ Ultra Sync 100% (ດຶງທັງຈາກ LocalStorage ແລະ ຈາກ Cloud Licenses ໂດຍກົງ) ---
         async function getLinkedDeviceIds() {
             let linkedSet = new Set([deviceId]);
             
@@ -855,7 +855,7 @@
             navigator.clipboard.writeText("1006000000470").then(() => {}).catch(() => {});
         }
 
-        // --- ຜູກ ID ແບບ Global Sync: ອັບເດດລົງ Cloud Supabase ໃຫ້ທຸກເຄື່ອງໃນກຸ່ມເຫັນກັນครบ 100% ---
+        // --- ຜູກ ID ແບບ Ultra Global Sync: ອັບເດດລົງ Cloud Supabase ທຸກແຖວທີ່ກ່ຽວຂ້ອງ ---
         async function confirmLinkDevice() {
             let targetId = document.getElementById('target-device-id-input').value.trim().toUpperCase();
             if (!targetId) {
@@ -1036,7 +1036,7 @@
                                     ${isPerm ? '⭐ ຖາວອນ' : '⏳ ທົດລອງ 15 ວັນ'}
                                 </span>
                                 <button onclick="toggleDeviceStatus('${item.device_id}', '${isPerm ? 'trial' : 'permanent'}')" class="text-xs px-2 py-1 rounded font-bold ${isPerm ? 'bg-amber-200 text-amber-800 hover:bg-amber-300' : 'bg-green-200 text-green-800 hover:bg-green-300'} cursor-pointer">
-                                    ${isPerm ? 'ປ່ຽເປັນ Trial' : 'ປ່ຽນເປັນຖາວອນ'}
+                                    ${isPerm ? 'ປ່ຽນເປັນ Trial' : 'ປ່ຽນເປັນຖາວອນ'}
                                 </button>
                             </div>
                         </div>
@@ -1400,7 +1400,7 @@
             renderCart();
         }
 
-        // --- ໂຫຼດປະຫວັດແບບກວມລວມທຸກ ID ທີ່ຜູກກັນໃນກຸ່ມ 100% ---
+        // --- ຟັງຊັນໂຫຼດປະຫວັດແບບ Ultra Sync (ດຶງທຸກ Transaction ທີ່ตรงกับ Device ID ທັງໝົດໃນກຸ່ມທີ່ຜູກກັນໂດຍບໍ່ມີເງື່ອນໄຂ) ---
         async function loadCloudHistory() {
             let listDiv = document.getElementById('history-list');
             listDiv.innerHTML = `<p class="text-center py-4">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
@@ -1408,6 +1408,7 @@
             globalHistoryList = [];
 
             let linkedDevices = await getLinkedDeviceIds();
+            console.log("Linked Devices Group:", linkedDevices); // Debug log
 
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
             let combinedMap = new Map();
@@ -1419,6 +1420,7 @@
 
             if (supabaseClient) {
                 try {
+                    // ດຶງຂໍ້ມູນການຂາຍທັງໝົດຈາກ Supabase ໂດຍກົງ
                     let { data: cloudSales, error } = await supabaseClient
                         .from('sales_history')
                         .select('*')
@@ -1426,9 +1428,11 @@
                     
                     if (!error && cloudSales) {
                         cloudSales.forEach(tx => {
-                            let txDev = tx.device_id || "";
-                            // ກວດສອບວ່າ tx.device_id ຢູ່ໃນກຸ່ມ linkedDevices ບໍ (ທຸກ ID ທີ່ຜູກກັນຈະຖືກດຶງມາສະແກນເຫັນຮ່ວມກັນທັງໝົດ)
-                            if (linkedDevices.includes(txDev)) {
+                            let txDev = (tx.device_id || "").trim();
+                            // ກວດສອບແບບກວມລວມ (ລວມທັງກໍລະນີ Case-insensitive)
+                            let isMatch = linkedDevices.some(id => id.toUpperCase() === txDev.toUpperCase());
+                            
+                            if (isMatch) {
                                 let key = tx.id || tx.created_at;
                                 if (!combinedMap.has(key)) {
                                     combinedMap.set(key, {
@@ -1448,13 +1452,15 @@
                             }
                         });
                     }
-                } catch (err) {}
+                } catch (err) {
+                    console.error("Cloud History Error:", err);
+                }
             }
 
             globalHistoryList = Array.from(combinedMap.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
             if (globalHistoryList.length === 0) {
-                listDiv.innerHTML = `<p class="text-gray-500 text-center py-4">ຍັງບໍ່ມີປະຫວັດການຂາຍ.</p>`;
+                listDiv.innerHTML = `<p class="text-gray-500 text-center py-4">ຍັງບໍ່ມີປະຫວັດການຂາຍໃນກຸ່ມ ID ນີ້.</p>`;
                 document.getElementById('history-summary').classList.add('hidden');
             } else {
                 let html = '';
@@ -1482,7 +1488,7 @@
                     html += `
                         <div class="border-b pb-3 mb-3 bg-gray-50 p-3 rounded-xl border-l-4 border-blue-600 shadow-sm">
                             <div class="flex justify-between items-center mb-1">
-                                <span class="font-bold text-blue-800 text-xs">📅 ${new Date(tx.created_at).toLocaleString()} [ID: ${tx.device_id || 'ເຄື່ອງນີ້'}]</span>
+                                <span class="font-bold text-blue-800 text-xs">📅 ${new Date(tx.created_at).toLocaleString()} <span class="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-[10px]">ID: ${tx.device_id || 'ເຄື່ອງນີ້'}</span></span>
                                 <div class="flex items-center gap-2">
                                     <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">📦 ${tx.total_items} ລາຍການ</span>
                                     <button onclick="promptDeleteHistory(${index})" class="text-xs bg-red-100 hover:bg-red-200 text-red-600 px-2 py-0.5 rounded font-bold cursor-pointer transition">🗑️ ລຶບ</button>
@@ -1561,8 +1567,9 @@
                     let { data: cloudSales } = await supabaseClient.from('sales_history').select('*');
                     if (cloudSales) {
                         cloudSales.forEach(tx => {
-                            let txDev = tx.device_id || "";
-                            if (linkedDevices.includes(txDev)) {
+                            let txDev = (tx.device_id || "").trim();
+                            let isMatch = linkedDevices.some(id => id.toUpperCase() === txDev.toUpperCase());
+                            if (isMatch) {
                                 let calcCost = tx.total_cost !== undefined ? tx.total_cost : (tx.items ? tx.items.reduce((s, i) => s + ((i.cost || 0) * i.qty), 0) : 0);
                                 reportAllData.push({ createdAt: tx.created_at, totalCost: calcCost, total: tx.total });
                             }
@@ -1743,7 +1750,7 @@
                         <td class="p-2 border-r"><input type="text" value="${row.name || ''}" oninput="updateExcelRow(${index}, 'name', this.value)" onpaste="handleTablePaste(event, ${index}, 0)" class="w-full border rounded px-2 py-1 text-sm font-semibold outline-none"></td>
                         <td class="p-2 border-r"><input type="text" value="${row.cost ? Number(row.cost).toLocaleString() : ''}" oninput="let raw = this.value.replace(/[^0-9]/g, ''); updateExcelRow(${index}, 'cost', raw);" onpaste="handleTablePaste(event, ${index}, 1)" class="w-full border rounded px-2 py-1 text-right text-sm font-bold text-blue-600 outline-none"></td>
                         <td class="p-2 border-r text-center"><input type="text" value="${row.markup || 20}" oninput="let raw = this.value.replace(/[^0-9.]/g, ''); updateExcelRow(${index}, 'markup', raw);" onpaste="handleTablePaste(event, ${index}, 2)" class="w-20 border rounded px-2 py-1 text-center text-sm font-bold text-orange-600 outline-none"> %</td>
-                        <td class="p-2 border-r"><input type="text" id="price-input-${index}" value="${row.price ? Number(row.price).toLocaleString() : ''}" oninput="let raw = this.value.replace(/[^0-9]/g, ''); updateExcelRow(${index}, 'price', raw);" onpaste="handleTablePaste(event, ${index}, 3)" class="w-full border rounded px-2 py-1 text-right text-sm font-bold text-green-600 outline-none"></td>
+                        <td class="p-2 border-r"><input type="text" id="price-input-${index}" value="${row.price ? Number(row.price).toLocaleString() : ''}" oninput="let raw = this.value.replace(/[^0-9.]/g, ''); updateExcelRow(${index}, 'price', raw);" onpaste="handleTablePaste(event, ${index}, 3)" class="w-full border rounded px-2 py-1 text-right text-sm font-bold text-green-600 outline-none"></td>
                         <td class="p-2 text-center"><button onclick="deleteExcelRow(${index})" class="text-red-500 font-bold text-xs bg-red-50 px-2 py-1 rounded cursor-pointer">ລຶບ</button></td>
                     </tr>
                 `;
