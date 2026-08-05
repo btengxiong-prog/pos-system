@@ -617,98 +617,24 @@
             console.error("Supabase initialization warning:", e);
         }
 
-        let deviceId = null;
-
-        // --- HARDWARE FINGERPRINTING & PERSISTENT DEVICE ID BINDING ---
-        function generateHardwareFingerprint() {
-            let canvas = document.createElement('canvas');
-            let ctx = canvas.getContext('2d');
-            ctx.textBaseline = "top";
-            ctx.font = "14px 'Arial'";
-            ctx.fillText("POS-System-Fingerprint-2026", 2, 2);
-            let canvasData = canvas.toDataURL();
-
-            let rawStr = [
-                navigator.userAgent,
-                navigator.language,
-                screen.width + 'x' + screen.height,
-                screen.colorDepth,
-                navigator.hardwareConcurrency || 'unknown',
-                navigator.deviceMemory || 'unknown',
-                canvasData
-            ].join('###');
-
-            // Simple fast hash to generate a short unique hardware key
-            let hash = 0;
-            for (let i = 0; i < rawStr.length; i++) {
-                let char = rawStr.charCodeAt(i);
-                hash = ((hash << 5) - hash) + char;
-                hash = hash & hash;
-            }
-            return 'HW-' + Math.abs(hash).toString(36).toUpperCase();
-        }
+        // --- DEVICE ID SYSTEM: Auto Generate POS-A0001, POS-A0002... ---
+        let deviceId = localStorage.getItem('pos_device_id');
 
         async function initDeviceId() {
-            let hwFingerprint = generateHardwareFingerprint();
-            
-            // 1. ກວດສອບຈາກ LocalStorage ກ່ອນ
-            let localId = localStorage.getItem('pos_device_id');
-            if (localId && !localId.startsWith('DEV-')) {
-                deviceId = localId;
-                // Sync ກັບ Cloud ຖ້າມີ
+            if (!deviceId || deviceId.startsWith('DEV-')) {
                 if (supabaseClient) {
-                    await bindHardwareToCloud(hwFingerprint, deviceId);
-                }
-                return;
-            }
-
-            // 2. ຖ້າບໍ່ມີໃນ LocalStorage ຫຼື ເປັນ ID ເກົ່າ ໃຫ້ກວດສອບໃນ Cloud Supabase ຜ່ານ Hardware Fingerprint
-            if (supabaseClient) {
-                try {
-                    let { data: existingBinding } = await supabaseClient
-                        .from('licenses')
-                        .select('device_id')
-                        .eq('hardware_fingerprint', hwFingerprint)
-                        .single();
-
-                    if (existingBinding && existingBinding.device_id) {
-                        deviceId = existingBinding.device_id;
-                        localStorage.setItem('pos_device_id', deviceId);
-                        return;
+                    try {
+                        let { count, error } = await supabaseClient.from('licenses').select('*', { count: 'exact', head: true });
+                        let nextNum = (!error && count !== null) ? count + 1 : 1;
+                        deviceId = formatDeviceSeqId(nextNum);
+                    } catch (e) {
+                        deviceId = 'POS-A0001';
                     }
-
-                    // ຖ້າບໍ່ເຄີຍມີໃນ Cloud ໃຫ້ຮັນເລກລຳດັບ POS-A0001 ໃໝ່
-                    let { count, error } = await supabaseClient.from('licenses').select('*', { count: 'exact', head: true });
-                    let nextNum = (!error && count !== null) ? count + 1 : 1;
-                    deviceId = formatDeviceSeqId(nextNum);
-
-                    localStorage.setItem('pos_device_id', deviceId);
-                    await bindHardwareToCloud(hwFingerprint, deviceId);
-                } catch (e) {
+                } else {
                     deviceId = 'POS-A0001';
-                    localStorage.setItem('pos_device_id', deviceId);
                 }
-            } else {
-                deviceId = 'POS-A0001';
                 localStorage.setItem('pos_device_id', deviceId);
             }
-        }
-
-        async function bindHardwareToCloud(hwFp, devId) {
-            if (!supabaseClient) return;
-            try {
-                let { data: row } = await supabaseClient.from('licenses').select('*').eq('device_id', devId).single();
-                if (row) {
-                    await supabaseClient.from('licenses').update({ hardware_fingerprint: hwFp }).eq('device_id', devId);
-                } else {
-                    await supabaseClient.from('licenses').insert([{
-                        device_id: devId,
-                        hardware_fingerprint: hwFp,
-                        status: 'trial',
-                        trial_start: new Date().toISOString()
-                    }]);
-                }
-            } catch (e) {}
         }
 
         function formatDeviceSeqId(num) {
@@ -815,7 +741,7 @@
             document.getElementById('link-device-modal').classList.add('hidden');
         }
 
-        // --- ຟັງຊັນດຶງລາຍຊື່ ID ທັງໝົດໃນກຸ່ມແບບ Global Sync (Two-way Global Sync) ---
+        // --- ຟັງຊັນດຶງລາຍຊື່ ID ທັງໝົດໃນກຸ່ມແບບ Global Sync 100% ---
         async function getLinkedDeviceIds() {
             let linkedSet = new Set([deviceId]);
             
@@ -929,7 +855,7 @@
             navigator.clipboard.writeText("1006000000470").then(() => {}).catch(() => {});
         }
 
-        // --- ຜູກ ID ແບບ Global Sync ---
+        // --- ຜູກ ID ແບບ Global Sync: ອັບເດດລົງ Cloud Supabase ໃຫ້ທຸກເຄື່ອງໃນກຸ່ມເຫັນກັນครบ 100% ---
         async function confirmLinkDevice() {
             let targetId = document.getElementById('target-device-id-input').value.trim().toUpperCase();
             if (!targetId) {
@@ -1110,7 +1036,7 @@
                                     ${isPerm ? '⭐ ຖາວອນ' : '⏳ ທົດລອງ 15 ວັນ'}
                                 </span>
                                 <button onclick="toggleDeviceStatus('${item.device_id}', '${isPerm ? 'trial' : 'permanent'}')" class="text-xs px-2 py-1 rounded font-bold ${isPerm ? 'bg-amber-200 text-amber-800 hover:bg-amber-300' : 'bg-green-200 text-green-800 hover:bg-green-300'} cursor-pointer">
-                                    ${isPerm ? 'ປ່ຽນເປັນ Trial' : 'ປ່ຽນເປັນຖາວອນ'}
+                                    ${isPerm ? 'ປ່ຽເປັນ Trial' : 'ປ່ຽນເປັນຖາວອນ'}
                                 </button>
                             </div>
                         </div>
@@ -1474,6 +1400,7 @@
             renderCart();
         }
 
+        // --- ໂຫຼດປະຫວັດແບບກວມລວມທຸກ ID ທີ່ຜູກກັນໃນກຸ່ມ 100% ---
         async function loadCloudHistory() {
             let listDiv = document.getElementById('history-list');
             listDiv.innerHTML = `<p class="text-center py-4">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
@@ -1500,6 +1427,7 @@
                     if (!error && cloudSales) {
                         cloudSales.forEach(tx => {
                             let txDev = tx.device_id || "";
+                            // ກວດສອບວ່າ tx.device_id ຢູ່ໃນກຸ່ມ linkedDevices ບໍ (ທຸກ ID ທີ່ຜູກກັນຈະຖືກດຶງມາສະແກນເຫັນຮ່ວມກັນທັງໝົດ)
                             if (linkedDevices.includes(txDev)) {
                                 let key = tx.id || tx.created_at;
                                 if (!combinedMap.has(key)) {
@@ -1554,7 +1482,7 @@
                     html += `
                         <div class="border-b pb-3 mb-3 bg-gray-50 p-3 rounded-xl border-l-4 border-blue-600 shadow-sm">
                             <div class="flex justify-between items-center mb-1">
-                                <span class="font-bold text-blue-800 text-xs">📅 ${new Date(tx.created_at).toLocaleString()}</span>
+                                <span class="font-bold text-blue-800 text-xs">📅 ${new Date(tx.created_at).toLocaleString()} [ID: ${tx.device_id || 'ເຄື່ອງນີ້'}]</span>
                                 <div class="flex items-center gap-2">
                                     <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">📦 ${tx.total_items} ລາຍການ</span>
                                     <button onclick="promptDeleteHistory(${index})" class="text-xs bg-red-100 hover:bg-red-200 text-red-600 px-2 py-0.5 rounded font-bold cursor-pointer transition">🗑️ ລຶບ</button>
