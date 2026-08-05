@@ -617,25 +617,98 @@
             console.error("Supabase initialization warning:", e);
         }
 
-        // --- DEVICE ID SYSTEM: Auto Generate POS-A0001, POS-A0002... ---
-        let deviceId = localStorage.getItem('pos_device_id');
+        let deviceId = null;
+
+        // --- HARDWARE FINGERPRINTING & PERSISTENT DEVICE ID BINDING ---
+        function generateHardwareFingerprint() {
+            let canvas = document.createElement('canvas');
+            let ctx = canvas.getContext('2d');
+            ctx.textBaseline = "top";
+            ctx.font = "14px 'Arial'";
+            ctx.fillText("POS-System-Fingerprint-2026", 2, 2);
+            let canvasData = canvas.toDataURL();
+
+            let rawStr = [
+                navigator.userAgent,
+                navigator.language,
+                screen.width + 'x' + screen.height,
+                screen.colorDepth,
+                navigator.hardwareConcurrency || 'unknown',
+                navigator.deviceMemory || 'unknown',
+                canvasData
+            ].join('###');
+
+            // Simple fast hash to generate a short unique hardware key
+            let hash = 0;
+            for (let i = 0; i < rawStr.length; i++) {
+                let char = rawStr.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            return 'HW-' + Math.abs(hash).toString(36).toUpperCase();
+        }
 
         async function initDeviceId() {
-            // ຖ້າຫາກຍັງບໍ່ມີ Device ID ຫຼື ຍັງເປັນຮູບແບບເກົ່າ ( DEV- ) ໃຫ້ລ້າງຖິ້ມແລ້ວຮັນເລກລຳດັບ POS-A0001 ໃຫ້ໃໝ່ທັນທີໂດຍອັດຕະໂນມັດ
-            if (!deviceId || deviceId.startsWith('DEV-')) {
+            let hwFingerprint = generateHardwareFingerprint();
+            
+            // 1. ກວດສອບຈາກ LocalStorage ກ່ອນ
+            let localId = localStorage.getItem('pos_device_id');
+            if (localId && !localId.startsWith('DEV-')) {
+                deviceId = localId;
+                // Sync ກັບ Cloud ຖ້າມີ
                 if (supabaseClient) {
-                    try {
-                        let { count, error } = await supabaseClient.from('licenses').select('*', { count: 'exact', head: true });
-                        let nextNum = (!error && count !== null) ? count + 1 : 1;
-                        deviceId = formatDeviceSeqId(nextNum);
-                    } catch (e) {
-                        deviceId = 'POS-A0001';
-                    }
-                } else {
-                    deviceId = 'POS-A0001';
+                    await bindHardwareToCloud(hwFingerprint, deviceId);
                 }
+                return;
+            }
+
+            // 2. ຖ້າບໍ່ມີໃນ LocalStorage ຫຼື ເປັນ ID ເກົ່າ ໃຫ້ກວດສອບໃນ Cloud Supabase ຜ່ານ Hardware Fingerprint
+            if (supabaseClient) {
+                try {
+                    let { data: existingBinding } = await supabaseClient
+                        .from('licenses')
+                        .select('device_id')
+                        .eq('hardware_fingerprint', hwFingerprint)
+                        .single();
+
+                    if (existingBinding && existingBinding.device_id) {
+                        deviceId = existingBinding.device_id;
+                        localStorage.setItem('pos_device_id', deviceId);
+                        return;
+                    }
+
+                    // ຖ້າບໍ່ເຄີຍມີໃນ Cloud ໃຫ້ຮັນເລກລຳດັບ POS-A0001 ໃໝ່
+                    let { count, error } = await supabaseClient.from('licenses').select('*', { count: 'exact', head: true });
+                    let nextNum = (!error && count !== null) ? count + 1 : 1;
+                    deviceId = formatDeviceSeqId(nextNum);
+
+                    localStorage.setItem('pos_device_id', deviceId);
+                    await bindHardwareToCloud(hwFingerprint, deviceId);
+                } catch (e) {
+                    deviceId = 'POS-A0001';
+                    localStorage.setItem('pos_device_id', deviceId);
+                }
+            } else {
+                deviceId = 'POS-A0001';
                 localStorage.setItem('pos_device_id', deviceId);
             }
+        }
+
+        async function bindHardwareToCloud(hwFp, devId) {
+            if (!supabaseClient) return;
+            try {
+                let { data: row } = await supabaseClient.from('licenses').select('*').eq('device_id', devId).single();
+                if (row) {
+                    await supabaseClient.from('licenses').update({ hardware_fingerprint: hwFp }).eq('device_id', devId);
+                } else {
+                    await supabaseClient.from('licenses').insert([{
+                        device_id: devId,
+                        hardware_fingerprint: hwFp,
+                        status: 'trial',
+                        trial_start: new Date().toISOString()
+                    }]);
+                }
+            } catch (e) {}
         }
 
         function formatDeviceSeqId(num) {
@@ -728,7 +801,6 @@
             document.getElementById('my-device-modal').classList.add('hidden');
         }
 
-        // --- ຕັດຂັ້ນຕອນປັອບອັບແຈ້ງເຕືອນອອກ, ກ໋ອບປີແລ້ວຈຳໄວ້ເລີຍ ---
         function copyMyDeviceId() {
             navigator.clipboard.writeText(deviceId).then(() => {}).catch(() => {});
         }
@@ -857,7 +929,7 @@
             navigator.clipboard.writeText("1006000000470").then(() => {}).catch(() => {});
         }
 
-        // --- ຜູກ ID ແບບ Global Sync: ດຶງທຸກ ID ທີ່ກ່ຽວຂ້ອງມາລວມກັນເປັນກຸ່ມດຽວແລ້ວອັບເດດລົງ Cloud Supabase ໃຫ້ທຸກເຄື່ອງເຫັນກັນครบທັງໝົດ ---
+        // --- ຜູກ ID ແບບ Global Sync ---
         async function confirmLinkDevice() {
             let targetId = document.getElementById('target-device-id-input').value.trim().toUpperCase();
             if (!targetId) {
