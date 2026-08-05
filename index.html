@@ -58,7 +58,7 @@
                     <input type="text" id="activation-key-input" placeholder="ປ້ອນ Activation Key ຈາກ Admin" class="w-full border rounded-lg px-3 py-2.5 text-center font-bold outline-none focus:ring-2 focus:ring-blue-500 text-sm">
                 </div>
                 <button onclick="activateLicense()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">
-                    🔑 開通 / ຢືນຢັນລະຫັດໃຊ້ງານຖາວອນ
+                    🔑 ຢືນຢັນລະຫັດໃຊ້ງານຖາວອນ
                 </button>
             </div>
         </div>
@@ -68,9 +68,12 @@
     <header class="bg-[#1e3a8a] text-white py-4 shadow-md">
         <div class="container mx-auto px-4 text-center">
             <h1 class="text-2xl font-bold flex items-center justify-center gap-2">
-                🛒 ລະບົບຂາຍເຄື່ອງ POS (ແຊຣ໌ຂໍ້ມູນທຸກເຄື່ອງ Realtime)
+                🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Smart Realtime Sync)
             </h1>
-            <div id="license-status-badge" class="mt-1 text-xs text-yellow-300 font-semibold"></div>
+            <div class="mt-1 text-xs text-yellow-300 font-semibold">
+                ✨ ວ່ອງໄວ ທັນໃຈ, ຍອດເງິນຖືກຕ້ອງ ຊັດເຈນ 100%, ບໍ່ເສຍເວລາ — ໃຜກໍ່ຂາຍເປັນ ບໍ່ມີພື້ນຖານໄອທີກໍ່ໃຊ້ໄດ້ສະບາຍ!
+            </div>
+            <div id="license-status-badge" class="mt-1 text-xs text-cyan-200 font-semibold"></div>
             <div class="mt-3 flex justify-center gap-3 flex-wrap">
                 <button onclick="openScanner()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition cursor-pointer">
                     📷 ສະແກນສິນຄ້າ
@@ -430,7 +433,6 @@
             let displayDevId = document.getElementById('display-device-id');
             displayDevId.innerText = deviceId;
 
-            // ກວດສອບຈາກ Local ວ່າເຄີຍ Activated ແລ້ວຫຼືຍັງ
             let localStatus = localStorage.getItem('pos_license_status');
             if (localStatus === 'permanent') {
                 badge.innerText = "⭐ ສະຖານະ: ຜູ້ໃຊ້ງານຖາວອນ (Permanent User)";
@@ -438,32 +440,26 @@
                 return;
             }
 
-            // ຖ້າບໍ່ມີ Supabase ໃຫ້ໃຊ້ Local Trial 15 ວັນ
             let trialStart = localStorage.getItem('pos_trial_start');
             if (!trialStart) {
                 trialStart = new Date().toISOString();
                 localStorage.setItem('pos_trial_start', trialStart);
             }
 
-            // ກວດສອບກັບ Supabase ຕາຕະລາງ licenses (ຖ້າມີ)
-            let isPermanentOnCloud = false;
             if (supabaseClient) {
                 try {
-                    let { data, error } = await supabaseClient
+                    let { data } = await supabaseClient
                         .from('licenses')
                         .select('*')
                         .eq('device_id', deviceId)
                         .single();
 
-                    if (data) {
-                        if (data.status === 'permanent') {
-                            localStorage.setItem('pos_license_status', 'permanent');
-                            badge.innerText = "⭐ ສະຖານະ: ຜູ້ໃຊ້ງານຖາວອນ (Permanent User)";
-                            modal.classList.add('hidden');
-                            return;
-                        }
-                    } else {
-                        // ບັນທຶກ Device ID ລົງ Cloud ເພື່ອໃຫ້ Admin ເຫັນ
+                    if (data && data.status === 'permanent') {
+                        localStorage.setItem('pos_license_status', 'permanent');
+                        badge.innerText = "⭐ ສະຖານະ: ຜູ້ໃຊ້ງານຖາວອນ (Permanent User)";
+                        modal.classList.add('hidden');
+                        return;
+                    } else if (!data) {
                         await supabaseClient.from('licenses').insert([{
                             device_id: deviceId,
                             trial_start: trialStart,
@@ -473,7 +469,6 @@
                 } catch (e) {}
             }
 
-            // ຄຳນວນ 15 ວັນ
             let startDate = new Date(trialStart);
             let now = new Date();
             let diffTime = now - startDate;
@@ -484,7 +479,6 @@
                 badge.innerText = `⏳ ສະຖານະ: ທົດລອງໃຊ້ (ເຫຼືອ ${daysLeft} ວັນ)`;
                 modal.classList.add('hidden');
             } else {
-                // ໝົດອາຍຸ 15 ວັນ
                 badge.innerText = "❌ ສະຖານະ: ໝົດອາຍຸທົດລອງໃຊ້";
                 msg.innerHTML = `<b>ໝົດອາຍຸທົດລອງໃຊ້ 15 ວັນແລ້ວ!</b><br>ກະລຸນາຕິດຕໍ່ Admin ເພື່ອຂໍ Active ລະຫັດໃຊ້ງານຖາວອນ.`;
                 formContainer.classList.remove('hidden');
@@ -494,13 +488,11 @@
 
         async function activateLicense() {
             let keyInput = document.getElementById('activation-key-input').value.trim();
-            // ກຳນົດ Master Activation Key ໄວ້ປົດລັອກຖາວອນ (ສາມາດປ່ຽນລະຫັດນີ້ໄດ້ຕາມໃຈມັກ)
             const MASTER_ADMIN_KEY = "BOONTAENG-POS-2026-VIP";
 
             if (keyInput === MASTER_ADMIN_KEY) {
                 localStorage.setItem('pos_license_status', 'permanent');
                 
-                // ອັບເດດລົງ Cloud Supabase
                 if (supabaseClient) {
                     try {
                         await supabaseClient
@@ -518,12 +510,10 @@
             }
         }
 
-        // ເອີ້ນກວດສອບ License ທຸກຄັ້ງທີ່ໂຫຼດໜ້າเว็บ
         window.addEventListener('DOMContentLoaded', () => {
             checkLicenseStatus();
         });
 
-        // Realtime Subscription: ຮັບການປ່ຽນແປງທຸກຄັ້ງທີ່ມີການຂາຍຈາກເຄື່ອງອື່ນ
         if (supabaseClient) {
             supabaseClient
                 .channel('public:sales_history')
@@ -534,11 +524,6 @@
                 })
                 .subscribe();
         }
-
-        const productsDB = {
-            "8851019050016": { name: "ນ້ຳດື່ມຫົວເສືອ", cost: 3000, price: 5000 },
-            "8850999012345": { name: "ມາມ້າ ລົດດັ້ງເດີມ", cost: 4000, price: 6000 }
-        };
 
         let cart = [];
         let html5QrCode = null;
