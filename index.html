@@ -720,23 +720,23 @@
             document.getElementById('link-device-modal').classList.add('hidden');
         }
 
-        // --- ຟັງຊັນຊິງ໌ ແລະ ດຶງລາຍຊື່ ID ທີ່ຜູກກັນຈາກ Cloud Supabase 100% ---
+        // --- ຟັງຊັນຊິງ໌ລາຍຊື່ ID ທີ່ຜູກກັນຈາກ Cloud 100% (Two-way sync across all devices) ---
         async function getLinkedDeviceIds() {
             let linkedSet = new Set([deviceId]);
             
-            // 1. ດຶງຈາກ LocalStorage
+            // 1. ດຶງຈາກ LocalStorage ຂອງເຄື່ອງນີ້
             let localLinked = JSON.parse(localStorage.getItem('pos_linked_devices') || '[]');
             localLinked.forEach(id => linkedSet.add(id));
 
-            // 2. ດຶງຈາກ Cloud Supabase (licenses) ເພື່ອໃຫ້ທັງເຄື່ອງ 1 ແລະ ເຄື່ອງ 2 ເຫັນກັນອັດຕະໂນມັດ
+            // 2. ດຶງຈາກ Cloud Supabase (licenses) ເພື່ອລວມ ID ທັງໝົດທີ່ກ່ຽວຂ້ອງໃນກຸ່ມ
             if (supabaseClient) {
                 try {
                     let { data: allLicenses } = await supabaseClient.from('licenses').select('device_id, linked_devices');
                     if (allLicenses) {
+                        // ກວດສອບວ່າ deviceId ນີ້ ຫຼື ID ໃນກຸ່ມ ມີການບັນທຶກ linked_devices ໄວ້ໃນ Cloud ບໍ
                         allLicenses.forEach(row => {
                             let cloudLinked = row.linked_devices ? JSON.parse(row.linked_devices) : [];
-                            // ຖ້າເຄື່ອງໃດເຄື່ອງໜຶ່ງໃນກຸ່ມມີ deviceId ນี้ ຫຼື ຖືກຜູກກັນ
-                            if (row.device_id === deviceId || cloudLinked.includes(deviceId) || cloudLinked.some(id => linkedSet.has(id))) {
+                            if (row.device_id === deviceId || linkedSet.has(row.device_id) || cloudLinked.includes(deviceId) || cloudLinked.some(id => linkedSet.has(id))) {
                                 linkedSet.add(row.device_id);
                                 cloudLinked.forEach(id => linkedSet.add(id));
                             }
@@ -745,7 +745,10 @@
                 } catch (e) {}
             }
 
-            return Array.from(linkedSet);
+            let finalArr = Array.from(linkedSet);
+            // ບັນທຶກລົງ LocalStorage ໄວ້ເບື້ອງຕົ້ນສະເໝີ
+            localStorage.setItem('pos_linked_devices', JSON.stringify(finalArr));
+            return finalArr;
         }
 
         async function openLinkedDevicesModal() {
@@ -823,7 +826,7 @@
             navigator.clipboard.writeText("1006000000470").then(() => {}).catch(() => {});
         }
 
-        // --- ຜູກ ID ແບບສອງທາງ (Sync ຜ່ານ Cloud Supabase ໃຫ້ທັງເຄື່ອງ 1 ແລະ ເຄື່ອງ 2 ເຫັນກັນທັນທີ) ---
+        // --- ຜູກ ID ແບບສອງທາງ (Sync ທັງກຸ່ມລົງ Cloud Supabase ອັດຕະໂນມັດ 100%) ---
         async function confirmLinkDevice() {
             let targetId = document.getElementById('target-device-id-input').value.trim();
             if (!targetId) {
@@ -831,37 +834,41 @@
                 return;
             }
 
-            // 1. ບັນທຶກລົງ LocalStorage ຂອງເຄື່ອງນີ້
+            // 1. ດຶງກຸ່ມ ID ປະຈຸບັນມາລວມກັນ
             let linkedList = JSON.parse(localStorage.getItem('pos_linked_devices') || '[]');
             if (!linkedList.includes(deviceId)) linkedList.push(deviceId);
             if (!linkedList.includes(targetId)) linkedList.push(targetId);
-            localStorage.setItem('pos_linked_devices', JSON.stringify(linkedList));
 
-            // 2. ບັນທຶກ ແລະ ສ້າງການເຊື່ອມໂຍງສອງທາງລົງ Cloud Supabase (licenses)
             if (supabaseClient) {
                 try {
-                    // ອັບເດດฝั่ง Device ID ปัจจุบัน
-                    let { data: row1 } = await supabaseClient.from('licenses').select('linked_devices').eq('device_id', deviceId).single();
-                    let cloudLinked1 = row1 && row1.linked_devices ? JSON.parse(row1.linked_devices) : [];
-                    if (!cloudLinked1.includes(targetId)) cloudLinked1.push(targetId);
-                    if (!cloudLinked1.includes(deviceId)) cloudLinked1.push(deviceId);
-                    
-                    await supabaseClient.from('licenses')
-                        .upsert({ device_id: deviceId, linked_devices: JSON.stringify(cloudLinked1), status: 'permanent' }, { onConflict: 'device_id' });
+                    // ດຶງຂໍ້ມູນຈາກ Cloud ຂອງ targetId ມານຳ (ຖ້າມີການຜູກກ່ອນໜ້ານີ້ແລ້ວ)
+                    let { data: targetRow } = await supabaseClient.from('licenses').select('linked_devices').eq('device_id', targetId).single();
+                    if (targetRow && targetRow.linked_devices) {
+                        let targetCloud = JSON.parse(targetRow.linked_devices);
+                        targetCloud.forEach(id => {
+                            if (!linkedList.includes(id)) linkedList.push(id);
+                        });
+                    }
+                } catch (e) {}
+            }
 
-                    // ອັບເດດฝั่ง Target Device ID ໃຫ້ຮູ້ຈັກ Device ID ນີ້ຄືກັນ (Two-way sync 100%)
-                    let { data: row2 } = await supabaseClient.from('licenses').select('linked_devices').eq('device_id', targetId).single();
-                    let cloudLinked2 = row2 && row2.linked_devices ? JSON.parse(row2.linked_devices) : [];
-                    if (!cloudLinked2.includes(deviceId)) cloudLinked2.push(deviceId);
-                    if (!cloudLinked2.includes(targetId)) cloudLinked2.push(targetId);
+            localStorage.setItem('pos_linked_devices', JSON.stringify(linkedList));
 
-                    await supabaseClient.from('licenses')
-                        .upsert({ device_id: targetId, linked_devices: JSON.stringify(cloudLinked2), status: 'permanent' }, { onConflict: 'device_id' });
+            // 2. ອັບເດດລາຍຊື່ gộp (linkedList) ນີ້ທັງໝົດຂຶ້ນໄປໃສ່ Cloud Supabase ໃຫ້ທຸກເຄື່ອງໃນກຸ່ມ
+            if (supabaseClient) {
+                try {
+                    for (let id of linkedList) {
+                        await supabaseClient.from('licenses').upsert({
+                            device_id: id,
+                            linked_devices: JSON.stringify(linkedList),
+                            status: 'permanent'
+                        }, { onConflict: 'device_id' });
+                    }
                 } catch (e) {}
             }
 
             document.getElementById('link-device-modal').classList.add('hidden');
-            showAlert("ສຳເລັດ", `ຜູກ Device ID [${targetId}] ສຳເລັດ! ທັງສອງເຄື່ອງຈະເຫັນຂໍ້ມູນຮ່ວມກັນແລ້ວ.`, "🔗");
+            showAlert("ສຳເລັດ", `ຜູກ Device ID [${targetId}] ສຳເລັດ! ທັງ 3 ເຄື່ອງຈະເຫັນຂໍ້ມູນ ແລະ ID ຮ່ວມກັນແລ້ວ.`, "🔗");
         }
 
         async function checkTrialLicense() {
