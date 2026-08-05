@@ -181,9 +181,12 @@
     <!-- History Modal -->
     <div id="history-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-xl max-w-xl w-full p-5 max-h-[80vh] overflow-y-auto">
-            <h3 class="text-lg font-bold mb-3 text-gray-800 flex justify-between items-center">
+            <h3 class="text-lg font-bold mb-3 text-gray-800 flex justify-between items-center flex-wrap gap-2">
                 <span>📊 ປະຫວັດການຂາຍ</span>
-                <button onclick="loadCloudHistory()" class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded cursor-pointer">🔄 ໂຫຼດໃໝ່</button>
+                <div class="flex items-center gap-2">
+                    <button onclick="syncLocalToCloud()" class="text-xs bg-amber-500 hover:bg-amber-600 text-white px-2 py-1.5 rounded cursor-pointer font-bold shadow">☁️ ຊິ້ງຂໍ້ມູນເກົ່າຂຶ້ນ Cloud</button>
+                    <button onclick="loadCloudHistory()" class="text-xs bg-blue-100 text-blue-700 px-2 py-1.5 rounded cursor-pointer font-bold">🔄 ໂຫຼດໃໝ່</button>
+                </div>
             </h3>
             <div id="history-list" class="space-y-3 text-sm text-gray-600">
                 <p class="text-center py-4">ກຳລັງໂຫຼດຂໍ້ມູນ...</p>
@@ -746,6 +749,36 @@
             cart = [];
             document.getElementById('cash-given').value = '';
             renderCart();
+        }
+
+        // ฟังก์ชันช่วยดึงข้อมูลเก่าจากเครื่องมือถือส่งขึ้น Cloud
+        async function syncLocalToCloud() {
+            if (!supabaseClient) {
+                showAlert("ຜິດພາດ", "ບໍ່ສາມາດເຊື່ອມຕໍ່ Supabase ໄດ້", "⚠️");
+                return;
+            }
+            let localHistory = JSON.parse(localStorage.getItem('pos_history')) || [];
+            if (localHistory.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ບໍ່ມີຂໍ້ມູນໃນເຄື່ອງນີ້ໃຫ້ຊິ້ງ", "ℹ️");
+                return;
+            }
+
+            let count = 0;
+            for (let tx of localHistory) {
+                let txData = {
+                    items: tx.items,
+                    totalItems: tx.totalItems,
+                    totalCost: tx.totalCost,
+                    total: tx.total,
+                    cash: tx.cash,
+                    change: tx.change
+                };
+                let { error } = await supabaseClient.from('sales_history').insert([txData]);
+                if (!error) count++;
+            }
+
+            showAlert("ສຳເລັດ", `ຊິ້ງຂໍ້ມູນເກົ່າຂຶ້ນ Cloud ສຳເລັດ ${count} ລາຍການ!`, "☁️");
+            loadCloudHistory();
         }
 
         function extractDayMonthYear(dateStr) {
