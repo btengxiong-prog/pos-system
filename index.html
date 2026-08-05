@@ -397,10 +397,9 @@
         try {
             if (window.supabase && typeof window.supabase.createClient === 'function') {
                 supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-                console.log("Supabase initialized successfully!");
             }
         } catch (e) {
-            console.error("Supabase initialization error:", e);
+            console.error("Supabase initialization warning:", e);
         }
 
         if (supabaseClient) {
@@ -712,7 +711,6 @@
                 return;
             }
             let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-            let totalCost = cart.reduce((sum, item) => sum + ((item.cost || 0) * item.qty), 0);
             let cashInput = document.getElementById('cash-given').value;
             let cashGiven = cashInput ? (parseFloat(cashInput) || 0) : grandTotal;
 
@@ -724,7 +722,6 @@
             let txData = {
                 items: cart,
                 totalItems: cart.reduce((sum, item) => sum + item.qty, 0),
-                totalCost: totalCost,
                 total: grandTotal,
                 cash: cashGiven,
                 change: cashGiven - grandTotal
@@ -770,7 +767,6 @@
                 let txData = {
                     items: tx.items,
                     totalItems: tx.totalItems,
-                    totalCost: tx.totalCost,
                     total: tx.total,
                     cash: tx.cash,
                     change: tx.change
@@ -843,15 +839,12 @@
                         .select('*')
                         .order('created_at', { ascending: false });
                     
-                    console.log("Supabase fetch result:", { data, error });
-
                     if (error) {
-                        console.error("Supabase fetch error details:", error);
-                        showAlert("ຜິດພາດ", "ດຶງຂໍ້ມູນຈາກ Cloud ບໍ່ໄດ້: " + error.message, "⚠️");
+                        console.error("Supabase fetch error:", error);
                     } else if (data) {
                         data.forEach(tx => {
                             let totalItemCount = tx.totalItems || (tx.items ? tx.items.reduce((s, i) => s + i.qty, 0) : 0);
-                            let calcCost = tx.totalCost !== undefined ? tx.totalCost : (tx.items ? tx.items.reduce((s, i) => s + ((i.cost || 0) * i.qty), 0) : 0);
+                            let calcCost = tx.items ? tx.items.reduce((s, i) => s + ((i.cost || 0) * i.qty), 0) : 0;
                             globalHistoryList.push({
                                 id: tx.id,
                                 source: 'cloud',
@@ -986,7 +979,7 @@
                     let { data, error } = await supabaseClient.from('sales_history').select('*');
                     if (!error && data) {
                         data.forEach(tx => {
-                            let calcCost = tx.totalCost !== undefined ? tx.totalCost : (tx.items ? tx.items.reduce((s, i) => s + ((i.cost || 0) * i.qty), 0) : 0);
+                            let calcCost = tx.items ? tx.items.reduce((s, i) => s + ((i.cost || 0) * i.qty), 0) : 0;
                             reportAllData.push({
                                 createdAt: tx.created_at,
                                 totalCost: calcCost,
@@ -1054,7 +1047,6 @@
             document.getElementById('rep-total-profit').innerText = sumProfit.toLocaleString() + " ກີບ";
         }
 
-        // Functions for QR Code Generator Modal
         function openExcelGenerator(type) {
             let titleSpan = document.getElementById('excel-modal-title').querySelector('span');
             titleSpan.innerText = "📱 ຕາຕະລາງສ້າງ QR Code ສິນຄ້າ";
