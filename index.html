@@ -323,6 +323,10 @@
                 </div>
             </div>
 
+            <div class="bg-blue-50 border border-blue-200 text-blue-800 text-xs p-2 rounded-lg">
+                💡 <b>ຄຳແນະນຳ:</b> ທ່ານສາມາດກ໋ອບປີຂໍ້ມູນຫຼາຍແຖວຈາກ Excel ແລ້ວມາຄລິກວາງ (Paste) ລົງໃນຕາຕະລາງນີ້ໄດ້ເລີຍ ລະບົບจะແຈກຢາຍຂໍ້ມູນລົງແຊລ໌ໃຫ້ອັດຕະໂນມັດ!
+            </div>
+
             <div class="overflow-x-auto border rounded-xl shadow-inner max-h-[50vh]">
                 <table class="w-full text-left border-collapse bg-white">
                     <thead>
@@ -395,7 +399,6 @@
             supabaseClient
                 .channel('public:sales_history')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'sales_history' }, payload => {
-                    // ຖ້າເປີດໜ້າປະຫວັດ ຫຼື ລາຍງານຢູ່, ໃຫ້ອັບເດດຂໍ້ມູນອັດຕະໂນມັດທັນທີ
                     if (!document.getElementById('history-modal').classList.contains('hidden')) {
                         loadCloudHistory();
                     }
@@ -693,7 +696,6 @@
                 change: cashGiven - finalTotal
             };
 
-            // บันทึกข้อมูลลง Cloud Supabase (ทำให้ทุกเครื่องเห็นตรงกันทันที)
             if (supabaseClient) {
                 try {
                     let { error } = await supabaseClient.from('sales_history').insert([txData]);
@@ -702,7 +704,7 @@
                         return;
                     }
                 } catch (err) {
-                    showAlert("ຜິດພາດ", "ເກີດข้อຜິດພາດໃນການເຊື່ອມຕໍ່ Server", "⚠️");
+                    showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການເຊື່ອມຕໍ່ Server", "⚠️");
                     return;
                 }
             }
@@ -957,6 +959,53 @@
             }
         }
 
+        // ຟັງຊັນຈັດການການ Paste ຂໍ້ມູນຈາກ Excel ຫຼາຍແຖວ/ຫຼາຍຖັນ
+        function handleTablePaste(e, startRow, startCol) {
+            e.preventDefault();
+            let pastedData = (e.clipboardData || window.clipboardData).getData('text');
+            if (!pastedData) return;
+
+            let rows = pastedData.split(/\r?\n/).map(row => row.split('\t'));
+            
+            if (rows.length > 0 && rows[rows.length - 1].length === 1 && rows[rows.length - 1][0] === "") {
+                rows.pop();
+            }
+
+            rows.forEach((cols, rIdx) => {
+                let targetRowIndex = startRow + rIdx;
+                
+                while (targetRowIndex >= excelRows.length) {
+                    excelRows.push({ name: "", cost: 0, markup: 20, price: 0 });
+                }
+
+                cols.forEach((val, cIdx) => {
+                    let targetColIndex = startCol + cIdx;
+                    let cleanVal = val.trim();
+
+                    if (targetColIndex === 0) {
+                        excelRows[targetRowIndex].name = cleanVal;
+                    } else if (targetColIndex === 1) {
+                        let costVal = parseFloat(cleanVal.replace(/[^0-9.]/g, '')) || 0;
+                        excelRows[targetRowIndex].cost = costVal;
+                        let markupVal = excelRows[targetRowIndex].markup || 20;
+                        let rawPrice = costVal * (1 + markupVal / 100);
+                        excelRows[targetRowIndex].price = Math.ceil(rawPrice / 10000) * 10000;
+                    } else if (targetColIndex === 2) {
+                        let markupVal = parseFloat(cleanVal.replace(/[^0-9.]/g, '')) || 20;
+                        excelRows[targetRowIndex].markup = markupVal;
+                        let costVal = excelRows[targetRowIndex].cost || 0;
+                        let rawPrice = costVal * (1 + markupVal / 100);
+                        excelRows[targetRowIndex].price = Math.ceil(rawPrice / 10000) * 10000;
+                    } else if (targetColIndex === 3) {
+                        excelRows[targetRowIndex].price = parseFloat(cleanVal.replace(/[^0-9.]/g, '')) || 0;
+                    }
+                });
+            });
+
+            renderExcelTable();
+            showAlert("ສຳເລັດ", "ວາງຂໍ້ມູນຈາກ Excel ລົງຕາຕະລາງຮຽບຮ້ອຍແລ້ວ!", "📋");
+        }
+
         function saveExcelData(isSilent = false) {
             excelRows.forEach(row => {
                 row.cost = parseFloat(String(row.cost || 0).replace(/[^0-9.]/g, '')) || 0;
@@ -978,10 +1027,10 @@
                 html += `
                     <tr class="hover:bg-gray-50 border-b">
                         <td class="p-2 border-r text-center font-bold text-gray-500 text-xs">${index + 1}</td>
-                        <td class="p-2 border-r"><input type="text" value="${row.name || ''}" oninput="updateExcelRow(${index}, 'name', this.value)" class="w-full border rounded px-2 py-1 text-sm font-semibold outline-none"></td>
-                        <td class="p-2 border-r"><input type="text" value="${row.cost ? Number(row.cost).toLocaleString() : ''}" oninput="let raw = this.value.replace(/[^0-9]/g, ''); updateExcelRow(${index}, 'cost', raw);" class="w-full border rounded px-2 py-1 text-right text-sm font-bold text-blue-600 outline-none"></td>
-                        <td class="p-2 border-r text-center"><input type="text" value="${row.markup || 20}" oninput="let raw = this.value.replace(/[^0-9.]/g, ''); updateExcelRow(${index}, 'markup', raw);" class="w-20 border rounded px-2 py-1 text-center text-sm font-bold text-orange-600 outline-none"> %</td>
-                        <td class="p-2 border-r"><input type="text" id="price-input-${index}" value="${row.price ? Number(row.price).toLocaleString() : ''}" oninput="let raw = this.value.replace(/[^0-9]/g, ''); updateExcelRow(${index}, 'price', raw);" class="w-full border rounded px-2 py-1 text-right text-sm font-bold text-green-600 outline-none"></td>
+                        <td class="p-2 border-r"><input type="text" value="${row.name || ''}" oninput="updateExcelRow(${index}, 'name', this.value)" onpaste="handleTablePaste(event, ${index}, 0)" class="w-full border rounded px-2 py-1 text-sm font-semibold outline-none"></td>
+                        <td class="p-2 border-r"><input type="text" value="${row.cost ? Number(row.cost).toLocaleString() : ''}" oninput="let raw = this.value.replace(/[^0-9]/g, ''); updateExcelRow(${index}, 'cost', raw);" onpaste="handleTablePaste(event, ${index}, 1)" class="w-full border rounded px-2 py-1 text-right text-sm font-bold text-blue-600 outline-none"></td>
+                        <td class="p-2 border-r text-center"><input type="text" value="${row.markup || 20}" oninput="let raw = this.value.replace(/[^0-9.]/g, ''); updateExcelRow(${index}, 'markup', raw);" onpaste="handleTablePaste(event, ${index}, 2)" class="w-20 border rounded px-2 py-1 text-center text-sm font-bold text-orange-600 outline-none"> %</td>
+                        <td class="p-2 border-r"><input type="text" id="price-input-${index}" value="${row.price ? Number(row.price).toLocaleString() : ''}" oninput="let raw = this.value.replace(/[^0-9]/g, ''); updateExcelRow(${index}, 'price', raw);" onpaste="handleTablePaste(event, ${index}, 3)" class="w-full border rounded px-2 py-1 text-right text-sm font-bold text-green-600 outline-none"></td>
                         <td class="p-2 text-center"><button onclick="deleteExcelRow(${index})" class="text-red-500 font-bold text-xs bg-red-50 px-2 py-1 rounded cursor-pointer">ລຶບ</button></td>
                     </tr>
                 `;
