@@ -42,7 +42,7 @@
 </head>
 <body class="bg-gray-100 min-h-screen pb-10">
 
-    <!-- Role Selection Modal (เหลือພຽງ 2 ປຸ່ມຕາມທີ່ຕ້ອງການ) -->
+    <!-- Role Selection Modal (เหลือ 2 ປຸ່ມ: ທົດລອງ VS ລັອກອິນ) -->
     <div id="role-select-modal" class="fixed inset-0 bg-black/80 z-[300] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
             <div class="text-4xl">🔐</div>
@@ -59,7 +59,7 @@
         </div>
     </div>
 
-    <!-- Unified Login Modal (ລວມທັງ Admin ແລະ ສະມາຊິກຖາວອນ ໄວ້ໃນປ່ອງດียว) -->
+    <!-- Unified Login Modal (ລວມທັງ Admin ແລະ ສະມາຊິກຖາວອນ) -->
     <div id="unified-login-modal" class="hidden fixed inset-0 bg-black/80 z-[300] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
             <div class="text-4xl">🔑</div>
@@ -82,7 +82,7 @@
         </div>
     </div>
 
-    <!-- Admin Device Manager Modal -->
+    <!-- Admin Device Manager & User Creator Modal -->
     <div id="admin-manager-modal" class="hidden fixed inset-0 bg-black/60 z-[250] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-3xl w-full p-6 max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl">
             <div class="flex justify-between items-center border-b pb-3">
@@ -91,6 +91,19 @@
                 </h3>
                 <button onclick="loadAllDevices()" class="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg cursor-pointer font-bold">🔄 ໂຫຼດຂໍ້ມູນໃໝ່</button>
             </div>
+            
+            <!-- ຟອມສ້າງ Username & Password ໃຫ້ສະມາຊິກຖາວອນ -->
+            <div class="bg-blue-50 p-4 rounded-xl border border-blue-200 space-y-3">
+                <h4 class="font-bold text-blue-900 text-sm">➕ ສ້າງ Username & Password ໃຫ້ສະມາຊິກຖາວອນ</h4>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <input type="text" id="new-admin-user" placeholder="ປ້ອນ Username (ຕົວຢ່າງ: SHOP001)" class="border rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none bg-white">
+                    <input type="text" id="new-admin-pass" placeholder="ປ້ອນ Password" class="border rounded-lg px-3 py-2 text-xs font-semibold outline-none bg-white">
+                </div>
+                <button onclick="adminCreateUser()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg text-xs transition cursor-pointer shadow">
+                    💾 ບັນທຶກ ແລະ ສ້າງບັນຊີສະມາຊິກ
+                </button>
+            </div>
+
             <div id="device-list-container" class="space-y-2 text-sm text-gray-700">
                 <p class="text-center py-4">ກຳລັງໂຫຼດ...</p>
             </div>
@@ -668,7 +681,7 @@
                 return;
             }
 
-            // 1. ກວດສອບຖ້າເປັນ Admin ຫຼັກ
+            // 1. ກວດສອບ Admin ຫຼັກ
             if (u === "POSXIONG" && p === "POS@21082007") {
                 localStorage.setItem('pos_user_role', 'admin');
                 document.getElementById('unified-login-modal').classList.add('hidden');
@@ -676,7 +689,7 @@
                 return;
             }
 
-            // 2. ກວດສອບຖ້າເປັນສະມາຊິກຖາວອນ (Permanent User)
+            // 2. ກວດສອບສະມາຊິກຖາວອນ
             let formattedU = u.toUpperCase();
             if (supabaseClient) {
                 try {
@@ -900,6 +913,7 @@
             }
         }
 
+        // --- ADMIN MANAGER ພ້ອມຟອມສ້າງ Username / Password ໃຫ້ສະມາຊິກ ---
         async function openAdminManager() {
             document.getElementById('admin-manager-modal').classList.remove('hidden');
             await loadAllDevices();
@@ -918,19 +932,35 @@
                 let { data } = await supabaseClient.from('licenses').select('*').order('created_at', { ascending: false });
                 if (!data) return;
 
-                let html = `<div class="space-y-2">`;
+                let html = `
+                    <div class="bg-blue-50 p-4 rounded-xl border border-blue-200 mb-4 space-y-3">
+                        <h4 class="font-bold text-blue-900 text-sm">➕ ສ້າງ Username ໃຫ້ສະມາຊິກຖາວອນ</h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <input type="text" id="new-admin-user" placeholder="ປ້ອນ Username (ຕົວຢ່າງ: SHOP001)" class="border rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none bg-white">
+                            <input type="text" id="new-admin-pass" placeholder="ປ້ອນ Password" class="border rounded-lg px-3 py-2 text-xs font-semibold outline-none bg-white">
+                        </div>
+                        <button onclick="adminCreateUser()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg text-xs transition cursor-pointer shadow">
+                            💾 ບັນທຶກ ແລະ ສ້າງບັນຊີສະມາຊິກ
+                        </button>
+                    </div>
+                    <div class="space-y-2"><h5 class="font-bold text-xs text-gray-700">📋 ລາຍຊື່ບັນຊີທັງໝົດໃນລະບົບ:</h5>
+                `;
+
                 data.forEach((item, idx) => {
                     let isPerm = item.status === 'permanent';
                     html += `
-                        <div class="flex justify-between items-center bg-gray-50 p-3 rounded-xl border">
+                        <div class="flex justify-between items-center bg-gray-50 p-2.5 rounded-xl border text-xs">
                             <div>
-                                <span class="font-bold text-xs text-gray-500">#${idx + 1}</span>
-                                <span class="font-mono font-bold text-blue-600 ml-2">${item.device_id}</span>
-                                <div class="text-[11px] text-gray-500 mt-0.5">ສະຖານະ: ${isPerm ? '⭐ ຖາວອນ' : '⏳ ທົດລອງ'}</div>
+                                <span class="font-bold text-gray-400">#${idx + 1}</span>
+                                <span class="font-mono font-bold text-blue-600 ml-2 text-sm">${item.device_id}</span>
+                                <div class="text-[10px] text-gray-500">ສ້າງເມື່ອ: ${new Date(item.created_at).toLocaleString()}</div>
                             </div>
                             <div class="flex items-center gap-2">
-                                <button onclick="toggleDeviceStatus('${item.device_id}', '${isPerm ? 'trial' : 'permanent'}')" class="text-xs px-2.5 py-1.5 rounded font-bold ${isPerm ? 'bg-amber-200 text-amber-800' : 'bg-green-200 text-green-800'} cursor-pointer">
-                                    ${isPerm ? 'ປ່ຽນເປັນ Trial' : 'ເປີດໃຊ້ຖາວອນ (Permanent)'}
+                                <span class="px-2 py-0.5 rounded-full font-bold ${isPerm ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}">
+                                    ${isPerm ? '⭐ ຖາວອນ' : '⏳ ທົດລອງ'}
+                                </span>
+                                <button onclick="toggleDeviceStatus('${item.device_id}', '${isPerm ? 'trial' : 'permanent'}')" class="px-2.5 py-1 rounded font-bold ${isPerm ? 'bg-amber-200 text-amber-800' : 'bg-green-200 text-green-800'} cursor-pointer">
+                                    ${isPerm ? 'ປ່ຽເປັນ Trial' : 'ເປີດໃຊ້ຖາວອນ'}
                                 </button>
                             </div>
                         </div>
@@ -939,6 +969,36 @@
                 html += `</div>`;
                 container.innerHTML = html;
             } catch (e) {}
+        }
+
+        async function adminCreateUser() {
+            let u = document.getElementById('new-admin-user').value.trim().toUpperCase();
+            let p = document.getElementById('new-admin-pass').value.trim();
+
+            if (!u || !p) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ Username ແລະ Password ໃຫ້ครบຖ້ວນ!", "⚠️");
+                return;
+            }
+
+            if (!supabaseClient) return;
+
+            try {
+                let { error } = await supabaseClient.from('licenses').upsert({
+                    device_id: u,
+                    status: 'permanent',
+                    created_at: new Date().toISOString()
+                }, { onConflict: 'device_id' });
+
+                if (error) {
+                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດສ້າງບັນຊີໄດ້: " + error.message, "⚠️");
+                    return;
+                }
+
+                showAlert("ສຳເລັດ", `ສ້າງບັນຊີ [Username: ${u}] ສຳເລັດຮຽບຮ້ອຍ!`, "⭐");
+                await loadAllDevices();
+            } catch (e) {
+                showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດ", "⚠️");
+            }
         }
 
         async function toggleDeviceStatus(targetId, newStatus) {
