@@ -199,8 +199,8 @@
                 <input type="text" id="target-device-id-input" placeholder="ປ້ອນ Device ID ເຄື່ອງໃໝ່" class="w-full border rounded-lg px-3 py-2.5 text-center font-mono font-bold text-sm outline-none focus:ring-2 focus:ring-amber-500">
             </div>
             <div class="flex gap-2">
-                <button onclick="closeLinkDeviceModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
-                <button onclick="confirmLinkDevice()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">ຕົກລົງ</button>
+                <button onclick="closeLinkDeviceModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl text-sm transition cursor-pointer">ຍົກເລີກ</button>
+                <button onclick="confirmLinkDevice()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">ຕົກລົງ</button>
             </div>
         </div>
     </div>
@@ -399,7 +399,7 @@
     <div id="history-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-xl max-w-xl w-full p-5 max-h-[80vh] overflow-y-auto">
             <h3 class="text-lg font-bold mb-3 text-gray-800 flex justify-between items-center">
-                <span>📊 ປະຫວັດການຂາຍ (ເຄື່ອງໃຜເຄື່ອງມັນ)</span>
+                <span>📊 ປະຫວັດການຂາຍ (ລວມກຸ່ມທີ່ຜູກ ID)</span>
                 <button onclick="loadCloudHistory()" class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded cursor-pointer">🔄 ໂຫຼດໃໝ່</button>
             </h3>
             <div id="history-list" class="space-y-3 text-sm text-gray-600">
@@ -608,7 +608,7 @@
             localStorage.setItem('pos_device_id', deviceId);
         }
 
-        // ແກ້ໄຂບັນຫາ: ຣີເຟສແລ້ວໃຫ້ຖາມເລືອກໂໝດ (Trial / Admin) ໃໝ່ທຸກຄັ້ງ (ບໍ່ຈຳຄ່າ role ໄວ້)
+        // ຣີເຟສແລ້ວໃຫ້ຖາມເລືອກໂໝດ (Trial / Admin) ໃໝ່ທຸກຄັ້ງ
         function checkRoleAndLicense() {
             let userRole = localStorage.getItem('pos_user_role');
             let localStatus = localStorage.getItem('pos_license_status');
@@ -628,7 +628,6 @@
                 return;
             }
 
-            // ຖ້າບໍ່ແມ່ນ Admin ໃຫ້ລຶບ pos_user_role ແລ້ວບັງຄັບໃຫ້ເด้ງຂຶ້ນມາເລືອກໂໝດທຸກຄັ້ງທີ່ຣີເຟສ
             localStorage.removeItem('pos_user_role');
             document.getElementById('role-select-modal').classList.remove('hidden');
             document.getElementById('admin-logout-btn').classList.add('hidden');
@@ -931,6 +930,18 @@
             checkRoleAndLicense();
         });
 
+        // Realtime Listener
+        if (supabaseClient) {
+            supabaseClient
+                .channel('public:sales_history')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'sales_history' }, payload => {
+                    if (!document.getElementById('history-modal').classList.contains('hidden')) {
+                        loadCloudHistory();
+                    }
+                })
+                .subscribe();
+        }
+
         let cart = [];
         let html5QrCode = null;
         let tempScannedCode = "";
@@ -970,9 +981,17 @@
                 return;
             }
 
+            // ລົບຈາກ LocalStorage
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
             localHistory = localHistory.filter(tx => (tx.id !== targetItem.id && tx.created_at !== targetItem.createdAt));
             localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
+
+            // ຖ້າມີ id ຈາກ Cloud ໃຫ້ລົບອອກຈາກ Cloud ນຳ
+            if (targetItem.source === 'cloud' && targetItem.id && supabaseClient) {
+                try {
+                    await supabaseClient.from('sales_history').delete().eq('id', targetItem.id);
+                } catch (e) {}
+            }
 
             showAlert("ສຳເລັດ", "ສຳເລັດການລຶບຂໍ້ມູນຖີ້ມ", "✅");
             loadCloudHistory();
@@ -1182,6 +1201,7 @@
             }
         }
 
+        // --- ບັນທຶກການຂາຍ: ບັນທຶກລົງທັງ LocalStorage ແລະ Cloud Supabase ພ້ອມ device_id ---
         async function checkout() {
             if (cart.length === 0) {
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າກ່ອນຊຳລະເງິນ!", "⚠️");
@@ -1212,9 +1232,28 @@
                 change: cashGiven - finalTotal
             };
 
+            // ບັນທຶກລົງ LocalStorage ຂອງເຄື່ອງນີ້
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
             localHistory.unshift(txData);
             localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
+
+            // ສົ່ງຂຶ້ນ Cloud Supabase ເພື່ອໃຫ້ເຄື່ອງທີ່ຜູກ ID ກັນສາມາດດຶງມารວມກันໄດ້
+            if (supabaseClient) {
+                try {
+                    await supabaseClient.from('sales_history').insert([{
+                        device_id: deviceId,
+                        items: cart,
+                        total_items: txData.total_items,
+                        total_cost: totalCost,
+                        sub_total: grandTotal,
+                        discount: discount,
+                        total: finalTotal,
+                        cash: cashGiven,
+                        change: txData.change,
+                        created_at: txData.created_at
+                    }]);
+                } catch (err) {}
+            }
 
             showAlert("ສຳເລັດ", "ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ!", "✅");
             cart = [];
@@ -1223,17 +1262,79 @@
             renderCart();
         }
 
+        // --- ໂຫຼດປະຫວັດ: ດຶງສະເພາະເຄື່ອງນີ້ + ເຄື່ອງທີ່ຜູກ ID ເຂົ້າກັນມารວມກັນ ---
         async function loadCloudHistory() {
             let listDiv = document.getElementById('history-list');
             listDiv.innerHTML = `<p class="text-center py-4">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
             document.getElementById('history-summary').classList.add('hidden');
             globalHistoryList = [];
 
+            // 1. ດຶງ Device ID ທີ່ຜູກກັນທັງໝົດໃນກຸ່ມ (ຖ້າມີການຜູກ)
+            let allowedDeviceIds = [deviceId]; // ຕັ້ງຕົ້ນໃຫ້ມີ ID ເຄື່ອງນີ້ເອງ
+
+            if (supabaseClient) {
+                try {
+                    // ກວດສອບຈາກຕາຕະລາງ licenses ວ່າ device_id ນີ້ມີສະຖານະ permanent ຫຼື ຖືກຜູກກັນໄວ້
+                    // (ໃນທີ່ນີ້ ຖ້າຕ້ອງການໃຫ້ເຄື່ອງທີ່ຜູກ ID ເຫັນຂໍ້ມູນຮ່ວມກັນ ເຮົາຈະດຶງ device_id ທັງໝົດທີ່ມີສະຖານະ permanent ມາລວມກັນ ຫຼື ຕາມກຸ່ມຜູກ)
+                    let { data: licenseData } = await supabaseClient.from('licenses').select('device_id, status');
+                    if (licenseData) {
+                        licenseData.forEach(item => {
+                            if (item.status === 'permanent' && !allowedDeviceIds.includes(item.device_id)) {
+                                allowedDeviceIds.push(item.device_id);
+                            }
+                        });
+                    }
+                } catch (e) {}
+            }
+
+            // 2. ດຶງຂໍ້ມູນຈາກ LocalStorage ຂອງເຄື່ອງນີ້
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-            globalHistoryList = localHistory;
+            let combinedMap = new Map();
+
+            localHistory.forEach(tx => {
+                let key = tx.id || tx.created_at;
+                combinedMap.set(key, tx);
+            });
+
+            // 3. ດຶງຂໍ້ມູນຈາກ Cloud Supabase ມາສະແກນກັ່ນຕອງສະເພາະ Device ID ທີ່ຢູ່ໃນກຸ່ມທີ່ຜູກກັນ
+            if (supabaseClient) {
+                try {
+                    let { data: cloudSales, error } = await supabaseClient
+                        .from('sales_history')
+                        .select('*')
+                        .order('created_at', { ascending: false });
+                    
+                    if (!error && cloudSales) {
+                        cloudSales.forEach(tx => {
+                            let txDev = tx.device_id || "";
+                            // ຖ້າບິນນີ້ມາຈາກ Device ID ທີ່ຢູ່ໃນກຸ່ມທີ່ຜູກກັນ (allowedDeviceIds)
+                            if (allowedDeviceIds.includes(txDev)) {
+                                let key = tx.id || tx.created_at;
+                                if (!combinedMap.has(key)) {
+                                    combinedMap.set(key, {
+                                        id: tx.id,
+                                        source: 'cloud',
+                                        device_id: tx.device_id,
+                                        created_at: tx.created_at,
+                                        total_items: tx.total_items || (tx.items ? tx.items.reduce((s, i) => s + i.qty, 0) : 0),
+                                        total_cost: tx.total_cost !== undefined ? tx.total_cost : (tx.items ? tx.items.reduce((s, i) => s + ((i.cost || 0) * i.qty), 0) : 0),
+                                        discount: tx.discount || 0,
+                                        total: tx.total,
+                                        cash: tx.cash,
+                                        change: tx.change,
+                                        items: tx.items || []
+                                    });
+                                }
+                            }
+                        });
+                    }
+                } catch (err) {}
+            }
+
+            globalHistoryList = Array.from(combinedMap.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
             if (globalHistoryList.length === 0) {
-                listDiv.innerHTML = `<p class="text-gray-500 text-center py-4">ຍັງບໍ່ມີປະຫວັດການຂາຍຂອງເຄື່ອງນີ້.</p>`;
+                listDiv.innerHTML = `<p class="text-gray-500 text-center py-4">ຍັງບໍ່ມີປະຫວັດການຂາຍ.</p>`;
                 document.getElementById('history-summary').classList.add('hidden');
             } else {
                 let html = '';
@@ -1241,7 +1342,8 @@
                 let sumPrice = 0;
 
                 globalHistoryList.forEach((tx, index) => {
-                    sumCost += (tx.totalCost || 0);
+                    let costVal = tx.total_cost !== undefined ? tx.total_cost : (tx.items ? tx.items.reduce((s, i) => s + ((i.cost || 0) * i.qty), 0) : 0);
+                    sumCost += costVal;
                     sumPrice += (tx.total || 0);
 
                     let itemsHtml = '';
@@ -1320,17 +1422,47 @@
             calculateReport();
         }
 
+        // --- ຄຳນວນລາຍງານ: ລວມຂໍ້ມູນຈາກທຸກເຄື່ອງທີ່ຜູກ ID ເຂົ້າກັນ ---
         async function calculateReport() {
             let type = document.getElementById('report-type').value;
             let selectedYear = parseInt(document.getElementById('report-year').value) || new Date().getFullYear();
             
-            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-            let reportAllData = [];
+            let allowedDeviceIds = [deviceId];
+            if (supabaseClient) {
+                try {
+                    let { data: licenseData } = await supabaseClient.from('licenses').select('device_id, status');
+                    if (licenseData) {
+                        licenseData.forEach(item => {
+                            if (item.status === 'permanent' && !allowedDeviceIds.includes(item.device_id)) {
+                                allowedDeviceIds.push(item.device_id);
+                            }
+                        });
+                    }
+                } catch (e) {}
+            }
 
+            let reportAllData = [];
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            
             localHistory.forEach(tx => {
                 let calcCost = tx.total_cost !== undefined ? tx.total_cost : (tx.items ? tx.items.reduce((s, i) => s + ((i.cost || 0) * i.qty), 0) : 0);
                 reportAllData.push({ createdAt: tx.created_at, totalCost: calcCost, total: tx.total });
             });
+
+            if (supabaseClient) {
+                try {
+                    let { data: cloudSales } = await supabaseClient.from('sales_history').select('*');
+                    if (cloudSales) {
+                        cloudSales.forEach(tx => {
+                            let txDev = tx.device_id || "";
+                            if (allowedDeviceIds.includes(txDev)) {
+                                let calcCost = tx.total_cost !== undefined ? tx.total_cost : (tx.items ? tx.items.reduce((s, i) => s + ((i.cost || 0) * i.qty), 0) : 0);
+                                reportAllData.push({ createdAt: tx.created_at, totalCost: calcCost, total: tx.total });
+                            }
+                        });
+                    }
+                } catch (e) {}
+            }
 
             let finalFiltered = reportAllData.filter(tx => {
                 let d = new Date(tx.createdAt);
