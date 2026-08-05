@@ -71,7 +71,6 @@
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-gray-700 mb-1">Password:</label>
-                    <!-- ເພີ່ມ onkeydown ເພື່ອໃຫ້ກົດ Enter ແລ້ວລັອກອິນໄດ້ທັນທີ -->
                     <input type="password" id="admin-pass" onkeydown="handleAdminKeydown(event)" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 font-semibold" placeholder="ປ້ອນ Password">
                 </div>
             </div>
@@ -95,6 +94,22 @@
                 <p class="text-center py-4">ກຳລັງໂຫຼດ...</p>
             </div>
             <button onclick="closeAdminManager()" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ປິດ</button>
+        </div>
+    </div>
+
+    <!-- Show My Device ID Modal (For Trial Users) -->
+    <div id="my-device-modal" class="hidden fixed inset-0 bg-black/60 z-[250] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
+            <div class="text-4xl">🆔</div>
+            <h3 class="text-lg font-bold text-gray-800">ລະຫັດ ID ເຄື່ອງຂອງທ່ານ</h3>
+            <p class="text-xs text-gray-600">ແຈ້ງລະຫັດ ID ນີ້ໃຫ້ Admin ເພື່ອຂໍເປີດໃຊ້ງານຖາວອນ</p>
+            <div class="bg-gray-50 p-3 rounded-xl border">
+                <p id="my-device-id-text" class="font-mono font-bold text-blue-600 text-sm break-all"></p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="copyMyDeviceId()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer">📋 ກ໋ອບປີ ID</button>
+                <button onclick="closeMyDeviceModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl text-sm transition cursor-pointer">ປິດ</button>
+            </div>
         </div>
     </div>
 
@@ -144,13 +159,18 @@
                 <button onclick="openExcelGenerator('qr')" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition cursor-pointer">
                     📱 ສ້າງ QR Code
                 </button>
-                <!-- ປຸ່ມຈັດການ Device ID ສຳລັບ Admin -->
+                
+                <!-- ປຸ່ມສຳລັບ Admin -->
                 <button id="admin-manage-btn" onclick="openAdminManager()" class="hidden bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition cursor-pointer">
                     ⚙️ ຈັດການ Device ID
                 </button>
-                <!-- ປຸ່ມອອກຈາກລະບົບ (Logout) ສຳລັບ Admin ທາງທ້າຍສຸດ -->
                 <button id="admin-logout-btn" onclick="adminLogout()" class="hidden bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition cursor-pointer">
                     🚪 ອອກຈາກລະບົບ
+                </button>
+
+                <!-- ປຸ່ມສະແດງ ID ເຄື່ອງ (ສຳລັບຜູ້ໃຊ້ທົດລອງ) -->
+                <button id="show-my-id-btn" onclick="openMyDeviceModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition cursor-pointer">
+                    🆔 ລະຫັດ ID ເຄື່ອງຂ້ອຍ
                 </button>
             </div>
         </div>
@@ -501,11 +521,14 @@
             if (userRole === 'admin') {
                 document.getElementById('admin-manage-btn').classList.remove('hidden');
                 document.getElementById('admin-logout-btn').classList.remove('hidden');
+                document.getElementById('show-my-id-btn').classList.add('hidden'); // ซ่อนปุ่มดู ID ของเครื่องสำหรับ Admin
                 document.getElementById('license-status-badge').innerText = "🛡️ ສະຖານະ: ເຂົ້າລະບົບ Admin (Full Access)";
                 document.getElementById('license-modal').classList.add('hidden');
                 return;
             }
 
+            // ถ้าเป็นโหมด trial ให้แสดงปุ่มดู ID เครื่องตัวเอง
+            document.getElementById('show-my-id-btn').classList.remove('hidden');
             checkTrialLicense();
         }
 
@@ -532,14 +555,12 @@
             if (u === "POSXIONG" && p === "POS@21082007") {
                 localStorage.setItem('pos_user_role', 'admin');
                 document.getElementById('admin-login-modal').classList.add('hidden');
-                // ຕັດຂັ້ນຕອນປ໊ອບອັບ "ສຳເລັດ" ອອກ ເຂົ້າສູ່ລະບົບ POS ທັນທີ
                 checkRoleAndLicense();
             } else {
                 showAlert("ຜິດພາດ", "Username ຫຼື Password ບໍ່ຖືກຕ້ອງ!", "⚠️");
             }
         }
 
-        // ຟັງຊັນຮອງຮັບການກົດ Enter ທີ່ຊ່ອງ Password
         function handleAdminKeydown(event) {
             if (event.key === 'Enter') {
                 verifyAdminLogin();
@@ -549,6 +570,23 @@
         function adminLogout() {
             localStorage.removeItem('pos_user_role');
             location.reload();
+        }
+
+        function openMyDeviceModal() {
+            document.getElementById('my-device-id-text').innerText = deviceId;
+            document.getElementById('my-device-modal').classList.remove('hidden');
+        }
+
+        function closeMyDeviceModal() {
+            document.getElementById('my-device-modal').classList.add('hidden');
+        }
+
+        function copyMyDeviceId() {
+            navigator.clipboard.writeText(deviceId).then(() => {
+                showAlert("ສຳເລັດ", "ກ໋ອບປີ Device ID เรียบร້ອຍແລ້ວ!", "📋");
+            }).catch(() => {
+                showAlert("ຜິດພາດ", "ບໍ່ສາມາດກ໋ອບປີໄດ້", "⚠️");
+            });
         }
 
         async function checkTrialLicense() {
