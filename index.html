@@ -92,7 +92,7 @@
                 <button onclick="loadAllDevices()" class="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg cursor-pointer font-bold">🔄 ໂຫຼດຂໍ້ມູນໃໝ່</button>
             </div>
             
-            <!-- ຟອມສ້າງ Username & Password ໃຫ້ສະມາຊິກຖາວອນ -->
+            <!-- ຟອມສ້າງ Username & Password ໃຫ້ສະມາຊິກຖາວອນ (ເຫຼືອອັນດຽວຕາມຕ້ອງການ) -->
             <div class="bg-blue-50 p-4 rounded-xl border border-blue-200 space-y-3">
                 <h4 class="font-bold text-blue-900 text-sm">➕ ສ້າງ Username ໃຫ້ສະມາຊິກຖາວອນ</h4>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -190,7 +190,7 @@
 
                 <h4 class="font-bold text-gray-900 mt-2">1. ການເລືອກໂໝດເຂົ້າໃຊ້ງານ & License</h4>
                 <p class="text-xs text-gray-600 leading-relaxed">
-                    - <b>⏳ ທົດລອງໃຊ້ 15 ວັນ:</b> ເຂົ້າໃຊ້ງານໂດຍເລືອກໂໝດທົດລອງ.<br>
+                    - <b>⏳ ທົດລອງໃຊ້ 15 ວັນ (+ ຜ່ອນຜັນ 5 ວັນ):</b> ຖ້າໝົດອາຍຸ 20 ວັນແລ້ວບໍ່ຈ່າຍຄ່າບໍລິການ ລະບົບຈະລຶບບັນຊີອອກອັດຕະໂນມັດ.<br>
                     - <b>🔑 ລັອກອິນເຂົ້າລະບົບ:</b> ສໍາລັບສະມາຊິກຖາວອນ ແລະ Admin ປ້ອນ Username ແລະ Password.
                 </p>
             </div>
@@ -671,7 +671,6 @@
                 return;
             }
 
-            // 1. ກວດສອບ Admin ຫຼັກ (ເຂົ້າໜ້າຫຼັກທັນທີ ໂດຍບໍ່ມີປ໊ອບອັບແຈ້ງເຕືອນສຳເລັດ)
             if (u === "POSXIONG" && p === "POS@21082007") {
                 localStorage.setItem('pos_user_role', 'admin');
                 document.getElementById('unified-login-modal').classList.add('hidden');
@@ -681,7 +680,6 @@
                 return;
             }
 
-            // 2. ກວດສອບສະມາຊິກຖາວອນ
             let formattedU = u.toUpperCase();
             if (supabaseClient) {
                 try {
@@ -696,13 +694,26 @@
                         return;
                     }
 
-                    if (data.status === 'permanent') {
+                    // ລະບົບກວດສອບວັນໝົດອາຍຸ (15 ວັນທົດລອງ + 5 ວັນຜ່ອນຜັນ = 20 ວັນ)
+                    if (data.status === 'trial') {
+                        let startDate = new Date(data.trial_start || data.created_at);
+                        let now = new Date();
+                        let diffDays = (now - startDate) / (1000 * 60 * 60 * 24);
+                        if (diffDays > 20) {
+                            // ຖ້າກາຍ 20 ວັນແລ້ວບໍ່ຈ່າຍ: ໃຫ້ລຶບບັນຊີນີ້ຖິ້ມທັນທີ
+                            await supabaseClient.from('licenses').delete().eq('device_id', formattedU);
+                            showAlert("ໝົດອາຍຸ", "ບັນຊີນີ້ໝົດອາຍຸທົດລອງ ແລະ ຖືກລະງັບຖິ້ມແລ້ວ!", "❌");
+                            return;
+                        }
+                    }
+
+                    if (data.status === 'permanent' || data.status === 'trial') {
                         let oldDeviceId = deviceId;
                         currentUsername = formattedU;
                         deviceId = formattedU;
                         localStorage.setItem('pos_current_username', currentUsername);
                         localStorage.setItem('pos_device_id', deviceId);
-                        localStorage.setItem('pos_license_status', 'permanent');
+                        localStorage.setItem('pos_license_status', data.status);
                         localStorage.removeItem('pos_user_role');
 
                         if (oldDeviceId && oldDeviceId !== formattedU) {
@@ -719,9 +730,9 @@
                         document.getElementById('unified-login-modal').classList.add('hidden');
                         document.getElementById('role-select-modal').classList.add('hidden');
                         document.getElementById('admin-manage-btn').classList.add('hidden');
-                        document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ສະມາຊິກ [${currentUsername}] (Permanent User)`;
+                        document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ສະມາຊິກ [${currentUsername}]`;
                     } else {
-                        showAlert("ແຈ້ງເຕືອນ", "ບັນຊີນີ້ຍັງບໍ່ໄດ້ເປີດໃຊ້ງານຖາວອນ!", "⚠️");
+                        showAlert("ແຈ້ງເຕືອນ", "ບັນຊີນີ້ບໍ່ສາມາດໃຊ້ງານໄດ້!", "⚠️");
                     }
                 } catch (e) {
                     showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການເຊື່ອມຕໍ່", "⚠️");
@@ -891,6 +902,16 @@
                             trial_start: trialStart,
                             status: 'trial'
                         }]);
+                    } else if (data.status === 'trial') {
+                        let startDate = new Date(data.trial_start || data.created_at);
+                        let now = new Date();
+                        let diffDays = (now - startDate) / (1000 * 60 * 60 * 24);
+                        // ຖ້າກາຍ 20 ວັນ (15 ວັນ + ຜ່ອນຜັນ 5 ວັນ) ລະບົບຈະລຶບອອກຈາກ Cloud ອັດຕະໂນມັດ
+                        if (diffDays > 20) {
+                            await supabaseClient.from('licenses').delete().eq('device_id', deviceId);
+                            showAlert("ໝົດອາຍຸ", "ກຳນົດເວລາທົດລອງໃຊ້ໝົດລົງແລ້ວ (ເກີນ 20 ວັນ), ລະບົບໄດ້ລຶບບັນຊີນີ້ອອກ!", "❌");
+                            return;
+                        }
                     }
                 } catch (e) {}
             }
@@ -902,11 +923,15 @@
             if (diffDays <= 15) {
                 let daysLeft = Math.ceil(15 - diffDays);
                 badge.innerText = `⏳ ສະຖານະ: ທົດລອງໃຊ້ 15 ວັນ (ເຫຼືອ ${daysLeft} ວັນ)`;
+            } else if (diffDays <= 20) {
+                let graceDays = Math.ceil(20 - diffDays);
+                badge.innerText = `⚠️ ສະຖານະ: ໝົດເວລາທົດລອງ (ຜ່ອນຜັນອີກ ${graceDays} ວັນ)`;
             } else {
-                badge.innerText = "❌ ສະຖານະ: ໝົດອາຍຸທົດລອງໃຊ້ 15 ວັນ";
+                badge.innerText = "❌ ສະຖານະ: ໝົດອາຍຸ ແລະ ຖືກລຶບແລ້ວ";
             }
         }
 
+        // --- ADMIN MANAGER ພ້ອມຟອມສ້າງ Username (ເຫຼືອອັນດຽວ) ແລະ ລະບົບລຶບບັນຊີ ---
         async function openAdminManager() {
             document.getElementById('admin-manager-modal').classList.remove('hidden');
             await loadAllDevices();
@@ -955,6 +980,9 @@
                                 <button onclick="toggleDeviceStatus('${item.device_id}', '${isPerm ? 'trial' : 'permanent'}')" class="px-2.5 py-1 rounded font-bold ${isPerm ? 'bg-amber-200 text-amber-800' : 'bg-green-200 text-green-800'} cursor-pointer">
                                     ${isPerm ? 'ປ່ຽນເປັນ Trial' : 'ເປີດໃຊ້ຖາວອນ'}
                                 </button>
+                                <button onclick="adminDeleteAccount('${item.device_id}')" class="px-2 py-1 rounded font-bold bg-red-100 text-red-600 hover:bg-red-200 cursor-pointer">
+                                    🗑️ ລຶບ
+                                </button>
                             </div>
                         </div>
                     `;
@@ -989,6 +1017,23 @@
 
                 showAlert("ສຳເລັດ", `ສ້າງບັນຊີ [Username: ${u}] ສຳເລັດຮຽບຮ້ອຍ!`, "⭐");
                 await loadAllDevices();
+            } catch (e) {
+                showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດ", "⚠️");
+            }
+        }
+
+        async function adminDeleteAccount(targetId) {
+            if (!confirm(`ທ່ານຕ້ອງການລຶບບັນຊີ [${targetId}] ນີ້ອອກຈາກລະບົບແທ້ບໍ? ເຄື່ອງນີ້ຈະບໍ່ສາມາດນຳໃຊ້ໄດ້ອີກຕໍ່ໄປ!`)) return;
+            if (!supabaseClient) return;
+
+            try {
+                let { error } = await supabaseClient.from('licenses').delete().eq('device_id', targetId);
+                if (error) {
+                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດລຶບບັນຊີໄດ້", "⚠️");
+                    return;
+                }
+                showAlert("ສຳເລັດ", `ລຶບບັນຊີ [${targetId}] ອອກຈາກລະບົບຮຽບຮ້ອຍແລ້ວ!`, "🗑️");
+                loadAllDevices();
             } catch (e) {
                 showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດ", "⚠️");
             }
