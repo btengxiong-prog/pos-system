@@ -724,16 +724,13 @@
         async function getLinkedDeviceIds() {
             let linkedSet = new Set([deviceId]);
             
-            // 1. ດຶງຈາກ LocalStorage ຂອງເຄື່ອງນີ້
             let localLinked = JSON.parse(localStorage.getItem('pos_linked_devices') || '[]');
             localLinked.forEach(id => linkedSet.add(id));
 
-            // 2. ດຶງຈາກ Cloud Supabase (licenses) ທຸກແຖວມາກັ່ນຕອງຫາ gộp ທີ່ກ່ຽວຂ້ອງກັນ
             if (supabaseClient) {
                 try {
                     let { data: allLicenses } = await supabaseClient.from('licenses').select('device_id, linked_devices');
                     if (allLicenses) {
-                        // ວົນລູບກວດສອບເບິ່ງວ່າ ID ໃດໃນ Cloud ມີການເຊື່ອມໂຍງກັນ
                         let added = true;
                         while(added) {
                             added = false;
@@ -837,7 +834,7 @@
             navigator.clipboard.writeText("1006000000470").then(() => {}).catch(() => {});
         }
 
-        // --- ຜູກ ID ແບບ Global Sync: ລວມກຸ່ມ ID ທັງໝົດແລ້ວອັບເດດລົງ Cloud Supabase ໃຫ້ທຸກເຄື່ອງເຫັນກັນครบ 100% ---
+        // --- ຜູກ ID ແບບ Global Sync: ດຶງທຸກ ID ທີ່ກ່ຽວຂ້ອງມາລວມກັນເປັນກຸ່ມດຽວແລ້ວອັບເດດລົງ Cloud Supabase ໃຫ້ທຸກເຄື່ອງເຫັນກັນครบທັງໝົດ ---
         async function confirmLinkDevice() {
             let targetId = document.getElementById('target-device-id-input').value.trim();
             if (!targetId) {
@@ -845,23 +842,28 @@
                 return;
             }
 
-            // 1. ດຶງກຸ່ມ ID ປະຈຸບັນທັງໝົດ (ລວມທັງຝั่ง Target ຖ້າມີໃນ Cloud)
             let linkedSet = new Set([deviceId, targetId]);
             let localLinked = JSON.parse(localStorage.getItem('pos_linked_devices') || '[]');
             localLinked.forEach(id => linkedSet.add(id));
 
             if (supabaseClient) {
                 try {
-                    let { data: targetRow } = await supabaseClient.from('licenses').select('linked_devices').eq('device_id', targetId).single();
-                    if (targetRow && targetRow.linked_devices) {
-                        let targetCloud = JSON.parse(targetRow.linked_devices);
-                        targetCloud.forEach(id => linkedSet.add(id));
-                    }
-                    
-                    let { data: myRow } = await supabaseClient.from('licenses').select('linked_devices').eq('device_id', deviceId).single();
-                    if (myRow && myRow.linked_devices) {
-                        let myCloud = JSON.parse(myRow.linked_devices);
-                        myCloud.forEach(id => linkedSet.add(id));
+                    let { data: allLicenses } = await supabaseClient.from('licenses').select('device_id, linked_devices');
+                    if (allLicenses) {
+                        let added = true;
+                        while(added) {
+                            added = false;
+                            allLicenses.forEach(row => {
+                                let cloudLinked = row.linked_devices ? JSON.parse(row.linked_devices) : [];
+                                let rowHasMatch = linkedSet.has(row.device_id) || cloudLinked.some(id => linkedSet.has(id));
+                                if (rowHasMatch) {
+                                    if (!linkedSet.has(row.device_id)) { linkedSet.add(row.device_id); added = true; }
+                                    cloudLinked.forEach(id => {
+                                        if (!linkedSet.has(id)) { linkedSet.add(id); added = true; }
+                                    });
+                                }
+                            });
+                        }
                     }
                 } catch (e) {}
             }
@@ -869,7 +871,6 @@
             let fullGroupList = Array.from(linkedSet);
             localStorage.setItem('pos_linked_devices', JSON.stringify(fullGroupList));
 
-            // 2. ບັງຄັບອັບເດດ Array gộp (fullGroupList) ນີ້ທັງໝົດລົງໄປໃນ Cloud ຂອງທຸກ Device ID ໃນກຸ່ມພ້ອມກັນ
             if (supabaseClient) {
                 try {
                     for (let id of fullGroupList) {
@@ -1014,7 +1015,7 @@
                                     ${isPerm ? '⭐ ຖາວອນ' : '⏳ ທົດລອງ 15 ວັນ'}
                                 </span>
                                 <button onclick="toggleDeviceStatus('${item.device_id}', '${isPerm ? 'trial' : 'permanent'}')" class="text-xs px-2 py-1 rounded font-bold ${isPerm ? 'bg-amber-200 text-amber-800 hover:bg-amber-300' : 'bg-green-200 text-green-800 hover:bg-green-300'} cursor-pointer">
-                                    ${isPerm ? 'ປ່ຽນເປັນ Trial' : 'ປ່ຽນເປັນຖາວອນ'}
+                                    ${isPerm ? 'ປ່ຽເປັນ Trial' : 'ປ່ຽນເປັນຖາວອນ'}
                                 </button>
                             </div>
                         </div>
@@ -1074,7 +1075,6 @@
             document.getElementById('alert-title').innerText = title;
             document.getElementById('alert-message').innerText = message;
             document.getElementById('alert-icon').innerText = icon;
-            document.getElementById('custom-alert-modal').classList.add('hidden'); // fix
             document.getElementById('custom-alert-modal').classList.remove('hidden');
         }
 
@@ -1719,7 +1719,7 @@
                         <td class="p-2 border-r"><input type="text" value="${row.name || ''}" oninput="updateExcelRow(${index}, 'name', this.value)" onpaste="handleTablePaste(event, ${index}, 0)" class="w-full border rounded px-2 py-1 text-sm font-semibold outline-none"></td>
                         <td class="p-2 border-r"><input type="text" value="${row.cost ? Number(row.cost).toLocaleString() : ''}" oninput="let raw = this.value.replace(/[^0-9]/g, ''); updateExcelRow(${index}, 'cost', raw);" onpaste="handleTablePaste(event, ${index}, 1)" class="w-full border rounded px-2 py-1 text-right text-sm font-bold text-blue-600 outline-none"></td>
                         <td class="p-2 border-r text-center"><input type="text" value="${row.markup || 20}" oninput="let raw = this.value.replace(/[^0-9.]/g, ''); updateExcelRow(${index}, 'markup', raw);" onpaste="handleTablePaste(event, ${index}, 2)" class="w-20 border rounded px-2 py-1 text-center text-sm font-bold text-orange-600 outline-none"> %</td>
-                        <td class="p-2 border-r"><input type="text" id="price-input-${index}" value="${row.price ? Number(row.price).toLocaleString() : ''}" oninput="let raw = this.value.replace(/[^0-9.]/g, ''); updateExcelRow(${index}, 'price', raw);" onpaste="handleTablePaste(event, ${index}, 3)" class="w-full border rounded px-2 py-1 text-right text-sm font-bold text-green-600 outline-none"></td>
+                        <td class="p-2 border-r"><input type="text" id="price-input-${index}" value="${row.price ? Number(row.price).toLocaleString() : ''}" oninput="let raw = this.value.replace(/[^0-9]/g, ''); updateExcelRow(${index}, 'price', raw);" onpaste="handleTablePaste(event, ${index}, 3)" class="w-full border rounded px-2 py-1 text-right text-sm font-bold text-green-600 outline-none"></td>
                         <td class="p-2 text-center"><button onclick="deleteExcelRow(${index})" class="text-red-500 font-bold text-xs bg-red-50 px-2 py-1 rounded cursor-pointer">ລຶບ</button></td>
                     </tr>
                 `;
