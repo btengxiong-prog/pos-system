@@ -21,6 +21,25 @@
         body {
             font-family: 'Phetsarath OT', 'Saysettha OT', 'Noto Serif Lao', 'Times New Roman', Times, serif;
         }
+        /* CSS ສຳລັບເວລາສັ່ງພິມ: ซ่อนเมนูอื่นๆ ให้ເຫຼືອແຕ່ QR Code */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #excel-print-area, #excel-print-area * {
+                visibility: visible;
+            }
+            #excel-print-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
+            /* ซ่อนปุ่มพิมพ์ตอนปรินท์ */
+            #print-btn-element {
+                display: none;
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen pb-10">
@@ -336,9 +355,11 @@
                 <div id="excel-preview-cards" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     <!-- Preview cards injected here -->
                 </div>
-                <button onclick="printExcelCodes()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">
-                    🖨️ ພິມປ້າຍທັງໝົດ
-                </button>
+                <div id="print-btn-element">
+                    <button onclick="printExcelCodes()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">
+                        🖨️ ພິມປ້າຍທັງໝົດ
+                    </button>
+                </div>
             </div>
 
             <div class="flex gap-2 pt-2">
@@ -1029,7 +1050,6 @@
             renderExcelTable();
         }
 
-        // ฟังก์ชันล้างข้อมูลที่ยังไม่ได้บันทึก (รีเซ็ตกลับไปเป็นข้อมูลที่บันทึกไว้ล่าสุด)
         function clearUnsavedRows() {
             let savedRows = localStorage.getItem('pos_excel_rows');
             if (savedRows) {
@@ -1137,7 +1157,6 @@
             tbody.innerHTML = html;
         }
 
-        // ฟังก์ชันรองรับการ Copy/Paste ข้อมูลจาก Excel เข้าตารางโดยกรองหัวข้อออก
         function handleTablePaste(event, startRowIndex) {
             event.preventDefault();
             let clipboardData = event.clipboardData || window.clipboardData;
@@ -1157,7 +1176,7 @@
                     let val = cols[0].trim();
                     let lower = val.toLowerCase();
                     if (lower.includes('ຊື່ສິນຄ້າ') || lower.includes('name') || lower.includes('code') || lower.includes('ລ/ດ') || lower.includes('ລາຄາຊື້') || lower.includes('ລາຄາຂາຍ')) {
-                        return; // ข้ามแถวที่เป็นหัวข้อ
+                        return;
                     }
                     excelRows[targetRowIdx].name = val;
                 }
@@ -1182,7 +1201,6 @@
             showAlert("ສຳເລັດ", "ວາງຂໍ້ມູນຈາກ Excel ສຳເລັດຮຽບຮ້ອຍ! (ກະລຸນາກົດປຸ່ມ ບັນທຶກຂໍ້ມູນ ເພື່ອບັນທຶກ)", "📋");
         }
 
-        // ฟังก์ชันอัปโหลดไฟล์ Excel พร้อมกรองหัวข้อออกอย่างเข้มงวด
         function handleExcelUpload(event) {
             let file = event.target.files[0];
             if (!file) return;
@@ -1237,7 +1255,7 @@
             reader.readAsArrayBuffer(file);
         }
 
-        // ฟังก์ชันสร้าง QR Code ทั้งหมด พร้อมแก้ 2 จุด: แสดง QR Code ครบถ้วน และตัดราคาซื้อออก
+        // ฟังก์ชันสร้าง QR Code พร้อมตัดราคาซื้อออก เหลือแต่ชื่อและราคาขาย
         function generateExcelCodes() {
             if (excelRows.length === 0) {
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເພີ່ມຂໍ້ມູນສິນຄ້າໃນຕາຕະລາງກ່ອນ!", "⚠️");
@@ -1254,7 +1272,6 @@
                 let cardId = `code-card-${index}`;
                 let priceNum = parseFloat(row.price) || 0;
 
-                // แก้จุดที่ 2: ตัดราคาซื้อออก คงเหลือแต่ชื่อสินค้าและราคาขาย
                 let cardHtml = `
                     <div id="${cardId}" class="bg-white border rounded-xl p-3 shadow-sm text-center space-y-2 flex flex-col items-center justify-between">
                         <div class="border-b w-full pb-1">
@@ -1271,14 +1288,13 @@
 
             document.getElementById('excel-print-area').classList.remove('hidden');
 
-            // แก้จุดที่ 1: สร้าง QR Code ให้ครบถ้วนทั้งบนจอแสดงผลและหน้าพิมพ์
             setTimeout(() => {
                 excelRows.forEach((row, index) => {
                     if (!row.name) return;
                     let qrDiv = document.getElementById(`excel-qrcode-${index}`);
                     if (qrDiv) {
                         qrDiv.innerHTML = "";
-                        let qrData = `ຊື່ສິນຄ້າ: ${row.name}\nລາຄາຊື້: ${row.cost} ກີບ\nລາຄາຂາຍ: ${row.price} ກີບ`;
+                        let qrData = `ຊື່ສິນຄ້າ: ${row.name}\nລາຄາຂາຍ: ${row.price} ກີບ`;
                         let canvas = document.createElement('canvas');
                         QRCode.toCanvas(canvas, qrData, { width: 120, margin: 1 }, function (error) {
                             if (!error) {
@@ -1290,54 +1306,9 @@
             }, 100);
         }
 
-        // ฟังก์ชันสั่งพิมพ์ พร้อมวาด QR Code ขึ้นมาใหม่ในหน้าพิมพ์แบบสดๆ ป้องกัน QR Code หาย
+        // ฟังก์ชันสั่งพิมพ์แบบใช้ CSS Print พร้อมสร้าง QR Code ให้ครบถ้วนสมบูรณ์
         function printExcelCodes() {
-            let printArea = document.getElementById('excel-print-area').innerHTML;
-            let printWindow = window.open('', '_blank');
-            printWindow.document.write(`
-                <html>
-                <head>
-                    <title>ພິມປ້າຍ QR Code</title>
-                    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"><\/script>
-                    <style>
-                        body { font-family: 'Phetsarath OT', 'Saysettha OT', sans-serif; padding: 20px; }
-                        h4 { text-align: center; font-size: 18px; margin-bottom: 20px; }
-                        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
-                        .bg-white { border: 1px solid #ccc; border-radius: 12px; padding: 15px; text-align: center; page-break-inside: avoid; }
-                        h5 { font-weight: bold; font-size: 16px; margin: 0 0 5px 0; }
-                        p { font-size: 12px; color: #555; margin: 0 0 10px 0; }
-                        .text-green-600 { color: #16a34a; font-weight: bold; }
-                    </style>
-                </head>
-                <body>
-                    ${printArea}
-                    <script>
-                        setTimeout(() => {
-                            let rows = ${JSON.stringify(excelRows)};
-                            rows.forEach((row, index) => {
-                                if (!row.name) return;
-                                let qrDiv = printWindow.document.getElementById('excel-qrcode-' + index);
-                                if (qrDiv) {
-                                    qrDiv.innerHTML = "";
-                                    let qrData = "ຊື່ສິນຄ້າ: " + row.name + "\\nລາຄາຊື້: " + row.cost + " ກີບ\\nລາຄາຂາຍ: " + row.price + " ກີບ";
-                                    let canvas = printWindow.document.createElement('canvas');
-                                    QRCode.toCanvas(canvas, qrData, { width: 120, margin: 1 }, function (error) {
-                                        if (!error) {
-                                            qrDiv.appendChild(canvas);
-                                        }
-                                    });
-                                }
-                            });
-                            setTimeout(() => {
-                                window.print();
-                                window.close();
-                            }, 500);
-                        }, 200);
-                    <\/script>
-                </body>
-                </html>
-            `);
-            printWindow.document.close();
+            window.print();
         }
     </script>
 </body>
