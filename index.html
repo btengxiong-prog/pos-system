@@ -633,7 +633,7 @@
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
             <div class="text-4xl">⚠️</div>
             <h3 class="text-xl font-bold text-gray-800">ຢືນຢັນການລຶບ</h3>
-            <p class="text-gray-600 text-sm leading-relaxed">ທ່ານຕ້ອງການລືບປະຫວັດນີ້ບໍ?</p>
+            <p class="text-gray-600 text-sm leading-relaxed">ທ່ານຕ້ອງການລືບປະຫວັດນີ້ບໍບໍ?</p>
             <div class="flex gap-2 pt-2">
                 <button onclick="closeConfirmDelete(false)" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
                 <button onclick="closeConfirmDelete(true)" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ຕົກລົງ</button>
@@ -942,7 +942,7 @@
                                     ${isPerm ? '⭐ ຖາວອນ' : '⏳ ທົດລອງ'}
                                 </span>
                                 <button onclick="toggleDeviceStatus('${item.device_id}', '${isPerm ? 'trial' : 'permanent'}')" class="px-2.5 py-1 rounded font-bold ${isPerm ? 'bg-amber-200 text-amber-800' : 'bg-green-200 text-green-800'} cursor-pointer">
-                                    ${isPerm ? 'ປ່ຽເປັນ Trial' : 'ເປີດໃຊ້ຖາວອນ'}
+                                    ${isPerm ? 'ປ່ຽນເປັນ Trial' : 'ເປີດໃຊ້ຖາວອນ'}
                                 </button>
                                 <button onclick="adminDeleteAccount('${item.device_id}')" class="px-2 py-1 rounded font-bold bg-red-100 text-red-600 hover:bg-red-200 cursor-pointer">
                                     🗑️ ລຶບ
@@ -1098,28 +1098,40 @@
             ).catch(err => {});
         }
 
-        // 🛠️ ປັບປຸງ: ເວລາສະແກນ QR Code ໃຫ້ຄົ້ນຫາລາຄາຊື້ ແລະ ລາຄາຂາຍຈາກຕາຕະລາງສິນຄ້າ (LocalStorage / Supabase) ມາຕື່ມໃສ່ໃຫ້ອັດຕະໂນມັດ ຢ່າງຖືກຕ້ອງແມນຍຳ 100%
+        // 🛠️ ປັບປຸງ: ດຶງຂໍ້ມູນລາຄາຊື້ ແລະ ລາຄາຂາຍຈາກ excelRows (ທີ່ກຳລັງພິມ/ແກ້ໄຂ) ມາໃສ່ modal ທັນທີ
         async function showConfirmModal(text) {
             tempScannedCode = text.trim();
             let parsedName = tempScannedCode;
             let foundCost = 0;
             let foundPrice = 0;
 
-            // 1. ຄົ້ນຫາຈາກ LocalStorage (pos_saved_excel_rows) ກ່ອນ
-            let savedRows = localStorage.getItem('pos_saved_excel_rows');
-            if (savedRows) {
-                try {
-                    let rows = JSON.parse(savedRows);
-                    let matched = rows.find(r => r.code.trim().toLowerCase() === tempScannedCode.toLowerCase());
-                    if (matched) {
-                        parsedName = matched.code;
-                        foundCost = parseFloat(matched.cost) || 0;
-                        foundPrice = parseFloat(matched.price) || 0;
-                    }
-                } catch (e) {}
+            // ກວດສອບຈາກ excelRows ທີ່ຢູ່ໃນໜ້າຕ່າງປັດຈຸບັນກ่อน
+            if (excelRows && excelRows.length > 0) {
+                let matched = excelRows.find(r => r.code.trim().toLowerCase() === tempScannedCode.toLowerCase());
+                if (matched) {
+                    parsedName = matched.code;
+                    foundCost = parseFloat(matched.cost) || 0;
+                    foundPrice = parseFloat(matched.price) || 0;
+                }
             }
 
-            // 2. ຖ້າບໍ່ພົບໃນ LocalStorage ໃຫ້ລອງຄົ້ນຫາໃນ Supabase Cloud
+            // ຖ້າບໍ່ພົບໃນ excelRows ໃຫ້ຊອກໃນ LocalStorage
+            if (foundCost === 0 && foundPrice === 0) {
+                let savedRows = localStorage.getItem('pos_saved_excel_rows');
+                if (savedRows) {
+                    try {
+                        let rows = JSON.parse(savedRows);
+                        let matched = rows.find(r => r.code.trim().toLowerCase() === tempScannedCode.toLowerCase());
+                        if (matched) {
+                            parsedName = matched.code;
+                            foundCost = parseFloat(matched.cost) || 0;
+                            foundPrice = parseFloat(matched.price) || 0;
+                        }
+                    } catch (e) {}
+                }
+            }
+
+            // ຖ້າຍັງບໍ່ພົບ ໃຫ້ຊອກໃນ Supabase Cloud
             if ((foundCost === 0 && foundPrice === 0) && supabaseClient) {
                 try {
                     let { data } = await supabaseClient
@@ -1526,6 +1538,8 @@
                     }
                 }
             }
+            // 🛠️ ອັບເດດໂຄດລົງ localStorage ທັນທີທຸກຄັ້ງທີ່ມີການປ່ຽນແປງ
+            localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
         }
 
         function handleExcelUpload(event) {
@@ -1581,6 +1595,7 @@
                     if (newRows.length > 0) {
                         excelRows.push(...newRows);
                         renderExcelTable();
+                        localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
                         if (duplicates.length === 0) {
                             showAlert("ສຳເລັດ", `ນຳເຂົ້າຂໍ້ມູນ Excel ສຳເລັດ ${newRows.length} ລາຍການ!`, "📁");
                         }
@@ -1615,7 +1630,7 @@
                 </div>`;
             });
             listContainer.innerHTML = html || '<p class="text-center text-gray-400 py-2">ບໍ່ມີລາຍການຖືກຕັດ</p>';
-            document.getElementById('duplicate-report-modal').classList.remove('hidden');
+            document.getElementById('duplicate-report-modal').classList.add('hidden');
         }
 
         function closeDuplicateReportModal() {
