@@ -231,7 +231,7 @@
                 </h3>
                 <button onclick="closePrintDateModal()" class="text-gray-500 hover:text-gray-700 font-bold text-lg cursor-pointer">✕</button>
             </div>
-            <p class="text-xs text-gray-600">ກະລຸນາເລືອກວັນທີ່ປ້ອນຂໍ້ມູນເຂົ້າລະບົບ ເພື່ອພິມສະເພາະ QR Code ຂອງວັນນັ້ນ:</p>
+            <p class="text-xs text-gray-600">ກະລຸນາເລືອກວັນທີ່ປ້ອນຂໍ້ມູນເຂົ້າລະບົບ ເພື່ອພິມສະເພາະ QR Code ຂອງວັນນั้น:</p>
             <div>
                 <label class="block text-xs font-bold text-gray-700 mb-1">ເລືອກວັນທີ:</label>
                 <select id="print-date-select" class="w-full border rounded-lg px-3 py-2 text-sm font-semibold outline-none focus:ring-2 focus:ring-purple-500 bg-gray-50">
@@ -410,11 +410,11 @@
                 <span id="grand-total" class="text-gray-800 text-lg">0 ກີບ</span>
             </div>
             <div class="flex justify-between items-center text-gray-700 border-t pt-2">
-                <span class="font-medium text-red-600">ສ່ວນຫຼຸດໃຫ້ລູກຄ້າ:</span>
-                <input type="number" id="discount-amount" oninput="calculateChange()" placeholder="0" class="border rounded-lg px-3 py-1.5 text-right w-52 focus:ring-2 focus:ring-red-500 outline-none font-bold text-red-600">
+                <span class="font-medium text-red-600">ລາຄາຂາຍຕົວຈິງ (ພິມແກ້ໄຂໄດ້):</span>
+                <input type="number" id="custom-final-price" oninput="calculateChange()" onkeydown="handleCustomPriceKeydown(event)" placeholder="ປ້ອນລາຄາຂາຍຕົວຈິງ" class="border rounded-lg px-3 py-1.5 text-right w-52 focus:ring-2 focus:ring-red-500 outline-none font-bold text-red-600 bg-white">
             </div>
             <div class="flex justify-between items-center text-lg font-bold text-gray-800 border-t pt-2">
-                <span>ລາຄາຂາຍຕົວຈິງ (ຫຼັງຫັກສ່ວນຫຼຸດ):</span>
+                <span>ລາຄາຂາຍຕົວຈິງ (ສະແດງຜົນ):</span>
                 <span id="final-total" class="text-green-600 text-xl">0 ກີບ</span>
             </div>
             <div class="flex justify-between items-center text-base font-bold text-gray-800 border-t pt-2">
@@ -423,7 +423,7 @@
             </div>
             <div class="flex justify-between items-center text-gray-700 border-t pt-2">
                 <span class="font-medium">ເງິນລູກຄ້າຈ່າຍ (ຖ້າມີທອນ):</span>
-                <input type="number" id="cash-given" oninput="calculateChange()" placeholder="ບໍ່ຈຳເປັນຕ້ອງປ້ອນ ຖ້າຈ່າຍພໍດີ" class="border rounded-lg px-3 py-1.5 text-right w-52 focus:ring-2 focus:ring-blue-500 outline-none">
+                <input type="number" id="cash-given" oninput="calculateChange()" onkeydown="handleCashKeydown(event)" placeholder="ບໍ່ຈຳເປັນຕ້ອງປ້ອນ ຖ້າຈ່າຍພໍດີ" class="border rounded-lg px-3 py-1.5 text-right w-52 focus:ring-2 focus:ring-blue-500 outline-none bg-white">
             </div>
             <div class="flex justify-between items-center text-lg font-bold text-gray-800 border-t pt-2">
                 <span>ເງິນທອນ:</span>
@@ -1143,6 +1143,7 @@
                 tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ</td></tr>`;
                 document.getElementById('grand-total-cost').innerText = "0 ກີບ";
                 document.getElementById('grand-total').innerText = "0 ກີບ";
+                document.getElementById('custom-final-price').value = "";
                 document.getElementById('final-total').innerText = "0 ກີບ";
                 document.getElementById('grand-total-profit').innerText = "0 ກີບ";
                 document.getElementById('change-amount').innerText = "0 ກີບ";
@@ -1170,15 +1171,23 @@
             tbody.innerHTML = html;
             document.getElementById('grand-total-cost').innerText = grandTotalCost.toLocaleString() + " ກີບ";
             document.getElementById('grand-total').innerText = grandTotal.toLocaleString() + " ກີບ";
+            
+            // ຕັ້ງຄ່າລາຄາຂາຍຕົວຈິງເລີ່ມຕົ້ນເທົ່າກັບລາຄາລວມ (ຖ້າຍັງບໍ່ໄດ້ປ້ອນ)
+            let customPriceInput = document.getElementById('custom-final-price');
+            if (!customPriceInput.value) {
+                customPriceInput.value = grandTotal;
+            }
             calculateChange();
         }
 
         function calculateChange() {
             let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
             let grandTotalCost = cart.reduce((sum, item) => sum + ((item.cost || 0) * item.qty), 0);
-            let discount = parseFloat(document.getElementById('discount-amount').value) || 0;
-            if (discount > grandTotal) discount = grandTotal;
-            let finalTotal = grandTotal - discount;
+            
+            let customPriceVal = document.getElementById('custom-final-price').value;
+            let finalTotal = customPriceVal !== "" ? (parseFloat(customPriceVal) || 0) : grandTotal;
+            if (finalTotal < 0) finalTotal = 0;
+
             let grandTotalProfit = finalTotal - grandTotalCost;
 
             document.getElementById('final-total').innerText = finalTotal.toLocaleString() + " ກີບ";
@@ -1190,12 +1199,31 @@
             changeElem.innerText = change >= 0 ? change.toLocaleString() + " ກີບ" : "ເງິນຍັງບໍ່ພໍ";
         }
 
+        // ⌨️ ຟັງຊັນຮອງຮັບປຸ່ມ Enter ສຳລັບຄອມພິວເຕີ
+        function handleCustomPriceKeydown(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                document.getElementById('cash-given').focus();
+            }
+        }
+
+        function handleCashKeydown(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                checkout();
+            }
+        }
+
         async function checkout() {
             if (cart.length === 0) { showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າ!", "⚠️"); return; }
             let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
             let totalCost = cart.reduce((sum, item) => sum + ((item.cost || 0) * item.qty), 0);
-            let discount = parseFloat(document.getElementById('discount-amount').value) || 0;
-            let finalTotal = grandTotal - discount;
+            
+            let customPriceVal = document.getElementById('custom-final-price').value;
+            let finalTotal = customPriceVal !== "" ? (parseFloat(customPriceVal) || 0) : grandTotal;
+            let discount = grandTotal - finalTotal;
+            if (discount < 0) discount = 0;
+
             let cashGiven = document.getElementById('cash-given').value ? (parseFloat(document.getElementById('cash-given').value) || 0) : finalTotal;
 
             let txData = {
@@ -1234,7 +1262,9 @@
             }
 
             showAlert("ສຳເລັດ", "ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ!", "✅");
-            cart = []; document.getElementById('cash-given').value = ''; document.getElementById('discount-amount').value = '';
+            cart = []; 
+            document.getElementById('cash-given').value = ''; 
+            document.getElementById('custom-final-price').value = '';
             renderCart();
         }
 
@@ -1653,7 +1683,6 @@
             
             uniqueDates.forEach(d => {
                 let count = validRows.filter(r => (r.dateAdded || new Date().toISOString().split('T')[0]) === d).length;
-                // 🔄 ຟໍແມັດວັນທີຈາກ YYYY-MM-DD ເປັນ DD-MM-YYYY (06-08-2026)
                 let parts = d.split('-');
                 let formattedDate = parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : d;
                 html += `<option value="${d}">📅 ວັນທີ: ${formattedDate} (${count} ລາຍການ)</option>`;
