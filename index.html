@@ -1451,7 +1451,6 @@
             showAlert("ສຳເລັດ", "ລຶບຂໍ້ມູນທັງໝົດອອກຈາກລະບົບຮຽບຮ້ອຍແລ້ວ", "🧹");
         }
 
-        // 🌟 ບັນທຶກຄ່າລົງ Array ມິດງຽບ ໂດຍບໍ່ຣັນຕາຕະລາງໃໝ່ຂະນະພິມ
         function handleInputLive(index, field, value) {
             if (field === 'code') {
                 excelRows[index].code = value;
@@ -1468,7 +1467,6 @@
             }
         }
 
-        // 🌟 ເມື່ອກົດ Enter ໃຫ້ຍ້າຍໄປ cell ລຸ່ມ
         function handleExcelCellKeydown(event, rowIndex, fieldName) {
             if (event.key === 'Enter') {
                 event.preventDefault();
@@ -1556,7 +1554,7 @@
             tbody.innerHTML = html;
         }
 
-        // 🌟 ປັບປຸງຟັງຊັນອັບໂຫຼດ Excel ໃຫ້ຂ້າມແຖວຫົວຂໍ້ (ແຖວທຳອິດ) ອອກຢ່າງຖືກຕ້ອງ
+        // 🌟 ປັບປຸງລະບົບອັບໂຫຼດ Excel: ຄົ້ນຫາແຖວຫົວຂໍ້ໂດຍອັດຕະໂນມັດ (ລ/ດ, ຊື່ສິນຄ້າ) ບໍ່ວ່າຈະຢູ່ແຖວໃດກໍ່ຕາມ
         function handleExcelUpload(event) {
             let file = event.target.files[0];
             if (!file) return;
@@ -1579,24 +1577,58 @@
                         if (r.code && r.code.trim()) existingCodes.add(r.code.trim().toLowerCase());
                     });
 
-                    // 🌟 ເລີ່ມຕົ້ນຮອບວຽນຈາກ i = 1 ເພື່ອຂ້າມແຖວຫົວຂໍ້ (Header) ຂອງ Excel
-                    for (let i = 1; i < json.length; i++) {
+                    // 🌟 ຊອກຫາແຖວທີ່ເປັນຫົວຂໍ້ຕາຕະລາງ (Header) ອັດຕະໂນມັດ
+                    let startRowIndex = 0;
+                    for (let i = 0; i < json.length; i++) {
+                        let rowStr = JSON.stringify(json[i]).toLowerCase();
+                        if (rowStr.includes("ຊື່ສິນຄ້າ") || rowStr.includes("ລະຫັດ") || rowStr.includes("ລາຄາຊື້") || rowStr.includes("ລ/ດ")) {
+                            startRowIndex = i + 1; // ເລີ່ມອ່ານຂໍ້ມູນຕັ້ງແຕ່ແຖວถัดໄປຈາກຫົວຂໍ້
+                            break;
+                        }
+                    }
+
+                    // 🌟 ວົນລູບອ່ານຂໍ້ມູນສິນຄ້າຕັ້ງແຕ່ແຖວທີ່ພົບລົງມາ
+                    for (let i = startRowIndex; i < json.length; i++) {
                         let row = json[i];
                         if (row && row.length > 0) {
-                            let code = row[0] ? String(row[0]).trim() : '';
-                            let cost = row[1] !== undefined ? row[1] : 0;
-                            let profitPct = row[2] !== undefined ? row[2] : 20;
-                            let price = row[3] !== undefined ? row[3] : 0;
-                            let qty = row[4] !== undefined ? row[4] : 1;
-                            let rowDate = row[5] ? String(row[5]).trim() : today;
+                            // ກວດສອບວ່າແຖວນີ້ມີຂໍ້ມູນ (ເຊັ່ນ: ຖ້າຄໍລຳທຳອິດ ຫຼື ທີສອງບໍ່ຫວ່າງ)
+                            let col0 = row[0] !== undefined ? String(row[0]).trim() : '';
+                            let col1 = row[1] !== undefined ? String(row[1]).trim() : '';
+                            
+                            // ຖ້າຄໍລຳ 0 ເປັນຕົວເລກ (ລຳດັບ) ຫຼື ຄໍລຳ 1 ມີຊື່ສິນຄ້າ ຖືว่าเป็นແຖວຂໍ້ມູນສິນຄ້າທີ່ຖືກຕ້ອງ
+                            if (col0 !== '' || col1 !== '') {
+                                let code = '';
+                                let cost = 0;
+                                let profitPct = 20;
+                                let price = 0;
+                                let qty = 1;
+                                let rowDate = today;
 
-                            if (code) {
-                                let lowerCode = code.toLowerCase();
-                                if (existingCodes.has(lowerCode)) {
-                                    duplicates.push({ code: code, reason: "ລະຫັດສິນຄ້າຊ້ຳກັນໃນລະບົບ" });
+                                // ຈັດລຽງຄ່າຕາມຕຳແໜ່ງທີ່ເໝາະສົມ (ກໍລະນີມີຄໍລຳລຳດັບ ຢູ່ໜ້າສຸດ)
+                                if (!isNaN(col0) && col1 !== '') {
+                                    code = col1;
+                                    cost = row[2] !== undefined ? row[2] : 0;
+                                    profitPct = row[3] !== undefined ? row[3] : 20;
+                                    price = row[4] !== undefined ? row[4] : 0;
+                                    qty = row[5] !== undefined ? row[5] : 1;
+                                    rowDate = row[6] ? String(row[6]).trim() : today;
                                 } else {
-                                    existingCodes.add(lowerCode);
-                                    newRows.push({ code: code, cost: cost, profitPct: profitPct, price: price, qty: qty, dateAdded: rowDate });
+                                    code = col0 !== '' ? col0 : col1;
+                                    cost = row[1] !== undefined ? row[1] : 0;
+                                    profitPct = row[2] !== undefined ? row[2] : 20;
+                                    price = row[3] !== undefined ? row[3] : 0;
+                                    qty = row[4] !== undefined ? row[4] : 1;
+                                    rowDate = row[5] ? String(row[5]).trim() : today;
+                                }
+
+                                if (code && code.toLowerCase() !== 'ຊື່ສິນຄ້າ' && code.toLowerCase() !== 'ລະຫັດ') {
+                                    let lowerCode = code.toLowerCase();
+                                    if (existingCodes.has(lowerCode)) {
+                                        duplicates.push({ code: code, reason: "ລະຫັດສິນຄ້າຊ້ຳກັນໃນລະບົບ" });
+                                    } else {
+                                        existingCodes.add(lowerCode);
+                                        newRows.push({ code: code, cost: cost, profitPct: profitPct, price: price, qty: qty, dateAdded: rowDate });
+                                    }
                                 }
                             }
                         }
@@ -1615,7 +1647,7 @@
                             showAlert("ສຳເລັດ", `ນຳເຂົ້າຂໍ້ມູນ Excel ສຳເລັດ ${newRows.length} ລາຍການ!`, "📁");
                         }
                     } else if (duplicates.length === 0) {
-                        showAlert("ແຈ້ງເຕືອນ", "ບໍ່ພົບຂໍ້ມູນໃໝ່ໃນໄຟລ໌ Excel", "⚠️");
+                        showAlert("ແຈ້ງເຕືອນ", "ບໍ່ພົບຂໍ້ມູນສິນຄ້າໃນໄຟລ໌ Excel", "⚠️");
                     }
                 } catch (err) {
                     showAlert("ຜິດພາດ", "ບໍ່ສາມາດອ່ານໄຟລ໌ Excel ໄດ້", "❌");
