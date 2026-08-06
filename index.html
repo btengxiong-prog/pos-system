@@ -336,6 +336,7 @@
                     📖 ຄູ່ມືການໃຊ້ງານ
                 </button>
 
+                <!-- 🌟 ປຸ່ມດຶງ/ໂອນຂໍ້ມູນແບບສັ່ງດຶງກົງຈາກ Cloud 100% -->
                 <button onclick="openMigrateModal()" class="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     🔄 ດຶງຂໍ້ມູນເຂົ້າ User ຖາວອນ
                 </button>
@@ -850,7 +851,7 @@
             document.getElementById('migrate-modal').classList.add('hidden');
         }
 
-        // 🌟 ຟັງຊັນໂອນ/ດຶງຂໍ້ມູນແບບລວມສູນ: ດຶງຂໍ້ມູນຈາກ Cloud (Supabase) ມາລົງ LocalStorage ຂອງ User ປາຍທາງທັນທີ 100%
+        // 🌟 ວິເຄາະແກ້ໄຂຈຸດດຶງ/ໂອນຂໍ້ມູນ: ໃຫ້ดึงປະຫວັດທັງໝົດໃນ Cloud ມາລວມໃສ່ເຄື່ອງ User ຖາວອນທັນທີເມື່ອກົດປຸ່ມດຶງຂໍ້ມູນ
         async function confirmMigrationData() {
             let targetUser = document.getElementById('migrate-target-username').value.trim().toUpperCase();
             if (!targetUser) {
@@ -858,60 +859,58 @@
                 return;
             }
 
-            let actualTargetId = targetUser;
-
-            if (supabaseClient) {
-                try {
-                    // 1. ບັນທຶກ License ລົງ Cloud
-                    let newPayload = {
-                        device_id: actualTargetId,
-                        status: 'permanent',
-                        created_at: new Date().toISOString()
-                    };
-                    await supabaseClient.from('licenses').upsert(newPayload, { onConflict: 'device_id' });
-
-                    // 2. ດຶງປະຫວັດການຂາຍທັງໝົດຈາກ Supabase ມາລວມໃສ່ເຄື່ອງນີ້
-                    let { data: cloudSales, error } = await supabaseClient
-                        .from('sales_history')
-                        .select('*');
-
-                    if (!error && cloudSales && cloudSales.length > 0) {
-                        let targetLocalKey = 'pos_local_history_' + actualTargetId;
-                        let existingTargetLocal = JSON.parse(localStorage.getItem(targetLocalKey) || '[]');
-                        let generalLocal = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-
-                        let combinedMap = new Map();
-                        [...generalLocal, ...existingTargetLocal].forEach(tx => { combinedMap.set(tx.id || tx.created_at, tx); });
-
-                        cloudSales.forEach(tx => {
-                            let key = tx.id || tx.created_at;
-                            combinedMap.set(key, {
-                                id: tx.id, source: 'cloud', device_id: tx.device_id, created_at: tx.created_at,
-                                total_items: tx.total_items || 0, total_cost: tx.total_cost || 0,
-                                discount: tx.discount || 0, total: tx.total, cash: tx.cash, change: tx.change, items: tx.items || []
-                            });
-                        });
-
-                        let finalMerged = Array.from(combinedMap.values());
-                        localStorage.setItem(targetLocalKey, JSON.stringify(finalMerged));
-                        localStorage.setItem('pos_local_history', JSON.stringify(finalMerged));
-                    }
-                } catch (e) {}
+            if (!supabaseClient) {
+                showAlert("ຜິດພາດ", "ບໍ່ສາມາດເຊື່ອມຕໍ່ຖານຂໍ້ມູນໄດ້", "❌");
+                return;
             }
 
-            currentUsername = actualTargetId;
-            deviceId = actualTargetId;
-            localStorage.setItem('pos_current_username', currentUsername);
-            localStorage.setItem('pos_device_id', deviceId);
-            localStorage.setItem('pos_license_status', 'permanent');
+            try {
+                let actualTargetId = targetUser;
 
-            closeMigrateModal();
-            showAlert("ສຳເລັດ", `ດຶງຂໍ້ມູນເຂົ້າ User [${actualTargetId}] ສໍາເລັດຮຽບຮ້ອຍ!`, "⭐");
-            checkRoleAndLicense();
-            loadCloudHistory();
+                // 1. ດຶງປະຫວັດການຂາຍທັງໝົດຈາກ Cloud (Supabase) ມາໃສ່ເຄື່ອງນີ້ທັນທີ
+                let { data: cloudSales, error } = await supabaseClient
+                    .from('sales_history')
+                    .select('*');
+
+                let targetLocalKey = 'pos_local_history_' + actualTargetId;
+                let existingTargetLocal = JSON.parse(localStorage.getItem(targetLocalKey) || '[]');
+                let generalLocal = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+
+                let combinedMap = new Map();
+                [...generalLocal, ...existingTargetLocal].forEach(tx => { combinedMap.set(tx.id || tx.created_at, tx); });
+
+                if (!error && cloudSales) {
+                    cloudSales.forEach(tx => {
+                        let key = tx.id || tx.created_at;
+                        combinedMap.set(key, {
+                            id: tx.id, source: 'cloud', device_id: tx.device_id, created_at: tx.created_at,
+                            total_items: tx.total_items || 0, total_cost: tx.total_cost || 0,
+                            discount: tx.discount || 0, total: tx.total, cash: tx.cash, change: tx.change, items: tx.items || []
+                        });
+                    });
+                }
+
+                let finalMerged = Array.from(combinedMap.values());
+                localStorage.setItem(targetLocalKey, JSON.stringify(finalMerged));
+                localStorage.setItem('pos_local_history', JSON.stringify(finalMerged));
+
+                // 2. ຕັ້ງຄ່າ DeviceId ໃຫ້ເປັນ User ຖາວອນນັ້ນ
+                currentUsername = actualTargetId;
+                deviceId = actualTargetId;
+                localStorage.setItem('pos_current_username', currentUsername);
+                localStorage.setItem('pos_device_id', deviceId);
+                localStorage.setItem('pos_license_status', 'permanent');
+
+                closeMigrateModal();
+                showAlert("ສຳເລັດ", `ດຶງຂໍ້ມູນ ແລະ ປະຫວັດການຂາຍເຂົ້າ User [${actualTargetId}] ສໍາເລັດຮຽບຮ້ອຍ!`, "⭐");
+                checkRoleAndLicense();
+                loadCloudHistory();
+            } catch (e) {
+                showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການດຶງຂໍ້ມູນ", "❌");
+            }
         }
 
-        // 🌟 ຟັງຊັນໂຫຼດປະຫວັດແບບ Universal: ດຶງທັງຈາກ LocalStorage ທຸກ Key ແລະ Cloud ມາສະແດງຜົນຮ່ວມກັນແບບ 100% ບໍ່ມີທາງພາດ
+        // 🌟 ຟັງຊັນໂຫຼດປະຫວັດ: ສະແດງຜົນປະຫວັດທັງໝົດຈາກ LocalStorage ແລະ Cloud ລວມກັນທັນທີ 100%
         async function loadCloudHistory() {
             let listDiv = document.getElementById('history-list');
             listDiv.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
@@ -920,22 +919,17 @@
 
             let combinedMap = new Map();
 
-            // 1. ດຶງຈາກ LocalStorage ຂອງທຸກ Device/User keys ที่มีอยู่ในเครื่องนี้
-            for (let i = 0; i < localStorage.length; i++) {
-                let keyName = localStorage.key(i);
-                if (keyName && keyName.startsWith('pos_local_history')) {
-                    try {
-                        let arr = JSON.parse(localStorage.getItem(keyName) || '[]');
-                        if (Array.isArray(arr)) {
-                            arr.forEach(tx => {
-                                combinedMap.set(tx.id || tx.created_at, tx);
-                            });
-                        }
-                    } catch (e) {}
-                }
-            }
+            let targetLocalKey = 'pos_local_history_' + deviceId;
+            let currentUsernameKey = currentUsername ? ('pos_local_history_' + currentUsername) : '';
+            
+            let generalLocal = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            let deviceLocal = JSON.parse(localStorage.getItem(targetLocalKey) || '[]');
+            let userLocal = currentUsernameKey ? JSON.parse(localStorage.getItem(currentUsernameKey) || '[]') : [];
 
-            // 2. ດຶງຈາກ Cloud (Supabase) ມາລວມກັນທັງໝົດແບບບໍ່ຈຳກັດ
+            [...generalLocal, ...deviceLocal, ...userLocal].forEach(tx => {
+                combinedMap.set(tx.id || tx.created_at, tx);
+            });
+
             if (supabaseClient) {
                 try {
                     let { data: cloudSales, error } = await supabaseClient
@@ -945,11 +939,13 @@
                     if (!error && cloudSales) {
                         cloudSales.forEach(tx => {
                             let key = tx.id || tx.created_at;
-                            combinedMap.set(key, {
-                                id: tx.id, source: 'cloud', device_id: tx.device_id, created_at: tx.created_at,
-                                total_items: tx.total_items || 0, total_cost: tx.total_cost || 0,
-                                discount: tx.discount || 0, total: tx.total, cash: tx.cash, change: tx.change, items: tx.items || []
-                            });
+                            if (!combinedMap.has(key)) {
+                                combinedMap.set(key, {
+                                    id: tx.id, source: 'cloud', device_id: tx.device_id, created_at: tx.created_at,
+                                    total_items: tx.total_items || 0, total_cost: tx.total_cost || 0,
+                                    discount: tx.discount || 0, total: tx.total, cash: tx.cash, change: tx.change, items: tx.items || []
+                                });
+                            }
                         });
                     }
                 } catch (err) {}
