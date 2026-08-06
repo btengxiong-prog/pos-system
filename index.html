@@ -1619,10 +1619,28 @@
         }
 
         function generateExcelCodes() {
-            renderPreviewCards(excelRows.filter(r => r.code.trim() !== ''));
+            // ອັບເດດຂໍ້ມູນລ້າສຸດຈາກ Input ໃນຕາຕະລາງເຂົ້າ excelRows ກ່ອນສ້າງ QR Code ສະເໝີ
+            let rowsInput = document.querySelectorAll('#excel-tbody tr');
+            rowsInput.forEach((tr, index) => {
+                if (excelRows[index]) {
+                    let codeInput = tr.querySelector('input[type="text"]:nth-of-type(1)');
+                    let costInput = tr.querySelector('input[type="text"]:nth-of-type(2)');
+                    let pctInput = tr.querySelector('input[type="number"]:nth-of-type(1)');
+                    let priceInput = tr.querySelector('input[type="text"]:nth-of-type(3)');
+                    let qtyInput = tr.querySelector('input[type="number"]:nth-of-type(2)');
+
+                    if (codeInput) excelRows[index].code = codeInput.value.trim();
+                    if (costInput) excelRows[index].cost = parseFloat(costInput.value.replace(/,/g, '')) || 0;
+                    if (pctInput) excelRows[index].profitPct = parseFloat(pctInput.value) || 20;
+                    if (priceInput) excelRows[index].price = parseFloat(priceInput.value.replace(/,/g, '')) || 0;
+                    if (qtyInput) excelRows[index].qty = parseInt(qtyInput.value) || 1;
+                }
+            });
+
+            renderPreviewCards(excelRows.filter(r => r.code && r.code.trim() !== ''));
         }
 
-        // 🌟 ປັບປຸງຮູບແບບ Layout ຂອງ QR Code ໃຫ້ຄືກັບຮູບທີ 1 (ຊື່/ລະຫັດຢູ່ເທິງ, QR Code ຢູ່ກາງ, ລາຄາຂາຍຢູ່ລຸ່ມ)
+        // 🌟 ປັບປຸງ Layout ໃຫ້ເປັນແບບຮູບທີ 2 ຢ່າງສົມບູນ 100% (ລະຫັດເທິງ -> ຂາຍ: ລາຄາ -> ເສັ້ນຂີດ -> QR Code)
         async function renderPreviewCards(rowsToRender) {
             let previewContainer = document.getElementById('excel-preview-cards');
             let printArea = document.getElementById('excel-print-area');
@@ -1634,16 +1652,23 @@
             }
 
             rowsToRender.forEach((row, idx) => {
-                let safeCode = row.code.replace(/"/g, '&quot;');
-                let priceNum = parseFloat(row.price) || 0;
+                let safeCode = row.code ? String(row.code).replace(/"/g, '&quot;') : '';
+                
+                let cost = parseFloat(row.cost) || 0;
+                let pct = parseFloat(row.profitPct) || 20;
+                let calculatedPrice = cost > 0 ? cost + (cost * pct / 100) : (parseFloat(row.price) || 0);
+                
+                let priceNum = calculatedPrice > 0 ? calculatedPrice : (parseFloat(row.price) || 0);
                 let priceStr = priceNum.toLocaleString() + " ກີບ";
+
                 html += `
-                    <div class="bg-white border-2 border-dashed border-gray-300 p-4 rounded-xl text-center space-y-2 shadow-sm break-inside-avoid">
-                        <div class="font-bold text-gray-800 text-base">${safeCode}</div>
+                    <div class="bg-white border border-gray-300 p-4 rounded-xl text-center space-y-2 shadow-sm break-inside-avoid">
+                        <div class="font-bold text-gray-900 text-base">${safeCode}</div>
+                        <div class="text-xs text-gray-700 font-semibold">ຂາຍ: <span class="text-green-600 font-bold">${priceStr}</span></div>
+                        <hr class="border-gray-200 my-2">
                         <div class="flex justify-center my-2 min-h-[120px] items-center">
                             <div id="qr-svg-${idx}"></div>
                         </div>
-                        <div class="font-extrabold text-green-600 text-lg">${priceStr}</div>
                     </div>
                 `;
             });
@@ -1654,9 +1679,9 @@
             for (let idx = 0; idx < rowsToRender.length; idx++) {
                 let row = rowsToRender[idx];
                 let container = document.getElementById(`qr-svg-${idx}`);
-                if (container && window.QRCode) {
+                if (container && window.QRCode && row.code) {
                     await new Promise((resolve) => {
-                        QRCode.toString(row.code, { type: 'svg', width: 120, margin: 1 }, function (err, svgString) {
+                        QRCode.toString(String(row.code), { type: 'svg', width: 120, margin: 1 }, function (err, svgString) {
                             if (!err && container) {
                                 container.innerHTML = svgString;
                             }
@@ -1668,7 +1693,7 @@
         }
 
         function promptPrintDate() {
-            let validRows = excelRows.filter(r => r.code.trim() !== '');
+            let validRows = excelRows.filter(r => r.code && r.code.trim() !== '');
             if (validRows.length === 0) {
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຂໍ້ມູນສິນຄ້າກ່ອນສັ່ງພິມ!", "⚠️");
                 return;
@@ -1697,7 +1722,7 @@
             let selectedDate = document.getElementById('print-date-select').value;
             closePrintDateModal();
 
-            let validRows = excelRows.filter(r => r.code.trim() !== '');
+            let validRows = excelRows.filter(r => r.code && r.code.trim() !== '');
             let filteredRows = selectedDate === 'all' 
                 ? validRows 
                 : validRows.filter(r => (r.dateAdded || new Date().toISOString().split('T')[0]) === selectedDate);
