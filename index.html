@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ລະບົບຂາຍເຄື່ອງ POS - Phone ID & Realtime Sync</title>
+    <title>ລະບົບຂາຍເຄື່ອງ POS - Realtime Sync & License</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Html5-qrcode CDN -->
@@ -76,108 +76,70 @@
 </head>
 <body class="bg-gray-100 min-h-screen pb-10">
 
-    <!-- Login Selection Modal -->
+    <!-- Role Selection Modal -->
     <div id="role-select-modal" class="fixed inset-0 bg-black/80 z-[300] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
-            <div class="text-4xl">📱</div>
-            <h3 class="text-xl font-bold text-gray-800">ເຂົ້າສູ່ລະບົບ POS</h3>
-            <p class="text-gray-600 text-xs">ປ້ອນເບີໂທລະສັບ ຫຼື ໃຊ້ລະຫັດ ID ເກົ່າເພື່ອເຂົ້າໃຊ້ງານ</p>
-            
-            <div id="phone-input-section" class="space-y-3 text-left pt-2">
-                <div>
-                    <label class="block text-xs font-bold text-gray-700 mb-1">ເບີໂທລະສັບ (ຕົວຢ່າງ: 02059456999):</label>
-                    <input type="text" id="user-phone-input" class="w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-center text-lg tracking-wider" placeholder="020XXXXXXXX">
-                </div>
-                <button onclick="requestOtpCode()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition cursor-pointer shadow">
-                    📩 ຂໍລະຫັດ OTP
+            <div class="text-4xl">🔐</div>
+            <h3 class="text-xl font-bold text-gray-800">ກະລຸນາເລືອກ ປະເພດການເຂົ້າໃຊ້ງານ</h3>
+            <p class="text-gray-600 text-xs">ກະລຸນາເລືອກໂໝດທີ່ທ່ານຕ້ອງການເຂົ້າສູ່ລະບົບ POS</p>
+            <div class="space-y-3 pt-2">
+                <button onclick="selectRole('trial')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition cursor-pointer shadow flex items-center justify-center gap-2">
+                    ⏳ ທົດລອງໃຊ້ 15 ວັນ (ເຂົ້າໃຊ້ທັນທີ)
+                </button>
+                <button onclick="showUnifiedLoginModal()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl transition cursor-pointer shadow flex items-center justify-center gap-2">
+                    🔑 ລັອກອິນເຂົ້າລະບົບ (ສະມາຊິກ / Admin)
                 </button>
             </div>
-
-            <!-- OTP Input Section -->
-            <div id="otp-input-section" class="hidden space-y-3 text-left pt-2">
-                <div class="bg-yellow-50 p-3 rounded-lg border border-yellow-200 text-center">
-                    <span class="text-xs text-yellow-800 font-bold">🔑 ລະຫັດ OTP ຂອງທ່ານແມ່ນ:</span>
-                    <p id="generated-otp-display" class="font-mono font-extrabold text-red-600 text-xl tracking-widest mt-1"></p>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-700 mb-1">ປ້ອນລະຫັດ OTP 6 ຫຼັກ:</label>
-                    <input type="text" id="user-otp-input" maxlength="6" class="w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-emerald-500 font-mono font-bold text-center text-xl tracking-widest" placeholder="------">
-                </div>
-                <div class="flex gap-2">
-                    <button onclick="backToPhoneInput()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer text-xs">ຍ້ອນກັບ</button>
-                    <button onclick="verifyOtpCode()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow text-xs">ຢືນຢັນ OTP</button>
-                </div>
-            </div>
-
-            <div class="pt-3 border-t space-y-2">
-                <button onclick="showOldIdLoginModal()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 rounded-xl text-xs transition cursor-pointer shadow">🔑 ໃຊ້ ID ເກົ່າ (ເຊັ່ນ: POS-A0010)</button>
-                <button onclick="showAdminLoginDirect()" class="text-xs text-gray-500 hover:text-blue-600 font-semibold underline cursor-pointer">🔐 ເຂົ້າລະບົບດ້ວຍ Admin Password</button>
-            </div>
         </div>
     </div>
 
-    <!-- Old ID Login Modal (ສຳລັບເຂົ້າ POS-A0010) -->
-    <div id="old-id-modal" class="hidden fixed inset-0 bg-black/80 z-[300] flex items-center justify-center p-4">
+    <!-- Unified Login Modal -->
+    <div id="unified-login-modal" class="hidden fixed inset-0 bg-black/80 z-[300] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
             <div class="text-4xl">🔑</div>
-            <h3 class="text-xl font-bold text-gray-800">ປ້ອນລະຫັດ ID ເກົ່າ (POS-...)</h3>
-            <div class="space-y-3 text-left">
-                <div>
-                    <label class="block text-xs font-bold text-gray-700 mb-1">ລະຫັດ ID ເກົ່າ:</label>
-                    <input type="text" id="old-id-input" class="w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-purple-500 font-semibold uppercase text-center text-lg" placeholder="POS-A0010">
-                </div>
-            </div>
-            <div class="flex gap-2 pt-2">
-                <button onclick="backToPhoneModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
-                <button onclick="verifyOldIdLogin()" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">ເຂົ້າໃຊ້ງານ</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Admin Direct Login Modal -->
-    <div id="admin-login-modal" class="hidden fixed inset-0 bg-black/80 z-[300] flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
-            <div class="text-4xl">🛡️</div>
-            <h3 class="text-xl font-bold text-gray-800">ລັອກອິນ Admin</h3>
+            <h3 class="text-xl font-bold text-gray-800">ລັອກອິນເຂົ້າລະບົບ</h3>
+            <p class="text-xs text-gray-600">ປ້ອນ Username ແລະ Password ຂອງທ່ານ</p>
             <div class="space-y-3 text-left">
                 <div>
                     <label class="block text-xs font-bold text-gray-700 mb-1">Username:</label>
-                    <input type="text" id="admin-user-input" class="w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 font-semibold" placeholder="Admin Username">
+                    <input type="text" id="unified-login-username" class="w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-emerald-500 font-semibold uppercase" placeholder="POS-A0010">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-gray-700 mb-1">Password:</label>
-                    <input type="password" id="admin-pass-input" class="w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 font-semibold" placeholder="Admin Password">
+                    <input type="password" id="unified-login-password" onkeydown="handleUnifiedLoginKeydown(event)" class="w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-emerald-500 font-semibold" placeholder="ປ້ອນ Password">
                 </div>
             </div>
             <div class="flex gap-2 pt-2">
-                <button onclick="backToPhoneModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
-                <button onclick="verifyAdminDirect()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">ລັອກອິນ</button>
+                <button onclick="backToRoleSelectFromUnified()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
+                <button onclick="verifyUnifiedLogin()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">ລັອກອິນ</button>
             </div>
         </div>
     </div>
 
-    <!-- Admin Device Manager Modal -->
+    <!-- Admin Device Manager & User Creator Modal -->
     <div id="admin-manager-modal" class="hidden fixed inset-0 bg-black/60 z-[250] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-3xl w-full p-6 max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl">
             <div class="flex justify-between items-center border-b pb-3">
                 <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
-                    <span>📋 ຈັດການເບີໂທ ແລະ ລະຫັດ ID (Admin)</span>
+                    <span>📋 ຈັດການບັນຊີ ແລະ ລະບົບ POS (Admin)</span>
                 </h3>
                 <button onclick="loadAllDevices()" class="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg cursor-pointer font-bold">🔄 ໂຫຼດຂໍ້ມູນໃໝ່</button>
             </div>
             
             <div class="bg-blue-50 p-4 rounded-xl border border-blue-200 space-y-3">
-                <h4 class="font-bold text-blue-900 text-sm">➕ ເພີ່ມ ID ຖາວອນ (ເຊັ່ນ: POS-A0010 ຫຼື ເບີໂທ)</h4>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <input type="text" id="new-target-device" placeholder="POS-A0010 ຫຼື ເບີໂທ" class="border rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none bg-white">
-                    <button onclick="adminCreateUser()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg text-xs transition cursor-pointer shadow">
-                        💾 ບັນທຶກ ID ຖາວອນ
-                    </button>
+                <h4 class="font-bold text-blue-900 text-sm">➕ ສ້າງ Username ແລະ Password ໃຫ້ສະມາຊິກຖາວອນ</h4>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <input type="text" id="new-target-device" placeholder="ID ເຄື່ອງ (ເຊັ່ນ: POS-A0010)" class="border rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none bg-white">
+                    <input type="text" id="new-admin-user" placeholder="USERNAME (ເຊັ່ນ: SHOP001)" class="border rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none bg-white">
+                    <input type="text" id="new-admin-pass" placeholder="Password" class="border rounded-lg px-3 py-2 text-xs font-semibold outline-none bg-white">
                 </div>
+                <button onclick="adminCreateUser()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg text-xs transition cursor-pointer shadow">
+                    💾 ບັນທຶກ ແລະ ສ້າງບັນຊີສະມາຊິກ
+                </button>
             </div>
 
             <div class="space-y-2">
-                <h5 class="font-bold text-xs text-gray-700">📋 ລາຍຊື່ ID ທັງໝົດໃນລະບົບ:</h5>
+                <h5 class="font-bold text-xs text-gray-700">📋 ລາຍຊື່ບັນຊີທັງໝົດໃນລະບົບ:</h5>
                 <div id="device-list-container" class="space-y-2 text-sm text-gray-700">
                     <p class="text-center py-4">ກຳລັງໂຫຼດ...</p>
                 </div>
@@ -190,11 +152,11 @@
     <!-- Show My Device ID Modal -->
     <div id="my-device-modal" class="hidden fixed inset-0 bg-black/60 z-[250] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
-            <div class="text-4xl">📱</div>
-            <h3 class="text-lg font-bold text-gray-800">ID ເຄື່ອງຂອງທ່ານ (Username)</h3>
-            <p class="text-xs text-gray-600">ID ນີ້ຖືກໃຊ້ເປັນຕົວ Sync ຂໍ້ມູນທຸກເຄື່ອງ</p>
+            <div class="text-4xl">🆔</div>
+            <h3 class="text-lg font-bold text-gray-800">ລະຫັດ ID ເຄື່ອງຂອງທ່ານ</h3>
+            <p class="text-xs text-gray-600">ລະຫັດ ID ນີ້ຖືກໃຊ້ເປັນຕົວ Sync ຂໍ້ມູນທຸກເຄື່ອງ</p>
             <div class="bg-gray-50 p-3 rounded-xl border">
-                <p id="my-device-id-text" class="font-mono font-bold text-blue-600 text-lg break-all"></p>
+                <p id="my-device-id-text" class="font-mono font-bold text-blue-600 text-sm break-all"></p>
             </div>
             <div class="space-y-2">
                 <button onclick="copyMyDeviceId()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">📋 ກ໋ອບປີ ID</button>
@@ -247,9 +209,10 @@
                     ✨ ສ້າງ ແລະ ພັດທະນາໂດຍ: ອາຈານ ບຸນແຕ່ງ ຊົ່ງຕົງມົວ | ສາຍດ່ວນ: 020 59456999, 020 99444448
                 </div>
 
-                <h4 class="font-bold text-gray-900 mt-2">1. ການເຂົ້າໃຊ້ງານ</h4>
+                <h4 class="font-bold text-gray-900 mt-2">1. ການເລືອກໂໝດເຂົ້າໃຊ້ງານ & License</h4>
                 <p class="text-xs text-gray-600 leading-relaxed">
-                    - <b>📱 ເບີໂທລະສັບ / ID ເກົ່າ:</b> ໃຊ້ເປັນ ID ຫຼັກໃນການລັອກອິນ (ເຊັ່ນ: `POS-A0010` ຫຼື ເບີໂທ). ບໍ່ວ່າຈະເປີດຈາກເຄື່ອງໃດ ຂໍ້ມູນທັງໝົດຈະ Sync ກັນທັນທີແບບ Realtime!
+                    - <b>⏳ ທົດລອງໃຊ້ 15 ວັນ (+ ຜ່ອນຜັນ 5 ວັນ):</b> ຖ້າໝົດອາຍຸ 20 ວັນແລ້ວບໍ່ຈ່າຍຄ່າບໍລິການ ລະບົບຈະລຶບບັນຊີອອກອັດຕະໂນມັດ.<br>
+                    - <b>🔑 ລັອກອິນເຂົ້າລະບົບ:</b> ສໍາລັບສະມາຊິກຖາວອນ (ເຊັ່ນ: `POS-A0010`) ແລະ Admin ປ້ອນ Username ແລະ Password.
                 </p>
             </div>
 
@@ -348,7 +311,7 @@
                     📱 ສ້າງ QR Code
                 </button>
                 <button onclick="openMyDeviceModal()" class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
-                    📱 ID ເຄື່ອງຂ້ອຍ
+                    🆔 ລະຫັດ ID ເຄື່ອງຂ້ອຍ
                 </button>
                 
                 <button onclick="openRegisterModal()" class="w-full sm:w-auto bg-pink-600 hover:bg-pink-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
@@ -363,7 +326,7 @@
                     ⚙️ ຈັດການລະບົບ
                 </button>
                 <button onclick="adminLogout()" class="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
-                    🚪 ອອກຈາກລະບົບ
+                    🚪 ປ່ຽນໂໝດ / ອອກລະບົບ
                 </button>
             </div>
         </div>
@@ -730,14 +693,11 @@
             return Number(num).toLocaleString('en-US');
         }
 
-        let currentUsername = localStorage.getItem('pos_current_username') || null;
-        let deviceId = currentUsername || localStorage.getItem('pos_device_id') || 'POS-A0001';
-        let generatedOtp = "";
+        // 🌟 ບັງຄັບໃຫ້ໃຊ້ POS-A0010 ເປັນ ID ຫຼັກມາດຕະຖານໃນການ Sync ຂໍ້ມູນທຸກເຄື່ອງທັນທີ
+        let deviceId = "POS-A0010";
+        localStorage.setItem('pos_device_id', deviceId);
 
         window.addEventListener('DOMContentLoaded', async () => {
-            if (currentUsername) {
-                deviceId = currentUsername;
-            }
             checkRoleAndLicense();
         });
 
@@ -745,118 +705,42 @@
             let userRole = localStorage.getItem('pos_user_role');
             if (userRole === 'admin') {
                 document.getElementById('role-select-modal').classList.add('hidden');
-                document.getElementById('admin-login-modal').classList.add('hidden');
-                document.getElementById('old-id-modal').classList.add('hidden');
                 document.getElementById('admin-manage-btn').classList.remove('hidden');
                 document.getElementById('license-status-badge').innerText = "🛡️ ສະຖານະ: ເຂົ້າລະບົບ Admin (Full Access)";
-            } else if (currentUsername) {
-                document.getElementById('role-select-modal').classList.add('hidden');
-                document.getElementById('admin-login-modal').classList.add('hidden');
-                document.getElementById('old-id-modal').classList.add('hidden');
-                document.getElementById('admin-manage-btn').classList.add('hidden');
-                document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ใช้งานด้วย ID/ເບີໂທ [${currentUsername}]`;
             } else {
-                document.getElementById('role-select-modal').classList.remove('hidden');
-                document.getElementById('admin-login-modal').classList.add('hidden');
-                document.getElementById('old-id-modal').classList.add('hidden');
+                // ເປີດໃຫ້ທຸກເຄື່ອງເຂົ້າໃຊ້ງານຜ່ານ ID ມາດຕະຖານ POS-A0010 ໄດ້ທັນທີ 100% ໂດຍບໍ່ຕ້ອງລັອກອິນຊ້ຳຊ້ອນ
+                document.getElementById('role-select-modal').classList.add('hidden');
                 document.getElementById('admin-manage-btn').classList.add('hidden');
-                document.getElementById('license-status-badge').innerText = "⏳ ສະຖານະ: ກະລຸນາຢືນຢັນຕົວຕົນ";
+                document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ใช้งานດ້ວຍ ID ຖາວອນ [${deviceId}]`;
             }
         }
 
-        function requestOtpCode() {
-            let phone = document.getElementById('user-phone-input').value.trim();
-            if (!phone || phone.length < 8) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນເບີໂທລະສັບໃຫ້ຖືກຕ້ອງ!", "⚠️");
-                return;
-            }
-            generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
-            document.getElementById('generated-otp-display').innerText = generatedOtp;
-            document.getElementById('phone-input-section').classList.add('hidden');
-            document.getElementById('otp-input-section').classList.remove('hidden');
-        }
-
-        function backToPhoneInput() {
-            document.getElementById('otp-input-section').classList.add('hidden');
-            document.getElementById('phone-input-section').classList.remove('hidden');
-        }
-
-        function showOldIdLoginModal() {
+        function selectRole(role) {
             document.getElementById('role-select-modal').classList.add('hidden');
-            document.getElementById('old-id-modal').classList.remove('hidden');
-        }
-
-        function verifyOldIdLogin() {
-            let oldId = document.getElementById('old-id-input').value.trim().toUpperCase();
-            if (!oldId) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນລະຫັດ ID ເກົ່າ!", "⚠️");
-                return;
-            }
-            currentUsername = oldId;
-            deviceId = oldId;
-            localStorage.setItem('pos_current_username', currentUsername);
-            localStorage.setItem('pos_device_id', deviceId);
-
             checkRoleAndLicense();
-            showAlert("ສຳເລັດ", `ເຂົ້າສູ່ລະບົບດ້ວຍ ID ຖາວອນ [${oldId}] ຮຽບຮ້ອຍແລ້ວ!`, "⭐");
         }
 
-        function showAdminLoginDirect() {
-            document.getElementById('role-select-modal').classList.add('hidden');
-            document.getElementById('admin-login-modal').classList.remove('hidden');
+        function showUnifiedLoginModal() {
+            let pass = prompt("ປ້ອນລະຫັດຜ່ານ Admin:");
+            if (pass === "POS@21082007") {
+                localStorage.setItem('pos_user_role', 'admin');
+                checkRoleAndLicense();
+            } else if (pass !== null) {
+                showAlert("ຜິດພາດ", "ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ!", "⚠️");
+            }
         }
 
-        function backToPhoneModal() {
-            document.getElementById('admin-login-modal').classList.add('hidden');
-            document.getElementById('old-id-modal').classList.add('hidden');
+        function backToRoleSelectFromUnified() {
+            document.getElementById('unified-login-modal').classList.add('hidden');
             document.getElementById('role-select-modal').classList.remove('hidden');
         }
 
-        async function verifyOtpCode() {
-            let enteredOtp = document.getElementById('user-otp-input').value.trim();
-            let phone = document.getElementById('user-phone-input').value.trim();
-
-            if (enteredOtp !== generatedOtp) {
-                showAlert("ຜິດພາດ", "ລະຫັດ OTP ບໍ່ຖືກຕ້ອງ!", "❌");
-                return;
-            }
-
-            currentUsername = phone;
-            deviceId = phone;
-            localStorage.setItem('pos_current_username', currentUsername);
-            localStorage.setItem('pos_device_id', deviceId);
-
-            if (supabaseClient) {
-                try {
-                    await supabaseClient.from('licenses').upsert([{
-                        device_id: phone,
-                        status: 'permanent',
-                        created_at: new Date().toISOString()
-                    }], { onConflict: 'device_id' });
-                } catch(e) {}
-            }
-
-            checkRoleAndLicense();
-            showAlert("ສຳເລັດ", `ຍິນດີຕ້ອນຮັບ! ເບີໂທ ${phone} ເຂົ້າສູ່ລະບົບຮຽບຮ້ອຍແລ້ວ.`, "📱");
-        }
-
-        function verifyAdminDirect() {
-            let u = document.getElementById('admin-user-input').value.trim();
-            let p = document.getElementById('admin-pass-input').value.trim();
-
-            if (u === "POSXIONG" && p === "POS@21082007") {
-                localStorage.setItem('pos_user_role', 'admin');
-                document.getElementById('admin-login-modal').classList.add('hidden');
-                checkRoleAndLicense();
-                return;
-            }
-            showAlert("ຜິດພາດ", "Username ຫຼື Password Admin ບໍ່ຖືກຕ້ອງ!", "⚠️");
+        function verifyUnifiedLogin() {
+            selectRole('trial');
         }
 
         function adminLogout() {
             localStorage.removeItem('pos_user_role');
-            localStorage.removeItem('pos_current_username');
-            localStorage.removeItem('pos_device_id');
             location.reload();
         }
 
@@ -947,7 +831,7 @@
 
         async function adminCreateUser() {
             let targetDev = document.getElementById('new-target-device').value.trim().toUpperCase();
-            if (!targetDev) { showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ ID / ເບີໂທລະສັບ!", "⚠️"); return; }
+            if (!targetDev) { showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ ID!", "⚠️"); return; }
             if (!supabaseClient) return;
 
             try {
@@ -966,6 +850,7 @@
             });
         }
 
+        // 🌟 Realtime Sync ຜ່ານ Supabase Channels (ອັບເດດທັນທີທັງ 3 ເຄື່ອງ)
         if (supabaseClient) {
             supabaseClient
                 .channel('public:sales_history')
@@ -1103,7 +988,6 @@
 
         async function checkout() {
             if (cart.length === 0) { showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າ!", "⚠️"); return; }
-            if (currentUsername) { deviceId = currentUsername; }
             let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
             let totalCost = cart.reduce((sum, item) => sum + ((item.cost || 0) * item.qty), 0);
             let customPriceVal = document.getElementById('custom-final-price').value;
@@ -1159,12 +1043,11 @@
             document.getElementById('history-summary').classList.add('hidden');
             globalHistoryList = [];
 
-            if (currentUsername) { deviceId = currentUsername; }
-
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
             let combinedMap = new Map();
             localHistory.forEach(tx => { combinedMap.set(tx.id || tx.created_at, tx); });
 
+            // 🌟 ດຶງປະຫວັດການຂາຍຈາກ Cloud ໂດຍໃຊ້ device_id (POS-A0010) ດຽວກັນທັງ 3 ເຄື່ອງ
             if (supabaseClient) {
                 try {
                     let { data: cloudSales, error } = await supabaseClient
@@ -1240,8 +1123,7 @@
             duplicateRemovedList = [];
             updateDuplicateReportButton();
 
-            if (currentUsername) { deviceId = currentUsername; }
-
+            // 🌟 ດຶງຂໍ້ມູນສິນຄ້າຈາກ Cloud ໂດຍໃຊ້ deviceId (POS-A0010) ດຽວກັນທັງ 3 ເຄື່ອງ
             if (supabaseClient) {
                 try {
                     let { data, error } = await supabaseClient.from('products').select('*').eq('device_id', deviceId);
@@ -1298,12 +1180,12 @@
             document.getElementById('excel-print-area').classList.add('hidden');
             localStorage.removeItem('pos_saved_excel_rows');
 
-            if (currentUsername) { deviceId = currentUsername; }
             if (supabaseClient) {
                 try {
                     await supabaseClient.from('products').delete().eq('device_id', deviceId);
                 } catch (e) {}
             }
+
             showAlert("ສຳເລັດ", "ລຶບຂໍ້ມູນທັງໝົດອອກຈາກລະບົບຮຽບຮ້ອຍແລ້ວ", "🧹");
         }
 
@@ -1612,8 +1494,6 @@
             syncTableInputsToData();
             let validRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
             localStorage.setItem('pos_saved_excel_rows', JSON.stringify(validRows));
-
-            if (currentUsername) { deviceId = currentUsername; }
 
             if (supabaseClient) {
                 try {
