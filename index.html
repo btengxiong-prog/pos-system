@@ -659,16 +659,6 @@
         </div>
     </div>
 
-    <!-- Custom Beautiful Alert Modal -->
-    <div id="custom-alert-modal" class="hidden fixed inset-0 bg-black/70 z-[400] flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
-            <div id="alert-icon" class="text-4xl">✅</div>
-            <h3 id="alert-title" class="text-xl font-bold text-gray-800">ແຈ້ງເຕືອນ</h3>
-            <p id="alert-message" class="text-gray-600 text-sm leading-relaxed"></p>
-            <button onclick="closeCustomAlert()" class="w-full bg-[#1e3a8a] hover:bg-blue-900 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">ຕົກລົງ</button>
-        </div>
-    </div>
-
     <!-- JavaScript Logic -->
     <script>
         const SUPABASE_URL = "https://omvrghcnswikqxixgcza.supabase.co"; 
@@ -754,7 +744,6 @@
             document.getElementById('role-select-modal').classList.remove('hidden');
         }
 
-        // 🌟 ປັບປຸງຟັງຊັນລັອກອິນແບບເດັດຂາດ: ຕັດການກວດສອບ query error ທີ່ເຮັດໃຫ້ເດັ້ງ Error ມາດຕະຖານອອກ 100%, ໃຜປ້ອນ Username ເຂົ້າມາລະບົບອະນຸຍາດໃຫ້ເຂົ້າທັນທີ
         async function verifyUnifiedLogin() {
             let u = document.getElementById('unified-login-username').value.trim();
             let p = document.getElementById('unified-login-password').value.trim();
@@ -775,7 +764,6 @@
 
             let formattedU = u.toUpperCase();
             
-            // ບັນທຶກລົງ Supabase ໂດຍອັດຕະໂນມັດຖ້າຍັງບໍ່ມີ (ເພື່ອຄວາມລຽບຮ້ອຍ)
             if (supabaseClient) {
                 try {
                     let newPayload = {
@@ -1150,15 +1138,24 @@
             let targetItem = globalHistoryList[deleteTargetIndex];
             if (!targetItem) { deleteTargetIndex = null; return; }
 
+            // 1. ລຶບອອກຈາກ LocalStorage ຢ່າງຊັດເຈນ (ກວດສອບທັງ id ແລະ created_at)
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-            localHistory = localHistory.filter(tx => (tx.id !== targetItem.id && tx.created_at !== targetItem.createdAt));
+            localHistory = localHistory.filter(tx => {
+                if (targetItem.id && tx.id) return tx.id !== targetItem.id;
+                return tx.created_at !== targetItem.created_at;
+            });
             localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
 
-            if (targetItem.source === 'cloud' && targetItem.id && supabaseClient) {
-                try { await supabaseClient.from('sales_history').delete().eq('id', targetItem.id); } catch (e) {}
+            // 2. ລຶບອອກຈາກ Supabase Cloud Database ຖ້າມີ id
+            if (targetItem.id && supabaseClient) {
+                try {
+                    await supabaseClient.from('sales_history').delete().eq('id', targetItem.id);
+                } catch (e) {
+                    console.error("Cloud delete error:", e);
+                }
             }
 
-            showAlert("ສຳເລັດ", "ລຶບປະຫວັດສຳເລັດ", "✅");
+            showAlert("ສຳເລັດ", "ລຶບປະຫວັດສຳເລັດຮຽບຮ້ອຍ!", "✅");
             loadCloudHistory();
             deleteTargetIndex = null;
         }
@@ -1698,7 +1695,7 @@
                 </div>`;
             });
             listContainer.innerHTML = html || '<p class="text-center text-gray-400 py-2">ບໍ່ມີລາຍການຖືກຕັດ</p>';
-            document.getElementById('duplicate-report-modal').classList.add('hidden');
+            document.getElementById('duplicate-report-modal').classList.remove('hidden');
         }
 
         function closeDuplicateReportModal() {
@@ -1873,44 +1870,6 @@
 
         function printExcelCodes() {
             promptPrintDate();
-        }
-
-        async function adminCreateUser() {
-            let targetDev = document.getElementById('new-target-device').value.trim().toUpperCase();
-            let u = document.getElementById('new-admin-user').value.trim().toUpperCase();
-            let p = document.getElementById('new-admin-pass').value.trim();
-
-            if (!targetDev || !u || !p) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ ID ເຄື່ອງ, Username ແລະ Password ໃຫ້ຄົບຖ້ວນ!", "⚠️");
-                return;
-            }
-
-            if (!supabaseClient) return;
-
-            try {
-                let { data: existingDev } = await supabaseClient.from('licenses').select('*').eq('device_id', targetDev);
-
-                let payload = {
-                    device_id: targetDev,
-                    status: 'permanent',
-                    created_at: (existingDev && existingDev.length > 0) ? existingDev[0].created_at : new Date().toISOString()
-                };
-
-                let { error } = await supabaseClient.from('licenses').upsert(payload, { onConflict: 'device_id' });
-
-                if (error) {
-                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດສ້າງບັນຊີໄດ້: " + error.message, "⚠️");
-                    return;
-                }
-
-                showAlert("ສຳເລັດ", `ເປີດໃຊ້ງານຖາວອນໃຫ້ ID: ${targetDev} (User: ${u}) ສໍາເລັດຮຽບຮ້ອຍ!`, "⭐");
-                document.getElementById('new-target-device').value = "";
-                document.getElementById('new-admin-user').value = "";
-                document.getElementById('new-admin-pass').value = "";
-                await loadAllDevices();
-            } catch (e) {
-                showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການເຊື່ອມຕໍ່", "⚠️");
-            }
         }
     </script>
 </body>
