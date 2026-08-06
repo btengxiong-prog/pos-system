@@ -126,9 +126,9 @@
                 <label class="block text-xs font-bold text-gray-700 mb-1">Username ຖາວອນ:</label>
                 <input type="text" id="migrate-target-username" class="w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 font-semibold uppercase" placeholder="ຕົວຢ່າງ: POS-A0010">
             </div>
-            <div class="flex gap-2 pt-2">
-                <button onclick="closeMigrateModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl text-sm transition cursor-pointer">ຍົກເລີກ</button>
-                <button onclick="confirmMigrationData()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">ຢືນຢັນດຶງ/ໂອນ</button>
+            <div class="space-y-2 pt-2">
+                <button onclick="confirmMigrationData()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">ຢືນຢັນດຶງຂໍ້ມູນຈາກ Cloud</button>
+                <button onclick="closeMigrateModal()" class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl text-sm transition cursor-pointer">ປິດ</button>
             </div>
         </div>
     </div>
@@ -338,6 +338,16 @@
 
                 <button onclick="openMigrateModal()" class="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     🔄 ດຶງຂໍ້ມູນເຂົ້າ User ຖາວອນ
+                </button>
+
+                <!-- 🌟 ປຸ່ມສຳຮອງ: ນຳເຂົ້າ / ສົ່ງອອກປະຫວັດຜ່ານໄຟລ໌ JSON (ຮັບປະກັນ 100% ໃຊ້ໄດ້ສະເໝີ) -->
+                <label class="w-full sm:w-auto bg-teal-600 hover:bg-teal-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
+                    📥 ນຳເຂົ້າປະຫວັດ (JSON)
+                    <input type="file" accept=".json" class="hidden" onchange="importHistoryFile(event)">
+                </label>
+
+                <button onclick="exportHistoryFile()" class="w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
+                    📤 ສົ່ງອອກປະຫວັດ (JSON)
                 </button>
 
                 <button id="admin-manage-btn" onclick="openAdminManager()" class="hidden w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
@@ -850,7 +860,6 @@
             document.getElementById('migrate-modal').classList.add('hidden');
         }
 
-        // 🌟 ປັບປຸງການດຶງຂໍ້ມູນແບບ Guaranteed Recovery: ດຶງຂໍ້ມູນທຸກຢ່າງຈາກ Supabase ແລະ LocalStorage ທັງໝົດໃນ Browser ມารวมໄວ້ໃນ POS-A0010 ຢ່າງສົມບູນ 100%
         async function confirmMigrationData() {
             let targetUser = document.getElementById('migrate-target-username').value.trim().toUpperCase();
             if (!targetUser) {
@@ -861,7 +870,6 @@
             let actualTargetId = targetUser;
             let combinedMap = new Map();
 
-            // 1. ເກັບປະຫວັດທັງໝົດຈາກ LocalStorage ທຸກ Key ທີ່ມີໃນ Browser ນີ້
             for (let i = 0; i < localStorage.length; i++) {
                 let keyName = localStorage.key(i);
                 if (keyName && keyName.startsWith('pos_local_history')) {
@@ -874,9 +882,15 @@
                 }
             }
 
-            // 2. ດຶງປະຫວັດທັງໝົດຈາກ Cloud (Supabase) ມາລວມກັນ
             if (supabaseClient) {
                 try {
+                    let newPayload = {
+                        device_id: actualTargetId,
+                        status: 'permanent',
+                        created_at: new Date().toISOString()
+                    };
+                    await supabaseClient.from('licenses').upsert(newPayload, { onConflict: 'device_id' });
+
                     let { data: cloudSales, error } = await supabaseClient
                         .from('sales_history')
                         .select('*');
@@ -890,24 +904,6 @@
                                 discount: tx.discount || 0, total: tx.total, cash: tx.cash, change: tx.change, items: tx.items || []
                             });
                         });
-
-                        // 3. ຖ້າໃນ Cloud ມີຂໍ້ມູນ ໃຫ້ອັບເດດ/ສຳເນົາຂຶ້ນໄປຜູກກັບ User ປາຍທາງທັງໝົດ
-                        let allTxs = Array.from(combinedMap.values());
-                        if (allTxs.length > 0) {
-                            let cloudPayload = allTxs.map(tx => ({
-                                device_id: actualTargetId,
-                                items: tx.items,
-                                total_items: tx.total_items,
-                                total_cost: tx.total_cost,
-                                sub_total: tx.sub_total,
-                                discount: tx.discount,
-                                total: tx.total,
-                                cash: tx.cash,
-                                change: tx.change,
-                                created_at: tx.created_at
-                            }));
-                            await supabaseClient.from('sales_history').upsert(cloudPayload, { onConflict: 'id' });
-                        }
                     }
                 } catch (e) {}
             }
@@ -924,12 +920,75 @@
             localStorage.setItem('pos_license_status', 'permanent');
 
             closeMigrateModal();
-            showAlert("ສຳເລັດ", `ດຶງຂໍ້ມູນ ແລະ ປະຫວັດການຂາຍທັງໝົດເຂົ້າ User [${actualTargetId}] ສໍາເລັດຮຽບຮ້ອຍ!`, "⭐");
+            showAlert("ສຳເລັດ", `ດຶງຂໍ້ມູນ ແລະ ປະຫວັດການຂາຍເຂົ້າ User [${actualTargetId}] ສໍາເລັດຮຽບຮ້ອຍ!`, "⭐");
             checkRoleAndLicense();
             loadCloudHistory();
         }
 
-        // 🌟 ຟັງຊັນໂຫຼດປະຫວັດແບບ Universal: ດຶງທັງຈາກ LocalStorage ທຸກ Key ແລະ Cloud ມາສະແດງຜົນຮ່ວມກັນແບບ 100% ບໍ່ມີທາງພາດ
+        // 🌟 ຟັງຊັນ Export ປະຫວັດເປັນໄຟລ໌ JSON
+        function exportHistoryFile() {
+            let combinedMap = new Map();
+            for (let i = 0; i < localStorage.length; i++) {
+                let keyName = localStorage.key(i);
+                if (keyName && keyName.startsWith('pos_local_history')) {
+                    try {
+                        let arr = JSON.parse(localStorage.getItem(keyName) || '[]');
+                        if (Array.isArray(arr)) {
+                            arr.forEach(tx => { combinedMap.set(tx.id || tx.created_at, tx); });
+                        }
+                    } catch (e) {}
+                }
+            }
+            let dataArr = Array.from(combinedMap.values());
+            if (dataArr.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ບໍ່ມີປະຫວັດການຂາຍໃຫ້ສົ່ງອອກ!", "⚠️");
+                return;
+            }
+            let dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataArr, null, 2));
+            let downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `pos_history_backup_${deviceId || 'data'}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        // 🌟 ຟັງຊັນ Import ປະຫວັດຈາກໄຟລ໌ JSON
+        function importHistoryFile(event) {
+            let file = event.target.files[0];
+            if (!file) return;
+            let reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    let importedTxs = JSON.parse(e.target.result);
+                    if (Array.isArray(importedTxs)) {
+                        let targetLocalKey = 'pos_local_history_' + deviceId;
+                        let existing = JSON.parse(localStorage.getItem(targetLocalKey) || '[]');
+                        let general = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+                        
+                        let map = new Map();
+                        [...existing, ...general, ...importedTxs].forEach(tx => {
+                            map.set(tx.id || tx.created_at, tx);
+                        });
+
+                        let merged = Array.from(map.values());
+                        localStorage.setItem(targetLocalKey, JSON.stringify(merged));
+                        localStorage.setItem('pos_local_history', JSON.stringify(merged));
+
+                        showAlert("ສຳເລັດ", `ນຳເຂົ້າປະຫວັດການຂາຍສຳເລັດ ${importedTxs.length} ລາຍການ!`, "✅");
+                        loadCloudHistory();
+                    } else {
+                        showAlert("ຜິດພາດ", "ຮູບແບບໄຟລ໌ JSON ບໍ່ถูกต้อง", "❌");
+                    }
+                } catch (err) {
+                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດອ່ານໄຟລ໌ JSON ໄດ້", "❌");
+                }
+                event.target.value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        // 🌟 ຟັງຊັນໂຫຼດປະຫວັດແບບ Universal
         async function loadCloudHistory() {
             let listDiv = document.getElementById('history-list');
             listDiv.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
@@ -938,22 +997,18 @@
 
             let combinedMap = new Map();
 
-            // 1. ດຶງຈາກ LocalStorage ຂອງທຸກ Device/User keys ที่มีอยู่ในเครื่องนี้
             for (let i = 0; i < localStorage.length; i++) {
                 let keyName = localStorage.key(i);
                 if (keyName && keyName.startsWith('pos_local_history')) {
                     try {
                         let arr = JSON.parse(localStorage.getItem(keyName) || '[]');
                         if (Array.isArray(arr)) {
-                            arr.forEach(tx => {
-                                combinedMap.set(tx.id || tx.created_at, tx);
-                            });
+                            arr.forEach(tx => { combinedMap.set(tx.id || tx.created_at, tx); });
                         }
                     } catch (e) {}
                 }
             }
 
-            // 2. ດຶງຈາກ Cloud (Supabase) ມາລວມກັນທັງໝົດແບບບໍ່ຈຳກັດ
             if (supabaseClient) {
                 try {
                     let { data: cloudSales, error } = await supabaseClient
