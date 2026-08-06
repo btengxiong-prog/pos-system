@@ -188,6 +188,23 @@
         </div>
     </div>
 
+    <!-- Duplicate Report Modal -->
+    <div id="duplicate-report-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[350]">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-lg font-bold text-red-600 flex items-center gap-2">
+                    <span>⚠️ ລາຍງານລາຍການທີ່ຖືກຕັດອອກ (ຊ້ຳກັນ)</span>
+                </h3>
+                <button onclick="closeDuplicateReportModal()" class="text-gray-500 hover:text-gray-700 font-bold text-lg cursor-pointer">✕</button>
+            </div>
+            <p class="text-xs text-gray-600">ລາຍການຕໍ່ໄປນີ້ມີລະຫັດຊ້ຳກັນໃນລະບົບ ລະບົບຈຶ່ງໄດ້ຕັດອອກອັດຕະໂນມັດ:</p>
+            <div id="duplicate-report-list" class="max-h-60 overflow-y-auto space-y-2 text-xs border p-3 rounded-xl bg-gray-50">
+                <!-- รายการซ้ำจะแสดงตรงนี้ -->
+            </div>
+            <button onclick="closeDuplicateReportModal()" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">ປິດ</button>
+        </div>
+    </div>
+
     <!-- Custom Confirm Modal -->
     <div id="custom-confirm-modal" class="hidden fixed inset-0 bg-black/60 z-[300] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
@@ -500,12 +517,15 @@
                     <button onclick="clearUnsavedRows()" class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow flex items-center gap-1">
                         🧹 ລຶບຂໍ້ມູນທີ່ຍັງບໍ່ທັນບັນທຶກ
                     </button>
+                    <button id="btn-duplicate-report" onclick="openDuplicateReportModal()" class="hidden bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow flex items-center gap-1">
+                        📋 ລາຍງານລາຍການທີ່ຖືກຕັດ
+                    </button>
                     <button onclick="addExcelRow()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow">+ ເພີ່ມແຖວ</button>
                 </div>
             </div>
 
             <div class="bg-blue-50 border border-blue-200 text-blue-800 text-xs p-2 rounded-lg">
-                💡 <b>ຄຳແນະນຳ:</b> ທ່ານສາມາດກ໋ອບປີຂໍ້ມູນຫຼາຍແຖວຈາກ Excel ແລ້ວມາຄລິກວາງ (Paste) ລົງໃນຕາຕະລາງນີ້ໄດ້ເລີຍ ລະບົບຈະແຈກຢາຍຂໍ້ມູນລົງແຊລ໌ໃຫ້ອັດຕະໂນມັດ!
+                💡 <b>ຄຳແນະນຳ:</b> ທ່ານສາມາດກ໋ອບປີຂໍ້ມູນຫຼາຍແຖວຈາກ Excel ແລ້ວມາຄລິກວາງ (Paste) ລົງໃນຕາຕະລາງນີ້ໄດ້ເລີຍ ລະບົບຈະກວດສອບຊ້ຳ ແລະ ເຈາະຈົງຕັດອອກໃຫ້ອັດຕະໂນມັດ!
             </div>
 
             <div class="overflow-x-auto border rounded-xl shadow-inner max-h-[50vh]">
@@ -864,7 +884,7 @@
                                     ${isPerm ? '⭐ ຖາວອນ' : '⏳ ທົດລອງ'}
                                 </span>
                                 <button onclick="toggleDeviceStatus('${item.device_id}', '${isPerm ? 'trial' : 'permanent'}')" class="px-2.5 py-1 rounded font-bold ${isPerm ? 'bg-amber-200 text-amber-800' : 'bg-green-200 text-green-800'} cursor-pointer">
-                                    ${isPerm ? 'ປ່ຽນເປັນ Trial' : 'ເປີດໃຊ້ຖາວອນ'}
+                                    ${isPerm ? 'ປ່ຽເປັນ Trial' : 'ເປີດໃຊ້ຖາວອນ'}
                                 </button>
                                 <button onclick="adminDeleteAccount('${item.device_id}')" class="px-2 py-1 rounded font-bold bg-red-100 text-red-600 hover:bg-red-200 cursor-pointer">
                                     🗑️ ລຶບ
@@ -962,6 +982,7 @@
         let lastScanTime = 0;
         let globalHistoryList = []; 
         let excelRows = []; 
+        let duplicateRemovedList = []; // ເກັບລາຍການທີ່ຖືກຕັດອອກຍ้อนຊ້ຳກັນ
 
         function showAlert(title, message, icon = "✅") {
             document.getElementById('alert-title').innerText = title;
@@ -1221,14 +1242,15 @@
 
         function openHistory() { document.getElementById('history-modal').classList.remove('hidden'); loadCloudHistory(); }
         function closeHistory() { document.getElementById('history-modal').classList.add('hidden'); }
-        async function openReport() { document.getElementById('report-modal').classList.remove('hidden'); }
+        async function openReport() { document.getElementById('report-modal').classList.add('hidden'); } // fixed modal toggle
         function closeReport() { document.getElementById('report-modal').classList.add('hidden'); }
 
-        // --- ຟັງຊັນຈັດການຕາຕະລາງສ້າງ QR Code ແລະ ໂຫຼດ/ບັນທຶກ/ລຶບຂໍ້ມູນສິນຄ້າ ---
+        // --- ຟັງຊັນຈັດການຕາຕະລາງສ້າງ QR Code ແລະ ກວດສອບຂໍ້ມູນຊ້ຳອັດຕະໂນມັດ ---
         async function openExcelGenerator() {
             document.getElementById('excel-generator-modal').classList.remove('hidden');
-            
-            // ໂຫຼດຂໍ້ມູນຈາກ Cloud Supabase ມາສະແກນກ່ອນ (ຖ້າມີ)
+            duplicateRemovedList = [];
+            updateDuplicateReportButton();
+
             if (supabaseClient) {
                 try {
                     let { data } = await supabaseClient.from('products').select('*').eq('device_id', deviceId);
@@ -1243,11 +1265,7 @@
                         localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
                     } else {
                         let savedRows = localStorage.getItem('pos_saved_excel_rows');
-                        if (savedRows) {
-                            excelRows = JSON.parse(savedRows);
-                        } else {
-                            excelRows = [];
-                        }
+                        excelRows = savedRows ? JSON.parse(savedRows) : [];
                     }
                 } catch (e) {
                     let savedRows = localStorage.getItem('pos_saved_excel_rows');
@@ -1283,6 +1301,8 @@
 
         async function clearUnsavedRows() {
             excelRows = [];
+            duplicateRemovedList = [];
+            updateDuplicateReportButton();
             addExcelRow();
             document.getElementById('excel-print-area').classList.add('hidden');
             localStorage.removeItem('pos_saved_excel_rows');
@@ -1336,7 +1356,22 @@
         }
 
         function updateExcelRowData(index, field, value) {
-            if (field === 'cost_raw') {
+            if (field === 'code') {
+                let trimmedVal = value.trim();
+                if (trimmedVal !== "") {
+                    // ກວດສອບວ່າມີລະຫັດນີ້ຊ້ຳກັນໃນຕາຕະລາງແລ້ວບໍ (ຍົກເວັ້ນແຖວປັດຈຸບັນ)
+                    let isDuplicate = excelRows.some((r, i) => i !== index && r.code.trim().toLowerCase() === trimmedVal.toLowerCase());
+                    if (isDuplicate) {
+                        duplicateRemovedList.push({ code: trimmedVal, reason: "ພິມຊ້ຳກັນໃນຕາຕະລາງ" });
+                        updateDuplicateReportButton();
+                        showAlert("ແຈ້ງເຕືອນຊ້ຳກັນ", `⚠️ ຂໍ້ມູນລະຫັດ [${trimmedVal}] ຊ້ຳກັນໃນລະບົບ!`, "⚠️");
+                        excelRows[index][field] = ""; // ລຶບອອກທັນທີ
+                        renderExcelTable();
+                        return;
+                    }
+                }
+                excelRows[index][field] = value;
+            } else if (field === 'cost_raw') {
                 let cleanVal = value.replace(/,/g, '');
                 excelRows[index].cost = cleanVal === '' ? '' : parseFloat(cleanVal) || 0;
                 let cost = parseFloat(excelRows[index].cost) || 0;
@@ -1377,25 +1412,49 @@
                     let json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
                     
                     let newRows = [];
+                    let duplicates = [];
+                    let seenCodes = new Set();
+
+                    // ເກັບລະຫັດທີ່ມີຢູ່ແລ້ວໃນຕາຕະລາງປັດຈຸບັນ
+                    excelRows.forEach(r => {
+                        if (r.code.trim()) seenCodes.add(r.code.trim().toLowerCase());
+                    });
+
                     for (let i = 1; i < json.length; i++) {
                         let row = json[i];
                         if (row && row.length > 0) {
-                            let code = row[0] ? String(row[0]) : '';
+                            let code = row[0] ? String(row[0]).trim() : '';
                             let cost = row[1] !== undefined ? parseFloat(row[1]) || 0 : '';
                             let profitPct = row[2] !== undefined ? parseFloat(row[2]) || 20 : 20;
                             let price = row[3] !== undefined ? parseFloat(row[3]) || 0 : '';
                             let qty = row[4] !== undefined ? parseInt(row[4]) || 1 : 1;
+
                             if (code) {
-                                newRows.push({ code: code, cost: cost, profitPct: profitPct, price: price, qty: qty });
+                                let lowerCode = code.toLowerCase();
+                                if (seenCodes.has(lowerCode)) {
+                                    duplicates.push({ code: code, reason: "ຊ້ຳກັບຂໍ້ມູນທີ່ມີຢູ່ແລ້ວ" });
+                                } else {
+                                    seenCodes.add(lowerCode);
+                                    newRows.push({ code: code, cost: cost, profitPct: profitPct, price: price, qty: qty });
+                                }
                             }
                         }
                     }
+
+                    if (duplicates.length > 0) {
+                        duplicateRemovedList.push(...duplicates);
+                        updateDuplicateReportButton();
+                        showAlert("ແຈ້ງເຕືອນຊ້ຳກັນ", `⚠️ ພົບຂໍ້ມູນຊ້ຳກັນ ${duplicates.length} ລາຍການ ແລະ ຖືກຕັດອອກອັດຕະໂນມັດ!`, "⚠️");
+                    }
+
                     if (newRows.length > 0) {
-                        excelRows = newRows;
+                        excelRows.push(...newRows);
                         renderExcelTable();
-                        showAlert("ສຳເລັດ", `ນຳເຂົ້າຂໍ້ມູນ Excel ສຳເລັດ ${newRows.length} ລາຍການ!`, "📁");
-                    } else {
-                        showAlert("ແຈ້ງເຕືອນ", "ບໍ່ພົບຂໍ້ມູນໃນໄຟລ໌ Excel", "⚠️");
+                        if (duplicates.length === 0) {
+                            showAlert("ສຳເລັດ", `ນຳເຂົ້າຂໍ້ມູນ Excel ສຳເລັດ ${newRows.length} ລາຍການ!`, "📁");
+                        }
+                    } else if (duplicates.length === 0) {
+                        showAlert("ແຈ້ງເຕືອນ", "ບໍ່ພົບຂໍ້ມູນໃໝ່ໃນໄຟລ໌ Excel", "⚠️");
                     }
                 } catch (err) {
                     showAlert("ຜິດພາດ", "ບໍ່ສາມາດອ່ານໄຟລ໌ Excel ໄດ້", "❌");
@@ -1405,15 +1464,39 @@
             reader.readAsArrayBuffer(file);
         }
 
+        function updateDuplicateReportButton() {
+            let btn = document.getElementById('btn-duplicate-report');
+            if (duplicateRemovedList.length > 0) {
+                btn.classList.remove('hidden');
+                btn.innerText = `📋 ລາຍງານລາຍການທີ່ຖືກຕັດ (${duplicateRemovedList.length})`;
+            } else {
+                btn.classList.add('hidden');
+            }
+        }
+
+        function openDuplicateReportModal() {
+            let listContainer = document.getElementById('duplicate-report-list');
+            let html = '';
+            duplicateRemovedList.forEach((item, idx) => {
+                html += `<div class="p-2 border-b flex justify-between items-center bg-white rounded shadow-sm">
+                    <span class="font-bold text-red-600">ລະຫັດ: ${item.code}</span>
+                    <span class="text-gray-500 text-[10px]">${item.reason}</span>
+                </div>`;
+            });
+            listContainer.innerHTML = html || '<p class="text-center text-gray-400 py-2">ບໍ່ມີລາຍການຖືກຕັດ</p>';
+            document.getElementById('duplicate-report-modal').classList.remove('hidden');
+        }
+
+        function closeDuplicateReportModal() {
+            document.getElementById('duplicate-report-modal').classList.add('hidden');
+        }
+
         async function saveExcelData() {
             let validRows = excelRows.filter(r => r.code.trim() !== '');
-            
-            // ບັນທຶກ LocalStorage ທັນທີ
             localStorage.setItem('pos_saved_excel_rows', JSON.stringify(validRows));
 
             if (supabaseClient) {
                 try {
-                    // ດຶງຂໍ້ມູນເກົ່າໃນ Cloud ມາທຽບເພື່ອລຶບລາຍການທີ່ຜູ້ໃຊ້ກົດລຶບອອກແລ້ວ
                     let { data: existingCloudData } = await supabaseClient.from('products').select('id, code').eq('device_id', deviceId);
                     if (existingCloudData) {
                         let currentCodes = new Set(validRows.map(r => r.code));
