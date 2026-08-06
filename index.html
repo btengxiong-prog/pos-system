@@ -116,7 +116,7 @@
         </div>
     </div>
 
-    <!-- Migrate Data Modal (ປ໊ອບອັບໂອນຂໍ້ມູນຈາກເຄື່ອງທົດລອງເຂົ້າ User ຖາວອນ) -->
+    <!-- Migrate Data Modal -->
     <div id="migrate-modal" class="hidden fixed inset-0 bg-black/70 z-[320] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
             <div class="text-4xl">🔄</div>
@@ -778,7 +778,7 @@
                     let { data, error } = await supabaseClient
                         .from('licenses')
                         .select('*')
-                        .eq('device_id', formattedU)
+                        .or(`device_id.eq.${formattedU},username.eq.${formattedU}`)
                         .single();
 
                     if (error || !data) {
@@ -862,7 +862,6 @@
             navigator.clipboard.writeText("1006000000470").then(() => {}).catch(() => {});
         }
 
-        // 🌟 ຟັງຊັນສຳລັບເປີດປ໊ອບອັບໂອນຂໍ້ມູນຈາກເຄື່ອງທົດລອງເຂົ້າ User ຖາວອນ
         function openMigrateModal() {
             document.getElementById('migrate-modal').classList.remove('hidden');
         }
@@ -871,7 +870,7 @@
             document.getElementById('migrate-modal').classList.add('hidden');
         }
 
-        // 🌟 ຟັງຊັນຢືນຢັນການໂອນຂໍ້ມູນຈາກເຄື່ອງທົດລອງເຂົ້າ User ຖາວອນ (ຕາມຄຳແນະນຳຂອງທ່ານ)
+        // 🌟 ປັບປຸງຟັງຊັນໂອນຂໍ້ມູນ: ໃຫ້ກວດສອບທັງ device_id ແລະ username ຢ່າງຖືກຕ້ອງ 100% ຕາມທີ່ເຈົ້າຕ້ອງການ
         async function confirmMigrationData() {
             let targetUser = document.getElementById('migrate-target-username').value.trim().toUpperCase();
             if (!targetUser) {
@@ -885,25 +884,24 @@
             }
 
             try {
-                // 1. ກວດສອບວ່າ User ປາຍທາງມີຢູ່ຈິງ ແລະ ເປັນສະຖານະ permanent ບໍ
                 let { data: licenseData, error: licErr } = await supabaseClient
                     .from('licenses')
                     .select('*')
-                    .eq('device_id', targetUser)
+                    .or(`device_id.eq.${targetUser},username.eq.${targetUser}`)
                     .single();
 
-                if (licErr || !licenseData || licenseData.status !== 'permanent') {
-                    showAlert("ຜິດພາດ", `ບໍ່พบ Username ຖາວອນ [${targetUser}] ໃນລະບົບ ຫຼື ຍັງບໍ່ໄດ້ເປີດໃຊ້ຖາວອນ!`, "❌");
+                if (licErr || !licenseData) {
+                    showAlert("ຜິດພາດ", `ບໍ່ພົບ Username ຖາວອນ [${targetUser}] ໃນລະບົບ ຫຼື ຍັງບໍ່ໄດ້ເປີດໃຊ້ຖາວອນ!`, "❌");
                     return;
                 }
 
-                let oldDeviceId = deviceId; // ID ເຄື່ອງທົດລອງປັດຈຸບັນ
+                let actualTargetId = licenseData.device_id;
+                let oldDeviceId = deviceId;
 
-                // 2. ດຶງປະຫວັດການຂາຍທັງໝົດໃນເຄື່ອງທົດລອງນີ້ (LocalStorage) ມາອັບເດດຂຶ້ນ Cloud ໂດຍປ່ຽນ device_id ໃຫ້ເປັນ User ຖາວອນ (targetUser)
                 let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
                 if (localHistory.length > 0) {
                     let cloudPayload = localHistory.map(tx => ({
-                        device_id: targetUser,
+                        device_id: actualTargetId,
                         items: tx.items,
                         total_items: tx.total_items,
                         total_cost: tx.total_cost,
@@ -918,26 +916,23 @@
                     await supabaseClient.from('sales_history').insert(cloudPayload);
                 }
 
-                // 3. ຍ້າຍປະຫວັດການຂາຍເກົ່າທັງໝົດໃນ Cloud ທີ່ຜູກກັບ ID ເກົ່າ ໃຫ້ມารວມເຂົ້າກັບ targetUser
-                if (oldDeviceId && oldDeviceId !== targetUser) {
+                if (oldDeviceId && oldDeviceId !== actualTargetId) {
                     await supabaseClient
                         .from('sales_history')
-                        .update({ device_id: targetUser })
+                        .update({ device_id: actualTargetId })
                         .eq('device_id', oldDeviceId);
                 }
 
-                // 4. ຣີເຊັດ (ລຶບ) ປະຫວັດໃນເຄື່ອງທົດລອງນີ້ໃຫ້ຫວ່າງເປົ່າ ຕາມຄວາມຕ້ອງການ
                 localStorage.removeItem('pos_local_history');
 
-                // 5. ປ່ຽນ DeviceId ຂອງເຄື່ອງນີ້ໃຫ້ເປັນ User ຖາວອນທັນທີ ແລະ ບັນທຶກສະຖານະ
-                currentUsername = targetUser;
-                deviceId = targetUser;
+                currentUsername = actualTargetId;
+                deviceId = actualTargetId;
                 localStorage.setItem('pos_current_username', currentUsername);
                 localStorage.setItem('pos_device_id', deviceId);
                 localStorage.setItem('pos_license_status', 'permanent');
 
                 closeMigrateModal();
-                showAlert("ສຳເລັດ", `ໂອນຂໍ້ມູນເຂົ້າ User ຖາວອນ [${targetUser}] ສໍາເລັດຮຽບຮ້ອຍ! ຂໍ້ມູນໃນເຄື່ອງນີ້ຖືກຣີເຊັດເປັນຫວ່າງເປົ່າແລ້ວ.`, "⭐");
+                showAlert("ສຳເລັດ", `ໂອນຂໍ້ມູນເຂົ້າ User ຖາວອນ [${actualTargetId}] ສໍາເລັດຮຽບຮ້ອຍ! ຂໍ້ມູນໃນເຄື່ອງນີ້ຖືກຣີເຊັດເປັນຫວ່າງເປົ່າແລ້ວ.`, "⭐");
                 checkRoleAndLicense();
             } catch (e) {
                 showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການໂອນຂໍ້ມູນ", "❌");
@@ -1396,7 +1391,6 @@
             renderCart();
         }
 
-        // 🌟 ປັບປຸງການໂຫຼດປະຫວັດ: ດຶງຂໍ້ມູນການຂາຍທັງໝົດຈາກ Cloud ໂດຍບໍ່ຈຳກັດ device_id ເພື່ອໃຫ້ທຸກເຄື່ອງທີ່ໃຊ້ User ຖາວອນດຽວກັນເຫັນຍອດຂາຍລວມກັນທັງໝົດ 100%
         async function loadCloudHistory() {
             let listDiv = document.getElementById('history-list');
             listDiv.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
