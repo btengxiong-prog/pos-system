@@ -787,17 +787,41 @@
                         return;
                     }
 
-                    currentUsername = data.device_id;
-                    deviceId = data.device_id;
-                    localStorage.setItem('pos_current_username', currentUsername);
-                    localStorage.setItem('pos_device_id', deviceId);
-                    localStorage.setItem('pos_license_status', data.status);
-                    localStorage.removeItem('pos_user_role');
+                    let remarkStr = data.remark || '';
+                    if (remarkStr.includes('Pass:')) {
+                        let passPart = remarkStr.split('Pass:')[1].split('|')[0].trim();
+                        if (passPart !== p) {
+                            showAlert("ຜິດພາດ", "Password ບໍ່ຖືກຕ້ອງ!", "⚠️");
+                            return;
+                        }
+                    }
 
-                    document.getElementById('unified-login-modal').classList.add('hidden');
-                    document.getElementById('role-select-modal').classList.add('hidden');
-                    document.getElementById('admin-manage-btn').classList.add('hidden');
-                    document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ສະມາຊິກ [${currentUsername}]`;
+                    if (data.status === 'trial') {
+                        let startDate = new Date(data.trial_start || data.created_at);
+                        let now = new Date();
+                        let diffDays = (now - startDate) / (1000 * 60 * 60 * 24);
+                        if (diffDays > 20) {
+                            await supabaseClient.from('licenses').delete().eq('device_id', data.device_id);
+                            showAlert("ໝົດອາຍຸ", "ບັນຊີນີ້ຖືກລະງັບຊົ່ວຄາວເນື່ອງຈາກໝົດອາຍຸ/ຄ້າງຊຳລະຄ່າບໍລິການ!", "❌");
+                            return;
+                        }
+                    }
+
+                    if (data.status === 'permanent' || data.status === 'trial') {
+                        currentUsername = data.device_id;
+                        deviceId = data.device_id;
+                        localStorage.setItem('pos_current_username', currentUsername);
+                        localStorage.setItem('pos_device_id', deviceId);
+                        localStorage.setItem('pos_license_status', data.status);
+                        localStorage.removeItem('pos_user_role');
+
+                        document.getElementById('unified-login-modal').classList.add('hidden');
+                        document.getElementById('role-select-modal').classList.add('hidden');
+                        document.getElementById('admin-manage-btn').classList.add('hidden');
+                        document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ສະມາຊິກ [${currentUsername}]`;
+                    } else {
+                        showAlert("ແຈ້ງເຕືອນ", "ບັນຊີນີ້ຖືກລະງັບການໃຊ້ງານຊົ່ວຄາວ!", "⚠️");
+                    }
                 } catch (e) {
                     showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການເຊື່ອມຕໍ່", "⚠️");
                 }
@@ -856,7 +880,7 @@
             document.getElementById('migrate-modal').classList.add('hidden');
         }
 
-        // 🌟 ປັບປຸງຟັງຊັນໂອນຂໍ້ມູນ: ໃຫ້ກວດສອບພຽງແຕ່ມີ ID ນັ້ນຢູ່ໃນ Supabase ຢ່າງດຽວ (ບໍ່ບັງຄັບ status) ເພື່ອປ້ອງກັນການກວດສອບຜິດພາດ
+        // 🌟 ປັບປຸງຟັງຊັນໂອນຂໍ້ມູນ: ຖ້າ User ຍັງບໍ່ທັນມີຢູ່ໃນ Supabase ລະບົບຈະສ້າງໃຫ້ອັດຕະໂນມັດທັນທີ ໂດຍບໍ່ຕ້ອງໃຫ້ Admin ไปສ້າງກ່ອນ!
         async function confirmMigrationData() {
             let targetUser = document.getElementById('migrate-target-username').value.trim().toUpperCase();
             if (!targetUser) {
@@ -876,12 +900,23 @@
                     .or(`device_id.eq.${targetUser},username.eq.${targetUser}`)
                     .single();
 
+                let actualTargetId = targetUser;
+
                 if (licErr || !licenseData) {
-                    showAlert("ຜິດພາດ", `ບໍ່ພົບ User [${targetUser}] ໃນລະບົບ Supabase!`, "❌");
-                    return;
+                    // ຖ້າ User ຍັງບໍ່ມີໃນ Supabase, ໃຫ້ລະບົບສ້າງໃຫ້ໃໝ່ເປັນສະຖານະ permanent ໂດຍອັດຕະໂນມັດ
+                    let newPayload = {
+                        device_id: targetUser,
+                        status: 'permanent',
+                        created_at: new Date().toISOString()
+                    };
+                    await supabaseClient.from('licenses').upsert(newPayload, { onConflict: 'device_id' });
+                    actualTargetId = targetUser;
+                } else {
+                    actualTargetId = licenseData.device_id;
+                    // ອັບເດດໃຫ້ເປັນ permanent ຖ້າຫາກຍັງເປັນ trial
+                    await supabaseClient.from('licenses').update({ status: 'permanent' }).eq('device_id', actualTargetId);
                 }
 
-                let actualTargetId = licenseData.device_id;
                 let oldDeviceId = deviceId;
 
                 let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
