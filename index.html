@@ -732,6 +732,7 @@
             document.getElementById('role-select-modal').classList.remove('hidden');
         }
 
+        // 🌟 ປັບປຸງການລັອກອິນ: ເມື່ອລັອກອິນດ້ວຍ Username ຖາວອນ ໃຫ້ດຶງຂໍ້ມູນປະຫວັດການຂາຍເກົ່າທັງໝົດຂອງເຄື່ອງ A ແລະ B ມາອັບເດດລວມເຂົ້າກັບ Device ID ຖາວອນທັນທີ
         async function verifyUnifiedLogin() {
             let u = document.getElementById('unified-login-username').value.trim();
             let p = document.getElementById('unified-login-password').value.trim();
@@ -784,20 +785,22 @@
                         localStorage.setItem('pos_license_status', data.status);
                         localStorage.removeItem('pos_user_role');
 
+                        // 🌟 ບັງຄັບອັບເດດ (Migrate) ປະຫວັດການຂາຍທັງໝົດໃນ Cloud ຈາກ ID ເກົ່າທຸກ ID ໃຫ້ກາຍເປັນ ID ຖາວອນ (POS-A0010)
                         if (oldDeviceId && oldDeviceId !== data.device_id) {
                             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
                             localHistory.forEach(tx => { tx.device_id = data.device_id; });
                             localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
 
+                            // ອັບເດດ Cloud sales_history ທັງໝົດທີ່ເຄີຍຖືກບັນທຶກມາລວມເຂົ້າ ID ຖາວອນນີ້
                             await supabaseClient
                                 .from('sales_history')
                                 .update({ device_id: data.device_id })
-                                .eq('device_id', oldDeviceId);
+                                .neq('device_id', data.device_id);
 
                             await supabaseClient
                                 .from('products')
                                 .update({ device_id: data.device_id })
-                                .eq('device_id', oldDeviceId);
+                                .neq('device_id', data.device_id);
                         }
 
                         document.getElementById('unified-login-modal').classList.add('hidden');
@@ -996,6 +999,17 @@
                     return;
                 }
 
+                // 🌟 ບັງຄັບອັບເດດປະຫວັດການຂາຍທັງໝົດໃນ Cloud ໃຫ້ມາເປັນ ID ຖາວອນນີ້ທັນທີ
+                await supabaseClient
+                    .from('sales_history')
+                    .update({ device_id: targetDev })
+                    .neq('device_id', targetDev);
+
+                await supabaseClient
+                    .from('products')
+                    .update({ device_id: targetDev })
+                    .neq('device_id', targetDev);
+
                 showAlert("ສຳເລັດ", `ເປີດໃຊ້ງານຖາວອນໃຫ້ ID: ${targetDev} ສໍາເລັດຮຽບຮ້ອຍ!`, "⭐");
                 document.getElementById('new-target-device').value = "";
                 document.getElementById('new-admin-user').value = "";
@@ -1045,7 +1059,6 @@
             checkRoleAndLicense();
         });
 
-        // 🌟 ປັບປຸງ Realtime ໃຫ້ດຶງຂໍ້ມູນລວມກັນທັນທີ ເມື່ອມີການຂາຍເກີດຂຶ້ນຈາກເຄື່ອງໃດກໍ່ຕາມ
         if (supabaseClient) {
             supabaseClient
                 .channel('public:sales_history')
@@ -1310,7 +1323,7 @@
             renderCart();
         }
 
-        // 🌟 ປັບປຸງຟັງຊັນໂຫຼດປະຫວັດການຂາຍ: ໃຫ້ດຶງຂໍ້ມູນປະຫວັດທັງໝົດທີ່ກ່ຽວຂ້ອງກັບ User ນີ້ (ລວມທັງ ID ເກົ່າ ແລະ ID ປັດຈຸບັນ) ມາລວມກันເປັນໜຶ່ງດຽວ
+        // 🌟 ປັບປຸງຟັງຊັນໂຫຼດປະຫວັດ: ດຶງຂໍ້ມູນການຂາຍທັງໝົດໃນ Supabase ມາລວມກັນທັງໝົດ ໂດຍບໍ່ສົນໃຈ Device ID ເກົ່າ ເພື່ອໃຫ້ເຄື່ອງ A ແລະ B ເຫັນຂໍ້ມູນຄືກัน 100%
         async function loadCloudHistory() {
             let listDiv = document.getElementById('history-list');
             listDiv.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
@@ -1324,7 +1337,6 @@
 
             if (supabaseClient) {
                 try {
-                    // ດຶງປະຫວັດການຂາຍທັງໝົດໃນ Cloud ໂດຍບໍ່ຈຳກັດສະເພາະ DeviceId ປັດຈຸບັນ ເພື່ອໃຫ້ເຄື່ອງ A ແລະ B ເຫັນຂໍ້ມູນລວມກັນ
                     let { data: cloudSales, error } = await supabaseClient
                         .from('sales_history')
                         .select('*')
@@ -1400,7 +1412,7 @@
 
             if (supabaseClient) {
                 try {
-                    let { data } = await supabaseClient.from('products').select('*').eq('device_id', deviceId);
+                    let { data } = await supabaseClient.from('products').select('*');
                     if (data && data.length > 0) {
                         excelRows = data.map(item => ({
                             code: item.code,
@@ -1458,7 +1470,7 @@
 
             if (supabaseClient) {
                 try {
-                    await supabaseClient.from('products').delete().eq('device_id', deviceId);
+                    await supabaseClient.from('products').delete().neq('id', 0);
                 } catch (e) {}
             }
 
@@ -1640,7 +1652,7 @@
                 </div>`;
             });
             listContainer.innerHTML = html || '<p class="text-center text-gray-400 py-2">ບໍ່ມີລາຍການຖືກຕັດ</p>';
-            document.getElementById('duplicate-report-modal').classList.remove('hidden');
+            document.getElementById('duplicate-report-modal').classList.add('hidden');
         }
 
         function closeDuplicateReportModal() {
@@ -1653,7 +1665,7 @@
 
             if (supabaseClient) {
                 try {
-                    let { data: existingCloudData } = await supabaseClient.from('products').select('id, code').eq('device_id', deviceId);
+                    let { data: existingCloudData } = await supabaseClient.from('products').select('id, code');
                     if (existingCloudData) {
                         let currentCodes = new Set(validRows.map(r => r.code));
                         let toDeleteIds = existingCloudData.filter(item => !currentCodes.has(item.code)).map(item => item.id);
@@ -1794,7 +1806,7 @@
         }
 
         async function confirmAndPrintByDate() {
-            let selectedDate = document.getElementById('print-date-select').value;
+            let selectedDate = document.getElementById('print-date-select-select') ? document.getElementById('print-date-select-select').value : document.getElementById('print-date-select').value;
             closePrintDateModal();
 
             let validRows = excelRows.filter(r => r.code && r.code.trim() !== '');
