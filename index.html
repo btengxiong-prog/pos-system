@@ -1087,19 +1087,41 @@
                     if (decodedText === lastScannedCode && (currentTime - lastScanTime < 3000)) return;
                     lastScannedCode = decodedText;
                     lastScanTime = currentTime;
-                    showConfirmModal(decodedText);
+                    
+                    // ອງກອນຮັບຄ່າທີ່ສະແກນໄດ້ ບໍ່ວ່າຈະເປັນ String ທຳມະດາ ຫຼື JSON Payload ທີ່ຝັງຂໍ້ມູນລາຄາໄວ້
+                    let scannedCode = decodedText;
+                    let scannedCost = 0;
+                    let scannedPrice = 0;
+                    let scannedName = decodedText;
+
+                    try {
+                        let parsed = JSON.parse(decodedText);
+                        if (parsed && parsed.code) {
+                            scannedCode = parsed.code;
+                            scannedCost = parsed.cost || 0;
+                            scannedPrice = parsed.price || 0;
+                            scannedName = parsed.code;
+                        }
+                    } catch (e) {
+                        // ຖ້າເປັນ Text ລະຫັດທຳມະດາ
+                    }
+
+                    showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
                 },
                 (errorMessage) => {}
             ).catch(err => {});
         }
 
         function showConfirmModal(text) {
-            tempScannedCode = text;
-            let parsedName = text;
-            document.getElementById('modal-code').innerText = text;
-            document.getElementById('modal-name').value = parsedName;
-            document.getElementById('modal-cost').value = "";
-            document.getElementById('modal-price').value = "";
+            showConfirmModalParsed(text, text, "", "");
+        }
+
+        function showConfirmModalParsed(code, name, cost, price) {
+            tempScannedCode = code;
+            document.getElementById('modal-code').innerText = code;
+            document.getElementById('modal-name').value = name;
+            document.getElementById('modal-cost').value = cost !== "" ? cost : "";
+            document.getElementById('modal-price').value = price !== "" ? price : "";
             document.getElementById('confirm-modal').classList.remove('hidden');
         }
 
@@ -1619,7 +1641,6 @@
         }
 
         function generateExcelCodes() {
-            // ອັບເດດຂໍ້ມູນລ້າສຸດຈາກ Input ໃນຕາຕະລາງເຂົ້າ excelRows ກ່ອນສ້າງ QR Code ສະເໝີ
             let rowsInput = document.querySelectorAll('#excel-tbody tr');
             rowsInput.forEach((tr, index) => {
                 if (excelRows[index]) {
@@ -1640,7 +1661,7 @@
             renderPreviewCards(excelRows.filter(r => r.code && r.code.trim() !== ''));
         }
 
-        // 🌟 ປັບປຸງ Layout ໃຫ້ເປັນແບບຮູບທີ 2 ຢ່າງສົມບູນ 100% (ລະຫັດເທິງ -> ຂາຍ: ລາຄາ -> ເສັ້ນຂີດ -> QR Code)
+        // 🌟 ປັບປຸງ QR Code ໃຫ້ຝັງຂໍ້ມູນ JSON (Code, Cost, Price) ເພື່ອເວລາສະແກນລະບົບ POS ດຶງລາຄາຂຶ້ນມາໄດ້ຄົບຖ້ວນ 100%
         async function renderPreviewCards(rowsToRender) {
             let previewContainer = document.getElementById('excel-preview-cards');
             let printArea = document.getElementById('excel-print-area');
@@ -1680,8 +1701,19 @@
                 let row = rowsToRender[idx];
                 let container = document.getElementById(`qr-svg-${idx}`);
                 if (container && window.QRCode && row.code) {
+                    let cost = parseFloat(row.cost) || 0;
+                    let pct = parseFloat(row.profitPct) || 20;
+                    let calculatedPrice = cost > 0 ? cost + (cost * pct / 100) : (parseFloat(row.price) || 0);
+
+                    // ຝັງຂໍ້ມູນທັງໝົດເປັນ JSON Payload ໄວ້ໃນ QR Code ເພື່ອໃຫ້ເວລາສະແກນແລ້ວລະບົບອ່ານໄດ້ທັງລະຫັດ, ລາຄາຊື້ ແລະ ລາຄາຂາຍ
+                    let qrPayload = JSON.stringify({
+                        code: row.code,
+                        cost: cost,
+                        price: calculatedPrice
+                    });
+
                     await new Promise((resolve) => {
-                        QRCode.toString(String(row.code), { type: 'svg', width: 120, margin: 1 }, function (err, svgString) {
+                        QRCode.toString(qrPayload, { type: 'svg', width: 120, margin: 1 }, function (err, svgString) {
                             if (!err && container) {
                                 container.innerHTML = svgString;
                             }
