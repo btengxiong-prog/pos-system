@@ -121,14 +121,14 @@
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
             <div class="text-4xl">🔄</div>
             <h3 class="text-lg font-bold text-gray-800">ໂອນຂໍ້ມູນເຂົ້າ User ຖາວອນ</h3>
-            <p class="text-xs text-gray-600">ປ້ອນ Username ຖາວອນ (ປາຍທາງ) ເພື່ອໂອນປະຫວັດການຂາຍຂອງທ່ານເຂົ້າໄປລວມກັນ:</p>
+            <p class="text-xs text-gray-600">ປ້ອນ Username ຖາວອນ (ປາຍທາງ) ເພື່ອດຶງ ແລະ ໂອນປະຫວັດການຂາຍມາລວມກັນ:</p>
             <div class="text-left">
                 <label class="block text-xs font-bold text-gray-700 mb-1">Username ຖາວອນ:</label>
                 <input type="text" id="migrate-target-username" class="w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 font-semibold uppercase" placeholder="ຕົວຢ່າງ: POS-A0010">
             </div>
             <div class="flex gap-2 pt-2">
                 <button onclick="closeMigrateModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl text-sm transition cursor-pointer">ຍົກເລີກ</button>
-                <button onclick="confirmMigrationData()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">ຢືນຢັນໂອນ</button>
+                <button onclick="confirmMigrationData()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">ຢືນຢັນດຶງ/ໂອນ</button>
             </div>
         </div>
     </div>
@@ -336,8 +336,9 @@
                     📖 ຄູ່ມືການໃຊ້ງານ
                 </button>
 
+                <!-- 🌟 ປຸ່ມດຶງ/ໂອນຂໍ້ມູນແບບສັ່ງດຶງກົງຈາກ Cloud 100% -->
                 <button onclick="openMigrateModal()" class="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
-                    🔄 ໂອນຂໍ້ມູນເຂົ້າ User ຖາວອນ
+                    🔄 ດຶງຂໍ້ມູນເຂົ້າ User ຖາວອນ
                 </button>
 
                 <button id="admin-manage-btn" onclick="openAdminManager()" class="hidden w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
@@ -850,7 +851,7 @@
             document.getElementById('migrate-modal').classList.add('hidden');
         }
 
-        // 🌟 ວິເຄາະ ແລະ ແກ້ໄຂຈຸດໂອນຂໍ້ມູນ (Migration): ໃຫ້ດຶງປະຫວັດທັງໝົດຈາກ LocalStorage ຂອງເຄື່ອງເກົ່າ ມາກັອບປີແທນທີ່ ແລະ ບັນທຶກລົງ Supabase ໂດຍກົງທັນທີ 100%
+        // 🌟 ວິເຄາະແກ້ໄຂຈຸດດຶງ/ໂອນຂໍ້ມູນ: ໃຫ້ดึงປະຫວັດທັງໝົດໃນ Cloud ມາລວມໃສ່ເຄື່ອງ User ຖາວອນທັນທີເມື່ອກົດປຸ່ມດຶງຂໍ້ມູນ
         async function confirmMigrationData() {
             let targetUser = document.getElementById('migrate-target-username').value.trim().toUpperCase();
             if (!targetUser) {
@@ -858,59 +859,42 @@
                 return;
             }
 
+            if (!supabaseClient) {
+                showAlert("ຜິດພາດ", "ບໍ່ສາມາດເຊື່ອມຕໍ່ຖານຂໍ້ມູນໄດ້", "❌");
+                return;
+            }
+
             try {
                 let actualTargetId = targetUser;
-                let oldDeviceId = deviceId;
 
-                // 1. ເກັບປະຫວັດຈາກ LocalStorage ທັງໝົດທີ່ມີຢູ່
-                let generalLocal = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-                let oldLocalKey = 'pos_local_history_' + oldDeviceId;
-                let specificLocal = JSON.parse(localStorage.getItem(oldLocalKey) || '[]');
-                
-                let allLocalTxs = [...generalLocal, ...specificLocal];
+                // 1. ດຶງປະຫວັດການຂາຍທັງໝົດຈາກ Cloud (Supabase) ມາໃສ່ເຄື່ອງນີ້ທັນທີ
+                let { data: cloudSales, error } = await supabaseClient
+                    .from('sales_history')
+                    .select('*');
 
-                // 2. ຖ້າມີ Supabase ໃຫ້ສົ່ງຂໍ້ມູນທັງໝົດຂຶ້ນ Cloud ໂດຍກົງ
-                if (supabaseClient) {
-                    try {
-                        let newPayload = {
-                            device_id: actualTargetId,
-                            status: 'permanent',
-                            created_at: new Date().toISOString()
-                        };
-                        await supabaseClient.from('licenses').upsert(newPayload, { onConflict: 'device_id' });
-
-                        if (allLocalTxs.length > 0) {
-                            let cloudPayload = allLocalTxs.map(tx => ({
-                                device_id: actualTargetId,
-                                items: tx.items,
-                                total_items: tx.total_items,
-                                total_cost: tx.total_cost,
-                                sub_total: tx.sub_total,
-                                discount: tx.discount,
-                                total: tx.total,
-                                cash: tx.cash,
-                                change: tx.change,
-                                created_at: tx.created_at
-                            }));
-                            await supabaseClient.from('sales_history').insert(cloudPayload);
-                        }
-                    } catch (err) {}
-                }
-
-                // 3. ບັນທຶກປະຫວັດທັງໝົດລົງໃນ LocalStorage ຂອງ User ປາຍທາງ (POS-A0010) ທັນທີ ເພື່ອໃຫ້ສະແດງຜົນໄດ້ທັນທີແບບບໍ່ຕ້ອງງໍ້ Cloud
                 let targetLocalKey = 'pos_local_history_' + actualTargetId;
                 let existingTargetLocal = JSON.parse(localStorage.getItem(targetLocalKey) || '[]');
-                let mergedLocal = [...allLocalTxs, ...existingTargetLocal];
-                
-                // ກັ່ນຕອງລາຍການຊ້ຳກັນອອກ
-                let uniqueMap = new Map();
-                mergedLocal.forEach(tx => { uniqueMap.set(tx.id || tx.created_at, tx); });
-                let finalMerged = Array.from(uniqueMap.values());
+                let generalLocal = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
 
+                let combinedMap = new Map();
+                [...generalLocal, ...existingTargetLocal].forEach(tx => { combinedMap.set(tx.id || tx.created_at, tx); });
+
+                if (!error && cloudSales) {
+                    cloudSales.forEach(tx => {
+                        let key = tx.id || tx.created_at;
+                        combinedMap.set(key, {
+                            id: tx.id, source: 'cloud', device_id: tx.device_id, created_at: tx.created_at,
+                            total_items: tx.total_items || 0, total_cost: tx.total_cost || 0,
+                            discount: tx.discount || 0, total: tx.total, cash: tx.cash, change: tx.change, items: tx.items || []
+                        });
+                    });
+                }
+
+                let finalMerged = Array.from(combinedMap.values());
                 localStorage.setItem(targetLocalKey, JSON.stringify(finalMerged));
                 localStorage.setItem('pos_local_history', JSON.stringify(finalMerged));
 
-                // 4. ປ່ຽນ DeviceId ຂອງເຄື່ອງນີ້ໃຫ້ເປັນ User ຖາວອນ
+                // 2. ຕັ້ງຄ່າ DeviceId ໃຫ້ເປັນ User ຖາວອນນັ້ນ
                 currentUsername = actualTargetId;
                 deviceId = actualTargetId;
                 localStorage.setItem('pos_current_username', currentUsername);
@@ -918,15 +902,15 @@
                 localStorage.setItem('pos_license_status', 'permanent');
 
                 closeMigrateModal();
-                showAlert("ສຳເລັດ", `ໂອນຂໍ້ມູນ ແລະ ປະຫວັດການຂາຍເຂົ້າ User [${actualTargetId}] ສໍາເລັດຮຽບຮ້ອຍ!`, "⭐");
+                showAlert("ສຳເລັດ", `ດຶງຂໍ້ມູນ ແລະ ປະຫວັດການຂາຍເຂົ້າ User [${actualTargetId}] ສໍາເລັດຮຽບຮ້ອຍ!`, "⭐");
                 checkRoleAndLicense();
                 loadCloudHistory();
             } catch (e) {
-                showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການໂອນຂໍ້ມູນ", "❌");
+                showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການດຶງຂໍ້ມູນ", "❌");
             }
         }
 
-        // 🌟 ວິເຄາະ ແລະ ແກ້ໄຂຈຸດໂຫຼດປະຫວັດ (History): ໃຫ້ສະແດງຜົນໂດຍກົງຈາກ LocalStorage ຂອງ User ປັ້ງຕັ້ງ ແລະ Cloud ມາລວມກັນແບບ 100% ຮັບປະກັນວ່າເຫັນແນ່ນອນ
+        // 🌟 ຟັງຊັນໂຫຼດປະຫວັດ: ສະແດງຜົນປະຫວັດທັງໝົດຈາກ LocalStorage ແລະ Cloud ລວມກັນທັນທີ 100%
         async function loadCloudHistory() {
             let listDiv = document.getElementById('history-list');
             listDiv.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
@@ -935,7 +919,6 @@
 
             let combinedMap = new Map();
 
-            // 1. ດຶງຈາກ LocalStorage ທຸກ Key ທີ່ກ່ຽວຂ້ອງກັບ User ນີ້ ແລະ ທົ່ວໄປ
             let targetLocalKey = 'pos_local_history_' + deviceId;
             let currentUsernameKey = currentUsername ? ('pos_local_history_' + currentUsername) : '';
             
@@ -947,7 +930,6 @@
                 combinedMap.set(tx.id || tx.created_at, tx);
             });
 
-            // 2. ດຶງຈາກ Cloud (Supabase) ມາລວມເພີ່ມເຕີມ
             if (supabaseClient) {
                 try {
                     let { data: cloudSales, error } = await supabaseClient
@@ -1442,7 +1424,6 @@
             localHistory.unshift(txData);
             localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
 
-            // ບັນທຶກລົງ LocalStorage ຕາມ DeviceId ສະເພາະຕົວດ້ວຍ
             let deviceLocalKey = 'pos_local_history_' + deviceId;
             let deviceLocalHistory = JSON.parse(localStorage.getItem(deviceLocalKey) || '[]');
             deviceLocalHistory.unshift(txData);
