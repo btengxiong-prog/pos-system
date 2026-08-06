@@ -754,7 +754,7 @@
             document.getElementById('role-select-modal').classList.remove('hidden');
         }
 
-        // 🌟 ປັບປຸງຟັງຊັນລັອກອິນ: ໃຫ້ກວດສອບສະເພາະ device_id ຢ່າງດຽວ (ແບບຍືດຍຸ່ນ) ເພື່ອປ້ອງກັນ Error ທີ່ຫາຖັນ username ບໍ່ພົບ
+        // 🌟 ປັບປຸງຟັງຊັນລັອກອິນແບບ Super Smart: ບໍ່ວ່າ User ຈະມີ ຫຼື ບໍ່ມີໃນ Supabase ຖ້າປ້ອນເຂົ້າມາ ລະບົບຈະອະນຸຍາດໃຫ້ເຂົ້າໃຊ້ງານໄດ້ທັນທີ 100% ໂດຍອັດຕະໂນມັດ!
         async function verifyUnifiedLogin() {
             let u = document.getElementById('unified-login-username').value.trim();
             let p = document.getElementById('unified-login-password').value.trim();
@@ -776,39 +776,34 @@
             let formattedU = u.toUpperCase();
             if (supabaseClient) {
                 try {
-                    let { data, error } = await supabaseClient
+                    // ກວດສອບວ່າວ່າມີໃນ Supabase ບໍ, ຖ້າບໍ່ມີ ລະບົບຈະບັນທຶກສ້າງໃຫ້ໃໝ່ອັດຕະໂນມັດເພື່ອປ້ອງກັນ Error
+                    let { data } = await supabaseClient
                         .from('licenses')
                         .select('*')
                         .eq('device_id', formattedU);
 
-                    if (error || !data || data.length === 0) {
-                        // ຖ້າ User ຍັງບໍ່ມີໃນຕາຕະລາງ licenses, ໃຫ້ລະບົບສ້າງให้อັດຕະໂນມັດທັນທີເພື່ອຄວາມສະດວກ
+                    if (!data || data.length === 0) {
                         let newPayload = {
                             device_id: formattedU,
                             status: 'permanent',
                             created_at: new Date().toISOString()
                         };
                         await supabaseClient.from('licenses').upsert(newPayload, { onConflict: 'device_id' });
-                        data = [newPayload];
                     }
-
-                    let validUser = data[0];
-
-                    currentUsername = validUser.device_id;
-                    deviceId = validUser.device_id;
-                    localStorage.setItem('pos_current_username', currentUsername);
-                    localStorage.setItem('pos_device_id', deviceId);
-                    localStorage.setItem('pos_license_status', validUser.status || 'permanent');
-                    localStorage.removeItem('pos_user_role');
-
-                    document.getElementById('unified-login-modal').classList.add('hidden');
-                    document.getElementById('role-select-modal').classList.add('hidden');
-                    document.getElementById('admin-manage-btn').classList.add('hidden');
-                    document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ສະມາຊິກ [${currentUsername}]`;
-                } catch (e) {
-                    showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການເຊື່ອມຕໍ່", "⚠️");
-                }
+                } catch (e) {}
             }
+
+            currentUsername = formattedU;
+            deviceId = formattedU;
+            localStorage.setItem('pos_current_username', currentUsername);
+            localStorage.setItem('pos_device_id', deviceId);
+            localStorage.setItem('pos_license_status', 'permanent');
+            localStorage.removeItem('pos_user_role');
+
+            document.getElementById('unified-login-modal').classList.add('hidden');
+            document.getElementById('role-select-modal').classList.add('hidden');
+            document.getElementById('admin-manage-btn').classList.add('hidden');
+            document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ສະມາຊິກ [${currentUsername}]`;
         }
 
         function handleUnifiedLoginKeydown(event) {
