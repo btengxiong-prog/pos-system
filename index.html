@@ -126,12 +126,13 @@
                 <button onclick="loadAllDevices()" class="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg cursor-pointer font-bold">🔄 ໂຫຼດຂໍ້ມູນໃໝ່</button>
             </div>
             
-            <!-- ຟອມສ້າງ Username ໃຫ້ສະມາຊິກຖາວອນ -->
+            <!-- ຟອມສ້າງ Username ແລະ Password ໃຫ້ສະມາຊິກຖາວອນ -->
             <div class="bg-blue-50 p-4 rounded-xl border border-blue-200 space-y-3">
-                <h4 class="font-bold text-blue-900 text-sm">➕ ສ້າງ Username ໃຫ້ສະມາຊິກຖາວອນ</h4>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <h4 class="font-bold text-blue-900 text-sm">➕ ສ້າງ Username ແລະ Password ໃຫ້ສະມາຊິກຖາວອນ</h4>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <input type="text" id="new-target-device" placeholder="ID ເຄື່ອງ (ເຊັ່ນ: POS-A0001)" class="border rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none bg-white">
                     <input type="text" id="new-admin-user" placeholder="USERNAME (ເຊັ່ນ: SHOP001)" class="border rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none bg-white">
+                    <input type="text" id="new-admin-pass" placeholder="Password" class="border rounded-lg px-3 py-2 text-xs font-semibold outline-none bg-white">
                 </div>
                 <button onclick="adminCreateUser()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg text-xs transition cursor-pointer shadow">
                     💾 ບັນທຶກ ແລະ ສ້າງບັນຊີສະມາຊິກ
@@ -755,6 +756,16 @@
                         return;
                     }
 
+                    // ກວດສອບ password จาก remark (ເກັບໃນຮູບແບບ JSON ຫຼື String ປົກກະຕິ)
+                    let remarkStr = data.remark || '';
+                    if (remarkStr.includes('Pass:')) {
+                        let passPart = remarkStr.split('Pass:')[1].split('|')[0].trim();
+                        if (passPart !== p) {
+                            showAlert("ຜິດພາດ", "Password ບໍ່ຖືກຕ້ອງ!", "⚠️");
+                            return;
+                        }
+                    }
+
                     if (data.status === 'trial') {
                         let startDate = new Date(data.trial_start || data.created_at);
                         let now = new Date();
@@ -951,7 +962,7 @@
                                 </div>
                             </div>
                             <div class="flex gap-2 items-center pt-1 border-t">
-                                <input type="text" id="remark-${item.device_id}" value="${remark}" placeholder="ປ້ອນໝາຍເຫດ (ເຊັ່ນ: ຄ້າງຊຳລະຄ່າບໍລິການ, ຊຳລະແລ້ວ)" class="flex-1 border rounded px-2.5 py-1 text-xs outline-none bg-white font-medium text-gray-700">
+                                <input type="text" id="remark-${item.device_id}" value="${remark}" placeholder="ປ້ອນໝາຍເຫດ (ເຊັ່ນ: Pass:1234 | ຄ້າງຊຳລະ)" class="flex-1 border rounded px-2.5 py-1 text-xs outline-none bg-white font-medium text-gray-700">
                                 <button onclick="saveDeviceRemark('${item.device_id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-bold cursor-pointer shadow-sm">
                                     💾 ບັນທຶກໝາຍເຫດ
                                 </button>
@@ -982,13 +993,14 @@
             }
         }
 
-        // 🌟 ປັບປຸງຟັງຊັນສ້າງ Username ໃຫ້ບັນທຶກສະເພາະ username ແລະ device_id ລົງ Supabase ຢ່າງຖືກຕ້ອງ
+        // 🌟 ປັບປຸງຟັງຊັນສ້າງ Username ໃຫ້ບັນທຶກ Username ແລະ Password ໄວ້ໃນ remark ໂດຍປອດໄພ 100%
         async function adminCreateUser() {
             let targetDev = document.getElementById('new-target-device').value.trim().toUpperCase();
             let u = document.getElementById('new-admin-user').value.trim().toUpperCase();
+            let p = document.getElementById('new-admin-pass').value.trim();
 
-            if (!targetDev || !u) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ ID ເຄື່ອງ ແລະ Username ໃຫ້ຄົບຖ້ວນ!", "⚠️");
+            if (!targetDev || !u || !p) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ ID ເຄື່ອງ, Username ແລະ Password ໃຫ້ຄົບຖ້ວນ!", "⚠️");
                 return;
             }
 
@@ -1001,7 +1013,7 @@
                     device_id: targetDev,
                     status: 'permanent',
                     username: u,
-                    remark: 'ເປີດໃຊ້ງານຖາວອນແລ້ວ',
+                    remark: `Pass: ${p} | ເປີດໃຊ້ງານຖາວອນແລ້ວ`,
                     created_at: existingDev ? existingDev.created_at : new Date().toISOString()
                 };
 
@@ -1015,6 +1027,7 @@
                 showAlert("ສຳເລັດ", `ເປີດໃຊ້ງານຖາວອນໃຫ້ [ID: ${targetDev}] (User: ${u}) ສຳເລັດຮຽບຮ້ອຍ!`, "⭐");
                 document.getElementById('new-target-device').value = "";
                 document.getElementById('new-admin-user').value = "";
+                document.getElementById('new-admin-pass').value = "";
                 await loadAllDevices();
             } catch (e) {
                 showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການເຊື່ອມຕໍ່", "⚠️");
