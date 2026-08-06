@@ -761,7 +761,7 @@
 
         function backToRoleSelectFromUnified() {
             document.getElementById('unified-login-modal').classList.add('hidden');
-            document.getElementById('role-select-modal').classList.remove('hidden');
+            document.getElementById('role-select-modal').classList.add('hidden');
         }
 
         async function verifyUnifiedLogin() {
@@ -810,7 +810,7 @@
                     if (data.status === 'permanent' || data.status === 'trial') {
                         let oldDeviceId = deviceId;
                         currentUsername = data.device_id;
-                        deviceId = data.device_id;
+                        deviceId = data.device_id; // 🌟 บังคับใช้ Username ถาวรเป็น deviceId ทันที เพื่อให้ทุกเครื่องดึงข้อมูลชุดเดียวกัน
                         localStorage.setItem('pos_current_username', currentUsername);
                         localStorage.setItem('pos_device_id', deviceId);
                         localStorage.setItem('pos_license_status', data.status);
@@ -1300,7 +1300,7 @@
 
             let txData = {
                 id: 'TX-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
-                device_id: deviceId, // 🌟 ใช้ deviceId ซึ่งก็คือ Username ຖາວອນ ທີ່ລັອກອິນอยู่
+                device_id: deviceId, // 🌟 ใช้ deviceId ซึ่งเชื่อมกับ Username ถาวร
                 created_at: new Date().toISOString(),
                 items: cart,
                 total_items: cart.reduce((sum, item) => sum + item.qty, 0),
@@ -1316,7 +1316,6 @@
             localHistory.unshift(txData);
             localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
 
-            // 🌟 ບັນທຶກປະຫວັດການຂາຍລົງ Cloud (Supabase) ຜูกກັບ deviceId ໂດຍກົງ ເພື່ອໃຫ້ທຸກເຄື່ອງເຫັນຄືກັນ
             if (supabaseClient) {
                 try {
                     await supabaseClient.from('sales_history').insert([{
@@ -1352,7 +1351,7 @@
 
             localHistory.forEach(tx => { combinedMap.set(tx.id || tx.created_at, tx); });
 
-            // 🌟 ດຶງປະຫວັດການຂາຍຈາກ Cloud (Supabase) ຕາມ deviceId (Username ຖາວອນ) ທຸກເຄື່ອງຈະໄດ້ຂໍ້ມູນດຽວກັນ 100%
+            // 🌟 ດຶງປະຫວັດການຂາຍຈາກ Cloud (Supabase) ຕາມ deviceId (Username ຖາວອນ) ເພື່ອໃຫ້ Sync ກັນທຸກເຄື່ອງ 100%
             if (supabaseClient) {
                 try {
                     let { data: cloudSales, error } = await supabaseClient
@@ -1429,7 +1428,6 @@
             duplicateRemovedList = [];
             updateDuplicateReportButton();
 
-            // 🌟 ດຶງຂໍ້ມູນສິນຄ້າຈາກ Cloud (Supabase) ຕາມ deviceId (Username ຖາວອນ)
             if (supabaseClient) {
                 try {
                     let { data, error } = await supabaseClient.from('products').select('*').eq('device_id', deviceId);
@@ -1770,7 +1768,7 @@
                 </div>`;
             });
             listContainer.innerHTML = html || '<p class="text-center text-gray-400 py-2">ບໍ່ມີລາຍການຖືກຕັດ</p>';
-            document.getElementById('duplicate-report-modal').classList.remove('hidden');
+            document.getElementById('duplicate-report-modal').classList.add('hidden');
         }
 
         function closeDuplicateReportModal() {
