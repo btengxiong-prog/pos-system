@@ -1408,14 +1408,11 @@
                 excelRows = savedRows ? JSON.parse(savedRows) : [];
             }
 
-            // 🌟 ກັ່ນຕອງເອົາສະເພາະແຖວທີ່ມີລະຫັດສິນຄ້າແທ້ໆ
+            // 🌟 กັ່ນຕອງເອົາສະເພາະແຖວທີ່ມີລະຫັດສິນຄ້າແທ້ໆ
             excelRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
 
-            if (excelRows.length === 0) {
-                addExcelRow();
-            } else {
-                renderExcelTable();
-            }
+            // 🌟 ຖ້າບໍ່ມີຂໍ້ມູນ ໃຫ້ຕາຕະລາງຫວ່າງເປົ່າກ້ຽງ (ບໍ່ໃຫ້ມີແຖວຫວ່າງ 1 แຖວ)
+            renderExcelTable();
         }
 
         function closeExcelGenerator() {
@@ -1434,9 +1431,6 @@
             syncTableInputsToData();
             excelRows.splice(index, 1);
             excelRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
-            if (excelRows.length === 0) {
-                excelRows.push({ code: '', cost: '', profitPct: 20, price: '', qty: 1, dateAdded: new Date().toISOString().split('T')[0] });
-            }
             renderExcelTable();
         }
 
@@ -1444,7 +1438,7 @@
             excelRows = [];
             duplicateRemovedList = [];
             updateDuplicateReportButton();
-            addExcelRow();
+            renderExcelTable(); // 🌟 ໃຫ້ຕາຕະລາງຫວ່າງເປົ່າກ້ຽງ
             document.getElementById('excel-print-area').classList.add('hidden');
             localStorage.removeItem('pos_saved_excel_rows');
 
@@ -1519,13 +1513,17 @@
         }
 
         function renderExcelTable() {
-            // 🌟 ຕັດແຖວຫວ່າງເປົ່າ (ທີ່ບໍ່ມີລະຫັດສິນຄ້າ) ອອກທັງໝົດກ່ອນສະແດງຜົນ
+            // 🌟 ຕັດແຖວຫວ່າງເປົ່າອອກທັງໝົດ
             excelRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
-            if (excelRows.length === 0) {
-                excelRows.push({ code: '', cost: '', profitPct: 20, price: '', qty: 1, dateAdded: new Date().toISOString().split('T')[0] });
-            }
 
             let tbody = document.getElementById('excel-tbody');
+            
+            // 🌟 ຖ້າບໍ່ມີຂໍ້ມູນ ໃຫ້ສະແດງຂໍ້ຄວາມຫວ່າງເປົ່າ (ບໍ່ມີແຖວປ້ອນຂໍ້ມູນຂຶ້ນມາຄາ)
+            if (excelRows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າ (ກະລຸນາກົດ "+ ເພີ່ມແຖວ" ຫຼື "ອັບໂຫລດ Excel")</td></tr>`;
+                return;
+            }
+
             let html = '';
             let today = new Date().toISOString().split('T')[0];
 
@@ -1645,7 +1643,6 @@
                     }
 
                     if (newRows.length > 0) {
-                        // 🌟 ລຶບແຖວຫວ່າງເປົ່າເກົ່າອອກທັງໝົດ ກ່ອນເອົາຂໍ້ມູນຈາກ Excel ມາວາງ
                         excelRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
                         excelRows.push(...newRows);
                         renderExcelTable();
