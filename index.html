@@ -46,7 +46,7 @@
             }
             @page {
                 size: auto;
-                margin: 10mm;
+                margin: 5mm;
             }
         }
     </style>
@@ -536,7 +536,7 @@
             </div>
 
             <div class="bg-blue-50 border border-blue-200 text-blue-800 text-xs p-2 rounded-lg">
-                💡 <b>ຄຳແນະນຳ:</b> ລະບົບຈະກວດສອບວ່າຖ້າລະຫັດສິນຄ້າຊ້ຳກັນ ຈະຖືກຕັດອອກອັດຕະໂນມັດ (ຖ້າລະຫັດຕ่างກັນ ຖືວ່າບໍ່ຊ້ຳ).
+                💡 <b>ຄຳແນະນຳ:</b> ລະບົບຈະກວດສອບວ່າຖ້າລະຫັດສິນຄ້າຊ້ຳກັນ ຈະຖືກຕັດອອກອັດຕະໂນມັດ (ຖ້າລະຫັດຕ່າງກັນ ຖືວ່າບໍ່ຊ້ຳ).
             </div>
 
             <div class="overflow-x-auto border rounded-xl shadow-inner max-h-[50vh]">
@@ -1370,7 +1370,6 @@
             if (field === 'code') {
                 let trimmedVal = value.trim();
                 if (trimmedVal !== "") {
-                    // ກວດສອບວ່າມີ "ລະຫັດສິນຄ້າ (Code)" ນี้ຊ້ຳກັນໃນຕາຕະລາງແລ້ວບໍ (ຍົກເວັ້ນແຖວປັດຈຸບັນ)
                     let isDuplicate = excelRows.some((r, i) => i !== index && r.code.trim().toLowerCase() === trimmedVal.toLowerCase());
                     if (isDuplicate) {
                         duplicateRemovedList.push({ code: trimmedVal, reason: "ພິມລະຫັດສິນຄ້າຊ້ຳກັນໃນຕາຕະລາງ" });
@@ -1567,22 +1566,42 @@
             previewContainer.innerHTML = html;
             printArea.classList.remove('hidden');
 
-            // หน่วงเวลาให้ QR Code 绘制ครบถ้วน 100% ก่อนกดสั่งพิมพ์
-            setTimeout(() => {
-                validRows.forEach((row, idx) => {
+            // 🛠️ ປັບປຸງ: ວາດຮູບ QR Code ໃຫ້ຄົບຖ້ວນທຸກປ້າຍ 100% ໂດຍໃຊ້ Async Promise ວົນລູບວາດทีละປ້າຍຢ່າງຖືກຕ້ອງ
+            setTimeout(async () => {
+                for (let idx = 0; idx < validRows.length; idx++) {
                     let canvas = document.getElementById(`qr-canvas-${idx}`);
+                    let row = validRows[idx];
                     if (canvas && window.QRCode) {
-                        QRCode.toCanvas(canvas, row.code, { width: 120, margin: 1 }, function (error) {});
+                        try {
+                            await QRCode.toCanvas(canvas, row.code, { width: 120, margin: 1 });
+                        } catch (err) {
+                            console.error("QR Code generation error:", err);
+                        }
                     }
-                });
+                }
             }, 100);
         }
 
         function printExcelCodes() {
-            // หน่วงเวลาเล็กน้อยเพื่อให้ Canvas วาดเสร็จสมบูรณ์ทุกป้ายก่อนเรียกหน้าต่างพิมพ์
-            setTimeout(() => {
-                window.print();
-            }, 300);
+            // 🛠️ ປັບປຸງ: ວາດ QR Code ໃຫ້ສຳເລັດກ່ອນທຸກປ້າຍ ແລ້ວໜ່ວງເວລາ 0.6 ວິນາທີ ຈຶ່ງສັ່ງ print
+            let validRows = excelRows.filter(r => r.code.trim() !== '');
+            let promises = validRows.map((row, idx) => {
+                let canvas = document.getElementById(`qr-canvas-${idx}`);
+                if (canvas && window.QRCode) {
+                    return QRCode.toCanvas(canvas, row.code, { width: 120, margin: 1 });
+                }
+                return Promise.resolve();
+            });
+
+            Promise.all(promises).then(() => {
+                setTimeout(() => {
+                    window.print();
+                }, 600);
+            }).catch(() => {
+                setTimeout(() => {
+                    window.print();
+                }, 600);
+            });
         }
     </script>
 </body>
