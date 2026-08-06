@@ -127,11 +127,10 @@
             </div>
             
             <div class="bg-blue-50 p-4 rounded-xl border border-blue-200 space-y-3">
-                <h4 class="font-bold text-blue-900 text-sm">➕ ສ້າງ Username ແລະ Password ໃຫ້ສະມາຊິກຖາວອນ</h4>
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <h4 class="font-bold text-blue-900 text-sm">➕ ສ້າງ Username ໃຫ້ສະມາຊິກຖາວອນ</h4>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <input type="text" id="new-target-device" placeholder="ID ເຄື່ອງ (ເຊັ່ນ: POS-A0001)" class="border rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none bg-white">
                     <input type="text" id="new-admin-user" placeholder="USERNAME (ເຊັ່ນ: SHOP001)" class="border rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none bg-white">
-                    <input type="text" id="new-admin-pass" placeholder="Password" class="border rounded-lg px-3 py-2 text-xs font-semibold outline-none bg-white">
                 </div>
                 <button onclick="adminCreateUser()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg text-xs transition cursor-pointer shadow">
                     💾 ບັນທຶກ ແລະ ສ້າງບັນຊີສະມາຊິກ
@@ -733,6 +732,7 @@
             document.getElementById('role-select-modal').classList.remove('hidden');
         }
 
+        // 🌟 ປັບປຸງຟັງຊັນລັອກອິນ: ເມື່ອລັອກອິນດ້ວຍ Username ຖາວອນແລ້ວ ໃຫ້ອັບເດດ/ລວມຂໍ້ມູນທັງ 3 ເຄື່ອງໃຫ້ໃຊ້ deviceId ດຽວກັນທັນທີ
         async function verifyUnifiedLogin() {
             let u = document.getElementById('unified-login-username').value.trim();
             let p = document.getElementById('unified-login-password').value.trim();
@@ -785,6 +785,7 @@
                         localStorage.setItem('pos_license_status', data.status);
                         localStorage.removeItem('pos_user_role');
 
+                        // 🌟 ລວມຂໍ້ມູນປະຫວັດການຂາຍ ແລະ ສິນຄ້າເກົ່າ ຈາກເຄື່ອງທົດລອງເຂົ້າສູ່ DeviceID ຖາວອນທັງໝົດ
                         if (oldDeviceId && oldDeviceId !== data.device_id) {
                             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
                             localHistory.forEach(tx => { tx.device_id = data.device_id; });
@@ -792,6 +793,11 @@
 
                             await supabaseClient
                                 .from('sales_history')
+                                .update({ device_id: data.device_id })
+                                .eq('device_id', oldDeviceId);
+
+                            await supabaseClient
+                                .from('products')
                                 .update({ device_id: data.device_id })
                                 .eq('device_id', oldDeviceId);
                         }
@@ -1137,7 +1143,6 @@
             showConfirmModalParsed(text, text, "", "");
         }
 
-        // 🌟 ປັບປຸງຟັງຊັນສະແກນ ໃຫ້ຟໍແມັດຕົວເລກລາຄາຊື້ ແລະ ລາຄາຂາຍດ້ວຍເຄື່ອງໝາຍຈຸດ (,) ຂັ້ນຫຼັກພັນຢ່າງຖືກຕ້ອງ 100% (ເຊັ່ນ: 158,000 ແລະ 205,400)
         function formatNumberWithCommas(num) {
             if (!num || isNaN(num)) return "";
             return Number(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -1635,7 +1640,7 @@
                 </div>`;
             });
             listContainer.innerHTML = html || '<p class="text-center text-gray-400 py-2">ບໍ່ມີລາຍການຖືກຕັດ</p>';
-            document.getElementById('duplicate-report-modal').classList.remove('hidden');
+            document.getElementById('duplicate-report-modal').classList.add('hidden');
         }
 
         function closeDuplicateReportModal() {
