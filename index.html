@@ -862,7 +862,7 @@
                                     ${isPerm ? '⭐ ຖາວອນ' : '⏳ ທົດລອງ'}
                                 </span>
                                 <button onclick="toggleDeviceStatus('${item.device_id}', '${isPerm ? 'trial' : 'permanent'}')" class="px-2.5 py-1 rounded font-bold ${isPerm ? 'bg-amber-200 text-amber-800' : 'bg-green-200 text-green-800'} cursor-pointer">
-                                    ${isPerm ? 'ປ່ຽນເປັນ Trial' : 'ເປີດໃຊ້ຖາວອນ'}
+                                    ${isPerm ? 'ປ່ຽເປັນ Trial' : 'ເປີດໃຊ້ຖາວອນ'}
                                 </button>
                                 <button onclick="adminDeleteAccount('${item.device_id}')" class="px-2 py-1 rounded font-bold bg-red-100 text-red-600 hover:bg-red-200 cursor-pointer">
                                     🗑️ ລຶບ
@@ -1221,13 +1221,165 @@
         function closeHistory() { document.getElementById('history-modal').classList.add('hidden'); }
         async function openReport() { document.getElementById('report-modal').classList.remove('hidden'); }
         function closeReport() { document.getElementById('report-modal').classList.add('hidden'); }
-        
-        // --- ຟັງຊັນຄວບຄຸມຕາຕະລາງສ້າງ QR Code ສຳລັບປຸ່ມເມນູ ---
+
+        // --- ຟັງຊັນຈັດການຕາຕະລາງສ້າງ QR Code ແລະ ອັບໂຫລດ Excel (ທີ່ເພີ່ມເຂົ້າມາໃໝ່) ---
         function openExcelGenerator() {
             document.getElementById('excel-generator-modal').classList.remove('hidden');
+            if (excelRows.length === 0) {
+                addExcelRow();
+            } else {
+                renderExcelTable();
+            }
         }
+
         function closeExcelGenerator() {
             document.getElementById('excel-generator-modal').classList.add('hidden');
+            document.getElementById('excel-print-area').classList.add('hidden');
+        }
+
+        function addExcelRow(code = '', cost = '', profitPct = 20, price = '') {
+            excelRows.push({ code: code, cost: cost, profitPct: profitPct, price: price });
+            renderExcelTable();
+        }
+
+        function removeExcelRow(index) {
+            excelRows.splice(index, 1);
+            if (excelRows.length === 0) addExcelRow();
+            renderExcelTable();
+        }
+
+        function clearUnsavedRows() {
+            excelRows = [];
+            addExcelRow();
+            document.getElementById('excel-print-area').classList.add('hidden');
+            showAlert("ສຳເລັດ", "ລຶບຂໍ້ມູນໃນຕາຕະລາງແລ້ວ", "🧹");
+        }
+
+        function renderExcelTable() {
+            let tbody = document.getElementById('excel-tbody');
+            let html = '';
+            excelRows.forEach((row, index) => {
+                html += `
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="p-2 border-r text-center font-bold text-gray-500 text-xs">${index + 1}</td>
+                        <td class="p-2 border-r">
+                            <input type="text" value="${row.code}" oninput="updateExcelRowData(${index}, 'code', this.value)" placeholder="ຊື່ສິນຄ້າ ຫຼື ລະຫັດ" class="w-full border rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-blue-500">
+                        </td>
+                        <td class="p-2 border-r">
+                            <input type="number" value="${row.cost}" oninput="updateExcelRowData(${index}, 'cost', this.value)" placeholder="0" class="w-full border rounded px-2 py-1 text-right text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-blue-600">
+                        </td>
+                        <td class="p-2 border-r">
+                            <input type="number" value="${row.profitPct}" oninput="updateExcelRowData(${index}, 'profitPct', this.value)" placeholder="20" class="w-full border rounded px-2 py-1 text-center text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-amber-600">
+                        </td>
+                        <td class="p-2 border-r">
+                            <input type="number" value="${row.price}" oninput="updateExcelRowData(${index}, 'price', this.value)" placeholder="0" class="w-full border rounded px-2 py-1 text-right text-xs outline-none focus:ring-1 focus:ring-blue-500 font-bold text-green-600">
+                        </td>
+                        <td class="p-2 text-center">
+                            <button onclick="removeExcelRow(${index})" class="bg-red-100 text-red-600 hover:bg-red-200 px-2 py-1 rounded text-xs font-bold cursor-pointer">🗑️ ລຶບ</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        function updateExcelRowData(index, field, value) {
+            excelRows[index][field] = value;
+            if (field === 'cost' || field === 'profitPct') {
+                let cost = parseFloat(excelRows[index].cost) || 0;
+                let pct = parseFloat(excelRows[index].profitPct) || 0;
+                if (cost > 0 && pct >= 0) {
+                    let calculatedPrice = cost + (cost * pct / 100);
+                    excelRows[index].price = Math.round(calculatedPrice);
+                    renderExcelTable();
+                }
+            }
+        }
+
+        function handleExcelUpload(event) {
+            let file = event.target.files[0];
+            if (!file) return;
+            let reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    let data = new Uint8Array(e.target.result);
+                    let workbook = XLSX.read(data, { type: 'array' });
+                    let firstSheetName = workbook.SheetNames[0];
+                    let worksheet = workbook.Sheets[firstSheetName];
+                    let json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    
+                    let newRows = [];
+                    for (let i = 1; i < json.length; i++) {
+                        let row = json[i];
+                        if (row && row.length > 0) {
+                            let code = row[0] ? String(row[0]) : '';
+                            let cost = row[1] !== undefined ? parseFloat(row[1]) || 0 : '';
+                            let profitPct = row[2] !== undefined ? parseFloat(row[2]) || 20 : 20;
+                            let price = row[3] !== undefined ? parseFloat(row[3]) || 0 : '';
+                            if (code) {
+                                newRows.push({ code: code, cost: cost, profitPct: profitPct, price: price });
+                            }
+                        }
+                    }
+                    if (newRows.length > 0) {
+                        excelRows = newRows;
+                        renderExcelTable();
+                        showAlert("ສຳເລັດ", `ນຳເຂົ້າຂໍ້ມູນ Excel ສຳເລັດ ${newRows.length} ລາຍການ!`, "📁");
+                    } else {
+                        showAlert("ແຈ້ງເຕືອນ", "ບໍ່ພົບຂໍ້ມູນໃນໄຟລ໌ Excel", "⚠️");
+                    }
+                } catch (err) {
+                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດອ່ານໄຟລ໌ Excel ได้", "❌");
+                }
+                event.target.value = '';
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function saveExcelData() {
+            showAlert("ສຳເລັດ", "ບັນທຶກຂໍ້ມູນໃນຕາຕະລາງຮຽບຮ້ອຍແລ້ວ", "💾");
+        }
+
+        function generateExcelCodes() {
+            let previewContainer = document.getElementById('excel-preview-cards');
+            let printArea = document.getElementById('excel-print-area');
+            let html = '';
+            
+            let validRows = excelRows.filter(r => r.code.trim() !== '');
+            if (validRows.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ้อนຂໍ້ມູນສິນຄ້າຢ່າງໜ້ອຍ 1 รายການ!", "⚠️");
+                return;
+            }
+
+            validRows.forEach((row, idx) => {
+                let safeCode = row.code.replace(/"/g, '&quot;');
+                let priceStr = (parseFloat(row.price) || 0).toLocaleString() + " ກີບ";
+                html += `
+                    <div class="bg-white border-2 border-dashed border-gray-300 p-4 rounded-xl text-center space-y-2 shadow-sm">
+                        <div class="font-bold text-gray-800 text-sm truncate">${safeCode}</div>
+                        <div class="flex justify-center my-2">
+                            <canvas id="qr-canvas-${idx}" class="mx-auto"></canvas>
+                        </div>
+                        <div class="font-extrabold text-green-600 text-base">${priceStr}</div>
+                    </div>
+                `;
+            });
+
+            previewContainer.innerHTML = html;
+            printArea.classList.remove('hidden');
+
+            setTimeout(() => {
+                validRows.forEach((row, idx) => {
+                    let canvas = document.getElementById(`qr-canvas-${idx}`);
+                    if (canvas && window.QRCode) {
+                        QRCode.toCanvas(canvas, row.code, { width: 120, margin: 1 }, function (error) {});
+                    }
+                });
+            }, 100);
+        }
+
+        function printExcelCodes() {
+            window.print();
         }
     </script>
 </body>
