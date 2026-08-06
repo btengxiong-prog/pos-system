@@ -651,7 +651,7 @@
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
             <div class="text-4xl">⚠️</div>
             <h3 class="text-xl font-bold text-gray-800">ຢືນຢັນການລຶບ</h3>
-            <p class="text-gray-600 text-sm leading-relaxed">ທ່ານຕ້ອງການລືບປະຫວັດນີ້ບໍ?</p>
+            <p class="text-gray-600 text-sm leading-relaxed">ທ່ານຕ້ອງການລືບປະຫວັດນີ້ບໍບໍ?</p>
             <div class="flex gap-2 pt-2">
                 <button onclick="closeConfirmDelete(false)" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
                 <button onclick="closeConfirmDelete(true)" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ຕົກລົງ</button>
@@ -754,7 +754,6 @@
             document.getElementById('role-select-modal').classList.remove('hidden');
         }
 
-        // 🌟 ປັບປຸງຟັງຊັນລັອກອິນແບບເດັດຂາດ: ຕັດການກວດສອບ query error ທີ່ເຮັດໃຫ້ເດັ້ງ Error ມາດຕະຖານອອກ 100%, ໃຜປ້ອນ Username ເຂົ້າມາລະບົບອະນຸຍາດໃຫ້ເຂົ້າທັນທີ
         async function verifyUnifiedLogin() {
             let u = document.getElementById('unified-login-username').value.trim();
             let p = document.getElementById('unified-login-password').value.trim();
@@ -775,7 +774,6 @@
 
             let formattedU = u.toUpperCase();
             
-            // ບັນທຶກລົງ Supabase ໂດຍອັດຕະໂນມັດຖ້າຍັງບໍ່ມີ (ເພື່ອຄວາມລຽບຮ້ອຍ)
             if (supabaseClient) {
                 try {
                     let newPayload = {
@@ -852,6 +850,7 @@
             document.getElementById('migrate-modal').classList.add('hidden');
         }
 
+        // 🌟 ປັບປຸງຟັງຊັນໂອນຂໍ້ມູນ: ໃຫ້ຍ້າຍປະຫວັດການຂາຍທັງໝົດໃນ Supabase ຈາກ device_id ເກົ່າທุกໂຕ ມາເປັນ device_id ປາຍທາງທັນທີຢ່າງສົມບູນ
         async function confirmMigrationData() {
             let targetUser = document.getElementById('migrate-target-username').value.trim().toUpperCase();
             if (!targetUser) {
@@ -866,15 +865,17 @@
 
             try {
                 let actualTargetId = targetUser;
+                let oldDeviceId = deviceId;
+
+                // 1. ບັນທຶກ User ປາຍທາງລົງໃນ licenses
                 let newPayload = {
-                    device_id: targetUser,
+                    device_id: actualTargetId,
                     status: 'permanent',
                     created_at: new Date().toISOString()
                 };
                 await supabaseClient.from('licenses').upsert(newPayload, { onConflict: 'device_id' });
 
-                let oldDeviceId = deviceId;
-
+                // 2. ດຶງປະຫວັດການຂາຍທັງໝົດໃນ LocalStorage ມາເພີ່ມເຂົ້າ Cloud
                 let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
                 if (localHistory.length > 0) {
                     let cloudPayload = localHistory.map(tx => ({
@@ -893,6 +894,7 @@
                     await supabaseClient.from('sales_history').insert(cloudPayload);
                 }
 
+                // 3. 🌟 ຫົວໃຈສຳຄັນ: ອັບເດດ (Migrate) sales_history ທັງໝົດໃນ Cloud ຈາກ device_id ເກົ່າ (ເຊັ່ນເຄື່ອງທົດລອງ) ໃຫ້ປ່ຽນເປັນ POS-A0010 ໃຫ້ໝົດທຸກແຖວ
                 if (oldDeviceId && oldDeviceId !== actualTargetId) {
                     await supabaseClient
                         .from('sales_history')
@@ -900,8 +902,10 @@
                         .eq('device_id', oldDeviceId);
                 }
 
+                // 4. ລຶບປະຫວັດໃນ LocalStorage ຂອງເຄື່ອງນີ້ໃຫ້ຫວ່າງເປົ່າ
                 localStorage.removeItem('pos_local_history');
 
+                // 5. ປ່ຽນ DeviceId ຂອງເຄື່ອງນີ້ໃຫ້ເປັນ User ຖາວອນທັນທີ
                 currentUsername = actualTargetId;
                 deviceId = actualTargetId;
                 localStorage.setItem('pos_current_username', currentUsername);
@@ -913,6 +917,83 @@
                 checkRoleAndLicense();
             } catch (e) {
                 showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການໂອນຂໍ້ມູນ", "❌");
+            }
+        }
+
+        // 🌟 ປັບປຸງຟັງຊັນໂຫຼດປະຫວັດ: ໃຫ້ດຶງຂໍ້ມູນການຂາຍທັງໝົດໃນ Supabase ມາສະແດງຜົນລວມກັນທັງໝົດ ໂດຍບໍ່ກັ່ນກອງ device_id ເພື່ອໃຫ້ POS-A0010 ເຫັນປະຫວັດທີ່ໂອນມາທັງໝົດ 100%
+        async function loadCloudHistory() {
+            let listDiv = document.getElementById('history-list');
+            listDiv.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
+            document.getElementById('history-summary').classList.add('hidden');
+            globalHistoryList = [];
+
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            let combinedMap = new Map();
+
+            localHistory.forEach(tx => { combinedMap.set(tx.id || tx.created_at, tx); });
+
+            if (supabaseClient) {
+                try {
+                    let { data: cloudSales, error } = await supabaseClient
+                        .from('sales_history')
+                        .select('*')
+                        .order('created_at', { ascending: false });
+
+                    if (!error && cloudSales) {
+                        cloudSales.forEach(tx => {
+                            let key = tx.id || tx.created_at;
+                            if (!combinedMap.has(key)) {
+                                combinedMap.set(key, {
+                                    id: tx.id, source: 'cloud', device_id: tx.device_id, created_at: tx.created_at,
+                                    total_items: tx.total_items || 0, total_cost: tx.total_cost || 0,
+                                    discount: tx.discount || 0, total: tx.total, cash: tx.cash, change: tx.change, items: tx.items || []
+                                });
+                            }
+                        });
+                    }
+                } catch (err) {}
+            }
+
+            globalHistoryList = Array.from(combinedMap.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+            if (globalHistoryList.length === 0) {
+                listDiv.innerHTML = `<p class="text-gray-500 text-center py-4">ຍັງບໍ່ມີປະຫວັດການຂາຍ.</p>`;
+            } else {
+                let html = '', sumCost = 0, sumPrice = 0;
+                globalHistoryList.forEach((tx, index) => {
+                    let txCost = (tx.total_cost || 0);
+                    let txPrice = (tx.total || 0);
+                    let txProfit = txPrice - txCost;
+
+                    sumCost += txCost; 
+                    sumPrice += txPrice;
+
+                    html += `
+                        <div class="border-b pb-3 mb-3 bg-gray-50 p-3 rounded-xl border-l-4 border-blue-600 shadow-sm space-y-1">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-bold text-blue-800 text-xs">📅 ${new Date(tx.created_at).toLocaleString()} [ID: ${tx.device_id}]</span>
+                                <button onclick="promptDeleteHistory(${index})" class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded font-bold cursor-pointer">🗑️ ລຶບ</button>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-700 font-semibold">
+                                <span>ລາຄາຊື້ລວມ:</span>
+                                <span class="text-blue-700">${formatNumberWithCommas(txCost)} ກີບ</span>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-800 font-bold">
+                                <span>ຍອດຂາຍຕົວຈິງ:</span>
+                                <span class="text-green-600">${formatNumberWithCommas(txPrice)} ກີບ</span>
+                            </div>
+                            <div class="flex justify-between text-xs font-bold text-emerald-700 border-t pt-1">
+                                <span>ກຳໄລເບື້ອງຕົ້ນ:</span>
+                                <span>${formatNumberWithCommas(txProfit)} ກີບ</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                listDiv.innerHTML = html;
+                document.getElementById('sum-total-cost').innerText = formatNumberWithCommas(sumCost) + " ກີບ";
+                document.getElementById('sum-total-price').innerText = formatNumberWithCommas(sumPrice) + " ກີບ";
+                document.getElementById('sum-total-profit').innerText = formatNumberWithCommas(sumPrice - sumCost) + " ກີບ";
+                document.getElementById('history-summary').classList.remove('hidden');
             }
         }
 
@@ -1368,82 +1449,6 @@
             document.getElementById('cash-given').value = ''; 
             document.getElementById('custom-final-price').value = '';
             renderCart();
-        }
-
-        async function loadCloudHistory() {
-            let listDiv = document.getElementById('history-list');
-            listDiv.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
-            document.getElementById('history-summary').classList.add('hidden');
-            globalHistoryList = [];
-
-            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-            let combinedMap = new Map();
-
-            localHistory.forEach(tx => { combinedMap.set(tx.id || tx.created_at, tx); });
-
-            if (supabaseClient) {
-                try {
-                    let { data: cloudSales, error } = await supabaseClient
-                        .from('sales_history')
-                        .select('*')
-                        .order('created_at', { ascending: false });
-
-                    if (!error && cloudSales) {
-                        cloudSales.forEach(tx => {
-                            let key = tx.id || tx.created_at;
-                            if (!combinedMap.has(key)) {
-                                combinedMap.set(key, {
-                                    id: tx.id, source: 'cloud', device_id: tx.device_id, created_at: tx.created_at,
-                                    total_items: tx.total_items || 0, total_cost: tx.total_cost || 0,
-                                    discount: tx.discount || 0, total: tx.total, cash: tx.cash, change: tx.change, items: tx.items || []
-                                });
-                            }
-                        });
-                    }
-                } catch (err) {}
-            }
-
-            globalHistoryList = Array.from(combinedMap.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-            if (globalHistoryList.length === 0) {
-                listDiv.innerHTML = `<p class="text-gray-500 text-center py-4">ຍັງບໍ່ມີປະຫວັດການຂາຍ.</p>`;
-            } else {
-                let html = '', sumCost = 0, sumPrice = 0;
-                globalHistoryList.forEach((tx, index) => {
-                    let txCost = (tx.total_cost || 0);
-                    let txPrice = (tx.total || 0);
-                    let txProfit = txPrice - txCost;
-
-                    sumCost += txCost; 
-                    sumPrice += txPrice;
-
-                    html += `
-                        <div class="border-b pb-3 mb-3 bg-gray-50 p-3 rounded-xl border-l-4 border-blue-600 shadow-sm space-y-1">
-                            <div class="flex justify-between items-center mb-1">
-                                <span class="font-bold text-blue-800 text-xs">📅 ${new Date(tx.created_at).toLocaleString()} [ID: ${tx.device_id}]</span>
-                                <button onclick="promptDeleteHistory(${index})" class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded font-bold cursor-pointer">🗑️ ລຶບ</button>
-                            </div>
-                            <div class="flex justify-between text-xs text-gray-700 font-semibold">
-                                <span>ລາຄາຊື້ລວມ:</span>
-                                <span class="text-blue-700">${formatNumberWithCommas(txCost)} ກີບ</span>
-                            </div>
-                            <div class="flex justify-between text-xs text-gray-800 font-bold">
-                                <span>ຍອດຂາຍຕົວຈິງ:</span>
-                                <span class="text-green-600">${formatNumberWithCommas(txPrice)} ກີບ</span>
-                            </div>
-                            <div class="flex justify-between text-xs font-bold text-emerald-700 border-t pt-1">
-                                <span>ກຳໄລເບື້ອງຕົ້ນ:</span>
-                                <span>${formatNumberWithCommas(txProfit)} ກີບ</span>
-                            </div>
-                        </div>
-                    `;
-                });
-                listDiv.innerHTML = html;
-                document.getElementById('sum-total-cost').innerText = formatNumberWithCommas(sumCost) + " ກີບ";
-                document.getElementById('sum-total-price').innerText = formatNumberWithCommas(sumPrice) + " ກີບ";
-                document.getElementById('sum-total-profit').innerText = formatNumberWithCommas(sumPrice - sumCost) + " ກີບ";
-                document.getElementById('history-summary').classList.remove('hidden');
-            }
         }
 
         function openHistory() { document.getElementById('history-modal').classList.remove('hidden'); loadCloudHistory(); }
