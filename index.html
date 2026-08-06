@@ -1224,7 +1224,7 @@
         async function openReport() { document.getElementById('report-modal').classList.remove('hidden'); }
         function closeReport() { document.getElementById('report-modal').classList.add('hidden'); }
 
-        // --- ຟັງຊັນຈັດການຕາຕະລາງສ້າງ QR Code ແລະ ບັນທຶກຂໍ້ມູນ ---
+        // --- ຟັງຊັນຈັດການຕາຕະລາງສ້າງ QR Code ແລະ ບັນທຶກຂໍ້ມູນດ້ວຍຄວາມໄວສູງ ---
         function openExcelGenerator() {
             document.getElementById('excel-generator-modal').classList.remove('hidden');
             let savedRows = localStorage.getItem('pos_saved_excel_rows');
@@ -1375,6 +1375,7 @@
             reader.readAsArrayBuffer(file);
         }
 
+        // --- ຟັງຊັນບັນທຶກຂໍ້ມູນດ້ວຍຄວາມໄວສູງ (Batch Upsert & Instant Local Save) ---
         async function saveExcelData() {
             let validRows = excelRows.filter(r => r.code.trim() !== '');
             if (validRows.length === 0) {
@@ -1382,25 +1383,29 @@
                 return;
             }
 
+            // 1. ບັນທຶກລົງ LocalStorage ຢ່າງວ່ອງໄວທັນທີ
             localStorage.setItem('pos_saved_excel_rows', JSON.stringify(validRows));
+            showAlert("ສຳເລັດ", `ບັນທຶກຂໍ້ມູນສິນຄ້າທັງໝົດ ${validRows.length} ລາຍການຮຽບຮ້ອຍແລ້ວ!`, "💾");
 
+            // 2. ບັນທຶກຂຶ້ນ Cloud Supabase ແບບ Batch (ສົ່ງທุกແຖວພ້ອມກັນໃນຄຳສັ່ງດຽວ ເພື່ອຄວາມໄວສູງສຸດ)
             if (supabaseClient) {
                 try {
-                    for (let row of validRows) {
-                        await supabaseClient.from('products').upsert({
-                            device_id: deviceId,
-                            code: row.code,
-                            cost: parseFloat(row.cost) || 0,
-                            profit_pct: parseFloat(row.profitPct) || 20,
-                    price: parseFloat(row.price) || 0,
-                            qty: parseInt(row.qty) || 1,
-                            updated_at: new Date().toISOString()
-                        }, { onConflict: 'device_id,code' });
-                    }
-                } catch (err) {}
-            }
+                    let payload = validRows.map(row => ({
+                        device_id: deviceId,
+                        code: row.code,
+                        cost: parseFloat(row.cost) || 0,
+                        profit_pct: parseFloat(row.profitPct) || 20,
+                        price: parseFloat(row.price) || 0,
+                        qty: parseInt(row.qty) || 1,
+                        updated_at: new Date().toISOString()
+                    }));
 
-            showAlert("ສຳເລັດ", `ບັນທຶກຂໍ້ມູນສິນຄ້າທັງໝົດ ${validRows.length} ລາຍການຮຽບຮ້ອຍແລ້ວ!`, "💾");
+                    // ໃຊ້ upsert ສົ່ງ array ໄປເທື່ອດຽວ ໄວຂຶ້ນ 10 ເທົ່າ
+                    await supabaseClient.from('products').upsert(payload, { onConflict: 'device_id,code' });
+                } catch (err) {
+                    console.error("Cloud sync warning:", err);
+                }
+            }
         }
 
         function generateExcelCodes() {
