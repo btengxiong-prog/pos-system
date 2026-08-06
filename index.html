@@ -928,7 +928,6 @@
 
                 data.forEach((item, idx) => {
                     let isPerm = item.status === 'permanent';
-                    let remark = item.remark || '';
                     let uname = item.username || '';
                     html += `
                         <div class="bg-gray-50 p-3 rounded-xl border text-xs space-y-2">
@@ -944,18 +943,12 @@
                                         ${isPerm ? '⭐ ຖາວອນ' : '⏳ ທົດລອງ / ລະງັບ'}
                                     </span>
                                     <button onclick="toggleDeviceStatus('${item.device_id}', '${isPerm ? 'trial' : 'permanent'}')" class="px-3 py-1.5 rounded font-bold ${isPerm ? 'bg-amber-500 text-white' : 'bg-green-600 text-white'} cursor-pointer shadow-sm">
-                                        ${isPerm ? '🔒 ປ່ຽເປັນທົດລອງ/ບ໋ອກ' : '🔓 ເປີດໃຊ້ຖາວອນ'}
+                                        ${isPerm ? 'ປ່ຽນເປັນທົດລອງ' : '🔓 ເປີດໃຊ້ຖາວອນ'}
                                     </button>
                                     <button onclick="adminDeleteAccount('${item.device_id}')" class="px-2.5 py-1.5 rounded font-bold bg-red-100 text-red-600 hover:bg-red-200 cursor-pointer">
                                         🗑️ ລຶບ
                                     </button>
                                 </div>
-                            </div>
-                            <div class="flex gap-2 items-center pt-1 border-t">
-                                <input type="text" id="remark-${item.device_id}" value="${remark}" placeholder="ປ້ອນໝາຍເຫດ (ເຊັ່ນ: Pass:1234 | ຄ້າງຊຳລະ)" class="flex-1 border rounded px-2.5 py-1 text-xs outline-none bg-white font-medium text-gray-700">
-                                <button onclick="saveDeviceRemark('${item.device_id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-bold cursor-pointer shadow-sm">
-                                    💾 ບັນທຶກໝາຍເຫດ
-                                </button>
                             </div>
                         </div>
                     `;
@@ -965,32 +958,13 @@
             } catch (e) {}
         }
 
-        async function saveDeviceRemark(targetId) {
-            let inputElem = document.getElementById(`remark-${targetId}`);
-            if (!inputElem || !supabaseClient) return;
-            let remarkText = inputElem.value.trim();
-
-            try {
-                let { error } = await supabaseClient.from('licenses').update({ remark: remarkText }).eq('device_id', targetId);
-                if (error) {
-                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດບັນທຶກໝາຍເຫດໄດ້", "⚠️");
-                    return;
-                }
-                showAlert("ສຳເລັດ", `ບັນທຶກໝາຍເຫດໃຫ້ເຄື່ອງ [${targetId}] ຮຽບຮ້ອຍ!`, "💾");
-                await loadAllDevices();
-            } catch (e) {
-                showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດ", "⚠️");
-            }
-        }
-
-        // 🌟 ປັບປຸງຟັງຊັນສ້າງ Username ໃຫ້ສົ່ງສະເພາະຖັນທີ່ມີຢູ່ຈິງໃນ Supabase (device_id, status, username, remark) ເພື່ອໃຫ້ບັນທຶກຜ່ານ 100% ໂດຍບໍ່ມີ Error
+        // 🌟 ປັບປຸງຟັງຊັນສ້າງ Username ໃຫ້ສົ່ງສະເພາະຖັນທີ່ມີຢູ່ຈິງໃນ Supabase (device_id, status, username) ຢ່າງຖືກຕ້ອງ 100% ບໍ່ມີ Error
         async function adminCreateUser() {
             let targetDev = document.getElementById('new-target-device').value.trim().toUpperCase();
             let u = document.getElementById('new-admin-user').value.trim().toUpperCase();
-            let p = document.getElementById('new-admin-pass').value.trim();
 
-            if (!targetDev || !u || !p) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ ID ເຄື່ອງ, Username ແລະ Password ໃຫ້ຄົບຖ້ວນ!", "⚠️");
+            if (!targetDev || !u) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ ID ເຄື່ອງ ແລະ Username ໃຫ້ຄົບຖ້ວນ!", "⚠️");
                 return;
             }
 
@@ -1003,7 +977,6 @@
                     device_id: targetDev,
                     status: 'permanent',
                     username: u,
-                    remark: `Pass: ${p} | ເປີດໃຊ້ງານຖາວອນແລ້ວ`,
                     created_at: existingDev ? existingDev.created_at : new Date().toISOString()
                 };
 
@@ -1014,7 +987,7 @@
                     return;
                 }
 
-                showAlert("ສຳເລັດ", `ເປີດໃຊ້ງານຖາວອນໃຫ້ [ID: ${targetDev}] (User: ${u}) ສຳເລັດຮຽບຮ້ອຍ!`, "⭐");
+                showAlert("ສຳເລັດ", `ເປີດໃຊ້ງານຖາວອນໃຫ້ ID: ${targetDev} ສໍາເລັດຮຽບຮ້ອຍ!`, "⭐");
                 document.getElementById('new-target-device').value = "";
                 document.getElementById('new-admin-user').value = "";
                 document.getElementById('new-admin-pass').value = "";
@@ -1046,8 +1019,7 @@
         async function toggleDeviceStatus(targetId, newStatus) {
             if (!supabaseClient) return;
             try {
-                let defaultRemark = newStatus === 'permanent' ? 'ເປີດໃຊ້ງານຖາວອນແລ້ວ (ຈ່າຍຄ່າບໍລິການ)' : 'ລະງັບຊົ່ວຄາວ (ຄ້າງຊຳລະຄ່າບໍລິການ)';
-                let { error } = await supabaseClient.from('licenses').update({ status: newStatus, remark: defaultRemark }).eq('device_id', targetId);
+                let { error } = await supabaseClient.from('licenses').update({ status: newStatus }).eq('device_id', targetId);
                 if (error) {
                     showAlert("ຜິດພາດ", "ບໍ່ສາມາດປ່ຽນສະຖານະໄດ້: " + error.message, "⚠️");
                     return;
@@ -1829,7 +1801,7 @@
             promptPrintDate();
         }
 
-        // 🌟 ຟັງຊັນສ້າງ Username ຖາວອນ ທີ່ໃຊ້ສະເພາະ Column ທີ່ມີຢູ່ຈິງໃນ Supabase (device_id, status) ເພື່ອໃຫ້ຜ່ານ 100% ບໍ່ມີ Error
+        // 🌟 ປັບປຸງຟັງຊັນສ້າງ Username ຖາວອນ ໃຫ້ສົ່ງສະເພາະ Column ທີ່ມີຢູ່ຈິງใน Supabase (device_id, status, username) ຢ່າງຖືກຕ້ອງ 100% ພ້ອມຂໍ້ຄວາມແຈ້ງເຕືອນຕາມທີ່ຕ້ອງການ
         async function adminCreateUser() {
             let targetDev = document.getElementById('new-target-device').value.trim().toUpperCase();
             let u = document.getElementById('new-admin-user').value.trim().toUpperCase();
@@ -1847,6 +1819,7 @@
                 let payload = {
                     device_id: targetDev,
                     status: 'permanent',
+                    username: u,
                     created_at: existingDev ? existingDev.created_at : new Date().toISOString()
                 };
 
@@ -1857,9 +1830,10 @@
                     return;
                 }
 
-                showAlert("ສຳເລັດ", `ເປີດໃຊ້ງານຖາວອນໃຫ້ [ID: ${targetDev}] (User: ${u}) ສຳເລັດຮຽບຮ້ອຍ!`, "⭐");
+                showAlert("ສຳເລັດ", `ເປີດໃຊ້ງານຖາວອນໃຫ້ ID: ${targetDev} ສໍາເລັດຮຽບຮ້ອຍ!`, "⭐");
                 document.getElementById('new-target-device').value = "";
                 document.getElementById('new-admin-user').value = "";
+                document.getElementById('new-admin-pass').value = "";
                 await loadAllDevices();
             } catch (e) {
                 showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການເຊື່ອມຕໍ່", "⚠️");
