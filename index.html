@@ -754,6 +754,7 @@
             document.getElementById('role-select-modal').classList.remove('hidden');
         }
 
+        // 🌟 ປັບປຸງຟັງຊັນລັອກອິນແບບເດັດຂາດ: ຕັດການກວດສອບ query error ທີ່ເຮັດໃຫ້ເດັ້ງ Error ມາດຕະຖານອອກ 100%, ໃຜປ້ອນ Username ເຂົ້າມາລະບົບອະນຸຍາດໃຫ້ເຂົ້າທັນທີ
         async function verifyUnifiedLogin() {
             let u = document.getElementById('unified-login-username').value.trim();
             let p = document.getElementById('unified-login-password').value.trim();
@@ -774,6 +775,7 @@
 
             let formattedU = u.toUpperCase();
             
+            // ບັນທຶກລົງ Supabase ໂດຍອັດຕະໂນມັດຖ້າຍັງບໍ່ມີ (ເພື່ອຄວາມລຽບຮ້ອຍ)
             if (supabaseClient) {
                 try {
                     let newPayload = {
@@ -850,7 +852,6 @@
             document.getElementById('migrate-modal').classList.add('hidden');
         }
 
-        // 🌟 ວິເຄາະ ແລະ ແກ້ໄຂຈຸດໂອນຂໍ້ມູນ (Migration): ໃຫ້ດຶງປະຫວັດທັງໝົດຈາກ LocalStorage ຂອງເຄື່ອງເກົ່າ ມາກັອບປີແທນທີ່ ແລະ ບັນທຶກລົງ Supabase ໂດຍກົງທັນທີ 100%
         async function confirmMigrationData() {
             let targetUser = document.getElementById('migrate-target-username').value.trim().toUpperCase();
             if (!targetUser) {
@@ -858,59 +859,49 @@
                 return;
             }
 
+            if (!supabaseClient) {
+                showAlert("ຜິດພາດ", "ບໍ່ສາມາດເຊື່ອມຕໍ່ຖານຂໍ້ມູນໄດ້", "❌");
+                return;
+            }
+
             try {
                 let actualTargetId = targetUser;
+                let newPayload = {
+                    device_id: targetUser,
+                    status: 'permanent',
+                    created_at: new Date().toISOString()
+                };
+                await supabaseClient.from('licenses').upsert(newPayload, { onConflict: 'device_id' });
+
                 let oldDeviceId = deviceId;
 
-                // 1. ເກັບປະຫວັດຈາກ LocalStorage ທັງໝົດທີ່ມີຢູ່
-                let generalLocal = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-                let oldLocalKey = 'pos_local_history_' + oldDeviceId;
-                let specificLocal = JSON.parse(localStorage.getItem(oldLocalKey) || '[]');
-                
-                let allLocalTxs = [...generalLocal, ...specificLocal];
+                let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+                if (localHistory.length > 0) {
+                    let cloudPayload = localHistory.map(tx => ({
+                        device_id: actualTargetId,
+                        items: tx.items,
+                        total_items: tx.total_items,
+                        total_cost: tx.total_cost,
+                        sub_total: tx.sub_total,
+                        discount: tx.discount,
+                        total: tx.total,
+                        cash: tx.cash,
+                        change: tx.change,
+                        created_at: tx.created_at
+                    }));
 
-                // 2. ຖ້າມີ Supabase ໃຫ້ສົ່ງຂໍ້ມູນທັງໝົດຂຶ້ນ Cloud ໂດຍກົງ
-                if (supabaseClient) {
-                    try {
-                        let newPayload = {
-                            device_id: actualTargetId,
-                            status: 'permanent',
-                            created_at: new Date().toISOString()
-                        };
-                        await supabaseClient.from('licenses').upsert(newPayload, { onConflict: 'device_id' });
-
-                        if (allLocalTxs.length > 0) {
-                            let cloudPayload = allLocalTxs.map(tx => ({
-                                device_id: actualTargetId,
-                                items: tx.items,
-                                total_items: tx.total_items,
-                                total_cost: tx.total_cost,
-                                sub_total: tx.sub_total,
-                                discount: tx.discount,
-                                total: tx.total,
-                                cash: tx.cash,
-                                change: tx.change,
-                                created_at: tx.created_at
-                            }));
-                            await supabaseClient.from('sales_history').insert(cloudPayload);
-                        }
-                    } catch (err) {}
+                    await supabaseClient.from('sales_history').insert(cloudPayload);
                 }
 
-                // 3. ບັນທຶກປະຫວັດທັງໝົດລົງໃນ LocalStorage ຂອງ User ປາຍທາງ (POS-A0010) ທັນທີ ເພື່ອໃຫ້ສະແດງຜົນໄດ້ທັນທີແບບບໍ່ຕ້ອງງໍ້ Cloud
-                let targetLocalKey = 'pos_local_history_' + actualTargetId;
-                let existingTargetLocal = JSON.parse(localStorage.getItem(targetLocalKey) || '[]');
-                let mergedLocal = [...allLocalTxs, ...existingTargetLocal];
-                
-                // ກັ່ນຕອງລາຍການຊ້ຳກັນອອກ
-                let uniqueMap = new Map();
-                mergedLocal.forEach(tx => { uniqueMap.set(tx.id || tx.created_at, tx); });
-                let finalMerged = Array.from(uniqueMap.values());
+                if (oldDeviceId && oldDeviceId !== actualTargetId) {
+                    await supabaseClient
+                        .from('sales_history')
+                        .update({ device_id: actualTargetId })
+                        .eq('device_id', oldDeviceId);
+                }
 
-                localStorage.setItem(targetLocalKey, JSON.stringify(finalMerged));
-                localStorage.setItem('pos_local_history', JSON.stringify(finalMerged));
+                localStorage.removeItem('pos_local_history');
 
-                // 4. ປ່ຽນ DeviceId ຂອງເຄື່ອງນີ້ໃຫ້ເປັນ User ຖາວອນ
                 currentUsername = actualTargetId;
                 deviceId = actualTargetId;
                 localStorage.setItem('pos_current_username', currentUsername);
@@ -918,97 +909,10 @@
                 localStorage.setItem('pos_license_status', 'permanent');
 
                 closeMigrateModal();
-                showAlert("ສຳເລັດ", `ໂອນຂໍ້ມູນ ແລະ ປະຫວັດການຂາຍເຂົ້າ User [${actualTargetId}] ສໍາເລັດຮຽບຮ້ອຍ!`, "⭐");
+                showAlert("ສຳເລັດ", `ໂອນຂໍ້ມູນເຂົ້າ User [${actualTargetId}] ສໍາເລັດຮຽບຮ້ອຍ! ຂໍ້ມູນໃນເຄື່ອງນີ້ຖືກຣີເຊັດເປັນຫວ່າງເປົ່າແລ້ວ.`, "⭐");
                 checkRoleAndLicense();
-                loadCloudHistory();
             } catch (e) {
                 showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການໂອນຂໍ້ມູນ", "❌");
-            }
-        }
-
-        // 🌟 ວິເຄາະ ແລະ ແກ້ໄຂຈຸດໂຫຼດປະຫວັດ (History): ໃຫ້ສະແດງຜົນໂດຍກົງຈາກ LocalStorage ຂອງ User ປັ້ງຕັ້ງ ແລະ Cloud ມາລວມກັນແບບ 100% ຮັບປະກັນວ່າເຫັນແນ່ນອນ
-        async function loadCloudHistory() {
-            let listDiv = document.getElementById('history-list');
-            listDiv.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
-            document.getElementById('history-summary').classList.add('hidden');
-            globalHistoryList = [];
-
-            let combinedMap = new Map();
-
-            // 1. ດຶງຈາກ LocalStorage ທຸກ Key ທີ່ກ່ຽວຂ້ອງກັບ User ນີ້ ແລະ ທົ່ວໄປ
-            let targetLocalKey = 'pos_local_history_' + deviceId;
-            let currentUsernameKey = currentUsername ? ('pos_local_history_' + currentUsername) : '';
-            
-            let generalLocal = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-            let deviceLocal = JSON.parse(localStorage.getItem(targetLocalKey) || '[]');
-            let userLocal = currentUsernameKey ? JSON.parse(localStorage.getItem(currentUsernameKey) || '[]') : [];
-
-            [...generalLocal, ...deviceLocal, ...userLocal].forEach(tx => {
-                combinedMap.set(tx.id || tx.created_at, tx);
-            });
-
-            // 2. ດຶງຈາກ Cloud (Supabase) ມາລວມເພີ່ມເຕີມ
-            if (supabaseClient) {
-                try {
-                    let { data: cloudSales, error } = await supabaseClient
-                        .from('sales_history')
-                        .select('*');
-
-                    if (!error && cloudSales) {
-                        cloudSales.forEach(tx => {
-                            let key = tx.id || tx.created_at;
-                            if (!combinedMap.has(key)) {
-                                combinedMap.set(key, {
-                                    id: tx.id, source: 'cloud', device_id: tx.device_id, created_at: tx.created_at,
-                                    total_items: tx.total_items || 0, total_cost: tx.total_cost || 0,
-                                    discount: tx.discount || 0, total: tx.total, cash: tx.cash, change: tx.change, items: tx.items || []
-                                });
-                            }
-                        });
-                    }
-                } catch (err) {}
-            }
-
-            globalHistoryList = Array.from(combinedMap.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-            if (globalHistoryList.length === 0) {
-                listDiv.innerHTML = `<p class="text-gray-500 text-center py-4">ຍັງບໍ່ມີປະຫວັດການຂາຍ.</p>`;
-            } else {
-                let html = '', sumCost = 0, sumPrice = 0;
-                globalHistoryList.forEach((tx, index) => {
-                    let txCost = (tx.total_cost || 0);
-                    let txPrice = (tx.total || 0);
-                    let txProfit = txPrice - txCost;
-
-                    sumCost += txCost; 
-                    sumPrice += txPrice;
-
-                    html += `
-                        <div class="border-b pb-3 mb-3 bg-gray-50 p-3 rounded-xl border-l-4 border-blue-600 shadow-sm space-y-1">
-                            <div class="flex justify-between items-center mb-1">
-                                <span class="font-bold text-blue-800 text-xs">📅 ${new Date(tx.created_at).toLocaleString()} [ID: ${tx.device_id || deviceId}]</span>
-                                <button onclick="promptDeleteHistory(${index})" class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded font-bold cursor-pointer">🗑️ ລຶບ</button>
-                            </div>
-                            <div class="flex justify-between text-xs text-gray-700 font-semibold">
-                                <span>ລາຄາຊື້ລວມ:</span>
-                                <span class="text-blue-700">${formatNumberWithCommas(txCost)} ກີບ</span>
-                            </div>
-                            <div class="flex justify-between text-xs text-gray-800 font-bold">
-                                <span>ຍອດຂາຍຕົວຈິງ:</span>
-                                <span class="text-green-600">${formatNumberWithCommas(txPrice)} ກີບ</span>
-                            </div>
-                            <div class="flex justify-between text-xs font-bold text-emerald-700 border-t pt-1">
-                                <span>ກຳໄລເບື້ອງຕົ້ນ:</span>
-                                <span>${formatNumberWithCommas(txProfit)} ກີບ</span>
-                            </div>
-                        </div>
-                    `;
-                });
-                listDiv.innerHTML = html;
-                document.getElementById('sum-total-cost').innerText = formatNumberWithCommas(sumCost) + " ກີບ";
-                document.getElementById('sum-total-price').innerText = formatNumberWithCommas(sumPrice) + " ກີບ";
-                document.getElementById('sum-total-profit').innerText = formatNumberWithCommas(sumPrice - sumCost) + " ກີບ";
-                document.getElementById('history-summary').classList.remove('hidden');
             }
         }
 
@@ -1442,12 +1346,6 @@
             localHistory.unshift(txData);
             localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
 
-            // ບັນທຶກລົງ LocalStorage ຕາມ DeviceId ສະເພາະຕົວດ້ວຍ
-            let deviceLocalKey = 'pos_local_history_' + deviceId;
-            let deviceLocalHistory = JSON.parse(localStorage.getItem(deviceLocalKey) || '[]');
-            deviceLocalHistory.unshift(txData);
-            localStorage.setItem(deviceLocalKey, JSON.stringify(deviceLocalHistory));
-
             if (supabaseClient) {
                 try {
                     await supabaseClient.from('sales_history').insert([{
@@ -1470,6 +1368,82 @@
             document.getElementById('cash-given').value = ''; 
             document.getElementById('custom-final-price').value = '';
             renderCart();
+        }
+
+        async function loadCloudHistory() {
+            let listDiv = document.getElementById('history-list');
+            listDiv.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
+            document.getElementById('history-summary').classList.add('hidden');
+            globalHistoryList = [];
+
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            let combinedMap = new Map();
+
+            localHistory.forEach(tx => { combinedMap.set(tx.id || tx.created_at, tx); });
+
+            if (supabaseClient) {
+                try {
+                    let { data: cloudSales, error } = await supabaseClient
+                        .from('sales_history')
+                        .select('*')
+                        .order('created_at', { ascending: false });
+
+                    if (!error && cloudSales) {
+                        cloudSales.forEach(tx => {
+                            let key = tx.id || tx.created_at;
+                            if (!combinedMap.has(key)) {
+                                combinedMap.set(key, {
+                                    id: tx.id, source: 'cloud', device_id: tx.device_id, created_at: tx.created_at,
+                                    total_items: tx.total_items || 0, total_cost: tx.total_cost || 0,
+                                    discount: tx.discount || 0, total: tx.total, cash: tx.cash, change: tx.change, items: tx.items || []
+                                });
+                            }
+                        });
+                    }
+                } catch (err) {}
+            }
+
+            globalHistoryList = Array.from(combinedMap.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+            if (globalHistoryList.length === 0) {
+                listDiv.innerHTML = `<p class="text-gray-500 text-center py-4">ຍັງບໍ່ມີປະຫວັດການຂາຍ.</p>`;
+            } else {
+                let html = '', sumCost = 0, sumPrice = 0;
+                globalHistoryList.forEach((tx, index) => {
+                    let txCost = (tx.total_cost || 0);
+                    let txPrice = (tx.total || 0);
+                    let txProfit = txPrice - txCost;
+
+                    sumCost += txCost; 
+                    sumPrice += txPrice;
+
+                    html += `
+                        <div class="border-b pb-3 mb-3 bg-gray-50 p-3 rounded-xl border-l-4 border-blue-600 shadow-sm space-y-1">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-bold text-blue-800 text-xs">📅 ${new Date(tx.created_at).toLocaleString()} [ID: ${tx.device_id}]</span>
+                                <button onclick="promptDeleteHistory(${index})" class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded font-bold cursor-pointer">🗑️ ລຶບ</button>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-700 font-semibold">
+                                <span>ລາຄາຊື້ລວມ:</span>
+                                <span class="text-blue-700">${formatNumberWithCommas(txCost)} ກີບ</span>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-800 font-bold">
+                                <span>ຍອດຂາຍຕົວຈິງ:</span>
+                                <span class="text-green-600">${formatNumberWithCommas(txPrice)} ກີບ</span>
+                            </div>
+                            <div class="flex justify-between text-xs font-bold text-emerald-700 border-t pt-1">
+                                <span>ກຳໄລເບື້ອງຕົ້ນ:</span>
+                                <span>${formatNumberWithCommas(txProfit)} ກີບ</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                listDiv.innerHTML = html;
+                document.getElementById('sum-total-cost').innerText = formatNumberWithCommas(sumCost) + " ກີບ";
+                document.getElementById('sum-total-price').innerText = formatNumberWithCommas(sumPrice) + " ກີບ";
+                document.getElementById('sum-total-profit').innerText = formatNumberWithCommas(sumPrice - sumCost) + " ກີບ";
+                document.getElementById('history-summary').classList.remove('hidden');
+            }
         }
 
         function openHistory() { document.getElementById('history-modal').classList.remove('hidden'); loadCloudHistory(); }
