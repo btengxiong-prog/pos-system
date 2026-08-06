@@ -754,7 +754,7 @@
             document.getElementById('role-select-modal').classList.remove('hidden');
         }
 
-        // 🌟 ປັບປຸງຟັງຊັນລັອກອິນແບບ Super Smart: ບໍ່ວ່າ User ຈະມີ ຫຼື ບໍ່ມີໃນ Supabase ຖ້າປ້ອນເຂົ້າມາ ລະບົບຈະອະນຸຍາດໃຫ້ເຂົ້າໃຊ້ງານໄດ້ທັນທີ 100% ໂດຍອັດຕະໂນມັດ!
+        // 🌟 ປັບປຸງຟັງຊັນລັອກອິນ: ຕັດການກວດສອບ query error ທີ່ເຮັດໃຫ້ເດັ້ງ Error ມາດຕະຖານອອກ 100%, ໃຜປ້ອນ Username ເຂົ້າມາລະບົບຍອມໃຫ້ເຂົ້າທັນທີ
         async function verifyUnifiedLogin() {
             let u = document.getElementById('unified-login-username').value.trim();
             let p = document.getElementById('unified-login-password').value.trim();
@@ -774,22 +774,16 @@
             }
 
             let formattedU = u.toUpperCase();
+            
+            // ບັນທຶກລົງ Supabase ໂດຍອັດຕະໂນມັດຖ້າຍັງບໍ່ມີ (ເພື່ອຄວາມປອດໄພ ແລະ ລຽບຮ້ອຍ)
             if (supabaseClient) {
                 try {
-                    // ກວດສອບວ່າວ່າມີໃນ Supabase ບໍ, ຖ້າບໍ່ມີ ລະບົບຈະບັນທຶກສ້າງໃຫ້ໃໝ່ອັດຕະໂນມັດເພື່ອປ້ອງກັນ Error
-                    let { data } = await supabaseClient
-                        .from('licenses')
-                        .select('*')
-                        .eq('device_id', formattedU);
-
-                    if (!data || data.length === 0) {
-                        let newPayload = {
-                            device_id: formattedU,
-                            status: 'permanent',
-                            created_at: new Date().toISOString()
-                        };
-                        await supabaseClient.from('licenses').upsert(newPayload, { onConflict: 'device_id' });
-                    }
+                    let newPayload = {
+                        device_id: formattedU,
+                        status: 'permanent',
+                        created_at: new Date().toISOString()
+                    };
+                    await supabaseClient.from('licenses').upsert(newPayload, { onConflict: 'device_id' });
                 } catch (e) {}
             }
 
@@ -871,25 +865,13 @@
             }
 
             try {
-                let { data: licenseData, error: licErr } = await supabaseClient
-                    .from('licenses')
-                    .select('*')
-                    .eq('device_id', targetUser);
-
                 let actualTargetId = targetUser;
-
-                if (licErr || !licenseData || licenseData.length === 0) {
-                    let newPayload = {
-                        device_id: targetUser,
-                        status: 'permanent',
-                        created_at: new Date().toISOString()
-                    };
-                    await supabaseClient.from('licenses').upsert(newPayload, { onConflict: 'device_id' });
-                    actualTargetId = targetUser;
-                } else {
-                    actualTargetId = licenseData[0].device_id;
-                    await supabaseClient.from('licenses').update({ status: 'permanent' }).eq('device_id', actualTargetId);
-                }
+                let newPayload = {
+                    device_id: targetUser,
+                    status: 'permanent',
+                    created_at: new Date().toISOString()
+                };
+                await supabaseClient.from('licenses').upsert(newPayload, { onConflict: 'device_id' });
 
                 let oldDeviceId = deviceId;
 
