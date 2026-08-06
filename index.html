@@ -116,6 +116,23 @@
         </div>
     </div>
 
+    <!-- Migrate Data Modal (ປ໊ອບອັບໂອນຂໍ້ມູນຈາກເຄື່ອງທົດລອງເຂົ້າ User ຖາວອນ) -->
+    <div id="migrate-modal" class="hidden fixed inset-0 bg-black/70 z-[320] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
+            <div class="text-4xl">🔄</div>
+            <h3 class="text-lg font-bold text-gray-800">ໂອນຂໍ້ມູນເຂົ້າ User ຖາວອນ</h3>
+            <p class="text-xs text-gray-600">ປ້ອນ Username ຖາວອນ (ປາຍທາງ) ເພື່ອໂອນປະຫວັດການຂາຍຂອງທ່ານເຂົ້າໄປລວມກັນ:</p>
+            <div class="text-left">
+                <label class="block text-xs font-bold text-gray-700 mb-1">Username ຖາວອນ:</label>
+                <input type="text" id="migrate-target-username" class="w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 font-semibold uppercase" placeholder="ຕົວຢ່າງ: POS-A0010">
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button onclick="closeMigrateModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl text-sm transition cursor-pointer">ຍົກເລີກ</button>
+                <button onclick="confirmMigrationData()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">ຢືນຢັນໂອນ</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Admin Device Manager & User Creator Modal -->
     <div id="admin-manager-modal" class="hidden fixed inset-0 bg-black/60 z-[250] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-3xl w-full p-6 max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl">
@@ -316,6 +333,11 @@
 
                 <button onclick="openUserManual()" class="w-full sm:w-auto bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     📖 ຄູ່ມືການໃຊ້ງານ
+                </button>
+
+                <!-- 🌟 ປຸ່ມໂອນຂໍ້ມູນສຳລັບເຄື່ອງທົດລອງ -->
+                <button onclick="openMigrateModal()" class="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
+                    🔄 ໂອນຂໍ້ມູນເຂົ້າ User ຖາວອນ
                 </button>
 
                 <button id="admin-manage-btn" onclick="openAdminManager()" class="hidden w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
@@ -732,7 +754,6 @@
             document.getElementById('role-select-modal').classList.remove('hidden');
         }
 
-        // 🌟 ປັບປຸງການລັອກອິນ: ເມື່ອລັອກອິນດ້ວຍ Username ຖາວອນ ໃຫ້ດຶງຂໍ້ມູນປະຫວັດການຂາຍເກົ່າທັງໝົດຂອງເຄື່ອງ A ແລະ B ມາອັບເດດລວມເຂົ້າກັບ Device ID ຖາວອນທັນທີ
         async function verifyUnifiedLogin() {
             let u = document.getElementById('unified-login-username').value.trim();
             let p = document.getElementById('unified-login-password').value.trim();
@@ -777,31 +798,12 @@
                     }
 
                     if (data.status === 'permanent' || data.status === 'trial') {
-                        let oldDeviceId = deviceId;
                         currentUsername = data.device_id;
                         deviceId = data.device_id;
                         localStorage.setItem('pos_current_username', currentUsername);
                         localStorage.setItem('pos_device_id', deviceId);
                         localStorage.setItem('pos_license_status', data.status);
                         localStorage.removeItem('pos_user_role');
-
-                        // 🌟 ບັງຄັບອັບເດດ (Migrate) ປະຫວັດການຂາຍທັງໝົດໃນ Cloud ຈາກ ID ເກົ່າທຸກ ID ໃຫ້ກາຍເປັນ ID ຖາວອນ (POS-A0010)
-                        if (oldDeviceId && oldDeviceId !== data.device_id) {
-                            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-                            localHistory.forEach(tx => { tx.device_id = data.device_id; });
-                            localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
-
-                            // ອັບເດດ Cloud sales_history ທັງໝົດທີ່ເຄີຍຖືກບັນທຶກມາລວມເຂົ້າ ID ຖາວອນນີ້
-                            await supabaseClient
-                                .from('sales_history')
-                                .update({ device_id: data.device_id })
-                                .neq('device_id', data.device_id);
-
-                            await supabaseClient
-                                .from('products')
-                                .update({ device_id: data.device_id })
-                                .neq('device_id', data.device_id);
-                        }
 
                         document.getElementById('unified-login-modal').classList.add('hidden');
                         document.getElementById('role-select-modal').classList.add('hidden');
@@ -858,6 +860,88 @@
 
         function copyBankAccount() {
             navigator.clipboard.writeText("1006000000470").then(() => {}).catch(() => {});
+        }
+
+        // 🌟 ຟັງຊັນສຳລັບເປີດປ໊ອບອັບໂອນຂໍ້ມູນຈາກເຄື່ອງທົດລອງເຂົ້າ User ຖາວອນ
+        function openMigrateModal() {
+            document.getElementById('migrate-modal').classList.remove('hidden');
+        }
+
+        function closeMigrateModal() {
+            document.getElementById('migrate-modal').classList.add('hidden');
+        }
+
+        // 🌟 ຟັງຊັນຢືນຢັນການໂອນຂໍ້ມູນຈາກເຄື່ອງທົດລອງເຂົ້າ User ຖາວອນ (ຕາມຄຳແນະນຳຂອງທ່ານ)
+        async function confirmMigrationData() {
+            let targetUser = document.getElementById('migrate-target-username').value.trim().toUpperCase();
+            if (!targetUser) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ Username ຖາວອນປາຍທາງ!", "⚠️");
+                return;
+            }
+
+            if (!supabaseClient) {
+                showAlert("ຜິດພາດ", "ບໍ່ສາມາດເຊື່ອມຕໍ່ຖານຂໍ້ມູນໄດ້", "❌");
+                return;
+            }
+
+            try {
+                // 1. ກວດສອບວ່າ User ປາຍທາງມີຢູ່ຈິງ ແລະ ເປັນສະຖານະ permanent ບໍ
+                let { data: licenseData, error: licErr } = await supabaseClient
+                    .from('licenses')
+                    .select('*')
+                    .eq('device_id', targetUser)
+                    .single();
+
+                if (licErr || !licenseData || licenseData.status !== 'permanent') {
+                    showAlert("ຜິດພາດ", `ບໍ່พบ Username ຖາວອນ [${targetUser}] ໃນລະບົບ ຫຼື ຍັງບໍ່ໄດ້ເປີດໃຊ້ຖາວອນ!`, "❌");
+                    return;
+                }
+
+                let oldDeviceId = deviceId; // ID ເຄື່ອງທົດລອງປັດຈຸບັນ
+
+                // 2. ດຶງປະຫວັດການຂາຍທັງໝົດໃນເຄື່ອງທົດລອງນີ້ (LocalStorage) ມາອັບເດດຂຶ້ນ Cloud ໂດຍປ່ຽນ device_id ໃຫ້ເປັນ User ຖາວອນ (targetUser)
+                let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+                if (localHistory.length > 0) {
+                    let cloudPayload = localHistory.map(tx => ({
+                        device_id: targetUser,
+                        items: tx.items,
+                        total_items: tx.total_items,
+                        total_cost: tx.total_cost,
+                        sub_total: tx.sub_total,
+                        discount: tx.discount,
+                        total: tx.total,
+                        cash: tx.cash,
+                        change: tx.change,
+                        created_at: tx.created_at
+                    }));
+
+                    await supabaseClient.from('sales_history').insert(cloudPayload);
+                }
+
+                // 3. ຍ້າຍປະຫວັດການຂາຍເກົ່າທັງໝົດໃນ Cloud ທີ່ຜູກກັບ ID ເກົ່າ ໃຫ້ມารວມເຂົ້າກັບ targetUser
+                if (oldDeviceId && oldDeviceId !== targetUser) {
+                    await supabaseClient
+                        .from('sales_history')
+                        .update({ device_id: targetUser })
+                        .eq('device_id', oldDeviceId);
+                }
+
+                // 4. ຣີເຊັດ (ລຶບ) ປະຫວັດໃນເຄື່ອງທົດລອງນີ້ໃຫ້ຫວ່າງເປົ່າ ຕາມຄວາມຕ້ອງການ
+                localStorage.removeItem('pos_local_history');
+
+                // 5. ປ່ຽນ DeviceId ຂອງເຄື່ອງນີ້ໃຫ້ເປັນ User ຖາວອນທັນທີ ແລະ ບັນທຶກສະຖານະ
+                currentUsername = targetUser;
+                deviceId = targetUser;
+                localStorage.setItem('pos_current_username', currentUsername);
+                localStorage.setItem('pos_device_id', deviceId);
+                localStorage.setItem('pos_license_status', 'permanent');
+
+                closeMigrateModal();
+                showAlert("ສຳເລັດ", `ໂອນຂໍ້ມູນເຂົ້າ User ຖາວອນ [${targetUser}] ສໍາເລັດຮຽບຮ້ອຍ! ຂໍ້ມູນໃນເຄື່ອງນີ້ຖືກຣີເຊັດເປັນຫວ່າງເປົ່າແລ້ວ.`, "⭐");
+                checkRoleAndLicense();
+            } catch (e) {
+                showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການໂອນຂໍ້ມູນ", "❌");
+            }
         }
 
         async function checkTrialLicense() {
@@ -998,17 +1082,6 @@
                     showAlert("ຜິດພາດ", "ບໍ່ສາມາດສ້າງບັນຊີໄດ້: " + error.message, "⚠️");
                     return;
                 }
-
-                // 🌟 ບັງຄັບອັບເດດປະຫວັດການຂາຍທັງໝົດໃນ Cloud ໃຫ້ມາເປັນ ID ຖາວອນນີ້ທັນທີ
-                await supabaseClient
-                    .from('sales_history')
-                    .update({ device_id: targetDev })
-                    .neq('device_id', targetDev);
-
-                await supabaseClient
-                    .from('products')
-                    .update({ device_id: targetDev })
-                    .neq('device_id', targetDev);
 
                 showAlert("ສຳເລັດ", `ເປີດໃຊ້ງານຖາວອນໃຫ້ ID: ${targetDev} ສໍາເລັດຮຽບຮ້ອຍ!`, "⭐");
                 document.getElementById('new-target-device').value = "";
@@ -1323,7 +1396,7 @@
             renderCart();
         }
 
-        // 🌟 ປັບປຸງຟັງຊັນໂຫຼດປະຫວັດ: ດຶງຂໍ້ມູນການຂາຍທັງໝົດໃນ Supabase ມາລວມກັນທັງໝົດ ໂດຍບໍ່ສົນໃຈ Device ID ເກົ່າ ເພື່ອໃຫ້ເຄື່ອງ A ແລະ B ເຫັນຂໍ້ມູນຄືກัน 100%
+        // 🌟 ປັບປຸງການໂຫຼດປະຫວັດ: ດຶງຂໍ້ມູນການຂາຍທັງໝົດຈາກ Cloud ໂດຍບໍ່ຈຳກັດ device_id ເພື່ອໃຫ້ທຸກເຄື່ອງທີ່ໃຊ້ User ຖາວອນດຽວກັນເຫັນຍອດຂາຍລວມກັນທັງໝົດ 100%
         async function loadCloudHistory() {
             let listDiv = document.getElementById('history-list');
             listDiv.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
@@ -1806,7 +1879,7 @@
         }
 
         async function confirmAndPrintByDate() {
-            let selectedDate = document.getElementById('print-date-select-select') ? document.getElementById('print-date-select-select').value : document.getElementById('print-date-select').value;
+            let selectedDate = document.getElementById('print-date-select').value;
             closePrintDateModal();
 
             let validRows = excelRows.filter(r => r.code && r.code.trim() !== '');
