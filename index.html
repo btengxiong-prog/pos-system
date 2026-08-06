@@ -862,7 +862,7 @@
                                     ${isPerm ? '⭐ ຖາວອນ' : '⏳ ທົດລອງ'}
                                 </span>
                                 <button onclick="toggleDeviceStatus('${item.device_id}', '${isPerm ? 'trial' : 'permanent'}')" class="px-2.5 py-1 rounded font-bold ${isPerm ? 'bg-amber-200 text-amber-800' : 'bg-green-200 text-green-800'} cursor-pointer">
-                                    ${isPerm ? 'ປ່ຽນເປັນ Trial' : 'ເປີດໃຊ້ຖາວອນ'}
+                                    ${isPerm ? 'ປ່ຽເປັນ Trial' : 'ເປີດໃຊ້ຖາວອນ'}
                                 </button>
                                 <button onclick="adminDeleteAccount('${item.device_id}')" class="px-2 py-1 rounded font-bold bg-red-100 text-red-600 hover:bg-red-200 cursor-pointer">
                                     🗑️ ລຶບ
@@ -1157,13 +1157,13 @@
             renderCart();
         }
 
+        // --- ຟັງຊັນໂຫຼດປະຫວັດການຂາຍທີ່ແກ້ໄຂແລ້ວ (ດຶງຂໍ້ມູນກົງຕາມ Device ID / Username) ---
         async function loadCloudHistory() {
             let listDiv = document.getElementById('history-list');
-            listDiv.innerHTML = `<p class="text-center py-4">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
+            listDiv.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
             document.getElementById('history-summary').classList.add('hidden');
             globalHistoryList = [];
 
-            let linkedDevices = await getLinkedDeviceIds();
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
             let combinedMap = new Map();
 
@@ -1171,19 +1171,21 @@
 
             if (supabaseClient) {
                 try {
-                    let { data: cloudSales } = await supabaseClient.from('sales_history').select('*').order('created_at', { ascending: false });
-                    if (cloudSales) {
+                    let { data: cloudSales, error } = await supabaseClient
+                        .from('sales_history')
+                        .select('*')
+                        .eq('device_id', deviceId)
+                        .order('created_at', { ascending: false });
+
+                    if (!error && cloudSales) {
                         cloudSales.forEach(tx => {
-                            let txDev = (tx.device_id || "").trim();
-                            if (linkedDevices.includes(txDev) || (currentUsername && txDev.toUpperCase() === currentUsername.toUpperCase())) {
-                                let key = tx.id || tx.created_at;
-                                if (!combinedMap.has(key)) {
-                                    combinedMap.set(key, {
-                                        id: tx.id, source: 'cloud', device_id: tx.device_id, created_at: tx.created_at,
-                                        total_items: tx.total_items || 0, total_cost: tx.total_cost || 0,
-                                        discount: tx.discount || 0, total: tx.total, cash: tx.cash, change: tx.change, items: tx.items || []
-                                    });
-                                }
+                            let key = tx.id || tx.created_at;
+                            if (!combinedMap.has(key)) {
+                                combinedMap.set(key, {
+                                    id: tx.id, source: 'cloud', device_id: tx.device_id, created_at: tx.created_at,
+                                    total_items: tx.total_items || 0, total_cost: tx.total_cost || 0,
+                                    discount: tx.discount || 0, total: tx.total, cash: tx.cash, change: tx.change, items: tx.items || []
+                                });
                             }
                         });
                     }
