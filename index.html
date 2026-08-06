@@ -197,7 +197,7 @@
                 </h3>
                 <button onclick="closeDuplicateReportModal()" class="text-gray-500 hover:text-gray-700 font-bold text-lg cursor-pointer">✕</button>
             </div>
-            <p class="text-xs text-gray-600">ລາຍການຕໍ່ໄປນີ້ມີລະຫັດຊ້ຳກັນໃນລະບົບ ລະບົບຈຶ່ງໄດ້ຕັດອອກອັດຕະໂນມັດ:</p>
+            <p class="text-xs text-gray-600">ລາຍການຕໍ່ໄປນີ້ມີຂໍ້ມູນຄົບຊຸດຊ້ຳກັນໃນລະບົບ (ທັງລະຫັດ, ລາຄາ ແລະ ຈຳນວນ) ຈຶ່ງຖືກຕັດອອກອັດຕະໂນມັດ:</p>
             <div id="duplicate-report-list" class="max-h-60 overflow-y-auto space-y-2 text-xs border p-3 rounded-xl bg-gray-50">
                 <!-- รายการซ้ำจะแสดงตรงนี้ -->
             </div>
@@ -525,7 +525,7 @@
             </div>
 
             <div class="bg-blue-50 border border-blue-200 text-blue-800 text-xs p-2 rounded-lg">
-                💡 <b>ຄຳແນະນຳ:</b> ທ່ານສາມາດກ໋ອບປີຂໍ້ມູນຫຼາຍແຖວຈາກ Excel ແລ້ວມາຄລິກວາງ (Paste) ລົງໃນຕາຕະລາງນີ້ໄດ້ເລີຍ ລະບົບຈະກວດສອບຊ້ຳ ແລະ ເຈາະຈົງຕັດອອກໃຫ້ອັດຕະໂນມັດ!
+                💡 <b>ຄຳແນະນຳ:</b> ລະບົບຈະກວດສອບວ່າຖ້າຊື່ສິນຄ້າ (ລະຫັດ) ຄືກັນ ແຕ່ຂໍ້ມູນອື່ນໆບໍ່ຄືກັນ ຈະຖືວ່າເປັນສິນຄ້າຄົນລະລາຍການ. ຖ້າຄົບຊຸດຄືກັນທັງໝົດຈຶ່ງຈະຖືວ່າຊ້ຳກັນ!
             </div>
 
             <div class="overflow-x-auto border rounded-xl shadow-inner max-h-[50vh]">
@@ -884,7 +884,7 @@
                                     ${isPerm ? '⭐ ຖາວອນ' : '⏳ ທົດລອງ'}
                                 </span>
                                 <button onclick="toggleDeviceStatus('${item.device_id}', '${isPerm ? 'trial' : 'permanent'}')" class="px-2.5 py-1 rounded font-bold ${isPerm ? 'bg-amber-200 text-amber-800' : 'bg-green-200 text-green-800'} cursor-pointer">
-                                    ${isPerm ? 'ປ່ຽເປັນ Trial' : 'ເປີດໃຊ້ຖາວອນ'}
+                                    ${isPerm ? 'ປ່ຽນເປັນ Trial' : 'ເປີດໃຊ້ຖາວອນ'}
                                 </button>
                                 <button onclick="adminDeleteAccount('${item.device_id}')" class="px-2 py-1 rounded font-bold bg-red-100 text-red-600 hover:bg-red-200 cursor-pointer">
                                     🗑️ ລຶບ
@@ -982,7 +982,7 @@
         let lastScanTime = 0;
         let globalHistoryList = []; 
         let excelRows = []; 
-        let duplicateRemovedList = []; // ເກັບລາຍການທີ່ຖືກຕັດອອກຍ้อนຊ້ຳກັນ
+        let duplicateRemovedList = []; 
 
         function showAlert(title, message, icon = "✅") {
             document.getElementById('alert-title').innerText = title;
@@ -1242,10 +1242,10 @@
 
         function openHistory() { document.getElementById('history-modal').classList.remove('hidden'); loadCloudHistory(); }
         function closeHistory() { document.getElementById('history-modal').classList.add('hidden'); }
-        async function openReport() { document.getElementById('report-modal').classList.add('hidden'); } // fixed modal toggle
+        async function openReport() { document.getElementById('report-modal').classList.remove('hidden'); }
         function closeReport() { document.getElementById('report-modal').classList.add('hidden'); }
 
-        // --- ຟັງຊັນຈັດການຕາຕະລາງສ້າງ QR Code ແລະ ກວດສອບຂໍ້ມູນຊ້ຳອັດຕະໂນມັດ ---
+        // --- ຟັງຊັນຈັດການຕາຕະລາງສ້າງ QR Code ແລະ ກວດສອບຊ້ຳສະເພາະກໍລະນີທີ່ "ຄົບຊຸດທຸກຄ່າຄືກັນ" ---
         async function openExcelGenerator() {
             document.getElementById('excel-generator-modal').classList.remove('hidden');
             duplicateRemovedList = [];
@@ -1356,22 +1356,9 @@
         }
 
         function updateExcelRowData(index, field, value) {
-            if (field === 'code') {
-                let trimmedVal = value.trim();
-                if (trimmedVal !== "") {
-                    // ກວດສອບວ່າມີລະຫັດນີ້ຊ້ຳກັນໃນຕາຕະລາງແລ້ວບໍ (ຍົກເວັ້ນແຖວປັດຈຸບັນ)
-                    let isDuplicate = excelRows.some((r, i) => i !== index && r.code.trim().toLowerCase() === trimmedVal.toLowerCase());
-                    if (isDuplicate) {
-                        duplicateRemovedList.push({ code: trimmedVal, reason: "ພິມຊ້ຳກັນໃນຕາຕະລາງ" });
-                        updateDuplicateReportButton();
-                        showAlert("ແຈ້ງເຕືອນຊ້ຳກັນ", `⚠️ ຂໍ້ມູນລະຫັດ [${trimmedVal}] ຊ້ຳກັນໃນລະບົບ!`, "⚠️");
-                        excelRows[index][field] = ""; // ລຶບອອກທັນທີ
-                        renderExcelTable();
-                        return;
-                    }
-                }
-                excelRows[index][field] = value;
-            } else if (field === 'cost_raw') {
+            excelRows[index][field] = value;
+
+            if (field === 'cost_raw') {
                 let cleanVal = value.replace(/,/g, '');
                 excelRows[index].cost = cleanVal === '' ? '' : parseFloat(cleanVal) || 0;
                 let cost = parseFloat(excelRows[index].cost) || 0;
@@ -1385,20 +1372,18 @@
                 let cleanVal = value.replace(/,/g, '');
                 excelRows[index].price = cleanVal === '' ? '' : parseFloat(cleanVal) || 0;
                 renderExcelTable();
-            } else {
-                excelRows[index][field] = value;
-                if (field === 'profitPct') {
-                    let cost = parseFloat(excelRows[index].cost) || 0;
-                    let pct = parseFloat(value) || 0;
-                    if (cost > 0 && pct >= 0) {
-                        let calculatedPrice = cost + (cost * pct / 100);
-                        excelRows[index].price = Math.round(calculatedPrice);
-                        renderExcelTable();
-                    }
+            } else if (field === 'profitPct') {
+                let cost = parseFloat(excelRows[index].cost) || 0;
+                let pct = parseFloat(value) || 0;
+                if (cost > 0 && pct >= 0) {
+                    let calculatedPrice = cost + (cost * pct / 100);
+                    excelRows[index].price = Math.round(calculatedPrice);
+                    renderExcelTable();
                 }
             }
         }
 
+        // --- ຟັງຊັນອັບໂຫລດ Excel ພ້ອມກວດສອບ "ຊ້ຳແບບຄົບຊຸດ" (ຖ້າ Code ຄືກັນ ແຕ່ລາຄາ/ຈຳນວນຕ່າງກັນ ຖືວ່າບໍ່ຊ້ຳ) ---
         function handleExcelUpload(event) {
             let file = event.target.files[0];
             if (!file) return;
@@ -1413,28 +1398,29 @@
                     
                     let newRows = [];
                     let duplicates = [];
-                    let seenCodes = new Set();
-
-                    // ເກັບລະຫັດທີ່ມີຢູ່ແລ້ວໃນຕາຕະລາງປັດຈຸບັນ
+                    
+                    // ສ້າງ Signature ເພື່ອກວດສອບຄວາມຊ້ຳແບບຄົບຊຸດ (Code + Cost + ProfitPct + Price + Qty)
+                    let existingSignatures = new Set();
                     excelRows.forEach(r => {
-                        if (r.code.trim()) seenCodes.add(r.code.trim().toLowerCase());
+                        let sig = `${r.code.trim().toLowerCase()}_${r.cost}_${r.profitPct}_${r.price}_${r.qty}`;
+                        existingSignatures.add(sig);
                     });
 
                     for (let i = 1; i < json.length; i++) {
                         let row = json[i];
                         if (row && row.length > 0) {
                             let code = row[0] ? String(row[0]).trim() : '';
-                            let cost = row[1] !== undefined ? parseFloat(row[1]) || 0 : '';
+                            let cost = row[1] !== undefined ? parseFloat(row[1]) || 0 : 0;
                             let profitPct = row[2] !== undefined ? parseFloat(row[2]) || 20 : 20;
-                            let price = row[3] !== undefined ? parseFloat(row[3]) || 0 : '';
+                            let price = row[3] !== undefined ? parseFloat(row[3]) || 0 : 0;
                             let qty = row[4] !== undefined ? parseInt(row[4]) || 1 : 1;
 
                             if (code) {
-                                let lowerCode = code.toLowerCase();
-                                if (seenCodes.has(lowerCode)) {
-                                    duplicates.push({ code: code, reason: "ຊ້ຳກັບຂໍ້ມູນທີ່ມີຢູ່ແລ້ວ" });
+                                let sig = `${code.toLowerCase()}_${cost}_${profitPct}_${price}_${qty}`;
+                                if (existingSignatures.has(sig)) {
+                                    duplicates.push({ code: code, reason: `ຊ້ຳກັນຄົບຊຸດ (ລາຄາຊື້: ${cost}, ລາຄາຂາຍ: ${price})` });
                                 } else {
-                                    seenCodes.add(lowerCode);
+                                    existingSignatures.add(sig);
                                     newRows.push({ code: code, cost: cost, profitPct: profitPct, price: price, qty: qty });
                                 }
                             }
@@ -1444,7 +1430,7 @@
                     if (duplicates.length > 0) {
                         duplicateRemovedList.push(...duplicates);
                         updateDuplicateReportButton();
-                        showAlert("ແຈ້ງເຕືອນຊ້ຳກັນ", `⚠️ ພົບຂໍ້ມູນຊ້ຳກັນ ${duplicates.length} ລາຍການ ແລະ ຖືກຕັດອອກອັດຕະໂນມັດ!`, "⚠️");
+                        showAlert("ແຈ້ງເຕືອນຊ້ຳກັນ", `⚠️ ພົບຂໍ້ມູນຊ້ຳກັນຄົບຊຸດ ${duplicates.length} ລາຍການ ແລະ ຖືກຕັດອອກອັດຕະໂນມັດ!`, "⚠️");
                     }
 
                     if (newRows.length > 0) {
