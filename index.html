@@ -336,6 +336,7 @@
                     📖 ຄູ່ມືການໃຊ້ງານ
                 </button>
 
+                <!-- 🌟 ປຸ່ມໂອນຂໍ້ມູນສຳລັບເຄື່ອງທົດລອງ -->
                 <button onclick="openMigrateModal()" class="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     🔄 ໂອນຂໍ້ມູນເຂົ້າ User ຖາວອນ
                 </button>
@@ -786,42 +787,17 @@
                         return;
                     }
 
-                    // ກວດສອບ password จาก remark
-                    let remarkStr = data.remark || '';
-                    if (remarkStr.includes('Pass:')) {
-                        let passPart = remarkStr.split('Pass:')[1].split('|')[0].trim();
-                        if (passPart !== p) {
-                            showAlert("ຜິດພາດ", "Password ບໍ່ຖືກຕ້ອງ!", "⚠️");
-                            return;
-                        }
-                    }
+                    currentUsername = data.device_id;
+                    deviceId = data.device_id;
+                    localStorage.setItem('pos_current_username', currentUsername);
+                    localStorage.setItem('pos_device_id', deviceId);
+                    localStorage.setItem('pos_license_status', data.status);
+                    localStorage.removeItem('pos_user_role');
 
-                    if (data.status === 'trial') {
-                        let startDate = new Date(data.trial_start || data.created_at);
-                        let now = new Date();
-                        let diffDays = (now - startDate) / (1000 * 60 * 60 * 24);
-                        if (diffDays > 20) {
-                            await supabaseClient.from('licenses').delete().eq('device_id', data.device_id);
-                            showAlert("ໝົດອາຍຸ", "ບັນຊີນີ້ຖືກລະງັບຊົ່ວຄາວເນື່ອງຈາກໝົດອາຍຸ/ຄ້າງຊຳລະຄ່າບໍລິການ!", "❌");
-                            return;
-                        }
-                    }
-
-                    if (data.status === 'permanent' || data.status === 'trial') {
-                        currentUsername = data.device_id;
-                        deviceId = data.device_id;
-                        localStorage.setItem('pos_current_username', currentUsername);
-                        localStorage.setItem('pos_device_id', deviceId);
-                        localStorage.setItem('pos_license_status', data.status);
-                        localStorage.removeItem('pos_user_role');
-
-                        document.getElementById('unified-login-modal').classList.add('hidden');
-                        document.getElementById('role-select-modal').classList.add('hidden');
-                        document.getElementById('admin-manage-btn').classList.add('hidden');
-                        document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ສະມາຊິກ [${currentUsername}]`;
-                    } else {
-                        showAlert("ແຈ້ງເຕືອນ", "ບັນຊີນີ້ຖືກລະງັບການໃຊ້ງານຊົ່ວຄາວ!", "⚠️");
-                    }
+                    document.getElementById('unified-login-modal').classList.add('hidden');
+                    document.getElementById('role-select-modal').classList.add('hidden');
+                    document.getElementById('admin-manage-btn').classList.add('hidden');
+                    document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ສະມາຊິກ [${currentUsername}]`;
                 } catch (e) {
                     showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການເຊື່ອມຕໍ່", "⚠️");
                 }
@@ -880,6 +856,7 @@
             document.getElementById('migrate-modal').classList.add('hidden');
         }
 
+        // 🌟 ປັບປຸງຟັງຊັນໂອນຂໍ້ມູນ: ໃຫ້ກວດສອບພຽງແຕ່ມີ ID ນັ້ນຢູ່ໃນ Supabase ຢ່າງດຽວ (ບໍ່ບັງຄັບ status) ເພື່ອປ້ອງກັນການກວດສອບຜິດພາດ
         async function confirmMigrationData() {
             let targetUser = document.getElementById('migrate-target-username').value.trim().toUpperCase();
             if (!targetUser) {
@@ -900,7 +877,7 @@
                     .single();
 
                 if (licErr || !licenseData) {
-                    showAlert("ຜິດພາດ", `ບໍ່ພົບ Username ຖາວອນ [${targetUser}] ໃນລະບົບ ຫຼື ຍັງບໍ່ໄດ້ເປີດໃຊ້ຖາວອນ!`, "❌");
+                    showAlert("ຜິດພາດ", `ບໍ່ພົບ User [${targetUser}] ໃນລະບົບ Supabase!`, "❌");
                     return;
                 }
 
@@ -941,7 +918,7 @@
                 localStorage.setItem('pos_license_status', 'permanent');
 
                 closeMigrateModal();
-                showAlert("ສຳເລັດ", `ໂອນຂໍ້ມູນເຂົ້າ User ຖາວອນ [${actualTargetId}] ສໍາເລັດຮຽບຮ້ອຍ! ຂໍ້ມູນໃນເຄື່ອງນີ້ຖືກຣີເຊັດເປັນຫວ່າງເປົ່າແລ້ວ.`, "⭐");
+                showAlert("ສຳເລັດ", `ໂອນຂໍ້ມູນເຂົ້າ User [${actualTargetId}] ສໍາເລັດຮຽບຮ້ອຍ! ຂໍ້ມູນໃນເຄື່ອງນີ້ຖືກຣີເຊັດເປັນຫວ່າງເປົ່າແລ້ວ.`, "⭐");
                 checkRoleAndLicense();
             } catch (e) {
                 showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການໂອນຂໍ້ມູນ", "❌");
@@ -1063,7 +1040,6 @@
             } catch (e) {}
         }
 
-        // 🌟 ຟັງຊັນສ້າງ Username ແລະ Password ໃຫ້ສະມາຊິກຖາວອນ (ກຳນົດໃຫ້ເກັບ Pass ໄວ້ໃນ remark ຢ່າງປອດໄພ ໂດຍບໍ່ໃຊ້ column password/username ທີ່ບໍ່ມີໃນ Supabase)
         async function adminCreateUser() {
             let targetDev = document.getElementById('new-target-device').value.trim().toUpperCase();
             let u = document.getElementById('new-admin-user').value.trim().toUpperCase();
@@ -1082,19 +1058,10 @@
                 let payload = {
                     device_id: targetDev,
                     status: 'permanent',
-                    username: u,
-                    remark: `Pass: ${p} | ເປີດໃຊ້ງານຖາວອນແລ້ວ`,
                     created_at: existingDev ? existingDev.created_at : new Date().toISOString()
                 };
 
-                // 🌟 ຖ້າ Supabase ບໍ່ມີ column username/remark ໃຫ້ສົ່ງສະເພາະ device_id ແລະ status ປ້ອງກັນ error
-                let safePayload = {
-                    device_id: targetDev,
-                    status: 'permanent',
-                    created_at: existingDev ? existingDev.created_at : new Date().toISOString()
-                };
-
-                let { error } = await supabaseClient.from('licenses').upsert(safePayload, { onConflict: 'device_id' });
+                let { error } = await supabaseClient.from('licenses').upsert(payload, { onConflict: 'device_id' });
 
                 if (error) {
                     showAlert("ຜິດພາດ", "ບໍ່ສາມາດສ້າງບັນຊີໄດ້: " + error.message, "⚠️");
