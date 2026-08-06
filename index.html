@@ -1450,6 +1450,56 @@
             showAlert("ສຳເລັດ", "ລຶບຂໍ້ມູນທັງໝົດອອກຈາກລະບົບຮຽບຮ້ອຍແລ້ວ", "🧹");
         }
 
+        // 🌟 ຟັງຊັນຈັບການກົດ Enter ເພື່ອຍ້າຍເຄີເຊີລົງລຸ່ມໃນຕາຕະລາງ
+        function handleExcelCellKeydown(event, rowIndex, fieldName) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                
+                // ບັນທຶກຄ່າປະຈຸບັນກ່ອນຍ້າຍ
+                syncTableInputsToData();
+
+                // ຖ້າຢູ່ແຖວສຸດທ້າຍ ໃຫ້ເພີ່ມແຖວໃໝ່ອັດຕະໂນມັດ
+                if (rowIndex === excelRows.length - 1) {
+                    addExcelRow();
+                } else {
+                    renderExcelTable();
+                }
+
+                // ຍ້າຍ Focus ໄປຫາ cell ດຽວກັນໃນແຖວถัดໄປ
+                setTimeout(() => {
+                    let nextRowInputs = document.querySelectorAll(`#excel-tbody tr`);
+                    if (nextRowInputs[rowIndex + 1]) {
+                        let targetInput = nextRowInputs[rowIndex + 1].querySelector(`[data-field="${fieldName}"]`);
+                        if (targetInput) {
+                            targetInput.focus();
+                            targetInput.select();
+                        }
+                    }
+                }, 50);
+            }
+        }
+
+        function syncTableInputsToData() {
+            let rowsInput = document.querySelectorAll('#excel-tbody tr');
+            rowsInput.forEach((tr, index) => {
+                if (excelRows[index]) {
+                    let codeInput = tr.querySelector('input[data-field="code"]');
+                    let costInput = tr.querySelector('input[data-field="cost"]');
+                    let pctInput = tr.querySelector('input[data-field="profitPct"]');
+                    let priceInput = tr.querySelector('input[data-field="price"]');
+                    let qtyInput = tr.querySelector('input[data-field="qty"]');
+                    let dateInput = tr.querySelector('input[data-field="dateAdded"]');
+
+                    if (codeInput) excelRows[index].code = codeInput.value.trim();
+                    if (costInput) excelRows[index].cost = parseFloat(costInput.value.replace(/,/g, '')) || 0;
+                    if (pctInput) excelRows[index].profitPct = parseFloat(pctInput.value) || 0;
+                    if (priceInput) excelRows[index].price = parseFloat(priceInput.value.replace(/,/g, '')) || 0;
+                    if (qtyInput) excelRows[index].qty = parseInt(qtyInput.value) || 1;
+                    if (dateInput) excelRows[index].dateAdded = dateInput.value;
+                }
+            });
+        }
+
         function renderExcelTable() {
             let tbody = document.getElementById('excel-tbody');
             let html = '';
@@ -1466,25 +1516,25 @@
                     <tr class="border-b hover:bg-gray-50">
                         <td class="p-2 border-r text-center font-bold text-gray-500 text-xs">${index + 1}</td>
                         <td class="p-2 border-r">
-                            <input type="text" value="${row.code}" oninput="updateExcelRowData(${index}, 'code', this.value)" placeholder="ຊື່ສິນຄ້າ ຫຼື ລະຫັດ" class="w-full border rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-blue-500">
+                            <input type="text" data-field="code" value="${row.code}" oninput="updateExcelRowData(${index}, 'code', this.value)" onkeydown="handleExcelCellKeydown(event, ${index}, 'code')" placeholder="ຊື່ສິນຄ້າ ຫຼື ລະຫັດ" class="w-full border rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-blue-500">
                         </td>
                         <td class="p-2 border-r">
-                            <input type="text" value="${costFormatted}" oninput="updateExcelRowData(${index}, 'cost_raw', this.value)" placeholder="0" class="w-full border rounded px-2 py-1 text-right text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-blue-600">
+                            <input type="text" data-field="cost" value="${costFormatted}" oninput="updateExcelRowData(${index}, 'cost_raw', this.value)" onkeydown="handleExcelCellKeydown(event, ${index}, 'cost')" placeholder="0" class="w-full border rounded px-2 py-1 text-right text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-blue-600">
                         </td>
                         <td class="p-2 border-r">
-                            <input type="number" value="${row.profitPct}" oninput="updateExcelRowData(${index}, 'profitPct', this.value)" placeholder="20" class="w-full border rounded px-2 py-1 text-center text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-amber-600">
+                            <input type="text" data-field="profitPct" value="${row.profitPct}" oninput="updateExcelRowData(${index}, 'profitPct', this.value)" onkeydown="handleExcelCellKeydown(event, ${index}, 'profitPct')" placeholder="20" class="w-full border rounded px-2 py-1 text-center text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-amber-600">
                         </td>
                         <td class="p-2 border-r">
-                            <input type="text" value="${priceFormatted}" oninput="updateExcelRowData(${index}, 'price_raw', this.value)" placeholder="0" class="w-full border rounded px-2 py-1 text-right text-xs outline-none focus:ring-1 focus:ring-blue-500 font-bold text-green-600">
+                            <input type="text" data-field="price" value="${priceFormatted}" oninput="updateExcelRowData(${index}, 'price_raw', this.value)" onkeydown="handleExcelCellKeydown(event, ${index}, 'price')" placeholder="0" class="w-full border rounded px-2 py-1 text-right text-xs outline-none focus:ring-1 focus:ring-blue-500 font-bold text-green-600">
                         </td>
                         <td class="p-2 border-r">
-                            <input type="number" value="${row.qty}" oninput="updateExcelRowData(${index}, 'qty', this.value)" placeholder="1" class="w-full border rounded px-2 py-1 text-center text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-gray-700">
+                            <input type="text" data-field="qty" value="${row.qty}" oninput="updateExcelRowData(${index}, 'qty', this.value)" onkeydown="handleExcelCellKeydown(event, ${index}, 'qty')" placeholder="1" class="w-full border rounded px-2 py-1 text-center text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-gray-700">
                         </td>
                         <td class="p-2 border-r text-right font-bold text-gray-800 text-xs">
                             ${totalFormatted}
                         </td>
                         <td class="p-2 border-r text-center">
-                            <input type="date" value="${rowDate}" onchange="updateExcelRowData(${index}, 'dateAdded', this.value)" class="border rounded px-1.5 py-1 text-[11px] outline-none font-semibold text-purple-700 bg-purple-50">
+                            <input type="date" data-field="dateAdded" value="${rowDate}" onchange="updateExcelRowData(${index}, 'dateAdded', this.value)" onkeydown="handleExcelCellKeydown(event, ${index}, 'dateAdded')" class="border rounded px-1.5 py-1 text-[11px] outline-none font-semibold text-purple-700 bg-purple-50">
                         </td>
                         <td class="p-2 text-center">
                             <button onclick="removeExcelRow(${index})" class="bg-red-100 text-red-600 hover:bg-red-200 px-2 py-1 rounded text-xs font-bold cursor-pointer flex items-center justify-center gap-1 mx-auto shadow-sm">🗑️ ລຶບ</button>
@@ -1633,6 +1683,7 @@
         }
 
         async function saveExcelData() {
+            syncTableInputsToData();
             let validRows = excelRows.filter(r => r.code.trim() !== '');
             localStorage.setItem('pos_saved_excel_rows', JSON.stringify(validRows));
 
@@ -1671,23 +1722,7 @@
         }
 
         function generateExcelCodes() {
-            let rowsInput = document.querySelectorAll('#excel-tbody tr');
-            rowsInput.forEach((tr, index) => {
-                if (excelRows[index]) {
-                    let codeInput = tr.querySelector('input[type="text"]:nth-of-type(1)');
-                    let costInput = tr.querySelector('input[type="text"]:nth-of-type(2)');
-                    let pctInput = tr.querySelector('input[type="number"]:nth-of-type(1)');
-                    let priceInput = tr.querySelector('input[type="text"]:nth-of-type(3)');
-                    let qtyInput = tr.querySelector('input[type="number"]:nth-of-type(2)');
-
-                    if (codeInput) excelRows[index].code = codeInput.value.trim();
-                    if (costInput) excelRows[index].cost = parseFloat(costInput.value.replace(/,/g, '')) || 0;
-                    if (pctInput) excelRows[index].profitPct = parseFloat(pctInput.value) || 20;
-                    if (priceInput) excelRows[index].price = parseFloat(priceInput.value.replace(/,/g, '')) || 0;
-                    if (qtyInput) excelRows[index].qty = parseInt(qtyInput.value) || 1;
-                }
-            });
-
+            syncTableInputsToData();
             renderPreviewCards(excelRows.filter(r => r.code && r.code.trim() !== ''));
         }
 
@@ -1753,6 +1788,7 @@
         }
 
         function promptPrintDate() {
+            syncTableInputsToData();
             let validRows = excelRows.filter(r => r.code && r.code.trim() !== '');
             if (validRows.length === 0) {
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຂໍ້ມູນສິນຄ້າກ່ອນສັ່ງພິມ!", "⚠️");
