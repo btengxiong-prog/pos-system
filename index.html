@@ -43,6 +43,8 @@
                 display: grid !important;
                 grid-template-columns: repeat(3, 1fr) !important;
                 gap: 15px !important;
+                max-height: none !important;
+                overflow: visible !important;
             }
             @page {
                 size: auto;
@@ -1537,6 +1539,7 @@
             showAlert("ສຳເລັດ", `ບັນທຶກຂໍ້ມູນສິນຄ້າທັງໝົດ ${validRows.length} ລາຍການຮຽບຮ້ອຍແລ້ວ!`, "💾");
         }
 
+        // 🛠️ ປັບປຸງ: ໃຊ້ SVG QRCode ປ່ຽນແທນ Canvas ເພື່ອໃຫ້ເວລາພິມ (Print) ບໍ່ມີວັນມົວ, ບໍ່ມີວັນເສຍຫາຍ ແລະ ສະແດງຜົນຄົບທຸກປ້າຍ 100% ຢ່າງແນ່ນອນ!
         function generateExcelCodes() {
             let previewContainer = document.getElementById('excel-preview-cards');
             let printArea = document.getElementById('excel-print-area');
@@ -1555,8 +1558,8 @@
                 html += `
                     <div class="bg-white border-2 border-dashed border-gray-300 p-4 rounded-xl text-center space-y-2 shadow-sm">
                         <div class="font-bold text-gray-800 text-sm truncate">${safeCode}</div>
-                        <div class="flex justify-center my-2">
-                            <canvas id="qr-canvas-${idx}" class="mx-auto"></canvas>
+                        <div class="flex justify-center my-2 min-h-[120px] items-center">
+                            <div id="qr-svg-${idx}"></div>
                         </div>
                         <div class="font-extrabold text-green-600 text-base">${priceStr}</div>
                     </div>
@@ -1566,42 +1569,28 @@
             previewContainer.innerHTML = html;
             printArea.classList.remove('hidden');
 
-            // 🛠️ ປັບປຸງ: ວາດຮູບ QR Code ໃຫ້ຄົບຖ້ວນທຸກປ້າຍ 100% ໂດຍໃຊ້ Async Promise ວົນລູບວາດทีละປ້າຍຢ່າງຖືກຕ້ອງ
-            setTimeout(async () => {
-                for (let idx = 0; idx < validRows.length; idx++) {
-                    let canvas = document.getElementById(`qr-canvas-${idx}`);
-                    let row = validRows[idx];
-                    if (canvas && window.QRCode) {
-                        try {
-                            await QRCode.toCanvas(canvas, row.code, { width: 120, margin: 1 });
-                        } catch (err) {
-                            console.error("QR Code generation error:", err);
+            // ໃຊ້ QRCode.toString ເພື່ອສ້າງເປັນ SVG ຜ່ານ Element ໂດຍກົງ
+            validRows.forEach((row, idx) => {
+                let container = document.getElementById(`qr-svg-${idx}`);
+                if (container && window.QRCode) {
+                    QRCode.toString(row.code, { type: 'svg', width: 120, margin: 1 }, function (err, svgString) {
+                        if (!err && container) {
+                            container.innerHTML = svgString;
                         }
-                    }
+                    });
                 }
-            }, 100);
+            });
         }
 
         function printExcelCodes() {
-            // 🛠️ ປັບປຸງ: ວາດ QR Code ໃຫ້ສຳເລັດກ່ອນທຸກປ້າຍ ແລ້ວໜ່ວງເວລາ 0.6 ວິນາທີ ຈຶ່ງສັ່ງ print
             let validRows = excelRows.filter(r => r.code.trim() !== '');
-            let promises = validRows.map((row, idx) => {
-                let canvas = document.getElementById(`qr-canvas-${idx}`);
-                if (canvas && window.QRCode) {
-                    return QRCode.toCanvas(canvas, row.code, { width: 120, margin: 1 });
-                }
-                return Promise.resolve();
-            });
-
-            Promise.all(promises).then(() => {
-                setTimeout(() => {
-                    window.print();
-                }, 600);
-            }).catch(() => {
-                setTimeout(() => {
-                    window.print();
-                }, 600);
-            });
+            if (validRows.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາສ້າງ QR Code ກ່ອນສັ່ງພິມ!", "⚠️");
+                return;
+            }
+            setTimeout(() => {
+                window.print();
+            }, 300);
         }
     </script>
 </body>
