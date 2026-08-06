@@ -1408,6 +1408,9 @@
                 excelRows = savedRows ? JSON.parse(savedRows) : [];
             }
 
+            // 🌟 ກັ່ນຕອງເອົາສະເພາະແຖວທີ່ມີລະຫັດສິນຄ້າແທ້ໆ
+            excelRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
+
             if (excelRows.length === 0) {
                 addExcelRow();
             } else {
@@ -1430,7 +1433,10 @@
         function removeExcelRow(index) {
             syncTableInputsToData();
             excelRows.splice(index, 1);
-            if (excelRows.length === 0) addExcelRow();
+            excelRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
+            if (excelRows.length === 0) {
+                excelRows.push({ code: '', cost: '', profitPct: 20, price: '', qty: 1, dateAdded: new Date().toISOString().split('T')[0] });
+            }
             renderExcelTable();
         }
 
@@ -1509,10 +1515,11 @@
                     if (dateInput) excelRows[index].dateAdded = dateInput.value;
                 }
             });
+            excelRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
         }
 
         function renderExcelTable() {
-            // ກັ່ນຕອງເອົາສະເພາະແຖວທີ່ມີລະຫັດສິນຄ້າແທ້ໆ (ຕັດແຖວຫວ່າງເປົ່າອອກກ່ອນສະແດງຜົນ)
+            // 🌟 ຕັດແຖວຫວ່າງເປົ່າ (ທີ່ບໍ່ມີລະຫັດສິນຄ້າ) ອອກທັງໝົດກ່ອນສະແດງຜົນ
             excelRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
             if (excelRows.length === 0) {
                 excelRows.push({ code: '', cost: '', profitPct: 20, price: '', qty: 1, dateAdded: new Date().toISOString().split('T')[0] });
@@ -1560,7 +1567,6 @@
             tbody.innerHTML = html;
         }
 
-        // 🌟 ປັບປຸງລະບົບອັບໂຫຼດ Excel: ກວດຈັບແຖວຫົວຂໍ້ທີ່ມີຄຳວ່າ "ລ/ດ", "ຊື່ສິນຄ້າ", "ລະຫັດ" ແລ້ວອ່ານສະເພາະແຖວທີ່ມີຂໍ້ມູນສິນຄ້າແທ້ໆ
         function handleExcelUpload(event) {
             let file = event.target.files[0];
             if (!file) return;
@@ -1583,7 +1589,6 @@
                         if (r.code && String(r.code).trim()) existingCodes.add(String(r.code).trim().toLowerCase());
                     });
 
-                    // 🌟 ຊອກຫາແຖວ Index ຂອງຫົວຂໍ້ຕາຕະລາງ (Header)
                     let headerRowIndex = -1;
                     for (let i = 0; i < json.length; i++) {
                         let rowStr = JSON.stringify(json[i]).toLowerCase();
@@ -1593,17 +1598,14 @@
                         }
                     }
 
-                    // ຖ້າບໍ່ພົບຫົວຂໍ້ ໃຫ້ເລີ່ມອ່ານແຖວທີ 0 ເປັນຕົ້ນໄປ
                     let startRow = headerRowIndex !== -1 ? headerRowIndex + 1 : 0;
 
                     for (let i = startRow; i < json.length; i++) {
                         let row = json[i];
                         if (row && row.length > 0) {
-                            // ກວດສອບທຸກຄໍລຳໃນແຖວ ເພື່ອຊອກຫາວ່າໂຕໃດເປັນລະຫັດສິນຄ້າ ຫຼື ຊື່ສິນຄ້າ
                             let possibleCode = '';
                             let costIdx = 1, pctIdx = 2, priceIdx = 3, qtyIdx = 4, dateIdx = 5;
 
-                            // ພະຍາຍາມກວດສອບວ່າຄໍລຳໃດເປັນຊື່ສິນຄ້າ/ລະຫັດ (ມັກຈະຢູ່ຄໍລຳ 0 ຫຼື 1 ຖ້າມີລຳດັບຢູ່ໜ້າສຸດ)
                             let c0 = row[0] !== undefined ? String(row[0]).trim() : '';
                             let c1 = row[1] !== undefined ? String(row[1]).trim() : '';
 
@@ -1643,7 +1645,7 @@
                     }
 
                     if (newRows.length > 0) {
-                        // ຕັດແຖວຫວ່າງເປົ່າເບື້ອງຕົ້ນອອກກ่อนເອົາຂໍ້ມູນໃໝ່ໃສ່
+                        // 🌟 ລຶບແຖວຫວ່າງເປົ່າເກົ່າອອກທັງໝົດ ກ່ອນເອົາຂໍ້ມູນຈາກ Excel ມາວາງ
                         excelRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
                         excelRows.push(...newRows);
                         renderExcelTable();
