@@ -1512,6 +1512,12 @@
         }
 
         function renderExcelTable() {
+            // ກັ່ນຕອງເອົາສະເພາະແຖວທີ່ມີລະຫັດສິນຄ້າແທ້ໆ (ຕັດແຖວຫວ່າງເປົ່າອອກກ່ອນສະແດງຜົນ)
+            excelRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
+            if (excelRows.length === 0) {
+                excelRows.push({ code: '', cost: '', profitPct: 20, price: '', qty: 1, dateAdded: new Date().toISOString().split('T')[0] });
+            }
+
             let tbody = document.getElementById('excel-tbody');
             let html = '';
             let today = new Date().toISOString().split('T')[0];
@@ -1554,7 +1560,7 @@
             tbody.innerHTML = html;
         }
 
-        // 🌟 ປັບປຸງລະບົບອັບໂຫຼດ Excel: ຄົ້ນຫາແຖວຫົວຂໍ້ໂດຍອັດຕະໂນມັດ (ລ/ດ, ຊື່ສິນຄ້າ) ບໍ່ວ່າຈະຢູ່ແຖວໃດກໍ່ຕາມ
+        // 🌟 ປັບປຸງລະບົບອັບໂຫຼດ Excel: ກວດຈັບແຖວຫົວຂໍ້ທີ່ມີຄຳວ່າ "ລ/ດ", "ຊື່ສິນຄ້າ", "ລະຫັດ" ແລ້ວອ່ານສະເພາະແຖວທີ່ມີຂໍ້ມູນສິນຄ້າແທ້ໆ
         function handleExcelUpload(event) {
             let file = event.target.files[0];
             if (!file) return;
@@ -1574,61 +1580,57 @@
                     let existingCodes = new Set();
 
                     excelRows.forEach(r => {
-                        if (r.code && r.code.trim()) existingCodes.add(r.code.trim().toLowerCase());
+                        if (r.code && String(r.code).trim()) existingCodes.add(String(r.code).trim().toLowerCase());
                     });
 
-                    // 🌟 ຊອກຫາແຖວທີ່ເປັນຫົວຂໍ້ຕາຕະລາງ (Header) ອັດຕະໂນມັດ
-                    let startRowIndex = 0;
+                    // 🌟 ຊອກຫາແຖວ Index ຂອງຫົວຂໍ້ຕາຕະລາງ (Header)
+                    let headerRowIndex = -1;
                     for (let i = 0; i < json.length; i++) {
                         let rowStr = JSON.stringify(json[i]).toLowerCase();
-                        if (rowStr.includes("ຊື່ສິນຄ້າ") || rowStr.includes("ລະຫັດ") || rowStr.includes("ລາຄາຊື້") || rowStr.includes("ລ/ດ")) {
-                            startRowIndex = i + 1; // ເລີ່ມອ່ານຂໍ້ມູນຕັ້ງແຕ່ແຖວถัดໄປຈາກຫົວຂໍ້
+                        if (rowStr.includes("ຊື່ສິນຄ້າ") || rowStr.includes("ລະຫັດ") || rowStr.includes("ລ/ດ")) {
+                            headerRowIndex = i;
                             break;
                         }
                     }
 
-                    // 🌟 ວົນລູບອ່ານຂໍ້ມູນສິນຄ້າຕັ້ງແຕ່ແຖວທີ່ພົບລົງມາ
-                    for (let i = startRowIndex; i < json.length; i++) {
+                    // ຖ້າບໍ່ພົບຫົວຂໍ້ ໃຫ້ເລີ່ມອ່ານແຖວທີ 0 ເປັນຕົ້ນໄປ
+                    let startRow = headerRowIndex !== -1 ? headerRowIndex + 1 : 0;
+
+                    for (let i = startRow; i < json.length; i++) {
                         let row = json[i];
                         if (row && row.length > 0) {
-                            // ກວດສອບວ່າແຖວນີ້ມີຂໍ້ມູນ (ເຊັ່ນ: ຖ້າຄໍລຳທຳອິດ ຫຼື ທີສອງບໍ່ຫວ່າງ)
-                            let col0 = row[0] !== undefined ? String(row[0]).trim() : '';
-                            let col1 = row[1] !== undefined ? String(row[1]).trim() : '';
-                            
-                            // ຖ້າຄໍລຳ 0 ເປັນຕົວເລກ (ລຳດັບ) ຫຼື ຄໍລຳ 1 ມີຊື່ສິນຄ້າ ຖືว่าเป็นແຖວຂໍ້ມູນສິນຄ້າທີ່ຖືກຕ້ອງ
-                            if (col0 !== '' || col1 !== '') {
-                                let code = '';
-                                let cost = 0;
-                                let profitPct = 20;
-                                let price = 0;
-                                let qty = 1;
-                                let rowDate = today;
+                            // ກວດສອບທຸກຄໍລຳໃນແຖວ ເພື່ອຊອກຫາວ່າໂຕໃດເປັນລະຫັດສິນຄ້າ ຫຼື ຊື່ສິນຄ້າ
+                            let possibleCode = '';
+                            let costIdx = 1, pctIdx = 2, priceIdx = 3, qtyIdx = 4, dateIdx = 5;
 
-                                // ຈັດລຽງຄ່າຕາມຕຳແໜ່ງທີ່ເໝາະສົມ (ກໍລະນີມີຄໍລຳລຳດັບ ຢູ່ໜ້າສຸດ)
-                                if (!isNaN(col0) && col1 !== '') {
-                                    code = col1;
-                                    cost = row[2] !== undefined ? row[2] : 0;
-                                    profitPct = row[3] !== undefined ? row[3] : 20;
-                                    price = row[4] !== undefined ? row[4] : 0;
-                                    qty = row[5] !== undefined ? row[5] : 1;
-                                    rowDate = row[6] ? String(row[6]).trim() : today;
+                            // ພະຍາຍາມກວດສອບວ່າຄໍລຳໃດເປັນຊື່ສິນຄ້າ/ລະຫັດ (ມັກຈະຢູ່ຄໍລຳ 0 ຫຼື 1 ຖ້າມີລຳດັບຢູ່ໜ້າສຸດ)
+                            let c0 = row[0] !== undefined ? String(row[0]).trim() : '';
+                            let c1 = row[1] !== undefined ? String(row[1]).trim() : '';
+
+                            if (c0 !== '' && isNaN(c0) && !c0.includes("ຊື່ສິນຄ້າ") && !c0.includes("ລະຫັດ") && !c0.includes("ລ/ດ")) {
+                                possibleCode = c0;
+                                costIdx = 1; pctIdx = 2; priceIdx = 3; qtyIdx = 4; dateIdx = 5;
+                            } else if (c1 !== '' && !c1.includes("ຊື່ສິນຄ້າ") && !c1.includes("ລະຫັດ") && !c1.includes("ລ/ດ")) {
+                                possibleCode = c1;
+                                costIdx = 2; pctIdx = 3; priceIdx = 4; qtyIdx = 5; dateIdx = 6;
+                            } else if (c0 !== '' && !isNaN(c0) && c1 !== '') {
+                                possibleCode = c1;
+                                costIdx = 2; pctIdx = 3; priceIdx = 4; qtyIdx = 5; dateIdx = 6;
+                            }
+
+                            if (possibleCode && possibleCode.toLowerCase() !== 'ຊື່ສິນຄ້າ' && possibleCode.toLowerCase() !== 'ລະຫັດ' && possibleCode.toLowerCase() !== 'ລ/ດ') {
+                                let cost = row[costIdx] !== undefined ? row[costIdx] : 0;
+                                let profitPct = row[pctIdx] !== undefined ? row[pctIdx] : 20;
+                                let price = row[priceIdx] !== undefined ? row[priceIdx] : 0;
+                                let qty = row[qtyIdx] !== undefined ? row[qtyIdx] : 1;
+                                let rowDate = row[dateIdx] ? String(row[dateIdx]).trim() : today;
+
+                                let lowerCode = possibleCode.toLowerCase();
+                                if (existingCodes.has(lowerCode)) {
+                                    duplicates.push({ code: possibleCode, reason: "ລະຫັດສິນຄ້າຊ້ຳກັນໃນລະບົບ" });
                                 } else {
-                                    code = col0 !== '' ? col0 : col1;
-                                    cost = row[1] !== undefined ? row[1] : 0;
-                                    profitPct = row[2] !== undefined ? row[2] : 20;
-                                    price = row[3] !== undefined ? row[3] : 0;
-                                    qty = row[4] !== undefined ? row[4] : 1;
-                                    rowDate = row[5] ? String(row[5]).trim() : today;
-                                }
-
-                                if (code && code.toLowerCase() !== 'ຊື່ສິນຄ້າ' && code.toLowerCase() !== 'ລະຫັດ') {
-                                    let lowerCode = code.toLowerCase();
-                                    if (existingCodes.has(lowerCode)) {
-                                        duplicates.push({ code: code, reason: "ລະຫັດສິນຄ້າຊ້ຳກັນໃນລະບົບ" });
-                                    } else {
-                                        existingCodes.add(lowerCode);
-                                        newRows.push({ code: code, cost: cost, profitPct: profitPct, price: price, qty: qty, dateAdded: rowDate });
-                                    }
+                                    existingCodes.add(lowerCode);
+                                    newRows.push({ code: possibleCode, cost: cost, profitPct: profitPct, price: price, qty: qty, dateAdded: rowDate });
                                 }
                             }
                         }
@@ -1641,6 +1643,8 @@
                     }
 
                     if (newRows.length > 0) {
+                        // ຕັດແຖວຫວ່າງເປົ່າເບື້ອງຕົ້ນອອກກ่อนເອົາຂໍ້ມູນໃໝ່ໃສ່
+                        excelRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
                         excelRows.push(...newRows);
                         renderExcelTable();
                         if (duplicates.length === 0) {
@@ -1686,7 +1690,7 @@
 
         async function saveExcelData() {
             syncTableInputsToData();
-            let validRows = excelRows.filter(r => r.code && r.code.trim() !== '');
+            let validRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
             localStorage.setItem('pos_saved_excel_rows', JSON.stringify(validRows));
 
             if (supabaseClient) {
@@ -1725,7 +1729,7 @@
 
         function generateExcelCodes() {
             syncTableInputsToData();
-            renderPreviewCards(excelRows.filter(r => r.code && r.code.trim() !== ''));
+            renderPreviewCards(excelRows.filter(r => r.code && String(r.code).trim() !== ''));
         }
 
         async function renderPreviewCards(rowsToRender) {
@@ -1791,7 +1795,7 @@
 
         function promptPrintDate() {
             syncTableInputsToData();
-            let validRows = excelRows.filter(r => r.code && r.code.trim() !== '');
+            let validRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
             if (validRows.length === 0) {
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຂໍ້ມູນສິນຄ້າກ່ອນສັ່ງພິມ!", "⚠️");
                 return;
@@ -1820,7 +1824,7 @@
             let selectedDate = document.getElementById('print-date-select').value;
             closePrintDateModal();
 
-            let validRows = excelRows.filter(r => r.code && r.code.trim() !== '');
+            let validRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
             let filteredRows = selectedDate === 'all' 
                 ? validRows 
                 : validRows.filter(r => (r.dateAdded || new Date().toISOString().split('T')[0]) === selectedDate);
