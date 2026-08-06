@@ -631,7 +631,7 @@
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
             <div class="text-4xl">⚠️</div>
             <h3 class="text-xl font-bold text-gray-800">ຢືນຢັນການລຶບ</h3>
-            <p class="text-gray-600 text-sm leading-relaxed">ທ່ານຕ້ອງການລືບປະຫວັດນີ້ບໍບໍ?</p>
+            <p class="text-gray-600 text-sm leading-relaxed">ທ່ານຕ້ອງການລືບປະຫວັດນີ້ບໍ?</p>
             <div class="flex gap-2 pt-2">
                 <button onclick="closeConfirmDelete(false)" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
                 <button onclick="closeConfirmDelete(true)" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ຕົກລົງ</button>
@@ -745,14 +745,21 @@
             let formattedU = u.toUpperCase();
             if (supabaseClient) {
                 try {
+                    // ກວດສອບຈາກ username ໂດຍກົງ ຫຼື device_id
                     let { data, error } = await supabaseClient
                         .from('licenses')
                         .select('*')
-                        .eq('device_id', formattedU)
+                        .or(`device_id.eq.${formattedU},username.eq.${formattedU}`)
                         .single();
 
                     if (error || !data) {
                         showAlert("ຜິດພາດ", "Username ຫຼື Password ບໍ່ຖືກຕ້ອງ!", "⚠️");
+                        return;
+                    }
+
+                    // ກວດສອບ Password ຖ້າມີการຕັ້ງ
+                    if (data.password && data.password !== p) {
+                        showAlert("ຜິດພາດ", "Password ບໍ່ຖືກຕ້ອງ!", "⚠️");
                         return;
                     }
 
@@ -761,7 +768,7 @@
                         let now = new Date();
                         let diffDays = (now - startDate) / (1000 * 60 * 60 * 24);
                         if (diffDays > 20) {
-                            await supabaseClient.from('licenses').delete().eq('device_id', formattedU);
+                            await supabaseClient.from('licenses').delete().eq('device_id', data.device_id);
                             showAlert("ໝົດອາຍຸ", "ບັນຊີນີ້ຖືກລະງັບຊົ່ວຄາວເນື່ອງຈາກໝົດອາຍຸ/ຄ້າງຊຳລະຄ່າບໍລິການ!", "❌");
                             return;
                         }
@@ -769,28 +776,28 @@
 
                     if (data.status === 'permanent' || data.status === 'trial') {
                         let oldDeviceId = deviceId;
-                        currentUsername = formattedU;
-                        deviceId = formattedU;
+                        currentUsername = data.device_id;
+                        deviceId = data.device_id;
                         localStorage.setItem('pos_current_username', currentUsername);
                         localStorage.setItem('pos_device_id', deviceId);
                         localStorage.setItem('pos_license_status', data.status);
                         localStorage.removeItem('pos_user_role');
 
-                        if (oldDeviceId && oldDeviceId !== formattedU) {
+                        if (oldDeviceId && oldDeviceId !== data.device_id) {
                             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-                            localHistory.forEach(tx => { tx.device_id = formattedU; });
+                            localHistory.forEach(tx => { tx.device_id = data.device_id; });
                             localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
 
                             await supabaseClient
                                 .from('sales_history')
-                                .update({ device_id: formattedU })
+                                .update({ device_id: data.device_id })
                                 .eq('device_id', oldDeviceId);
                         }
 
                         document.getElementById('unified-login-modal').classList.add('hidden');
                         document.getElementById('role-select-modal').classList.add('hidden');
                         document.getElementById('admin-manage-btn').classList.add('hidden');
-                        document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ສະມາຊິກ [${currentUsername}]`;
+                        document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ສະມາຊິກ [${data.username || currentUsername}]`;
                     } else {
                         showAlert("ແຈ້ງເຕືອນ", "ບັນຊີນີ້ຖືກລະງັບການໃຊ້ງານຊົ່ວຄາວ!", "⚠️");
                     }
@@ -929,13 +936,15 @@
                 data.forEach((item, idx) => {
                     let isPerm = item.status === 'permanent';
                     let remark = item.remark || '';
+                    let uname = item.username || '';
                     html += `
                         <div class="bg-gray-50 p-3 rounded-xl border text-xs space-y-2">
                             <div class="flex justify-between items-center">
                                 <div>
                                     <span class="font-bold text-gray-400">#${idx + 1}</span>
                                     <span class="font-mono font-bold text-blue-600 ml-2 text-sm">${item.device_id}</span>
-                                    <div class="text-[10px] text-gray-500">ສ້າງເມື່ອ: ${new Date(item.created_at).toLocaleString()}</div>
+                                    <div class="text-[11px] text-gray-600 font-semibold mt-0.5">User: <span class="text-indigo-600">${uname ? uname : 'ຍັງບໍ່ມີ'}</span></div>
+                                    <div class="text-[10px] text-gray-400">ສ້າງເມື່ອ: ${new Date(item.created_at).toLocaleString()}</div>
                                 </div>
                                 <div class="flex items-center gap-2">
                                     <span class="px-2.5 py-1 rounded-full font-bold ${isPerm ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}">
@@ -981,6 +990,7 @@
             }
         }
 
+        // 🌟 ປັບປຸງຟັງຊັນສ້າງ Username ຖາວອນ ໃຫ້ບັນທຶກ username ແລະ password ລົງ Supabase ຢ່າງຖືກຕ້ອງ
         async function adminCreateUser() {
             let targetDev = document.getElementById('new-target-device').value.trim().toUpperCase();
             let u = document.getElementById('new-admin-user').value.trim().toUpperCase();
@@ -996,12 +1006,16 @@
             try {
                 let { data: existingDev } = await supabaseClient.from('licenses').select('*').eq('device_id', targetDev).single();
 
-                let { error } = await supabaseClient.from('licenses').upsert({
+                let payload = {
                     device_id: targetDev,
                     status: 'permanent',
+                    username: u,
+                    password: p,
                     remark: 'ເປີດໃຊ້ງານຖາວອນແລ້ວ',
                     created_at: existingDev ? existingDev.created_at : new Date().toISOString()
-                }, { onConflict: 'device_id' });
+                };
+
+                let { error } = await supabaseClient.from('licenses').upsert(payload, { onConflict: 'device_id' });
 
                 if (error) {
                     showAlert("ຜິດພາດ", "ບໍ່ສາມາດສ້າງບັນຊີໄດ້: " + error.message, "⚠️");
@@ -1041,10 +1055,16 @@
             if (!supabaseClient) return;
             try {
                 let defaultRemark = newStatus === 'permanent' ? 'ເປີດໃຊ້ງານຖາວອນແລ້ວ (ຈ່າຍຄ່າບໍລິການ)' : 'ລະງັບຊົ່ວຄາວ (ຄ້າງຊຳລະຄ່າບໍລິການ)';
-                await supabaseClient.from('licenses').update({ status: newStatus, remark: defaultRemark }).eq('device_id', targetId);
+                let { error } = await supabaseClient.from('licenses').update({ status: newStatus, remark: defaultRemark }).eq('device_id', targetId);
+                if (error) {
+                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດປ່ຽນສະຖານະໄດ້: " + error.message, "⚠️");
+                    return;
+                }
                 showAlert("ສຳເລັດ", `ອັບເດດສະຖານະ [${targetId}] ຮຽບຮ້ອຍ!`, "✅");
                 loadAllDevices();
-            } catch (e) {}
+            } catch (e) {
+                showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການເຊື່ອມຕໍ່", "⚠️");
+            }
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
