@@ -703,19 +703,18 @@
                 return;
             }
 
-            if (!deviceId || deviceId.startsWith('DEV-')) {
-                if (supabaseClient) {
-                    try {
-                        let { count, error } = await supabaseClient.from('licenses').select('*', { count: 'exact', head: true });
-                        let nextNum = (!error && count !== null) ? count + 1 : 1;
-                        deviceId = formatDeviceSeqId(nextNum);
-                    } catch (e) {
-                        deviceId = 'POS-A0001';
-                    }
-                } else {
-                    deviceId = 'POS-A0001';
+            let savedUser = localStorage.getItem('pos_current_username');
+            if (savedUser) {
+                currentUsername = savedUser;
+                deviceId = savedUser;
+                return;
+            }
+
+            if (!deviceId || deviceId.startsWith('DEV-') || deviceId.startsWith('POS-')) {
+                if (!currentUsername) {
+                    // ຖ້າເປັນໂໝດທົດລອງ ໃຫ້ໃຊ້ ID ເຄື່ອງປົກກະຕິ
+                    if (!deviceId) deviceId = 'POS-A0001';
                 }
-                localStorage.setItem('pos_device_id', deviceId);
             }
         }
 
@@ -761,7 +760,7 @@
 
         function backToRoleSelectFromUnified() {
             document.getElementById('unified-login-modal').classList.add('hidden');
-            document.getElementById('role-select-modal').classList.add('hidden');
+            document.getElementById('role-select-modal').classList.remove('hidden');
         }
 
         async function verifyUnifiedLogin() {
@@ -808,24 +807,12 @@
                     }
 
                     if (data.status === 'permanent' || data.status === 'trial') {
-                        let oldDeviceId = deviceId;
                         currentUsername = data.device_id;
-                        deviceId = data.device_id; // 🌟 บังคับใช้ Username ถาวรเป็น deviceId ทันที เพื่อให้ทุกเครื่องดึงข้อมูลชุดเดียวกัน
+                        deviceId = data.device_id; // 🌟 บັງຄັບ DeviceID ໃຫ້ກາຍເປັນ Username ຖາວອນທັນທີ 100%
                         localStorage.setItem('pos_current_username', currentUsername);
                         localStorage.setItem('pos_device_id', deviceId);
                         localStorage.setItem('pos_license_status', data.status);
                         localStorage.removeItem('pos_user_role');
-
-                        if (oldDeviceId && oldDeviceId !== data.device_id) {
-                            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-                            localHistory.forEach(tx => { tx.device_id = data.device_id; });
-                            localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
-
-                            await supabaseClient
-                                .from('sales_history')
-                                .update({ device_id: data.device_id })
-                                .eq('device_id', oldDeviceId);
-                        }
 
                         document.getElementById('unified-login-modal').classList.add('hidden');
                         document.getElementById('role-select-modal').classList.add('hidden');
@@ -1068,7 +1055,11 @@
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
-            await initDeviceId();
+            if (currentUsername) {
+                deviceId = currentUsername;
+            } else {
+                await initDeviceId();
+            }
             checkRoleAndLicense();
         });
 
@@ -1298,9 +1289,11 @@
 
             let cashGiven = document.getElementById('cash-given').value ? (parseFloat(document.getElementById('cash-given').value) || 0) : finalTotal;
 
+            if (currentUsername) { deviceId = currentUsername; }
+
             let txData = {
                 id: 'TX-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
-                device_id: deviceId, // 🌟 ใช้ deviceId ซึ่งเชื่อมกับ Username ถาวร
+                device_id: deviceId,
                 created_at: new Date().toISOString(),
                 items: cart,
                 total_items: cart.reduce((sum, item) => sum + item.qty, 0),
@@ -1346,12 +1339,14 @@
             document.getElementById('history-summary').classList.add('hidden');
             globalHistoryList = [];
 
+            if (currentUsername) { deviceId = currentUsername; }
+
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
             let combinedMap = new Map();
 
             localHistory.forEach(tx => { combinedMap.set(tx.id || tx.created_at, tx); });
 
-            // 🌟 ດຶງປະຫວັດການຂາຍຈາກ Cloud (Supabase) ຕາມ deviceId (Username ຖາວອນ) ເພື່ອໃຫ້ Sync ກັນທຸກເຄື່ອງ 100%
+            // 🌟 ດຶງປະຫວັດການຂາຍຈາກ Cloud ໂດຍໃຊ້ deviceId ທີ່ກົງກັບ Username ຖາວອນທຸກເຄື່ອງ
             if (supabaseClient) {
                 try {
                     let { data: cloudSales, error } = await supabaseClient
@@ -1428,6 +1423,8 @@
             duplicateRemovedList = [];
             updateDuplicateReportButton();
 
+            if (currentUsername) { deviceId = currentUsername; }
+
             if (supabaseClient) {
                 try {
                     let { data, error } = await supabaseClient.from('products').select('*').eq('device_id', deviceId);
@@ -1484,6 +1481,7 @@
             document.getElementById('excel-print-area').classList.add('hidden');
             localStorage.removeItem('pos_saved_excel_rows');
 
+            if (currentUsername) { deviceId = currentUsername; }
             if (supabaseClient) {
                 try {
                     await supabaseClient.from('products').delete().eq('device_id', deviceId);
@@ -1818,6 +1816,8 @@
             syncTableInputsToData();
             let validRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
             localStorage.setItem('pos_saved_excel_rows', JSON.stringify(validRows));
+
+            if (currentUsername) { deviceId = currentUsername; }
 
             if (supabaseClient) {
                 try {
