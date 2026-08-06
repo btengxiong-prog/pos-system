@@ -111,7 +111,7 @@
                 </div>
             </div>
 
-            <button onclick="closeAdminManager()" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ປິດ</button>
+            <button onclick="closeAdminManager()" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ປิด</button>
         </div>
     </div>
 
@@ -485,7 +485,7 @@
         </div>
     </div>
 
-    <!-- Excel-like Table Code Generator Modal -->
+    <!-- Excel-like Table Code Generator Modal (ປັບປຸງຕາຕະລາງໃຫ້ຄົບຖ້ວນ ແລະ ຟໍແມັດຕົວເລກ) -->
     <div id="excel-generator-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-xl max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
@@ -517,6 +517,8 @@
                             <th class="p-2 border-r text-right">ລາຄາຊື້ (ກີບ)</th>
                             <th class="p-2 border-r text-center w-36">ເປີເຊັນຂາຍ (%)</th>
                             <th class="p-2 border-r text-right">ລາຄາຂາຍ (ກີບ)</th>
+                            <th class="p-2 border-r text-center w-24">ຈຳນວນ</th>
+                            <th class="p-2 border-r text-right">ລວມ (ກີບ)</th>
                             <th class="p-2 text-center w-28">ຈັດການ</th>
                         </tr>
                     </thead>
@@ -1222,7 +1224,7 @@
         async function openReport() { document.getElementById('report-modal').classList.remove('hidden'); }
         function closeReport() { document.getElementById('report-modal').classList.add('hidden'); }
 
-        // --- ຟັງຊັນຈັດການຕາຕະລາງສ້າງ QR Code ແລະ ອັບໂຫລດ Excel (ທີ່ເພີ່ມເຂົ້າມາໃໝ່) ---
+        // --- ຟັງຊັນຈັດການຕາຕະລາງສ້າງ QR Code ແລະ ຟໍແມັດຕົວເລກ ---
         function openExcelGenerator() {
             document.getElementById('excel-generator-modal').classList.remove('hidden');
             if (excelRows.length === 0) {
@@ -1237,8 +1239,8 @@
             document.getElementById('excel-print-area').classList.add('hidden');
         }
 
-        function addExcelRow(code = '', cost = '', profitPct = 20, price = '') {
-            excelRows.push({ code: code, cost: cost, profitPct: profitPct, price: price });
+        function addExcelRow(code = '', cost = '', profitPct = 20, price = '', qty = 1) {
+            excelRows.push({ code: code, cost: cost, profitPct: profitPct, price: price, qty: qty });
             renderExcelTable();
         }
 
@@ -1259,6 +1261,13 @@
             let tbody = document.getElementById('excel-tbody');
             let html = '';
             excelRows.forEach((row, index) => {
+                let costFormatted = row.cost !== '' && !isNaN(row.cost) ? Number(row.cost).toLocaleString() : '';
+                let priceFormatted = row.price !== '' && !isNaN(row.price) ? Number(row.price).toLocaleString() : '';
+                let costVal = row.cost !== '' ? row.cost : '';
+                let priceVal = row.price !== '' ? row.price : '';
+                let totalVal = (Number(row.price) || 0) * (Number(row.qty) || 1);
+                let totalFormatted = totalVal > 0 ? totalVal.toLocaleString() : '0';
+
                 html += `
                     <tr class="border-b hover:bg-gray-50">
                         <td class="p-2 border-r text-center font-bold text-gray-500 text-xs">${index + 1}</td>
@@ -1266,16 +1275,22 @@
                             <input type="text" value="${row.code}" oninput="updateExcelRowData(${index}, 'code', this.value)" placeholder="ຊື່ສິນຄ້າ ຫຼື ລະຫັດ" class="w-full border rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-blue-500">
                         </td>
                         <td class="p-2 border-r">
-                            <input type="number" value="${row.cost}" oninput="updateExcelRowData(${index}, 'cost', this.value)" placeholder="0" class="w-full border rounded px-2 py-1 text-right text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-blue-600">
+                            <input type="text" value="${costFormatted}" oninput="updateExcelRowData(${index}, 'cost_raw', this.value)" placeholder="0" class="w-full border rounded px-2 py-1 text-right text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-blue-600">
                         </td>
                         <td class="p-2 border-r">
                             <input type="number" value="${row.profitPct}" oninput="updateExcelRowData(${index}, 'profitPct', this.value)" placeholder="20" class="w-full border rounded px-2 py-1 text-center text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-amber-600">
                         </td>
                         <td class="p-2 border-r">
-                            <input type="number" value="${row.price}" oninput="updateExcelRowData(${index}, 'price', this.value)" placeholder="0" class="w-full border rounded px-2 py-1 text-right text-xs outline-none focus:ring-1 focus:ring-blue-500 font-bold text-green-600">
+                            <input type="text" value="${priceFormatted}" oninput="updateExcelRowData(${index}, 'price_raw', this.value)" placeholder="0" class="w-full border rounded px-2 py-1 text-right text-xs outline-none focus:ring-1 focus:ring-blue-500 font-bold text-green-600">
+                        </td>
+                        <td class="p-2 border-r">
+                            <input type="number" value="${row.qty}" oninput="updateExcelRowData(${index}, 'qty', this.value)" placeholder="1" class="w-full border rounded px-2 py-1 text-center text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-gray-700">
+                        </td>
+                        <td class="p-2 border-r text-right font-bold text-gray-800 text-xs">
+                            ${totalFormatted}
                         </td>
                         <td class="p-2 text-center">
-                            <button onclick="removeExcelRow(${index})" class="bg-red-100 text-red-600 hover:bg-red-200 px-2 py-1 rounded text-xs font-bold cursor-pointer">🗑️ ລຶບ</button>
+                            <button onclick="removeExcelRow(${index})" class="bg-red-100 text-red-600 hover:bg-red-200 px-2 py-1 rounded text-xs font-bold cursor-pointer flex items-center justify-center gap-1 mx-auto shadow-sm">🗑️ ລຶບ</button>
                         </td>
                     </tr>
                 `;
@@ -1284,14 +1299,39 @@
         }
 
         function updateExcelRowData(index, field, value) {
-            excelRows[index][field] = value;
-            if (field === 'cost' || field === 'profitPct') {
+            if (field === 'cost_raw') {
+                let cleanVal = value.replace(/,/g, '');
+                excelRows[index].cost = cleanVal === '' ? '' : parseFloat(cleanVal) || 0;
                 let cost = parseFloat(excelRows[index].cost) || 0;
                 let pct = parseFloat(excelRows[index].profitPct) || 0;
                 if (cost > 0 && pct >= 0) {
                     let calculatedPrice = cost + (cost * pct / 100);
                     excelRows[index].price = Math.round(calculatedPrice);
-                    renderExcelTable();
+                }
+                renderExcelTable();
+            } else if (field === 'price_raw') {
+                let cleanVal = value.replace(/,/g, '');
+                excelRows[index].price = cleanVal === '' ? '' : parseFloat(cleanVal) || 0;
+                renderExcelTable();
+            } else if (field === 'cost') {
+                excelRows[index][field] = value;
+                let cost = parseFloat(value) || 0;
+                let pct = parseFloat(excelRows[index].profitPct) || 0;
+                if (cost > 0 && pct >= 0) {
+                    let calculatedPrice = cost + (cost * pct / 100);
+                    excelRows[index].price = Math.round(calculatedPrice);
+                }
+                renderExcelTable();
+            } else {
+                excelRows[index][field] = value;
+                if (field === 'profitPct') {
+                    let cost = parseFloat(excelRows[index].cost) || 0;
+                    let pct = parseFloat(value) || 0;
+                    if (cost > 0 && pct >= 0) {
+                        let calculatedPrice = cost + (cost * pct / 100);
+                        excelRows[index].price = Math.round(calculatedPrice);
+                        renderExcelTable();
+                    }
                 }
             }
         }
@@ -1316,8 +1356,9 @@
                             let cost = row[1] !== undefined ? parseFloat(row[1]) || 0 : '';
                             let profitPct = row[2] !== undefined ? parseFloat(row[2]) || 20 : 20;
                             let price = row[3] !== undefined ? parseFloat(row[3]) || 0 : '';
+                            let qty = row[4] !== undefined ? parseInt(row[4]) || 1 : 1;
                             if (code) {
-                                newRows.push({ code: code, cost: cost, profitPct: profitPct, price: price });
+                                newRows.push({ code: code, cost: cost, profitPct: profitPct, price: price, qty: qty });
                             }
                         }
                     }
@@ -1329,7 +1370,7 @@
                         showAlert("ແຈ້ງເຕືອນ", "ບໍ່ພົບຂໍ້ມູນໃນໄຟລ໌ Excel", "⚠️");
                     }
                 } catch (err) {
-                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດອ່ານໄຟລ໌ Excel ได้", "❌");
+                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດອ່ານໄຟລ໌ Excel ໄດ້", "❌");
                 }
                 event.target.value = '';
             };
@@ -1347,13 +1388,14 @@
             
             let validRows = excelRows.filter(r => r.code.trim() !== '');
             if (validRows.length === 0) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ้อนຂໍ້ມູນສິນຄ້າຢ່າງໜ້ອຍ 1 รายການ!", "⚠️");
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຂໍ້ມູນສິນຄ້າຢ່າງໜ້ອຍ 1 ລາຍການ!", "⚠️");
                 return;
             }
 
             validRows.forEach((row, idx) => {
                 let safeCode = row.code.replace(/"/g, '&quot;');
-                let priceStr = (parseFloat(row.price) || 0).toLocaleString() + " ກີບ";
+                let priceNum = parseFloat(row.price) || 0;
+                let priceStr = priceNum.toLocaleString() + " ກີບ";
                 html += `
                     <div class="bg-white border-2 border-dashed border-gray-300 p-4 rounded-xl text-center space-y-2 shadow-sm">
                         <div class="font-bold text-gray-800 text-sm truncate">${safeCode}</div>
