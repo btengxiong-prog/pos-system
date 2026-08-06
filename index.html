@@ -143,11 +143,13 @@
                 <button onclick="loadAllDevices()" class="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg cursor-pointer font-bold">🔄 ໂຫຼດຂໍ້ມູນໃໝ່</button>
             </div>
             
+            <!-- ຟອມສ້າງ Username ແລະ Password ໃຫ້ສະມາຊິກຖາວອນ -->
             <div class="bg-blue-50 p-4 rounded-xl border border-blue-200 space-y-3">
-                <h4 class="font-bold text-blue-900 text-sm">➕ ສ້າງ Username ໃຫ້ສະມາຊິກຖາວອນ</h4>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <h4 class="font-bold text-blue-900 text-sm">➕ ສ້າງ Username ແລະ Password ໃຫ້ສະມາຊິກຖາວອນ</h4>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <input type="text" id="new-target-device" placeholder="ID ເຄື່ອງ (ເຊັ່ນ: POS-A0001)" class="border rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none bg-white">
                     <input type="text" id="new-admin-user" placeholder="USERNAME (ເຊັ່ນ: SHOP001)" class="border rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none bg-white">
+                    <input type="text" id="new-admin-pass" placeholder="Password" class="border rounded-lg px-3 py-2 text-xs font-semibold outline-none bg-white">
                 </div>
                 <button onclick="adminCreateUser()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg text-xs transition cursor-pointer shadow">
                     💾 ບັນທຶກ ແລະ ສ້າງບັນຊີສະມາຊິກ
@@ -1022,12 +1024,14 @@
 
                 data.forEach((item, idx) => {
                     let isPerm = item.status === 'permanent';
+                    let uName = item.username || '';
                     html += `
                         <div class="bg-gray-50 p-3 rounded-xl border text-xs space-y-2">
                             <div class="flex justify-between items-center">
                                 <div>
                                     <span class="font-bold text-gray-400">#${idx + 1}</span>
                                     <span class="font-mono font-bold text-blue-600 ml-2 text-sm">${item.device_id}</span>
+                                    ${uName ? `<div class="text-[11px] text-indigo-600 font-semibold">User: ${uName}</div>` : ''}
                                     <div class="text-[10px] text-gray-400">ສ້າງເມື່ອ: ${new Date(item.created_at).toLocaleString()}</div>
                                 </div>
                                 <div class="flex items-center gap-2">
@@ -1051,11 +1055,14 @@
             } catch (e) {}
         }
 
+        // 🌟 ຟັງຊັນສ້າງ Username ແລະ Password ໃຫ້ສະມາຊິກຖາວອນ (ກັບຄືນມາຄົບຖ້ວນຕາມຄວາມຕ້ອງການ)
         async function adminCreateUser() {
             let targetDev = document.getElementById('new-target-device').value.trim().toUpperCase();
+            let u = document.getElementById('new-admin-user').value.trim().toUpperCase();
+            let p = document.getElementById('new-admin-pass').value.trim();
 
-            if (!targetDev) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ ID ເຄື່ອງໃຫ້ຄົບຖ້ວນ!", "⚠️");
+            if (!targetDev || !u || !p) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ ID ເຄື່ອງ, Username ແລະ Password ໃຫ້ຄົບຖ້ວນ!", "⚠️");
                 return;
             }
 
@@ -1067,6 +1074,8 @@
                 let payload = {
                     device_id: targetDev,
                     status: 'permanent',
+                    username: u,
+                    remark: `Pass: ${p} | ເປີດໃຊ້ງານຖາວອນແລ້ວ`,
                     created_at: existingDev ? existingDev.created_at : new Date().toISOString()
                 };
 
@@ -1077,7 +1086,7 @@
                     return;
                 }
 
-                showAlert("ສຳເລັດ", `ເປີດໃຊ້ງານຖາວອນໃຫ້ ID: ${targetDev} ສໍາເລັດຮຽບຮ້ອຍ!`, "⭐");
+                showAlert("ສຳເລັດ", `ເປີດໃຊ້ງານຖາວອນໃຫ້ ID: ${targetDev} (User: ${u}) ສໍາເລັດຮຽບຮ້ອຍ!`, "⭐");
                 document.getElementById('new-target-device').value = "";
                 document.getElementById('new-admin-user').value = "";
                 document.getElementById('new-admin-pass').value = "";
@@ -1893,6 +1902,47 @@
 
         function printExcelCodes() {
             promptPrintDate();
+        }
+
+        // 🌟 ຟັງຊັນສ້າງ Username ແລະ Password ໃຫ້ສະມາຊິກຖາວອນ (ກັບຄືນມາຄົບຖ້ວນຕາມຄວາມຕ້ອງການ)
+        async function adminCreateUser() {
+            let targetDev = document.getElementById('new-target-device').value.trim().toUpperCase();
+            let u = document.getElementById('new-admin-user').value.trim().toUpperCase();
+            let p = document.getElementById('new-admin-pass').value.trim();
+
+            if (!targetDev || !u || !p) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ ID ເຄື່ອງ, Username ແລະ Password ໃຫ້ຄົບຖ້ວນ!", "⚠️");
+                return;
+            }
+
+            if (!supabaseClient) return;
+
+            try {
+                let { data: existingDev } = await supabaseClient.from('licenses').select('*').eq('device_id', targetDev).single();
+
+                let payload = {
+                    device_id: targetDev,
+                    status: 'permanent',
+                    username: u,
+                    remark: `Pass: ${p} | ເປີດໃຊ້ງານຖາວອນແລ້ວ`,
+                    created_at: existingDev ? existingDev.created_at : new Date().toISOString()
+                };
+
+                let { error } = await supabaseClient.from('licenses').upsert(payload, { onConflict: 'device_id' });
+
+                if (error) {
+                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດສ້າງບັນຊີໄດ້: " + error.message, "⚠️");
+                    return;
+                }
+
+                showAlert("ສຳເລັດ", `ເປີດໃຊ້ງານຖາວອນໃຫ້ ID: ${targetDev} (User: ${u}) ສໍາເລັດຮຽບຮ້ອຍ!`, "⭐");
+                document.getElementById('new-target-device').value = "";
+                document.getElementById('new-admin-user').value = "";
+                document.getElementById('new-admin-pass').value = "";
+                await loadAllDevices();
+            } catch (e) {
+                showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການເຊື່ອມຕໍ່", "⚠️");
+            }
         }
     </script>
 </body>
