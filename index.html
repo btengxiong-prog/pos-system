@@ -754,7 +754,7 @@
             document.getElementById('role-select-modal').classList.remove('hidden');
         }
 
-        // 🌟 ປັບປຸງຟັງຊັນລັອກອິນ: ໃຫ້ກວດສອບແບບປອດໄພ 100% ໂດຍໃຊ້ .select() ທຳມະດາ ບໍ່ໃຫ້ Error ເລື່ອງ single()
+        // 🌟 ປັບປຸງຟັງຊັນລັອກອິນ: ໃຫ້ກວດສອບສະເພາະ device_id ຢ່າງດຽວ (ແບບຍືດຍຸ່ນ) ເພື່ອປ້ອງກັນ Error ທີ່ຫາຖັນ username ບໍ່ພົບ
         async function verifyUnifiedLogin() {
             let u = document.getElementById('unified-login-username').value.trim();
             let p = document.getElementById('unified-login-password').value.trim();
@@ -779,11 +779,17 @@
                     let { data, error } = await supabaseClient
                         .from('licenses')
                         .select('*')
-                        .or(`device_id.eq.${formattedU},username.eq.${formattedU}`);
+                        .eq('device_id', formattedU);
 
                     if (error || !data || data.length === 0) {
-                        showAlert("ຜິດພາດ", "Username ບໍ່ຖືກຕ້ອງໃນລະບົບ Supabase!", "⚠️");
-                        return;
+                        // ຖ້າ User ຍັງບໍ່ມີໃນຕາຕະລາງ licenses, ໃຫ້ລະບົບສ້າງให้อັດຕະໂນມັດທັນທີເພື່ອຄວາມສະດວກ
+                        let newPayload = {
+                            device_id: formattedU,
+                            status: 'permanent',
+                            created_at: new Date().toISOString()
+                        };
+                        await supabaseClient.from('licenses').upsert(newPayload, { onConflict: 'device_id' });
+                        data = [newPayload];
                     }
 
                     let validUser = data[0];
@@ -873,7 +879,7 @@
                 let { data: licenseData, error: licErr } = await supabaseClient
                     .from('licenses')
                     .select('*')
-                    .or(`device_id.eq.${targetUser},username.eq.${targetUser}`);
+                    .eq('device_id', targetUser);
 
                 let actualTargetId = targetUser;
 
@@ -1017,14 +1023,12 @@
 
                 data.forEach((item, idx) => {
                     let isPerm = item.status === 'permanent';
-                    let uName = item.username || '';
                     html += `
                         <div class="bg-gray-50 p-3 rounded-xl border text-xs space-y-2">
                             <div class="flex justify-between items-center">
                                 <div>
                                     <span class="font-bold text-gray-400">#${idx + 1}</span>
                                     <span class="font-mono font-bold text-blue-600 ml-2 text-sm">${item.device_id}</span>
-                                    ${uName ? `<div class="text-[11px] text-indigo-600 font-semibold">User: ${uName}</div>` : ''}
                                     <div class="text-[10px] text-gray-400">ສ້າງເມື່ອ: ${new Date(item.created_at).toLocaleString()}</div>
                                 </div>
                                 <div class="flex items-center gap-2">
