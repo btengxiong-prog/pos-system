@@ -574,7 +574,7 @@
                     <button onclick="clearUnsavedRows()" class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow flex items-center gap-1">
                         🧹 ລຶບຂໍ້ມູນທີ່ຍັງບໍ່ທັນບັນທຶກ
                     </button>
-                    <!-- 🌟 ປຸ່ມລາຍງານລາຍການທີ່ຖືກຕັດ (ຄົງເງື່ອນໄຂເຊື່ອງ/ສະແດງອັດຕະໂນມັດ) -->
+                    <!-- 🌟 ປຸ່ມລາຍງານລາຍການທີ່ຖືກຕັດ (Sync Supabase & Local) -->
                     <button id="btn-duplicate-report" onclick="openDuplicateReportModal()" class="hidden bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow flex items-center gap-1">
                         📋 ລາຍງານລາຍການທີ່ຖືກຕັດ (0)
                     </button>
@@ -632,7 +632,7 @@
         </div>
     </div>
 
-    <!-- Duplicate Report Modal (พร้อมปุ่มพิมพ์รายงาน) -->
+    <!-- Duplicate Report Modal -->
     <div id="duplicate-report-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[350]">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
@@ -1081,6 +1081,16 @@
                     }
                 })
                 .subscribe();
+
+            // 🌟 Realtime Sync ສຳລັບຕາຕະລາງສິນຄ້າ (Products) ລະຫວ່າງຫຼາຍເຄື່ອງ
+            supabaseClient
+                .channel('public:products')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, payload => {
+                    if (!document.getElementById('excel-generator-modal').classList.contains('hidden')) {
+                        openExcelGenerator();
+                    }
+                })
+                .subscribe();
         }
 
         let cart = [];
@@ -1418,10 +1428,11 @@
             duplicateRemovedList = [];
             updateDuplicateReportButton();
 
+            // 🌟 ດຶງຂໍ້ມູນຈາກ Cloud (Supabase) ໂດຍກົງຕາມ deviceId (Username ຖາວອນ) ເພື່ອໃຫ້ Sync ກັນທຸກເຄື່ອງ
             if (supabaseClient) {
                 try {
-                    let { data } = await supabaseClient.from('products').select('*').eq('device_id', deviceId);
-                    if (data && data.length > 0) {
+                    let { data, error } = await supabaseClient.from('products').select('*').eq('device_id', deviceId);
+                    if (!error && data && data.length > 0) {
                         excelRows = data.map(item => ({
                             code: item.code,
                             cost: item.cost,
@@ -1761,7 +1772,7 @@
                 </div>`;
             });
             listContainer.innerHTML = html || '<p class="text-center text-gray-400 py-2">ບໍ່ມີລາຍການຖືກຕັດ</p>';
-            document.getElementById('duplicate-report-modal').classList.remove('hidden');
+            document.getElementById('duplicate-report-modal').classList.add('hidden');
         }
 
         function closeDuplicateReportModal() {
