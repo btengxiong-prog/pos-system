@@ -111,7 +111,7 @@
                 </div>
             </div>
 
-            <button onclick="closeAdminManager()" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ປิด</button>
+            <button onclick="closeAdminManager()" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ປິດ</button>
         </div>
     </div>
 
@@ -485,7 +485,7 @@
         </div>
     </div>
 
-    <!-- Excel-like Table Code Generator Modal (ປັບປຸງຕາຕະລາງໃຫ້ຄົບຖ້ວນ ແລະ ຟໍແມັດຕົວເລກ) -->
+    <!-- Excel-like Table Code Generator Modal -->
     <div id="excel-generator-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-xl max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
@@ -1224,9 +1224,17 @@
         async function openReport() { document.getElementById('report-modal').classList.remove('hidden'); }
         function closeReport() { document.getElementById('report-modal').classList.add('hidden'); }
 
-        // --- ຟັງຊັນຈັດການຕາຕະລາງສ້າງ QR Code ແລະ ຟໍແມັດຕົວເລກ ---
+        // --- ຟັງຊັນຈັດການຕາຕະລາງສ້າງ QR Code ແລະ ບັນທຶກຂໍ້ມູນ ---
         function openExcelGenerator() {
             document.getElementById('excel-generator-modal').classList.remove('hidden');
+            let savedRows = localStorage.getItem('pos_saved_excel_rows');
+            if (savedRows) {
+                try {
+                    excelRows = JSON.parse(savedRows);
+                } catch (e) {
+                    excelRows = [];
+                }
+            }
             if (excelRows.length === 0) {
                 addExcelRow();
             } else {
@@ -1254,6 +1262,7 @@
             excelRows = [];
             addExcelRow();
             document.getElementById('excel-print-area').classList.add('hidden');
+            localStorage.removeItem('pos_saved_excel_rows');
             showAlert("ສຳເລັດ", "ລຶບຂໍ້ມູນໃນຕາຕະລາງແລ້ວ", "🧹");
         }
 
@@ -1263,8 +1272,6 @@
             excelRows.forEach((row, index) => {
                 let costFormatted = row.cost !== '' && !isNaN(row.cost) ? Number(row.cost).toLocaleString() : '';
                 let priceFormatted = row.price !== '' && !isNaN(row.price) ? Number(row.price).toLocaleString() : '';
-                let costVal = row.cost !== '' ? row.cost : '';
-                let priceVal = row.price !== '' ? row.price : '';
                 let totalVal = (Number(row.price) || 0) * (Number(row.qty) || 1);
                 let totalFormatted = totalVal > 0 ? totalVal.toLocaleString() : '0';
 
@@ -1312,15 +1319,6 @@
             } else if (field === 'price_raw') {
                 let cleanVal = value.replace(/,/g, '');
                 excelRows[index].price = cleanVal === '' ? '' : parseFloat(cleanVal) || 0;
-                renderExcelTable();
-            } else if (field === 'cost') {
-                excelRows[index][field] = value;
-                let cost = parseFloat(value) || 0;
-                let pct = parseFloat(excelRows[index].profitPct) || 0;
-                if (cost > 0 && pct >= 0) {
-                    let calculatedPrice = cost + (cost * pct / 100);
-                    excelRows[index].price = Math.round(calculatedPrice);
-                }
                 renderExcelTable();
             } else {
                 excelRows[index][field] = value;
@@ -1377,8 +1375,32 @@
             reader.readAsArrayBuffer(file);
         }
 
-        function saveExcelData() {
-            showAlert("ສຳເລັດ", "ບັນທຶກຂໍ້ມູນໃນຕາຕະລາງຮຽບຮ້ອຍແລ້ວ", "💾");
+        async function saveExcelData() {
+            let validRows = excelRows.filter(r => r.code.trim() !== '');
+            if (validRows.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຂໍ້ມູນສິນຄ້າຢ່າງໜ້ອຍ 1 ລາຍການ!", "⚠️");
+                return;
+            }
+
+            localStorage.setItem('pos_saved_excel_rows', JSON.stringify(validRows));
+
+            if (supabaseClient) {
+                try {
+                    for (let row of validRows) {
+                        await supabaseClient.from('products').upsert({
+                            device_id: deviceId,
+                            code: row.code,
+                            cost: parseFloat(row.cost) || 0,
+                            profit_pct: parseFloat(row.profitPct) || 20,
+                    price: parseFloat(row.price) || 0,
+                            qty: parseInt(row.qty) || 1,
+                            updated_at: new Date().toISOString()
+                        }, { onConflict: 'device_id,code' });
+                    }
+                } catch (err) {}
+            }
+
+            showAlert("ສຳເລັດ", `ບັນທຶກຂໍ້ມູນສິນຄ້າທັງໝົດ ${validRows.length} ລາຍການຮຽບຮ້ອຍແລ້ວ!`, "💾");
         }
 
         function generateExcelCodes() {
