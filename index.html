@@ -144,10 +144,11 @@
             </div>
             
             <div class="bg-blue-50 p-4 rounded-xl border border-blue-200 space-y-3">
-                <h4 class="font-bold text-blue-900 text-sm">➕ ສ້າງ Username ໃຫ້ສະມາຊິກຖາວອນ</h4>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <h4 class="font-bold text-blue-900 text-sm">➕ ສ້າງ Username ແລະ Password ໃຫ້ສະມາຊິກຖາວອນ</h4>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <input type="text" id="new-target-device" placeholder="ID ເຄື່ອງ (ເຊັ່ນ: POS-A0001)" class="border rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none bg-white">
                     <input type="text" id="new-admin-user" placeholder="USERNAME (ເຊັ່ນ: SHOP001)" class="border rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none bg-white">
+                    <input type="text" id="new-admin-pass" placeholder="Password" class="border rounded-lg px-3 py-2 text-xs font-semibold outline-none bg-white">
                 </div>
                 <button onclick="adminCreateUser()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg text-xs transition cursor-pointer shadow">
                     💾 ບັນທຶກ ແລະ ສ້າງບັນຊີສະມາຊິກ
@@ -753,7 +754,7 @@
             document.getElementById('role-select-modal').classList.remove('hidden');
         }
 
-        // 🌟 ປັບປຸງຟັງຊັນລັອກອິນ: ໃຫ້ກວດສອບພຽງແຕ່ User ມີຢູ່ໃນ Supabase ກໍ່ສາມາດລັອກອິນຜ່ານໄດ້ທັນທີ 100% ໂດຍບໍ່ติด Password Error
+        // 🌟 ປັບປຸງຟັງຊັນລັອກອິນ: ໃຫ້ກວດສອບແບບປອດໄພ 100% ໂດຍໃຊ້ .select() ທຳມະດາ ບໍ່ໃຫ້ Error ເລື່ອງ single()
         async function verifyUnifiedLogin() {
             let u = document.getElementById('unified-login-username').value.trim();
             let p = document.getElementById('unified-login-password').value.trim();
@@ -778,19 +779,20 @@
                     let { data, error } = await supabaseClient
                         .from('licenses')
                         .select('*')
-                        .or(`device_id.eq.${formattedU},username.eq.${formattedU}`)
-                        .single();
+                        .or(`device_id.eq.${formattedU},username.eq.${formattedU}`);
 
-                    if (error || !data) {
-                        showAlert("ຜິດພາດ", "Username ບໍ່ถูกต้องໃນລະບົບ Supabase!", "⚠️");
+                    if (error || !data || data.length === 0) {
+                        showAlert("ຜິດພາດ", "Username ບໍ່ຖືກຕ້ອງໃນລະບົບ Supabase!", "⚠️");
                         return;
                     }
 
-                    currentUsername = data.device_id;
-                    deviceId = data.device_id;
+                    let validUser = data[0];
+
+                    currentUsername = validUser.device_id;
+                    deviceId = validUser.device_id;
                     localStorage.setItem('pos_current_username', currentUsername);
                     localStorage.setItem('pos_device_id', deviceId);
-                    localStorage.setItem('pos_license_status', data.status || 'permanent');
+                    localStorage.setItem('pos_license_status', validUser.status || 'permanent');
                     localStorage.removeItem('pos_user_role');
 
                     document.getElementById('unified-login-modal').classList.add('hidden');
@@ -871,12 +873,11 @@
                 let { data: licenseData, error: licErr } = await supabaseClient
                     .from('licenses')
                     .select('*')
-                    .or(`device_id.eq.${targetUser},username.eq.${targetUser}`)
-                    .single();
+                    .or(`device_id.eq.${targetUser},username.eq.${targetUser}`);
 
                 let actualTargetId = targetUser;
 
-                if (licErr || !licenseData) {
+                if (licErr || !licenseData || licenseData.length === 0) {
                     let newPayload = {
                         device_id: targetUser,
                         status: 'permanent',
@@ -885,7 +886,7 @@
                     await supabaseClient.from('licenses').upsert(newPayload, { onConflict: 'device_id' });
                     actualTargetId = targetUser;
                 } else {
-                    actualTargetId = licenseData.device_id;
+                    actualTargetId = licenseData[0].device_id;
                     await supabaseClient.from('licenses').update({ status: 'permanent' }).eq('device_id', actualTargetId);
                 }
 
@@ -942,15 +943,15 @@
 
             if (supabaseClient) {
                 try {
-                    let { data } = await supabaseClient.from('licenses').select('*').eq('device_id', deviceId).single();
-                    if (!data) {
+                    let { data } = await supabaseClient.from('licenses').select('*').eq('device_id', deviceId);
+                    if (!data || data.length === 0) {
                         await supabaseClient.from('licenses').insert([{
                             device_id: deviceId,
                             trial_start: trialStart,
                             status: 'trial'
                         }]);
-                    } else if (data.status === 'trial') {
-                        let startDate = new Date(data.trial_start || data.created_at);
+                    } else if (data[0].status === 'trial') {
+                        let startDate = new Date(data[0].trial_start || data[0].created_at);
                         let now = new Date();
                         let diffDays = (now - startDate) / (1000 * 60 * 60 * 24);
                         if (diffDays > 20) {
@@ -1060,12 +1061,12 @@
             if (!supabaseClient) return;
 
             try {
-                let { data: existingDev } = await supabaseClient.from('licenses').select('*').eq('device_id', targetDev).single();
+                let { data: existingDev } = await supabaseClient.from('licenses').select('*').eq('device_id', targetDev);
 
                 let payload = {
                     device_id: targetDev,
                     status: 'permanent',
-                    created_at: existingDev ? existingDev.created_at : new Date().toISOString()
+                    created_at: (existingDev && existingDev.length > 0) ? existingDev[0].created_at : new Date().toISOString()
                 };
 
                 let { error } = await supabaseClient.from('licenses').upsert(payload, { onConflict: 'device_id' });
@@ -1906,12 +1907,12 @@
             if (!supabaseClient) return;
 
             try {
-                let { data: existingDev } = await supabaseClient.from('licenses').select('*').eq('device_id', targetDev).single();
+                let { data: existingDev } = await supabaseClient.from('licenses').select('*').eq('device_id', targetDev);
 
                 let payload = {
                     device_id: targetDev,
                     status: 'permanent',
-                    created_at: existingDev ? existingDev.created_at : new Date().toISOString()
+                    created_at: (existingDev && existingDev.length > 0) ? existingDev[0].created_at : new Date().toISOString()
                 };
 
                 let { error } = await supabaseClient.from('licenses').upsert(payload, { onConflict: 'device_id' });
