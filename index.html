@@ -630,7 +630,7 @@
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
             <div class="text-4xl">⚠️</div>
             <h3 class="text-xl font-bold text-gray-800">ຢືນຢັນການລຶບ</h3>
-            <p class="text-gray-600 text-sm leading-relaxed">ທ່ານຕ້ອງການລືບປະຫວັດນີ້ບໍ?</p>
+            <p class="text-gray-600 text-sm leading-relaxed">ທ່ານຕ້ອງການລືບປະຫວັດນີ້ບໍບໍ?</p>
             <div class="flex gap-2 pt-2">
                 <button onclick="closeConfirmDelete(false)" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
                 <button onclick="closeConfirmDelete(true)" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ຕົກລົງ</button>
@@ -1421,12 +1421,14 @@
         }
 
         function addExcelRow(code = '', cost = '', profitPct = 20, price = '', qty = 1, dateAdded = '') {
+            syncTableInputsToData();
             let today = new Date().toISOString().split('T')[0];
             excelRows.push({ code: code, cost: cost, profitPct: profitPct, price: price, qty: qty, dateAdded: dateAdded || today });
             renderExcelTable();
         }
 
         function removeExcelRow(index) {
+            syncTableInputsToData();
             excelRows.splice(index, 1);
             if (excelRows.length === 0) addExcelRow();
             renderExcelTable();
@@ -1449,39 +1451,65 @@
             showAlert("ສຳເລັດ", "ລຶບຂໍ້ມູນທັງໝົດອອກຈາກລະບົບຮຽບຮ້ອຍແລ້ວ", "🧹");
         }
 
-        // 🌟 ເມື່ອກົດ Focus ໃສັດัวເລກ ໃຫ້ສະແດງເປັນຄ່າຕົວເລກດິບໂດຍບໍ່ select ໝົດ ເພື່ອງ່າຍຕໍ່ການລຶບทีລະໂຕ
-        function handleCellFocus(inputElem, rawValue) {
-            inputElem.value = (rawValue !== "" && rawValue !== 0 && !isNaN(rawValue)) ? rawValue : "";
-        }
-
-        // 🌟 ເມື່ອອອກຈາກ cell (Blur) ໃຫ້ຈັດຮູບແບບໃສ່ເຄື່ອງໝາຍ (,) ໃຫ້ສວຍງາມ
-        function handleCellBlur(index, field, inputElem) {
-            let cleanVal = inputElem.value.replace(/,/g, '').trim();
-            let numVal = cleanVal === '' ? '' : parseFloat(cleanVal) || 0;
-            
-            if (field === 'cost') {
-                excelRows[index].cost = numVal;
-                let cost = numVal || 0;
+        // 🌟 ບັນທຶກຂໍ້ມູນທຸກຄັ້ງທີ່ພິມ (ອັບເດດ Realtime ໃນ Background ໂດຍບໍ່ render ຕາຕະລາງຄືນ)
+        function handleInputLive(index, field, value) {
+            if (field === 'code') {
+                excelRows[index].code = value;
+            } else if (field === 'cost') {
+                let cleanVal = value.replace(/,/g, '').trim();
+                excelRows[index].cost = cleanVal === '' ? '' : parseFloat(cleanVal) || 0;
+                let cost = parseFloat(excelRows[index].cost) || 0;
                 let pct = parseFloat(excelRows[index].profitPct) || 0;
                 if (cost > 0 && pct >= 0) {
                     excelRows[index].price = Math.round(cost + (cost * pct / 100));
+                    // ອັບເດດສະແດງຜົນລາຄາຂາຍໃນ UI ໂດຍກົງ
+                    let priceInput = document.querySelector(`#excel-tbody tr:nth-child(${index + 1}) input[data-field="price"]`);
+                    let totalTd = document.querySelector(`#excel-tbody tr:nth-child(${index + 1}) td:nth-child(7)`);
+                    if (priceInput) priceInput.value = formatNumberWithCommas(excelRows[index].price);
+                    let qty = parseFloat(excelRows[index].qty) || 1;
+                    if (totalTd) totalTd.innerText = formatNumberWithCommas(excelRows[index].price * qty);
                 }
             } else if (field === 'profitPct') {
-                excelRows[index].profitPct = numVal;
+                let cleanVal = value.replace(/,/g, '').trim();
+                excelRows[index].profitPct = cleanVal === '' ? '' : parseFloat(cleanVal) || 0;
                 let cost = parseFloat(excelRows[index].cost) || 0;
-                let pct = numVal || 0;
+                let pct = parseFloat(excelRows[index].profitPct) || 0;
                 if (cost > 0 && pct >= 0) {
                     excelRows[index].price = Math.round(cost + (cost * pct / 100));
+                    let priceInput = document.querySelector(`#excel-tbody tr:nth-child(${index + 1}) input[data-field="price"]`);
+                    let totalTd = document.querySelector(`#excel-tbody tr:nth-child(${index + 1}) td:nth-child(7)`);
+                    if (priceInput) priceInput.value = formatNumberWithCommas(excelRows[index].price);
+                    let qty = parseFloat(excelRows[index].qty) || 1;
+                    if (totalTd) totalTd.innerText = formatNumberWithCommas(excelRows[index].price * qty);
                 }
             } else if (field === 'price') {
-                excelRows[index].price = numVal;
+                let cleanVal = value.replace(/,/g, '').trim();
+                excelRows[index].price = cleanVal === '' ? '' : parseFloat(cleanVal) || 0;
+                let totalTd = document.querySelector(`#excel-tbody tr:nth-child(${index + 1}) td:nth-child(7)`);
+                let qty = parseFloat(excelRows[index].qty) || 1;
+                if (totalTd) totalTd.innerText = formatNumberWithCommas((excelRows[index].price || 0) * qty);
             } else if (field === 'qty') {
-                excelRows[index].qty = numVal === '' ? 1 : parseInt(numVal) || 1;
+                let cleanVal = value.replace(/,/g, '').trim();
+                excelRows[index].qty = cleanVal === '' ? 1 : parseInt(cleanVal) || 1;
+                let totalTd = document.querySelector(`#excel-tbody tr:nth-child(${index + 1}) td:nth-child(7)`);
+                let price = parseFloat(excelRows[index].price) || 0;
+                if (totalTd) totalTd.innerText = formatNumberWithCommas(price * excelRows[index].qty);
+            } else if (field === 'dateAdded') {
+                excelRows[index].dateAdded = value;
             }
-            renderExcelTable();
         }
 
-        // 🌟 ຟັງຊັນຈັບການກົດ Enter ເພື່ອຍ້າຍເຄີເຊີລົງລຸ່ມໃນຕາຕະລາງ
+        // 🌟 ເມື່ອອອກຈາກຊ່ອງ (Blur) ໃຫ້ຈັດຮູບແບບໃສ່ເຄື່ອງໝາຍ (,)
+        function handleCellBlur(index, field, inputElem) {
+            let val = inputElem.value.replace(/,/g, '').trim();
+            if (val !== '' && !isNaN(val)) {
+                if (field === 'cost' || field === 'price' || field === 'profitPct') {
+                    inputElem.value = formatNumberWithCommas(val);
+                }
+            }
+        }
+
+        // 🌟 ເມື່ອກົດ Enter ໃຫ້ຍ້າຍໄປ cell ລຸ່ມ
         function handleExcelCellKeydown(event, rowIndex, fieldName) {
             if (event.key === 'Enter') {
                 event.preventDefault();
@@ -1542,25 +1570,25 @@
                     <tr class="border-b hover:bg-gray-50">
                         <td class="p-2 border-r text-center font-bold text-gray-500 text-xs">${index + 1}</td>
                         <td class="p-2 border-r">
-                            <input type="text" data-field="code" value="${row.code}" oninput="excelRows[${index}].code = this.value" onkeydown="handleExcelCellKeydown(event, ${index}, 'code')" placeholder="ຊື່ສິນຄ້າ ຫຼື ລະຫັດ" class="w-full border rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-blue-500">
+                            <input type="text" data-field="code" value="${row.code || ''}" oninput="handleInputLive(${index}, 'code', this.value)" onkeydown="handleExcelCellKeydown(event, ${index}, 'code')" placeholder="ຊື່ສິນຄ້າ ຫຼື ລະຫັດ" class="w-full border rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-blue-500">
                         </td>
                         <td class="p-2 border-r">
-                            <input type="text" data-field="cost" value="${costFormatted}" onfocus="handleCellFocus(this, '${row.cost}')" onblur="handleCellBlur(${index}, 'cost', this)" onkeydown="handleExcelCellKeydown(event, ${index}, 'cost')" placeholder="0" class="w-full border rounded px-2 py-1 text-right text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-blue-600">
+                            <input type="text" data-field="cost" value="${costFormatted}" oninput="handleInputLive(${index}, 'cost', this.value)" onblur="handleCellBlur(${index}, 'cost', this)" onkeydown="handleExcelCellKeydown(event, ${index}, 'cost')" placeholder="0" class="w-full border rounded px-2 py-1 text-right text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-blue-600">
                         </td>
                         <td class="p-2 border-r">
-                            <input type="text" data-field="profitPct" value="${row.profitPct}" onfocus="handleCellFocus(this, '${row.profitPct}')" onblur="handleCellBlur(${index}, 'profitPct', this)" onkeydown="handleExcelCellKeydown(event, ${index}, 'profitPct')" placeholder="20" class="w-full border rounded px-2 py-1 text-center text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-amber-600">
+                            <input type="text" data-field="profitPct" value="${row.profitPct !== undefined ? row.profitPct : 20}" oninput="handleInputLive(${index}, 'profitPct', this.value)" onblur="handleCellBlur(${index}, 'profitPct', this)" onkeydown="handleExcelCellKeydown(event, ${index}, 'profitPct')" placeholder="20" class="w-full border rounded px-2 py-1 text-center text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-amber-600">
                         </td>
                         <td class="p-2 border-r">
-                            <input type="text" data-field="price" value="${priceFormatted}" onfocus="handleCellFocus(this, '${row.price}')" onblur="handleCellBlur(${index}, 'price', this)" onkeydown="handleExcelCellKeydown(event, ${index}, 'price')" placeholder="0" class="w-full border rounded px-2 py-1 text-right text-xs outline-none focus:ring-1 focus:ring-blue-500 font-bold text-green-600">
+                            <input type="text" data-field="price" value="${priceFormatted}" oninput="handleInputLive(${index}, 'price', this.value)" onblur="handleCellBlur(${index}, 'price', this)" onkeydown="handleExcelCellKeydown(event, ${index}, 'price')" placeholder="0" class="w-full border rounded px-2 py-1 text-right text-xs outline-none focus:ring-1 focus:ring-blue-500 font-bold text-green-600">
                         </td>
                         <td class="p-2 border-r">
-                            <input type="text" data-field="qty" value="${row.qty}" onfocus="handleCellFocus(this, '${row.qty}')" onblur="handleCellBlur(${index}, 'qty', this)" onkeydown="handleExcelCellKeydown(event, ${index}, 'qty')" placeholder="1" class="w-full border rounded px-2 py-1 text-center text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-gray-700">
+                            <input type="text" data-field="qty" value="${row.qty || 1}" oninput="handleInputLive(${index}, 'qty', this.value)" onkeydown="handleExcelCellKeydown(event, ${index}, 'qty')" placeholder="1" class="w-full border rounded px-2 py-1 text-center text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-gray-700">
                         </td>
                         <td class="p-2 border-r text-right font-bold text-gray-800 text-xs">
                             ${totalFormatted}
                         </td>
                         <td class="p-2 border-r text-center">
-                            <input type="date" data-field="dateAdded" value="${rowDate}" onchange="excelRows[${index}].dateAdded = this.value" onkeydown="handleExcelCellKeydown(event, ${index}, 'dateAdded')" class="border rounded px-1.5 py-1 text-[11px] outline-none font-semibold text-purple-700 bg-purple-50">
+                            <input type="date" data-field="dateAdded" value="${rowDate}" onchange="handleInputLive(${index}, 'dateAdded', this.value)" onkeydown="handleExcelCellKeydown(event, ${index}, 'dateAdded')" class="border rounded px-1.5 py-1 text-[11px] outline-none font-semibold text-purple-700 bg-purple-50">
                         </td>
                         <td class="p-2 text-center">
                             <button onclick="removeExcelRow(${index})" class="bg-red-100 text-red-600 hover:bg-red-200 px-2 py-1 rounded text-xs font-bold cursor-pointer flex items-center justify-center gap-1 mx-auto shadow-sm">🗑️ ລຶບ</button>
@@ -1590,7 +1618,7 @@
                     let existingCodes = new Set();
 
                     excelRows.forEach(r => {
-                        if (r.code.trim()) existingCodes.add(r.code.trim().toLowerCase());
+                        if (r.code && r.code.trim()) existingCodes.add(r.code.trim().toLowerCase());
                     });
 
                     for (let i = 1; i < json.length; i++) {
@@ -1667,7 +1695,7 @@
 
         async function saveExcelData() {
             syncTableInputsToData();
-            let validRows = excelRows.filter(r => r.code.trim() !== '');
+            let validRows = excelRows.filter(r => r.code && r.code.trim() !== '');
             localStorage.setItem('pos_saved_excel_rows', JSON.stringify(validRows));
 
             if (supabaseClient) {
