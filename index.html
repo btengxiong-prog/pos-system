@@ -222,6 +222,29 @@
         </div>
     </div>
 
+    <!-- Date Selection Modal for Printing -->
+    <div id="print-date-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[350]">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-lg font-bold text-purple-900 flex items-center gap-2">
+                    <span>📅 ເລືອກວັນ/ເດືອນ/ປີ ທີ່ຕ້ອງການພິມ</span>
+                </h3>
+                <button onclick="closePrintDateModal()" class="text-gray-500 hover:text-gray-700 font-bold text-lg cursor-pointer">✕</button>
+            </div>
+            <p class="text-xs text-gray-600">ກະລຸນາເລືອກວັນທີ່ປ້ອນຂໍ້ມູນເຂົ້າລະບົບ ເພື່ອພິມສະເພາະ QR Code ຂອງວັນນັ້ນ:</p>
+            <div>
+                <label class="block text-xs font-bold text-gray-700 mb-1">ເລືອກວັນທີ່:</label>
+                <select id="print-date-select" class="w-full border rounded-lg px-3 py-2 text-sm font-semibold outline-none focus:ring-2 focus:ring-purple-500 bg-gray-50">
+                    <!-- Options will be populated dynamically -->
+                </select>
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button onclick="closePrintDateModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer text-sm">ຍົກເລີກ</button>
+                <button onclick="confirmAndPrintByDate()" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">🖨️ ຢືນຢັນພິມ</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Duplicate Report Modal -->
     <div id="duplicate-report-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[350]">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
@@ -559,7 +582,7 @@
             </div>
 
             <div class="bg-blue-50 border border-blue-200 text-blue-800 text-xs p-2 rounded-lg">
-                💡 <b>ຄຳແນະນຳ:</b> ລະບົບຈະກວດສອບວ່າຖ້າລະຫັດສິນຄ້າຊ້ຳກັນ ຈະຖືກຕັດອອກອັດຕະໂນມັດ (ຖ້າລະຫັດຕ່າງກັນ ຖືວ່າບໍ່ຊ້ຳ).
+                💡 <b>ຄຳແນະນຳ:</b> ລະບົບຈະບັນທຶກວັນ/ເດືອນ/ປີ ຂອງຂໍ້ມູນທີ່ປ້ອນເຂົ້າໂດຍອັດຕະໂນມັດ ເພື່ອໃຫ້ສາມາດເລືອກພິມສະເພາະວັນທີ່ຕ້ອງການໄດ້!
             </div>
 
             <div class="overflow-x-auto border rounded-xl shadow-inner max-h-[50vh]">
@@ -573,6 +596,7 @@
                             <th class="p-2 border-r text-right">ລາຄາຂາຍ (ກີບ)</th>
                             <th class="p-2 border-r text-center w-24">ຈຳນວນ</th>
                             <th class="p-2 border-r text-right">ລວມ (ກີບ)</th>
+                            <th class="p-2 border-r text-center w-32">ວັນ/ເດືອນ/ປີ</th>
                             <th class="p-2 text-center w-28">ຈັດການ</th>
                         </tr>
                     </thead>
@@ -586,8 +610,8 @@
                 <div id="excel-preview-cards" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 </div>
                 <div id="print-btn-element">
-                    <button onclick="printExcelCodes()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">
-                        🖨️ ພິມປ້າຍທັງໝົດ
+                    <button onclick="promptPrintDate()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">
+                        🖨️ ພິມປ້າຍທັງໝົດ (ເລືອກວັນທີ)
                     </button>
                 </div>
             </div>
@@ -1279,7 +1303,7 @@
         async function openReport() { document.getElementById('report-modal').classList.remove('hidden'); }
         function closeReport() { document.getElementById('report-modal').classList.add('hidden'); }
 
-        // --- ຟັງຊັນຈັດການຕາຕະລາງສ້າງ QR Code ແລະ ພິມປ້າຍທັງໝົດແບບສົມບູນ ---
+        // --- ຟັງຊັນຈັດການຕາຕະລາງສ້າງ QR Code ແລະ ຈັດການວັນ/ເດືອນ/ປີ ---
         async function openExcelGenerator() {
             document.getElementById('excel-generator-modal').classList.remove('hidden');
             duplicateRemovedList = [];
@@ -1294,7 +1318,8 @@
                             cost: item.cost,
                             profitPct: item.profit_pct,
                             price: item.price,
-                            qty: item.qty || 1
+                            qty: item.qty || 1,
+                            dateAdded: item.date_added || item.updated_at ? new Date(item.date_added || item.updated_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
                         }));
                         localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
                     } else {
@@ -1322,8 +1347,9 @@
             document.getElementById('excel-print-area').classList.add('hidden');
         }
 
-        function addExcelRow(code = '', cost = '', profitPct = 20, price = '', qty = 1) {
-            excelRows.push({ code: code, cost: cost, profitPct: profitPct, price: price, qty: qty });
+        function addExcelRow(code = '', cost = '', profitPct = 20, price = '', qty = 1, dateAdded = '') {
+            let today = new Date().toISOString().split('T')[0];
+            excelRows.push({ code: code, cost: cost, profitPct: profitPct, price: price, qty: qty, dateAdded: dateAdded || today });
             renderExcelTable();
         }
 
@@ -1353,11 +1379,14 @@
         function renderExcelTable() {
             let tbody = document.getElementById('excel-tbody');
             let html = '';
+            let today = new Date().toISOString().split('T')[0];
+
             excelRows.forEach((row, index) => {
                 let costFormatted = row.cost !== '' && !isNaN(row.cost) ? Number(row.cost).toLocaleString() : '';
                 let priceFormatted = row.price !== '' && !isNaN(row.price) ? Number(row.price).toLocaleString() : '';
                 let totalVal = (Number(row.price) || 0) * (Number(row.qty) || 1);
                 let totalFormatted = totalVal > 0 ? totalVal.toLocaleString() : '0';
+                let rowDate = row.dateAdded || today;
 
                 html += `
                     <tr class="border-b hover:bg-gray-50">
@@ -1379,6 +1408,9 @@
                         </td>
                         <td class="p-2 border-r text-right font-bold text-gray-800 text-xs">
                             ${totalFormatted}
+                        </td>
+                        <td class="p-2 border-r text-center">
+                            <input type="date" value="${rowDate}" onchange="updateExcelRowData(${index}, 'dateAdded', this.value)" class="border rounded px-1.5 py-1 text-[11px] outline-none font-semibold text-purple-700 bg-purple-50">
                         </td>
                         <td class="p-2 text-center">
                             <button onclick="removeExcelRow(${index})" class="bg-red-100 text-red-600 hover:bg-red-200 px-2 py-1 rounded text-xs font-bold cursor-pointer flex items-center justify-center gap-1 mx-auto shadow-sm">🗑️ ລຶບ</button>
@@ -1436,6 +1468,8 @@
             let file = event.target.files[0];
             if (!file) return;
             let reader = new FileReader();
+            let today = new Date().toISOString().split('T')[0];
+
             reader.onload = function(e) {
                 try {
                     let data = new Uint8Array(e.target.result);
@@ -1460,6 +1494,7 @@
                             let profitPct = row[2] !== undefined ? parseFloat(row[2]) || 20 : 20;
                             let price = row[3] !== undefined ? parseFloat(row[3]) || 0 : 0;
                             let qty = row[4] !== undefined ? parseInt(row[4]) || 1 : 1;
+                            let rowDate = row[5] ? String(row[5]).trim() : today;
 
                             if (code) {
                                 let lowerCode = code.toLowerCase();
@@ -1467,7 +1502,7 @@
                                     duplicates.push({ code: code, reason: "ລະຫັດສິນຄ້າຊ້ຳກັນໃນລະບົບ" });
                                 } else {
                                     existingCodes.add(lowerCode);
-                                    newRows.push({ code: code, cost: cost, profitPct: profitPct, price: price, qty: qty });
+                                    newRows.push({ code: code, cost: cost, profitPct: profitPct, price: price, qty: qty, dateAdded: rowDate });
                                 }
                             }
                         }
@@ -1546,6 +1581,7 @@
                             profit_pct: parseFloat(row.profitPct) || 20,
                             price: parseFloat(row.price) || 0,
                             qty: parseInt(row.qty) || 1,
+                            date_added: row.dateAdded || new Date().toISOString().split('T')[0],
                             updated_at: new Date().toISOString()
                         }));
                         await supabaseClient.from('products').upsert(payload, { onConflict: 'device_id,code' });
@@ -1561,17 +1597,20 @@
         }
 
         function generateExcelCodes() {
+            renderPreviewCards(excelRows.filter(r => r.code.trim() !== ''));
+        }
+
+        function renderPreviewCards(rowsToRender) {
             let previewContainer = document.getElementById('excel-preview-cards');
             let printArea = document.getElementById('excel-print-area');
             let html = '';
             
-            let validRows = excelRows.filter(r => r.code.trim() !== '');
-            if (validRows.length === 0) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຂໍ້ມູນສິນຄ້າຢ່າງໜ້ອຍ 1 ລາຍການ!", "⚠️");
+            if (rowsToRender.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ບໍ່ມີຂໍ້ມູນສິນຄ້າໃນວັນທີ່ເລືອກ!", "⚠️");
                 return;
             }
 
-            validRows.forEach((row, idx) => {
+            rowsToRender.forEach((row, idx) => {
                 let safeCode = row.code.replace(/"/g, '&quot;');
                 let priceNum = parseFloat(row.price) || 0;
                 let priceStr = priceNum.toLocaleString() + " ກີບ";
@@ -1589,7 +1628,7 @@
             previewContainer.innerHTML = html;
             printArea.classList.remove('hidden');
 
-            validRows.forEach((row, idx) => {
+            rowsToRender.forEach((row, idx) => {
                 let container = document.getElementById(`qr-svg-${idx}`);
                 if (container && window.QRCode) {
                     QRCode.toString(row.code, { type: 'svg', width: 120, margin: 1 }, function (err, svgString) {
@@ -1601,16 +1640,51 @@
             });
         }
 
-        function printExcelCodes() {
+        function promptPrintDate() {
             let validRows = excelRows.filter(r => r.code.trim() !== '');
             if (validRows.length === 0) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາສ້າງ QR Code ກ່ອນສັ່ງພິມ!", "⚠️");
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຂໍ້ມູນສິນຄ້າກ່ອນສັ່ງພິມ!", "⚠️");
                 return;
             }
-            generateExcelCodes();
+
+            // ເກັບວັນທີ່ທັງໝົດທີ່ມີໃນລະບົບມາສະແດງແບບບໍ່ໃຫ້ຊ້ຳກັນ
+            let uniqueDates = [...new Set(validRows.map(r => r.dateAdded || new Date().toISOString().split('T')[0]))].sort().reverse();
+            let selectElem = document.getElementById('print-date-select');
+            let html = `<option value="all">🌟 ທຸກວັນ (ພິມທັງໝົດ)</option>`;
+            uniqueDates.forEach(d => {
+                let count = validRows.filter(r => (r.dateAdded || new Date().toISOString().split('T')[0]) === d).length;
+                html += `<option value="${d}">📅 ວັນທີ: ${d} (${count} ລາຍການ)</option>`;
+            });
+            selectElem.innerHTML = html;
+            document.getElementById('print-date-modal').classList.remove('hidden');
+        }
+
+        function closePrintDateModal() {
+            document.getElementById('print-date-modal').classList.add('hidden');
+        }
+
+        function confirmAndPrintByDate() {
+            let selectedDate = document.getElementById('print-date-select').value;
+            closePrintDateModal();
+
+            let validRows = excelRows.filter(r => r.code.trim() !== '');
+            let filteredRows = selectedDate === 'all' 
+                ? validRows 
+                : validRows.filter(r => (r.dateAdded || new Date().toISOString().split('T')[0]) === selectedDate);
+
+            if (filteredRows.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ບໍ່ມີລາຍການໃນວັນທີ່ເລືອກ!", "⚠️");
+                return;
+            }
+
+            renderPreviewCards(filteredRows);
             setTimeout(() => {
                 window.print();
             }, 500);
+        }
+
+        function printExcelCodes() {
+            promptPrintDate();
         }
     </script>
 </body>
