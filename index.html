@@ -630,7 +630,7 @@
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
             <div class="text-4xl">⚠️</div>
             <h3 class="text-xl font-bold text-gray-800">ຢືນຢັນການລຶບ</h3>
-            <p class="text-gray-600 text-sm leading-relaxed">ທ່ານຕ້ອງການລືບປະຫວັດນີ້ບໍບໍ?</p>
+            <p class="text-gray-600 text-sm leading-relaxed">ທ່ານຕ້ອງການລືບປະຫວັດນີ້ບໍ?</p>
             <div class="flex gap-2 pt-2">
                 <button onclick="closeConfirmDelete(false)" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
                 <button onclick="closeConfirmDelete(true)" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ຕົກລົງ</button>
@@ -1451,62 +1451,51 @@
             showAlert("ສຳເລັດ", "ລຶບຂໍ້ມູນທັງໝົດອອກຈາກລະບົບຮຽບຮ້ອຍແລ້ວ", "🧹");
         }
 
-        // 🌟 ບັນທຶກຂໍ້ມູນທຸກຄັ້ງທີ່ພິມ (ອັບເດດ Realtime ໃນ Background ໂດຍບໍ່ render ຕາຕະລາງຄືນ)
+        // 🌟 ເກັບຂໍ້ມູນລົງ Data ຊົ່ວຄາວທຸກຄັ້ງທີ່ພິມ (ບໍ່ຣັນຕາຕະລາງໃໝ່ ເຮັດໃຫ້ພິມ/ລຶບໄດ້ອິດສະຫຼະ)
         function handleInputLive(index, field, value) {
             if (field === 'code') {
                 excelRows[index].code = value;
             } else if (field === 'cost') {
-                let cleanVal = value.replace(/,/g, '').trim();
-                excelRows[index].cost = cleanVal === '' ? '' : parseFloat(cleanVal) || 0;
-                let cost = parseFloat(excelRows[index].cost) || 0;
-                let pct = parseFloat(excelRows[index].profitPct) || 0;
-                if (cost > 0 && pct >= 0) {
-                    excelRows[index].price = Math.round(cost + (cost * pct / 100));
-                    // ອັບເດດສະແດງຜົນລາຄາຂາຍໃນ UI ໂດຍກົງ
-                    let priceInput = document.querySelector(`#excel-tbody tr:nth-child(${index + 1}) input[data-field="price"]`);
-                    let totalTd = document.querySelector(`#excel-tbody tr:nth-child(${index + 1}) td:nth-child(7)`);
-                    if (priceInput) priceInput.value = formatNumberWithCommas(excelRows[index].price);
-                    let qty = parseFloat(excelRows[index].qty) || 1;
-                    if (totalTd) totalTd.innerText = formatNumberWithCommas(excelRows[index].price * qty);
-                }
+                excelRows[index].cost = value.replace(/,/g, '');
             } else if (field === 'profitPct') {
-                let cleanVal = value.replace(/,/g, '').trim();
-                excelRows[index].profitPct = cleanVal === '' ? '' : parseFloat(cleanVal) || 0;
-                let cost = parseFloat(excelRows[index].cost) || 0;
-                let pct = parseFloat(excelRows[index].profitPct) || 0;
-                if (cost > 0 && pct >= 0) {
-                    excelRows[index].price = Math.round(cost + (cost * pct / 100));
-                    let priceInput = document.querySelector(`#excel-tbody tr:nth-child(${index + 1}) input[data-field="price"]`);
-                    let totalTd = document.querySelector(`#excel-tbody tr:nth-child(${index + 1}) td:nth-child(7)`);
-                    if (priceInput) priceInput.value = formatNumberWithCommas(excelRows[index].price);
-                    let qty = parseFloat(excelRows[index].qty) || 1;
-                    if (totalTd) totalTd.innerText = formatNumberWithCommas(excelRows[index].price * qty);
-                }
+                excelRows[index].profitPct = value.replace(/,/g, '');
             } else if (field === 'price') {
-                let cleanVal = value.replace(/,/g, '').trim();
-                excelRows[index].price = cleanVal === '' ? '' : parseFloat(cleanVal) || 0;
-                let totalTd = document.querySelector(`#excel-tbody tr:nth-child(${index + 1}) td:nth-child(7)`);
-                let qty = parseFloat(excelRows[index].qty) || 1;
-                if (totalTd) totalTd.innerText = formatNumberWithCommas((excelRows[index].price || 0) * qty);
+                excelRows[index].price = value.replace(/,/g, '');
             } else if (field === 'qty') {
-                let cleanVal = value.replace(/,/g, '').trim();
-                excelRows[index].qty = cleanVal === '' ? 1 : parseInt(cleanVal) || 1;
-                let totalTd = document.querySelector(`#excel-tbody tr:nth-child(${index + 1}) td:nth-child(7)`);
-                let price = parseFloat(excelRows[index].price) || 0;
-                if (totalTd) totalTd.innerText = formatNumberWithCommas(price * excelRows[index].qty);
+                excelRows[index].qty = value.replace(/,/g, '');
             } else if (field === 'dateAdded') {
                 excelRows[index].dateAdded = value;
+            }
+            
+            // ຄຳນວນຍອດລວມ (Total) ຂອງແຖວນັ້ນແບບ Realtime ໂດຍບໍ່ໃຫ້ຫຼຸດໂຟກັດ
+            let rowTr = document.querySelector(`#excel-tbody tr:nth-child(${index + 1})`);
+            if (rowTr) {
+                let costVal = parseFloat(String(excelRows[index].cost).replace(/,/g, '')) || 0;
+                let pctVal = parseFloat(String(excelRows[index].profitPct).replace(/,/g, '')) || 0;
+                let priceVal = parseFloat(String(excelRows[index].price).replace(/,/g, '')) || 0;
+                let qtyVal = parseInt(String(excelRows[index].qty).replace(/,/g, '')) || 1;
+
+                if (field === 'cost' || field === 'profitPct') {
+                    if (costVal > 0 && pctVal >= 0) {
+                        priceVal = Math.round(costVal + (costVal * pctVal / 100));
+                        excelRows[index].price = priceVal;
+                        let priceInput = rowTr.querySelector('input[data-field="price"]');
+                        if (priceInput && document.activeElement !== priceInput) {
+                            priceInput.value = formatNumberWithCommas(priceVal);
+                        }
+                    }
+                }
+                let totalTd = rowTr.querySelector('.row-total-cell');
+                if (totalTd) {
+                    totalTd.innerText = formatNumberWithCommas(priceVal * qtyVal);
+                }
             }
         }
 
         // 🌟 ເມື່ອອອກຈາກຊ່ອງ (Blur) ໃຫ້ຈັດຮູບແບບໃສ່ເຄື່ອງໝາຍ (,)
         function handleCellBlur(index, field, inputElem) {
-            let val = inputElem.value.replace(/,/g, '').trim();
-            if (val !== '' && !isNaN(val)) {
-                if (field === 'cost' || field === 'price' || field === 'profitPct') {
-                    inputElem.value = formatNumberWithCommas(val);
-                }
-            }
+            syncTableInputsToData();
+            renderExcelTable();
         }
 
         // 🌟 ເມື່ອກົດ Enter ໃຫ້ຍ້າຍໄປ cell ລຸ່ມ
@@ -1560,9 +1549,9 @@
             let today = new Date().toISOString().split('T')[0];
 
             excelRows.forEach((row, index) => {
-                let costFormatted = row.cost !== '' && !isNaN(row.cost) ? formatNumberWithCommas(row.cost) : '';
-                let priceFormatted = row.price !== '' && !isNaN(row.price) ? formatNumberWithCommas(row.price) : '';
-                let totalVal = (Number(row.price) || 0) * (Number(row.qty) || 1);
+                let costFormatted = (row.cost !== '' && row.cost !== null && !isNaN(row.cost)) ? formatNumberWithCommas(row.cost) : (row.cost || '');
+                let priceFormatted = (row.price !== '' && row.price !== null && !isNaN(row.price)) ? formatNumberWithCommas(row.price) : (row.price || '');
+                let totalVal = (parseFloat(String(row.price).replace(/,/g, '')) || 0) * (parseInt(String(row.qty).replace(/,/g, '')) || 1);
                 let totalFormatted = totalVal > 0 ? formatNumberWithCommas(totalVal) : '0';
                 let rowDate = row.dateAdded || today;
 
@@ -1576,15 +1565,15 @@
                             <input type="text" data-field="cost" value="${costFormatted}" oninput="handleInputLive(${index}, 'cost', this.value)" onblur="handleCellBlur(${index}, 'cost', this)" onkeydown="handleExcelCellKeydown(event, ${index}, 'cost')" placeholder="0" class="w-full border rounded px-2 py-1 text-right text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-blue-600">
                         </td>
                         <td class="p-2 border-r">
-                            <input type="text" data-field="profitPct" value="${row.profitPct !== undefined ? row.profitPct : 20}" oninput="handleInputLive(${index}, 'profitPct', this.value)" onblur="handleCellBlur(${index}, 'profitPct', this)" onkeydown="handleExcelCellKeydown(event, ${index}, 'profitPct')" placeholder="20" class="w-full border rounded px-2 py-1 text-center text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-amber-600">
+                            <input type="text" data-field="profitPct" value="${row.profitPct !== undefined && row.profitPct !== null ? row.profitPct : 20}" oninput="handleInputLive(${index}, 'profitPct', this.value)" onblur="handleCellBlur(${index}, 'profitPct', this)" onkeydown="handleExcelCellKeydown(event, ${index}, 'profitPct')" placeholder="20" class="w-full border rounded px-2 py-1 text-center text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-amber-600">
                         </td>
                         <td class="p-2 border-r">
                             <input type="text" data-field="price" value="${priceFormatted}" oninput="handleInputLive(${index}, 'price', this.value)" onblur="handleCellBlur(${index}, 'price', this)" onkeydown="handleExcelCellKeydown(event, ${index}, 'price')" placeholder="0" class="w-full border rounded px-2 py-1 text-right text-xs outline-none focus:ring-1 focus:ring-blue-500 font-bold text-green-600">
                         </td>
                         <td class="p-2 border-r">
-                            <input type="text" data-field="qty" value="${row.qty || 1}" oninput="handleInputLive(${index}, 'qty', this.value)" onkeydown="handleExcelCellKeydown(event, ${index}, 'qty')" placeholder="1" class="w-full border rounded px-2 py-1 text-center text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-gray-700">
+                            <input type="text" data-field="qty" value="${row.qty || 1}" oninput="handleInputLive(${index}, 'qty', this.value)" onblur="handleCellBlur(${index}, 'qty', this)" onkeydown="handleExcelCellKeydown(event, ${index}, 'qty')" placeholder="1" class="w-full border rounded px-2 py-1 text-center text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-gray-700">
                         </td>
-                        <td class="p-2 border-r text-right font-bold text-gray-800 text-xs">
+                        <td class="p-2 border-r text-right font-bold text-gray-800 text-xs row-total-cell">
                             ${totalFormatted}
                         </td>
                         <td class="p-2 border-r text-center">
@@ -1713,10 +1702,10 @@
                         let payload = validRows.map(row => ({
                             device_id: deviceId,
                             code: row.code,
-                            cost: parseFloat(row.cost) || 0,
-                            profit_pct: parseFloat(row.profitPct) || 20,
-                            price: parseFloat(row.price) || 0,
-                            qty: parseInt(row.qty) || 1,
+                            cost: parseFloat(String(row.cost).replace(/,/g, '')) || 0,
+                            profit_pct: parseFloat(String(row.profitPct).replace(/,/g, '')) || 20,
+                            price: parseFloat(String(row.price).replace(/,/g, '')) || 0,
+                            qty: parseInt(String(row.qty).replace(/,/g, '')) || 1,
                             date_added: row.dateAdded || new Date().toISOString().split('T')[0],
                             updated_at: new Date().toISOString()
                         }));
@@ -1750,11 +1739,11 @@
             rowsToRender.forEach((row, idx) => {
                 let safeCode = row.code ? String(row.code).replace(/"/g, '&quot;') : '';
                 
-                let cost = parseFloat(row.cost) || 0;
-                let pct = parseFloat(row.profitPct) || 20;
-                let calculatedPrice = cost > 0 ? cost + (cost * pct / 100) : (parseFloat(row.price) || 0);
+                let cost = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
+                let pct = parseFloat(String(row.profitPct).replace(/,/g, '')) || 20;
+                let calculatedPrice = cost > 0 ? cost + (cost * pct / 100) : (parseFloat(String(row.price).replace(/,/g, '')) || 0);
                 
-                let priceNum = calculatedPrice > 0 ? calculatedPrice : (parseFloat(row.price) || 0);
+                let priceNum = calculatedPrice > 0 ? calculatedPrice : (parseFloat(String(row.price).replace(/,/g, '')) || 0);
                 let priceStr = formatNumberWithCommas(priceNum) + " ກີບ";
 
                 html += `
@@ -1776,9 +1765,9 @@
                 let row = rowsToRender[idx];
                 let container = document.getElementById(`qr-svg-${idx}`);
                 if (container && window.QRCode && row.code) {
-                    let cost = parseFloat(row.cost) || 0;
-                    let pct = parseFloat(row.profitPct) || 20;
-                    let calculatedPrice = cost > 0 ? cost + (cost * pct / 100) : (parseFloat(row.price) || 0);
+                    let cost = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
+                    let pct = parseFloat(String(row.profitPct).replace(/,/g, '')) || 20;
+                    let calculatedPrice = cost > 0 ? cost + (cost * pct / 100) : (parseFloat(String(row.price).replace(/,/g, '')) || 0);
 
                     let qrPayload = JSON.stringify({
                         code: row.code,
