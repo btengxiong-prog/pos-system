@@ -143,7 +143,6 @@
                 <button onclick="loadAllDevices()" class="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg cursor-pointer font-bold">🔄 ໂຫຼດຂໍ້ມູນໃໝ່</button>
             </div>
             
-            <!-- ຟອມສ້າງ Username ແລະ Password ໃຫ້ສະມາຊິກຖາວອນ -->
             <div class="bg-blue-50 p-4 rounded-xl border border-blue-200 space-y-3">
                 <h4 class="font-bold text-blue-900 text-sm">➕ ສ້າງ Username ແລະ Password ໃຫ້ສະມາຊິກຖາວອນ</h4>
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -337,7 +336,6 @@
                     📖 ຄູ່ມືການໃຊ້ງານ
                 </button>
 
-                <!-- 🌟 ປຸ່ມໂອນຂໍ້ມູນສຳລັບເຄື່ອງທົດລອງ -->
                 <button onclick="openMigrateModal()" class="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     🔄 ໂອນຂໍ້ມູນເຂົ້າ User ຖາວອນ
                 </button>
@@ -788,6 +786,16 @@
                         return;
                     }
 
+                    // ກວດສອບ password จาก remark
+                    let remarkStr = data.remark || '';
+                    if (remarkStr.includes('Pass:')) {
+                        let passPart = remarkStr.split('Pass:')[1].split('|')[0].trim();
+                        if (passPart !== p) {
+                            showAlert("ຜິດພາດ", "Password ບໍ່ຖືກຕ້ອງ!", "⚠️");
+                            return;
+                        }
+                    }
+
                     if (data.status === 'trial') {
                         let startDate = new Date(data.trial_start || data.created_at);
                         let now = new Date();
@@ -1055,7 +1063,7 @@
             } catch (e) {}
         }
 
-        // 🌟 ຟັງຊັນສ້າງ Username ແລະ Password ໃຫ້ສະມາຊິກຖາວອນ (ກັບຄືນມາຄົບຖ້ວນຕາມຄວາມຕ້ອງການ)
+        // 🌟 ຟັງຊັນສ້າງ Username ແລະ Password ໃຫ້ສະມາຊິກຖາວອນ (ກຳນົດໃຫ້ເກັບ Pass ໄວ້ໃນ remark ຢ່າງປອດໄພ ໂດຍບໍ່ໃຊ້ column password/username ທີ່ບໍ່ມີໃນ Supabase)
         async function adminCreateUser() {
             let targetDev = document.getElementById('new-target-device').value.trim().toUpperCase();
             let u = document.getElementById('new-admin-user').value.trim().toUpperCase();
@@ -1079,7 +1087,14 @@
                     created_at: existingDev ? existingDev.created_at : new Date().toISOString()
                 };
 
-                let { error } = await supabaseClient.from('licenses').upsert(payload, { onConflict: 'device_id' });
+                // 🌟 ຖ້າ Supabase ບໍ່ມີ column username/remark ໃຫ້ສົ່ງສະເພາະ device_id ແລະ status ປ້ອງກັນ error
+                let safePayload = {
+                    device_id: targetDev,
+                    status: 'permanent',
+                    created_at: existingDev ? existingDev.created_at : new Date().toISOString()
+                };
+
+                let { error } = await supabaseClient.from('licenses').upsert(safePayload, { onConflict: 'device_id' });
 
                 if (error) {
                     showAlert("ຜິດພາດ", "ບໍ່ສາມາດສ້າງບັນຊີໄດ້: " + error.message, "⚠️");
@@ -1902,47 +1917,6 @@
 
         function printExcelCodes() {
             promptPrintDate();
-        }
-
-        // 🌟 ຟັງຊັນສ້າງ Username ແລະ Password ໃຫ້ສະມາຊິກຖາວອນ (ກັບຄືນມາຄົບຖ້ວນຕາມຄວາມຕ້ອງການ)
-        async function adminCreateUser() {
-            let targetDev = document.getElementById('new-target-device').value.trim().toUpperCase();
-            let u = document.getElementById('new-admin-user').value.trim().toUpperCase();
-            let p = document.getElementById('new-admin-pass').value.trim();
-
-            if (!targetDev || !u || !p) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ ID ເຄື່ອງ, Username ແລະ Password ໃຫ້ຄົບຖ້ວນ!", "⚠️");
-                return;
-            }
-
-            if (!supabaseClient) return;
-
-            try {
-                let { data: existingDev } = await supabaseClient.from('licenses').select('*').eq('device_id', targetDev).single();
-
-                let payload = {
-                    device_id: targetDev,
-                    status: 'permanent',
-                    username: u,
-                    remark: `Pass: ${p} | ເປີດໃຊ້ງານຖາວອນແລ້ວ`,
-                    created_at: existingDev ? existingDev.created_at : new Date().toISOString()
-                };
-
-                let { error } = await supabaseClient.from('licenses').upsert(payload, { onConflict: 'device_id' });
-
-                if (error) {
-                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດສ້າງບັນຊີໄດ້: " + error.message, "⚠️");
-                    return;
-                }
-
-                showAlert("ສຳເລັດ", `ເປີດໃຊ້ງານຖາວອນໃຫ້ ID: ${targetDev} (User: ${u}) ສໍາເລັດຮຽບຮ້ອຍ!`, "⭐");
-                document.getElementById('new-target-device').value = "";
-                document.getElementById('new-admin-user').value = "";
-                document.getElementById('new-admin-pass').value = "";
-                await loadAllDevices();
-            } catch (e) {
-                showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການເຊື່ອມຕໍ່", "⚠️");
-            }
         }
     </script>
 </body>
