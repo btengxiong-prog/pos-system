@@ -23,19 +23,53 @@
         }
         @media print {
             body * {
-                visibility: hidden;
+                visibility: hidden !important;
             }
-            #excel-print-area, #excel-print-area * {
-                visibility: visible;
+            #excel-generator-modal, #excel-generator-modal * {
+                visibility: visible !important;
+            }
+            #excel-generator-modal {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                height: auto !important;
+                background: white !important;
+                z-index: 999999 !important;
+                overflow: visible !important;
+                max-height: none !important;
             }
             #excel-print-area {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
+                display: block !important;
+                visibility: visible !important;
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                height: auto !important;
+                background: white !important;
+                overflow: visible !important;
             }
-            #print-btn-element {
-                display: none;
+            #excel-preview-cards {
+                display: grid !important;
+                grid-template-columns: repeat(3, 1fr) !important;
+                gap: 15px !important;
+                max-height: none !important;
+                overflow: visible !important;
+                visibility: visible !important;
+            }
+            #excel-generator-modal > div > div:not(#excel-print-area),
+            .flex.justify-between.items-center.border-b.pb-3,
+            .bg-blue-50.border.border-blue-200,
+            .overflow-x-auto.border.rounded-xl.shadow-inner,
+            .flex.gap-2.pt-2,
+            #print-btn-element, 
+            #excel-print-area h4 {
+                display: none !important;
+            }
+            @page {
+                size: auto;
+                margin: 5mm;
             }
         }
     </style>
@@ -43,153 +77,246 @@
 <body class="bg-gray-100 min-h-screen pb-10">
 
     <!-- Role Selection Modal -->
-    <div id="role-select-modal" class="hidden fixed inset-0 bg-black/80 z-[300] flex items-center justify-center p-4">
+    <div id="role-select-modal" class="fixed inset-0 bg-black/80 z-[300] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
             <div class="text-4xl">🔐</div>
             <h3 class="text-xl font-bold text-gray-800">ກະລຸນາເລືອກ ປະເພດການເຂົ້າໃຊ້ງານ</h3>
             <p class="text-gray-600 text-xs">ກະລຸນາເລືອກໂໝດທີ່ທ່ານຕ້ອງການເຂົ້າສູ່ລະບົບ POS</p>
             <div class="space-y-3 pt-2">
-                <button onclick="selectRole('trial')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition cursor-pointer shadow flex items-center justify-center gap-2">
+                <button onclick="selectRole('trial')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition cursor-pointer shadow flex items-center justify-center gap-2">
                     ⏳ ທົດລອງໃຊ້ 15 ວັນ (ເຂົ້າໃຊ້ທັນທີ)
                 </button>
-                <button onclick="showAdminLogin()" class="w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 rounded-xl transition cursor-pointer shadow flex items-center justify-center gap-2">
-                    👤 ເຂົ້າສູ່ລະບົບ Admin
+                <button onclick="showUnifiedLoginModal()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl transition cursor-pointer shadow flex items-center justify-center gap-2">
+                    🔑 ລັອກອິນເຂົ້າລະບົບ (ສະມາຊິກ / Admin)
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- Admin Login Modal -->
-    <div id="admin-login-modal" class="hidden fixed inset-0 bg-black/80 z-[300] flex items-center justify-center p-4">
+    <!-- Unified Login Modal -->
+    <div id="unified-login-modal" class="hidden fixed inset-0 bg-black/80 z-[300] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
-            <div class="text-4xl">🛡️</div>
-            <h3 class="text-xl font-bold text-gray-800">ລັອກອິນ Admin</h3>
+            <div class="text-4xl">🔑</div>
+            <h3 class="text-xl font-bold text-gray-800">ລັອກອິນເຂົ້າລະບົບ</h3>
+            <p class="text-xs text-gray-600">ປ້ອນ Username ແລະ Password ຂອງທ່ານ</p>
             <div class="space-y-3 text-left">
                 <div>
                     <label class="block text-xs font-bold text-gray-700 mb-1">Username:</label>
-                    <input type="text" id="admin-user" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 font-semibold" placeholder="ປ້ອນ Username">
+                    <input type="text" id="unified-login-username" class="w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-emerald-500 font-semibold" placeholder="ປ້ອນ Username">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-gray-700 mb-1">Password:</label>
-                    <input type="password" id="admin-pass" onkeydown="handleAdminKeydown(event)" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 font-semibold" placeholder="ປ້ອນ Password">
+                    <input type="password" id="unified-login-password" onkeydown="handleUnifiedLoginKeydown(event)" class="w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-emerald-500 font-semibold" placeholder="ປ້ອນ Password">
                 </div>
             </div>
             <div class="flex gap-2 pt-2">
-                <button onclick="backToRoleSelect()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
-                <button onclick="verifyAdminLogin()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">ລັອກອິນ</button>
+                <button onclick="backToRoleSelectFromUnified()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
+                <button onclick="verifyUnifiedLogin()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">ລັອກອິນ</button>
             </div>
         </div>
     </div>
 
-    <!-- Admin Device Manager Modal -->
+    <!-- Admin Device Manager & User Creator Modal -->
     <div id="admin-manager-modal" class="hidden fixed inset-0 bg-black/60 z-[250] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-3xl w-full p-6 max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl">
             <div class="flex justify-between items-center border-b pb-3">
                 <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
-                    <span>📋 ຈັດການ Device ID (ລະບົບ Admin)</span>
+                    <span>📋 ຈັດການບັນຊີ ແລະ ລະບົບ POS (Admin)</span>
                 </h3>
                 <button onclick="loadAllDevices()" class="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg cursor-pointer font-bold">🔄 ໂຫຼດຂໍ້ມູນໃໝ່</button>
             </div>
-            <div id="device-list-container" class="space-y-2 text-sm text-gray-700">
-                <p class="text-center py-4">ກຳລັງໂຫຼດ...</p>
+            
+            <!-- ຟອມສ້າງ Username & Password ໃຫ້ສະມາຊິກຖາວອນ -->
+            <div class="bg-blue-50 p-4 rounded-xl border border-blue-200 space-y-3">
+                <h4 class="font-bold text-blue-900 text-sm">➕ ສ້າງ Username ໃຫ້ສະມາຊິກຖາວອນ</h4>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <input type="text" id="new-admin-user" placeholder="ປ້ອນ USERNAME (ຕົວຢ່າງ: SHOP001)" class="border rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none bg-white">
+                    <input type="text" id="new-admin-pass" placeholder="ປ້ອນ Password" class="border rounded-lg px-3 py-2 text-xs font-semibold outline-none bg-white">
+                </div>
+                <button onclick="adminCreateUser()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg text-xs transition cursor-pointer shadow">
+                    💾 ບັນທຶກ ແລະ ສ້າງບັນຊີສະມາຊິກ
+                </button>
             </div>
+
+            <div class="space-y-2">
+                <h5 class="font-bold text-xs text-gray-700">📋 ລາຍຊື່ບັນຊີທັງໝົດໃນລະບົບ:</h5>
+                <div id="device-list-container" class="space-y-2 text-sm text-gray-700">
+                    <p class="text-center py-4">ກຳລັງໂຫຼດ...</p>
+                </div>
+            </div>
+
             <button onclick="closeAdminManager()" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ປິດ</button>
         </div>
     </div>
 
-    <!-- Show My Device ID Modal (For Trial Users) -->
+    <!-- Show My Device ID Modal -->
     <div id="my-device-modal" class="hidden fixed inset-0 bg-black/60 z-[250] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
             <div class="text-4xl">🆔</div>
             <h3 class="text-lg font-bold text-gray-800">ລະຫັດ ID ເຄື່ອງຂອງທ່ານ</h3>
-            <p class="text-xs text-gray-600">ແຈ້ງລະຫັດ ID ນີ້ໃຫ້ Admin ເພື່ອຂໍເປີດໃຊ້ງານຖາວອນ</p>
+            <p class="text-xs text-gray-600">ແຈ້ງລະຫັດ ID ນີ້ໃຫ້ Admin ເພື່ອສ້າງ Username ຖາວອນ</p>
             <div class="bg-gray-50 p-3 rounded-xl border">
                 <p id="my-device-id-text" class="font-mono font-bold text-blue-600 text-sm break-all"></p>
             </div>
             <div class="space-y-2">
                 <button onclick="copyMyDeviceId()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">📋 ກ໋ອບປີ ID</button>
-                <button onclick="openLinkDeviceModal()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">🔗 ຜູກ ID ເຄື່ອງໃໝ່ (Multi-Device)</button>
                 <button onclick="closeMyDeviceModal()" class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl text-sm transition cursor-pointer">ປິດ</button>
             </div>
         </div>
     </div>
 
-    <!-- Link New Device Modal -->
-    <div id="link-device-modal" class="hidden fixed inset-0 bg-black/70 z-[280] flex items-center justify-center p-4">
+    <!-- Registration & Payment Modal -->
+    <div id="register-payment-modal" class="hidden fixed inset-0 bg-black/70 z-[280] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
-            <div class="text-4xl">🔗</div>
-            <h3 class="text-lg font-bold text-gray-800">ຜູກ ID ເຄື່ອງໃໝ່</h3>
-            <p class="text-xs text-gray-600">ປ້ອນ Device ID ຂອງເຄື່ອງທີ່ຕ້ອງການຜູກ (ເຄື່ອງທີ 2, 3...) ເພື່ອໃຫ້ເປັນສະຖານະຖາວອນທັນທີ</p>
-            <div>
-                <input type="text" id="target-device-id-input" placeholder="ປ້ອນ Device ID ເຄື່ອງໃໝ່" class="w-full border rounded-lg px-3 py-2.5 text-center font-mono font-bold text-sm outline-none focus:ring-2 focus:ring-amber-500">
+            <div class="text-4xl">💳</div>
+            <h3 class="text-lg font-bold text-gray-800">ລົງທະບຽນ / ຊຳລະຄ່າບໍລິການ</h3>
+            <p class="text-xs text-gray-600">ກະລຸນາໂອນເງິນຜ່ານບັນຊີທະນາຄານດ້ານລ່າງນີ້</p>
+            
+            <div class="bg-gray-50 p-4 rounded-xl border text-left space-y-2">
+                <div class="flex items-center gap-2 text-xs font-bold text-gray-700">
+                    <span>🏦</span>
+                    <span>ທະນາຄານ: <span class="text-green-700">ພົງສະຫວັນ (Phongsavanh Bank)</span></span>
+                </div>
+                <div class="flex items-center gap-2 text-xs font-bold text-gray-700">
+                    <span>🔢</span>
+                    <span>ເລກບັນຊີ: <span class="font-mono text-blue-600 font-extrabold text-sm">1006000000470</span></span>
+                </div>
+                <div class="flex items-center gap-2 text-xs font-bold text-gray-700">
+                    <span>👤</span>
+                    <span>ຊື່ບັນຊີ: <span class="text-gray-900">BOUNTENG XIONGTONGMUA</span></span>
+                </div>
             </div>
-            <div class="flex gap-2">
-                <button onclick="closeLinkDeviceModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl text-sm transition cursor-pointer">ຍົກເລີກ</button>
-                <button onclick="confirmLinkDevice()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">ຕົກລົງ</button>
+
+            <div class="space-y-2">
+                <button onclick="copyBankAccount()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">📋 ກ໋ອບປີເລກບັນຊີ</button>
+                <button onclick="closeRegisterModal()" class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl text-sm transition cursor-pointer">ປິດ</button>
             </div>
         </div>
     </div>
 
-    <!-- License & Activation Modal -->
-    <div id="license-modal" class="hidden fixed inset-0 bg-black/80 z-[200] flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl text-center space-y-4">
-            <div class="text-4xl">🔒</div>
-            <h3 class="text-xl font-bold text-gray-800">ລະບົບກວດສອບສິດການໃຊ້ງານ</h3>
-            <p id="license-message" class="text-gray-600 text-sm leading-relaxed">ກຳລັງກວດສອບສະຖານະ...</p>
-            
-            <div id="license-form-container" class="space-y-3 pt-2 hidden">
-                <div class="bg-gray-50 p-3 rounded-xl border text-left text-xs space-y-1">
-                    <p><b>Device ID ຂອງທ່ານ:</b></p>
-                    <p id="display-device-id" class="text-blue-600 font-mono font-bold break-all"></p>
+    <!-- User Manual Modal -->
+    <div id="user-manual-modal" class="hidden fixed inset-0 bg-black/70 z-[290] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-2xl w-full p-6 max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl text-left">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-lg font-bold text-blue-900 flex items-center gap-2">
+                    <span>📖 ຄູ່ມືການນຳໃຊ້ລະບົບຂາຍເຄື່ອງ POS</span>
+                </h3>
+                <button onclick="closeUserManual()" class="text-gray-500 hover:text-gray-700 font-bold text-lg cursor-pointer">✕</button>
+            </div>
+
+            <div class="space-y-3 text-sm text-gray-700">
+                <div class="bg-blue-50 p-3 rounded-xl border border-blue-100 text-xs text-blue-900 font-semibold">
+                    ✨ ສ້າງ ແລະ ພັດທະນາໂດຍ: ອາຈານ ບຸນແຕ່ງ ຊົ່ງຕົງມົວ | ສາຍດ່ວນ: 020 59456999, 020 99444448
                 </div>
-                <div>
-                    <input type="text" id="activation-key-input" placeholder="ປ້ອນ Activation Key ຈາກ Admin" class="w-full border rounded-lg px-3 py-2.5 text-center font-bold outline-none focus:ring-2 focus:ring-blue-500 text-sm">
-                </div>
-                <button onclick="activateLicense()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">
-                    🔑 ຢືນຢັນລະຫັດໃຊ້ງານຖາວອນ
-                </button>
+
+                <h4 class="font-bold text-gray-900 mt-2">1. ການເລືອກໂໝດເຂົ້າໃຊ້ງານ & License</h4>
+                <p class="text-xs text-gray-600 leading-relaxed">
+                    - <b>⏳ ທົດລອງໃຊ້ 15 ວັນ (+ ຜ່ອນຜັນ 5 ວັນ):</b> ຖ້າໝົດອາຍຸ 20 ວັນແລ້ວບໍ່ຈ່າຍຄ່າບໍລິການ ລະບົບຈະລຶບບັນຊີອອກອັດຕະໂນມັດ.<br>
+                    - <b>🔑 ລັອກອິນເຂົ້າລະບົບ:</b> ສໍາລັບສະມາຊິກຖາວອນ ແລະ Admin ປ້ອນ Username ແລະ Password.
+                </p>
+            </div>
+
+            <div class="pt-2 border-t">
+                <button onclick="closeUserManual()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">ປິດຄູ່ມື</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Date Selection Modal for Printing -->
+    <div id="print-date-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[350]">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-lg font-bold text-purple-900 flex items-center gap-2">
+                    <span>📅 ເລືອກວັນ/ເດືອນ/ປີ ທີ່ຕ້ອງການພິມ</span>
+                </h3>
+                <button onclick="closePrintDateModal()" class="text-gray-500 hover:text-gray-700 font-bold text-lg cursor-pointer">✕</button>
+            </div>
+            <p class="text-xs text-gray-600">ກະລຸນາເລືອກວັນທີ່ປ້ອນຂໍ້ມູນເຂົ້າລະບົບ ເພື່ອພິມສະເພາະ QR Code ຂອງວັນນั้น:</p>
+            <div>
+                <label class="block text-xs font-bold text-gray-700 mb-1">ເລືອກວັນທີ:</label>
+                <select id="print-date-select" class="w-full border rounded-lg px-3 py-2 text-sm font-semibold outline-none focus:ring-2 focus:ring-purple-500 bg-gray-50">
+                    <!-- Options will be populated dynamically -->
+                </select>
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button onclick="closePrintDateModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer text-sm">ຍົກເລີກ</button>
+                <button onclick="confirmAndPrintByDate()" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">🖨️ ຢືນຢັນພິມ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Duplicate Report Modal -->
+    <div id="duplicate-report-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[350]">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-lg font-bold text-red-600 flex items-center gap-2">
+                    <span>⚠️ ລາຍງານລາຍການທີ່ຖືກຕັດອອກ (ຊ້ຳກັນ)</span>
+                </h3>
+                <button onclick="closeDuplicateReportModal()" class="text-gray-500 hover:text-gray-700 font-bold text-lg cursor-pointer">✕</button>
+            </div>
+            <p class="text-xs text-gray-600">ລາຍການຕໍ່ໄປນີ້ມີລະຫັດສິນຄ້າຊ້ຳກັນໃນລະບົບ ຈຶ່ງຖືກຕັດອອກອັດຕະໂນມັດ:</p>
+            <div id="duplicate-report-list" class="max-h-60 overflow-y-auto space-y-2 text-xs border p-3 rounded-xl bg-gray-50">
+                <!-- รายการซ้ำจะแสดงตรงนี้ -->
+            </div>
+            <button onclick="closeDuplicateReportModal()" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">ປິດ</button>
+        </div>
+    </div>
+
+    <!-- Custom Confirm Modal -->
+    <div id="custom-confirm-modal" class="hidden fixed inset-0 bg-black/60 z-[300] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
+            <div class="text-4xl">⚠️</div>
+            <h3 id="confirm-title" class="text-xl font-bold text-gray-800">ຢືນຢັນການລຶບ</h3>
+            <p id="confirm-message" class="text-gray-600 text-sm leading-relaxed"></p>
+            <div class="flex gap-2 pt-2">
+                <button onclick="resolveCustomConfirm(false)" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
+                <button onclick="resolveCustomConfirm(true)" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ຕົກລົງ</button>
             </div>
         </div>
     </div>
 
     <!-- Header -->
-    <header class="bg-[#1e3a8a] text-white py-4 shadow-md">
+    <header class="bg-[#1e3a8a] text-white py-5 shadow-lg">
         <div class="container mx-auto px-4 text-center">
-            <h1 class="text-2xl font-bold flex items-center justify-center gap-2">
+            <h1 class="text-2xl md:text-3xl font-bold flex items-center justify-center gap-2">
                 🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Smart Realtime Sync)
             </h1>
-            <div class="mt-1 text-xs text-yellow-300 font-semibold">
+            <div class="mt-1.5 text-xs md:text-sm text-yellow-300 font-semibold">
                 ✨ ວ່ອງໄວ ທັນໃຈ, ຍອດເງິນຖືກຕ້ອງ ຊັດເຈນ 100%, ບໍ່ເສຍເວລາ — ໃຜກໍ່ຂາຍເປັນ ບໍ່ມີພື້ນຖານໄອທີກໍ່ໃຊ້ໄດ້ສະບາຍ!
             </div>
             <div id="license-status-badge" class="mt-1 text-xs text-cyan-200 font-semibold"></div>
             
-            <div class="mt-3 flex justify-center gap-3 flex-wrap items-center">
-                <button onclick="openScanner()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition cursor-pointer">
+            <!-- ກຸ່ມປຸ່ມເມນູ -->
+            <div class="mt-4 grid grid-cols-2 sm:flex sm:flex-wrap justify-center gap-2 sm:gap-3 items-center max-w-4xl mx-auto">
+                <button onclick="openScanner()" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     📷 ສະແກນສິນຄ້າ
                 </button>
-                <button onclick="openHistory()" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition cursor-pointer">
+                <button onclick="openHistory()" class="w-full sm:w-auto bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     📊 ປະຫວັດການຂາຍ
                 </button>
-                <button onclick="openReport()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition cursor-pointer">
+                <button onclick="openReport()" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     📈 ລາຍງານ
                 </button>
-                <button onclick="openExcelGenerator('qr')" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition cursor-pointer">
+                <button onclick="openExcelGenerator()" class="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     📱 ສ້າງ QR Code
                 </button>
-                
-                <!-- ປຸ່ມສຳລັບ Admin -->
-                <button id="admin-manage-btn" onclick="openAdminManager()" class="hidden bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition cursor-pointer">
-                    ⚙️ ຈັດການ Device ID
-                </button>
-
-                <!-- ປຸ່ມສະແດງ ID ເຄື່ອງ (ສຳລັບຜູ້ໃຊ້ທົດລອງ) -->
-                <button id="show-my-id-btn" onclick="openMyDeviceModal()" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition cursor-pointer">
+                <button onclick="openMyDeviceModal()" class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     🆔 ລະຫັດ ID ເຄື່ອງຂ້ອຍ
                 </button>
+                
+                <button onclick="openRegisterModal()" class="w-full sm:w-auto bg-pink-600 hover:bg-pink-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
+                    📝 ລົງທະບຽນ
+                </button>
 
-                <!-- ປຸ່ມອອກຈາກລະບົບ (ສະແດງສະເພາະ Admin ເທົ່ານັ້ນ) -->
-                <button id="admin-logout-btn" onclick="adminLogout()" class="hidden bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium shadow flex items-center gap-2 transition cursor-pointer">
-                    🚪 ອອກຈາກລະບົບ
+                <button onclick="openUserManual()" class="w-full sm:w-auto bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
+                    📖 ຄູ່ມືການໃຊ້ງານ
+                </button>
+
+                <button id="admin-manage-btn" onclick="openAdminManager()" class="hidden w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
+                    ⚙️ ຈັດການລະບົບ
+                </button>
+                <button onclick="adminLogout()" class="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
+                    🚪 ປ່ຽນໂໝດ / ອອກລະບົບ
                 </button>
             </div>
         </div>
@@ -283,11 +410,11 @@
                 <span id="grand-total" class="text-gray-800 text-lg">0 ກີບ</span>
             </div>
             <div class="flex justify-between items-center text-gray-700 border-t pt-2">
-                <span class="font-medium text-red-600">ສ່ວນຫຼຸດໃຫ້ລູກຄ້າ:</span>
-                <input type="number" id="discount-amount" oninput="calculateChange()" placeholder="0" class="border rounded-lg px-3 py-1.5 text-right w-52 focus:ring-2 focus:ring-red-500 outline-none font-bold text-red-600">
+                <span class="font-medium text-red-600">ລາຄາຂາຍຕົວຈິງ (ພິມແກ້ໄຂໄດ້):</span>
+                <input type="number" id="custom-final-price" oninput="calculateChange()" onkeydown="handleCustomPriceKeydown(event)" placeholder="ປ້ອນລາຄາຂາຍຕົວຈິງ" class="border rounded-lg px-3 py-1.5 text-right w-52 focus:ring-2 focus:ring-red-500 outline-none font-bold text-red-600 bg-white">
             </div>
             <div class="flex justify-between items-center text-lg font-bold text-gray-800 border-t pt-2">
-                <span>ລາຄາຂາຍຕົວຈິງ (ຫຼັງຫັກສ່ວນຫຼຸດ):</span>
+                <span>ລາຄາຂາຍຕົວຈິງ (ສະແດງຜົນ):</span>
                 <span id="final-total" class="text-green-600 text-xl">0 ກີບ</span>
             </div>
             <div class="flex justify-between items-center text-base font-bold text-gray-800 border-t pt-2">
@@ -296,7 +423,7 @@
             </div>
             <div class="flex justify-between items-center text-gray-700 border-t pt-2">
                 <span class="font-medium">ເງິນລູກຄ້າຈ່າຍ (ຖ້າມີທອນ):</span>
-                <input type="number" id="cash-given" oninput="calculateChange()" placeholder="ບໍ່ຈຳເປັນຕ້ອງປ້ອນ ຖ້າຈ່າຍພໍດີ" class="border rounded-lg px-3 py-1.5 text-right w-52 focus:ring-2 focus:ring-blue-500 outline-none">
+                <input type="number" id="cash-given" oninput="calculateChange()" onkeydown="handleCashKeydown(event)" placeholder="ບໍ່ຈຳເປັນຕ້ອງປ້ອນ ຖ້າຈ່າຍພໍດີ" class="border rounded-lg px-3 py-1.5 text-right w-52 focus:ring-2 focus:ring-blue-500 outline-none bg-white">
             </div>
             <div class="flex justify-between items-center text-lg font-bold text-gray-800 border-t pt-2">
                 <span>ເງິນທອນ:</span>
@@ -313,14 +440,14 @@
 
     <!-- Footer -->
     <footer class="mt-12 bg-[#1e3a8a] text-white py-3 text-center text-xs">
-        ✨ ສ້າງ ແລະ ພັດທະນາໂດຍ: <span class="text-yellow-400 font-semibold">ອາຈານ ບຸນແຕ່ງ ຊົ່ງຕືມື</span> | 📞 ໂທ: 020 59456999, 020 99444448
+        ✨ ສ້າງ ແລະ ພັດທະນາໂດຍ: <span class="text-yellow-400 font-semibold">ອາຈານ ບຸນແຕ່ງ ຊົ່ງຕົງມົວ</span> | 📞 ໂທ: 020 59456999, 020 99444448
     </footer>
 
     <!-- History Modal -->
     <div id="history-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-xl max-w-xl w-full p-5 max-h-[80vh] overflow-y-auto">
             <h3 class="text-lg font-bold mb-3 text-gray-800 flex justify-between items-center">
-                <span>📊 ປະຫວັດການຂາຍ (ຊິງ໌ Realtime)</span>
+                <span>📊 ປະຫວັດການຂາຍ</span>
                 <button onclick="loadCloudHistory()" class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded cursor-pointer">🔄 ໂຫຼດໃໝ່</button>
             </h3>
             <div id="history-list" class="space-y-3 text-sm text-gray-600">
@@ -447,12 +574,15 @@
                     <button onclick="clearUnsavedRows()" class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow flex items-center gap-1">
                         🧹 ລຶບຂໍ້ມູນທີ່ຍັງບໍ່ທັນບັນທຶກ
                     </button>
+                    <button id="btn-duplicate-report" onclick="openDuplicateReportModal()" class="hidden bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow flex items-center gap-1">
+                        📋 ລາຍງານລາຍການທີ່ຖືກຕັດ
+                    </button>
                     <button onclick="addExcelRow()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow">+ ເພີ່ມແຖວ</button>
                 </div>
             </div>
 
             <div class="bg-blue-50 border border-blue-200 text-blue-800 text-xs p-2 rounded-lg">
-                💡 <b>ຄຳແນະນຳ:</b> ທ່ານສາມາດກ໋ອບປີຂໍ້ມູນຫຼາຍແຖວຈາກ Excel ແລ້ວມາຄລິກວາງ (Paste) ລົງໃນຕາຕະລາງນີ້ໄດ້ເລີຍ ລະບົບຈະແຈກຢາຍຂໍ້ມູນລົງແຊລ໌ໃຫ້ອັດຕະໂນມັດ!
+                💡 <b>ຄຳແນະນຳ:</b> ລະບົບຈະບັນທຶກວັນ/ເດືອນ/ປີ ຂອງຂໍ້ມູນທີ່ປ້ອນເຂົ້າໂດຍອັດຕະໂນມັດ ເພື່ອໃຫ້ສາມາດເລືອກພິມສະເພາະວັນທີ່ຕ້ອງການໄດ້!
             </div>
 
             <div class="overflow-x-auto border rounded-xl shadow-inner max-h-[50vh]">
@@ -464,6 +594,9 @@
                             <th class="p-2 border-r text-right">ລາຄາຊື້ (ກີບ)</th>
                             <th class="p-2 border-r text-center w-36">ເປີເຊັນຂາຍ (%)</th>
                             <th class="p-2 border-r text-right">ລາຄາຂາຍ (ກີບ)</th>
+                            <th class="p-2 border-r text-center w-24">ຈຳນວນ</th>
+                            <th class="p-2 border-r text-right">ລວມ (ກີບ)</th>
+                            <th class="p-2 border-r text-center w-32">ວັນ/ເດືອນ/ປີ</th>
                             <th class="p-2 text-center w-28">ຈັດການ</th>
                         </tr>
                     </thead>
@@ -477,8 +610,8 @@
                 <div id="excel-preview-cards" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 </div>
                 <div id="print-btn-element">
-                    <button onclick="printExcelCodes()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">
-                        🖨️ ພິມປ້າຍທັງໝົດ
+                    <button onclick="promptPrintDate()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">
+                        🖨️ ພິມປ້າຍທັງໝົດ (ເລືອກວັນທີ)
                     </button>
                 </div>
             </div>
@@ -522,85 +655,161 @@
             console.error("Supabase initialization warning:", e);
         }
 
-        // --- DEVICE & ROLE MANAGEMENT SYSTEM ---
         let deviceId = localStorage.getItem('pos_device_id');
-        if (!deviceId) {
-            deviceId = 'DEV-' + Math.random().toString(36).substring(2, 9).toUpperCase() + '-' + Date.now().toString(36).toUpperCase();
-            localStorage.setItem('pos_device_id', deviceId);
-        }
+        let currentUsername = localStorage.getItem('pos_current_username') || null;
 
-        function checkRoleAndLicense() {
-            let userRole = localStorage.getItem('pos_user_role');
-            let localStatus = localStorage.getItem('pos_license_status');
-
-            // ຖ້າເປັນເຄື່ອງຖາວອນ (Permanent) ຫຼື Admin ໃຫ້ເຂົ້າໃຊ້ງານໄດ້ເລີຍ ໂດຍບໍ່ມີຂໍ້ຈຳກັດ
-            if (userRole === 'admin' || localStatus === 'permanent') {
-                if (userRole === 'admin') {
-                    document.getElementById('admin-manage-btn').classList.remove('hidden');
-                    document.getElementById('show-my-id-btn').classList.add('hidden');
-                    document.getElementById('admin-logout-btn').classList.remove('hidden');
-                    document.getElementById('license-status-badge').innerText = "🛡️ ສະຖານະ: ເຂົ້າລະບົບ Admin (Full Access)";
-                } else {
-                    document.getElementById('admin-manage-btn').classList.add('hidden');
-                    document.getElementById('show-my-id-btn').classList.add('hidden');
-                    document.getElementById('admin-logout-btn').classList.add('hidden');
-                    document.getElementById('license-status-badge').innerText = "⭐ ສະຖານະ: ຜູ້ໃຊ້ງານຖາວອນ (Permanent User)";
-                }
-                document.getElementById('role-select-modal').classList.add('hidden');
-                document.getElementById('license-modal').classList.add('hidden');
+        async function initDeviceId() {
+            if (currentUsername) {
+                deviceId = currentUsername;
+                localStorage.setItem('pos_device_id', deviceId);
                 return;
             }
 
-            // ສຳລັບຜູ້ໃຊ້ທົດລອງ 15 ວັນ: ບັງຄັບໃຫ້ເລືອກໂໝດ (Admin / Trial) ທຸກຄັ້ງທີ່ເຂົ້າມາໃໝ່
-            localStorage.removeItem('pos_user_role');
+            if (!deviceId || deviceId.startsWith('DEV-')) {
+                if (supabaseClient) {
+                    try {
+                        let { count, error } = await supabaseClient.from('licenses').select('*', { count: 'exact', head: true });
+                        let nextNum = (!error && count !== null) ? count + 1 : 1;
+                        deviceId = formatDeviceSeqId(nextNum);
+                    } catch (e) {
+                        deviceId = 'POS-A0001';
+                    }
+                } else {
+                    deviceId = 'POS-A0001';
+                }
+                localStorage.setItem('pos_device_id', deviceId);
+            }
+        }
+
+        function formatDeviceSeqId(num) {
+            let blockChar = 'A';
+            let seq = num;
+            if (num > 9999) {
+                let blockIndex = Math.floor((num - 1) / 9999);
+                blockChar = String.fromCharCode(65 + blockIndex);
+                seq = ((num - 1) % 9999) + 1;
+            }
+            let paddedSeq = String(seq).padStart(4, '0');
+            return `POS-${blockChar}${paddedSeq}`;
+        }
+
+        function checkRoleAndLicense() {
             document.getElementById('role-select-modal').classList.remove('hidden');
-            document.getElementById('admin-logout-btn').classList.add('hidden');
-            document.getElementById('show-my-id-btn').classList.remove('hidden');
+            document.getElementById('unified-login-modal').classList.add('hidden');
+
+            let userRole = localStorage.getItem('pos_user_role');
+            if (userRole === 'admin') {
+                document.getElementById('admin-manage-btn').classList.remove('hidden');
+                document.getElementById('license-status-badge').innerText = "🛡️ ສະຖານະ: ເຂົ້າລະບົບ Admin (Full Access)";
+            } else if (currentUsername) {
+                document.getElementById('admin-manage-btn').classList.add('hidden');
+                document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ສະມາຊິກ [${currentUsername}] (Permanent User)`;
+            } else {
+                document.getElementById('admin-manage-btn').classList.add('hidden');
+                document.getElementById('license-status-badge').innerText = "⏳ ສະຖານະ: ທົດລອງໃຊ້ 15 ວັນ";
+            }
         }
 
         function selectRole(role) {
-            // ເມື່ອກົດເລືອກທົດລອງໃຊ້ ໃຫ້ປິດ Modal ທັງໝົດທັນທີ
             document.getElementById('role-select-modal').classList.add('hidden');
-            document.getElementById('license-modal').classList.add('hidden');
-            
-            document.getElementById('admin-manage-btn').classList.add('hidden');
-            document.getElementById('show-my-id-btn').classList.remove('hidden');
-            document.getElementById('admin-logout-btn').classList.add('hidden');
-            
+            document.getElementById('unified-login-modal').classList.add('hidden');
             checkTrialLicense();
         }
 
-        function showAdminLogin() {
+        function showUnifiedLoginModal() {
             document.getElementById('role-select-modal').classList.add('hidden');
-            document.getElementById('admin-login-modal').classList.remove('hidden');
+            document.getElementById('unified-login-modal').classList.remove('hidden');
         }
 
-        function backToRoleSelect() {
-            document.getElementById('admin-login-modal').classList.add('hidden');
+        function backToRoleSelectFromUnified() {
+            document.getElementById('unified-login-modal').classList.add('hidden');
             document.getElementById('role-select-modal').classList.remove('hidden');
         }
 
-        function verifyAdminLogin() {
-            let u = document.getElementById('admin-user').value.trim();
-            let p = document.getElementById('admin-pass').value.trim();
+        async function verifyUnifiedLogin() {
+            let u = document.getElementById('unified-login-username').value.trim();
+            let p = document.getElementById('unified-login-password').value.trim();
+
+            if (!u || !p) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ Username ແລະ Password!", "⚠️");
+                return;
+            }
 
             if (u === "POSXIONG" && p === "POS@21082007") {
                 localStorage.setItem('pos_user_role', 'admin');
-                document.getElementById('admin-login-modal').classList.add('hidden');
-                checkRoleAndLicense();
-            } else {
-                showAlert("ຜິດພາດ", "Username ຫຼື Password ບໍ່ຖືກຕ້ອງ!", "⚠️");
+                document.getElementById('unified-login-modal').classList.add('hidden');
+                document.getElementById('role-select-modal').classList.add('hidden');
+                document.getElementById('admin-manage-btn').classList.remove('hidden');
+                document.getElementById('license-status-badge').innerText = "🛡️ ສະຖານະ: ເຂົ້າລະບົບ Admin (Full Access)";
+                return;
+            }
+
+            let formattedU = u.toUpperCase();
+            if (supabaseClient) {
+                try {
+                    let { data, error } = await supabaseClient
+                        .from('licenses')
+                        .select('*')
+                        .eq('device_id', formattedU)
+                        .single();
+
+                    if (error || !data) {
+                        showAlert("ຜິດພາດ", "Username ຫຼື Password ບໍ່ຖືກຕ້ອງ!", "⚠️");
+                        return;
+                    }
+
+                    if (data.status === 'trial') {
+                        let startDate = new Date(data.trial_start || data.created_at);
+                        let now = new Date();
+                        let diffDays = (now - startDate) / (1000 * 60 * 60 * 24);
+                        if (diffDays > 20) {
+                            await supabaseClient.from('licenses').delete().eq('device_id', formattedU);
+                            showAlert("ໝົດອາຍຸ", "ບັນຊີນີ້ໝົດອາຍຸທົດລອງ ແລະ ຖືກລະງັບຖິ້ມແລ້ວ!", "❌");
+                            return;
+                        }
+                    }
+
+                    if (data.status === 'permanent' || data.status === 'trial') {
+                        let oldDeviceId = deviceId;
+                        currentUsername = formattedU;
+                        deviceId = formattedU;
+                        localStorage.setItem('pos_current_username', currentUsername);
+                        localStorage.setItem('pos_device_id', deviceId);
+                        localStorage.setItem('pos_license_status', data.status);
+                        localStorage.removeItem('pos_user_role');
+
+                        if (oldDeviceId && oldDeviceId !== formattedU) {
+                            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+                            localHistory.forEach(tx => { tx.device_id = formattedU; });
+                            localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
+
+                            await supabaseClient
+                                .from('sales_history')
+                                .update({ device_id: formattedU })
+                                .eq('device_id', oldDeviceId);
+                        }
+
+                        document.getElementById('unified-login-modal').classList.add('hidden');
+                        document.getElementById('role-select-modal').classList.add('hidden');
+                        document.getElementById('admin-manage-btn').classList.add('hidden');
+                        document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ສະມາຊິກ [${currentUsername}]`;
+                    } else {
+                        showAlert("ແຈ້ງເຕືອນ", "ບັນຊີນີ້ບໍ່ສາມາດໃຊ້ງານໄດ້!", "⚠️");
+                    }
+                } catch (e) {
+                    showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການເຊື່ອມຕໍ່", "⚠️");
+                }
             }
         }
 
-        function handleAdminKeydown(event) {
-            if (event.key === 'Enter') {
-                verifyAdminLogin();
-            }
+        function handleUnifiedLoginKeydown(event) {
+            if (event.key === 'Enter') { verifyUnifiedLogin(); }
         }
 
         function adminLogout() {
             localStorage.removeItem('pos_user_role');
+            localStorage.removeItem('pos_license_status');
+            localStorage.removeItem('pos_current_username');
             location.reload();
         }
 
@@ -614,77 +823,31 @@
         }
 
         function copyMyDeviceId() {
-            navigator.clipboard.writeText(deviceId).then(() => {
-                showAlert("ສຳເລັດ", "ກ໋ອບປີ Device ID ຮຽບຮ້ອຍແລ້ວ!", "📋");
-            }).catch(() => {
-                showAlert("ຜິດພາດ", "ບໍ່ສາມາດກ໋ອບປີໄດ້", "⚠️");
-            });
+            navigator.clipboard.writeText(deviceId).then(() => {}).catch(() => {});
         }
 
-        function openLinkDeviceModal() {
-            document.getElementById('my-device-modal').classList.add('hidden');
-            document.getElementById('target-device-id-input').value = '';
-            document.getElementById('link-device-modal').classList.remove('hidden');
+        function openRegisterModal() {
+            document.getElementById('register-payment-modal').classList.remove('hidden');
         }
 
-        function closeLinkDeviceModal() {
-            document.getElementById('link-device-modal').classList.add('hidden');
+        function closeRegisterModal() {
+            document.getElementById('register-payment-modal').classList.add('hidden');
         }
 
-        async function confirmLinkDevice() {
-            let targetId = document.getElementById('target-device-id-input').value.trim();
-            if (!targetId) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ Device ID ເຄື່ອງທີ່ຕ້ອງການຜູກ!", "⚠️");
-                return;
-            }
+        function openUserManual() {
+            document.getElementById('user-manual-modal').classList.remove('hidden');
+        }
 
-            if (!supabaseClient) {
-                showAlert("ຜິດພາດ", "ບໍ່ສາມາດເຊື່ອມຕໍ່ Supabase ໄດ້", "⚠️");
-                return;
-            }
+        function closeUserManual() {
+            document.getElementById('user-manual-modal').classList.add('hidden');
+        }
 
-            try {
-                let { data: existing } = await supabaseClient
-                    .from('licenses')
-                    .select('*')
-                    .eq('device_id', targetId)
-                    .single();
-
-                if (existing) {
-                    await supabaseClient
-                        .from('licenses')
-                        .update({ status: 'permanent' })
-                        .eq('device_id', targetId);
-                } else {
-                    await supabaseClient
-                        .from('licenses')
-                        .insert([{
-                            device_id: targetId,
-                            trial_start: new Date().toISOString(),
-                            status: 'permanent'
-                        }]);
-                }
-
-                document.getElementById('link-device-modal').classList.add('hidden');
-                showAlert("ສຳເລັດ", `ຜູກ Device ID [${targetId}] ເປັນຜູ້ໃຊ້ງານຖາວອນສຳເລັດຮຽບຮ້ອຍ!`, "🔗");
-            } catch (e) {
-                showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການຜູກ ID", "⚠️");
-            }
+        function copyBankAccount() {
+            navigator.clipboard.writeText("1006000000470").then(() => {}).catch(() => {});
         }
 
         async function checkTrialLicense() {
-            let localStatus = localStorage.getItem('pos_license_status');
-            if (localStatus === 'permanent') {
-                return;
-            }
-
-            let modal = document.getElementById('license-modal');
-            let msg = document.getElementById('license-message');
-            let formContainer = document.getElementById('license-form-container');
             let badge = document.getElementById('license-status-badge');
-            let displayDevId = document.getElementById('display-device-id');
-            displayDevId.innerText = deviceId;
-
             let trialStart = localStorage.getItem('pos_trial_start');
             if (!trialStart) {
                 trialStart = new Date().toISOString();
@@ -693,65 +856,55 @@
 
             if (supabaseClient) {
                 try {
-                    let { data } = await supabaseClient
-                        .from('licenses')
-                        .select('*')
-                        .eq('device_id', deviceId)
-                        .single();
-
-                    if (data && data.status === 'permanent') {
-                        localStorage.setItem('pos_license_status', 'permanent');
-                        badge.innerText = "⭐ ສະຖານະ: ຜູ້ໃຊ້ງານຖາວອນ (Permanent User)";
-                        modal.classList.add('hidden');
-                        return;
-                    } else if (!data) {
+                    let { data } = await supabaseClient.from('licenses').select('*').eq('device_id', deviceId).single();
+                    if (!data) {
                         await supabaseClient.from('licenses').insert([{
                             device_id: deviceId,
                             trial_start: trialStart,
                             status: 'trial'
                         }]);
+                    } else if (data.status === 'trial') {
+                        let startDate = new Date(data.trial_start || data.created_at);
+                        let now = new Date();
+                        let diffDays = (now - startDate) / (1000 * 60 * 60 * 24);
+                        if (diffDays > 20) {
+                            await supabaseClient.from('licenses').delete().eq('device_id', deviceId);
+                            showAlert("ໝົດອາຍຸ", "ກຳນົດເວລາທົດລອງໃຊ້ໝົດລົງແລ້ວ (ເກີນ 20 ວັນ), ລະບົບໄດ້ລຶບບັນຊີນີ້ອອກ!", "❌");
+                            return;
+                        }
                     }
                 } catch (e) {}
             }
 
             let startDate = new Date(trialStart);
             let now = new Date();
-            let diffTime = now - startDate;
-            let diffDays = diffTime / (1000 * 60 * 60 * 24);
+            let diffDays = (now - startDate) / (1000 * 60 * 60 * 24);
 
             if (diffDays <= 15) {
                 let daysLeft = Math.ceil(15 - diffDays);
                 badge.innerText = `⏳ ສະຖານະ: ທົດລອງໃຊ້ 15 ວັນ (ເຫຼືອ ${daysLeft} ວັນ)`;
-                modal.classList.add('hidden');
+            } else if (diffDays <= 20) {
+                let graceDays = Math.ceil(20 - diffDays);
+                badge.innerText = `⚠️ ສະຖານະ: ໝົດເວລາທົດລອງ (ຜ່ອນຜັນອີກ ${graceDays} ວັນ)`;
             } else {
-                badge.innerText = "❌ ສະຖານະ: ໝົດອາຍຸທົດລອງໃຊ້ 15 ວັນ";
-                msg.innerHTML = `<b>ໝົດອາຍຸທົດລອງໃຊ້ 15 ວັນແລ້ວ!</b><br>ກະລຸນາຕິດຕໍ່ Admin ເພື່ອຂໍ Active ລະຫັດໃຊ້ງານຖາວອນ.`;
-                formContainer.classList.remove('hidden');
-                modal.classList.remove('hidden');
+                badge.innerText = "❌ ສະຖານະ: ໝົດອາຍຸ ແລະ ຖືກລຶບແລ້ວ";
             }
         }
 
-        async function activateLicense() {
-            let keyInput = document.getElementById('activation-key-input').value.trim();
-            const MASTER_ADMIN_KEY = "BOONTAENG-POS-2026-VIP";
+        let customConfirmCallback = null;
 
-            if (keyInput === MASTER_ADMIN_KEY) {
-                localStorage.setItem('pos_license_status', 'permanent');
-                
-                if (supabaseClient) {
-                    try {
-                        await supabaseClient
-                            .from('licenses')
-                            .update({ status: 'permanent' })
-                            .eq('device_id', deviceId);
-                    } catch (e) {}
-                }
+        function showCustomConfirm(title, message, callback) {
+            document.getElementById('confirm-title').innerText = title;
+            document.getElementById('confirm-message').innerText = message;
+            customConfirmCallback = callback;
+            document.getElementById('custom-confirm-modal').classList.remove('hidden');
+        }
 
-                showAlert("ສຳເລັດ", "ເປີດໃຊ້ງານຖາວອນສຳເລັດຮຽບຮ້ອຍ!", "⭐");
-                document.getElementById('license-modal').classList.add('hidden');
-                checkRoleAndLicense();
-            } else {
-                showAlert("ຜິດພາດ", "Activation Key ບໍ່ຖືກຕ້ອງ!", "⚠️");
+        function resolveCustomConfirm(result) {
+            document.getElementById('custom-confirm-modal').classList.add('hidden');
+            if (customConfirmCallback) {
+                customConfirmCallback(result);
+                customConfirmCallback = null;
             }
         }
 
@@ -766,41 +919,33 @@
 
         async function loadAllDevices() {
             let container = document.getElementById('device-list-container');
-            container.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງດຶງຂໍ້ມູນ Device ID ທັງໝົດຈາກ Cloud...</p>`;
-
-            if (!supabaseClient) {
-                container.innerHTML = `<p class="text-center text-red-500 py-4">ບໍ່ສາມາດເຊື່ອມຕໍ່ Supabase ໄດ້</p>`;
-                return;
-            }
+            container.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງດຶງຂໍ້ມູນ...</p>`;
+            if (!supabaseClient) return;
 
             try {
-                let { data, error } = await supabaseClient.from('licenses').select('*').order('created_at', { ascending: false });
-                if (error || !data) {
-                    container.innerHTML = `<p class="text-center text-red-500 py-4">ຜິດພາດໃນການໂຫຼດຂໍ້ມູນ (ກະລຸນາກວດສອບວ່າສ້າງຕາຕະລາງ licenses ແລ້ວຫຼືຍັງ)</p>`;
-                    return;
-                }
-
-                if (data.length === 0) {
-                    container.innerHTML = `<p class="text-center text-gray-500 py-4">ຍັງບໍ່ມີ Device ID ບັນທຶກໃນລະບົບ.</p>`;
-                    return;
-                }
+                let { data } = await supabaseClient.from('licenses').select('*').order('created_at', { ascending: false });
+                if (!data) return;
 
                 let html = `<div class="space-y-2">`;
+
                 data.forEach((item, idx) => {
                     let isPerm = item.status === 'permanent';
                     html += `
-                        <div class="flex justify-between items-center bg-gray-50 p-3 rounded-xl border">
+                        <div class="flex justify-between items-center bg-gray-50 p-2.5 rounded-xl border text-xs">
                             <div>
-                                <span class="font-bold text-xs text-gray-500">#${idx + 1}</span>
-                                <span class="font-mono font-bold text-blue-600 ml-2">${item.device_id}</span>
-                                <div class="text-[11px] text-gray-500 mt-0.5">ວັນທີລົງທະບຽນ: ${new Date(item.created_at).toLocaleString()}</div>
+                                <span class="font-bold text-gray-400">#${idx + 1}</span>
+                                <span class="font-mono font-bold text-blue-600 ml-2 text-sm">${item.device_id}</span>
+                                <div class="text-[10px] text-gray-500">ສ້າງເມື່ອ: ${new Date(item.created_at).toLocaleString()}</div>
                             </div>
                             <div class="flex items-center gap-2">
-                                <span class="px-3 py-1 rounded-full text-xs font-bold ${isPerm ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}">
-                                    ${isPerm ? '⭐ ຖາວອນ' : '⏳ ທົດລອງ 15 ວັນ'}
+                                <span class="px-2 py-0.5 rounded-full font-bold ${isPerm ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}">
+                                    ${isPerm ? '⭐ ຖາວອນ' : '⏳ ທົດລອງ'}
                                 </span>
-                                <button onclick="toggleDeviceStatus('${item.device_id}', '${isPerm ? 'trial' : 'permanent'}')" class="text-xs px-2 py-1 rounded font-bold ${isPerm ? 'bg-amber-200 text-amber-800 hover:bg-amber-300' : 'bg-green-200 text-green-800 hover:bg-green-300'} cursor-pointer">
-                                    ${isPerm ? 'ປ່ຽນເປັນ Trial' : 'ປ່ຽນເປັນຖາວອນ'}
+                                <button onclick="toggleDeviceStatus('${item.device_id}', '${isPerm ? 'trial' : 'permanent'}')" class="px-2.5 py-1 rounded font-bold ${isPerm ? 'bg-amber-200 text-amber-800' : 'bg-green-200 text-green-800'} cursor-pointer">
+                                    ${isPerm ? 'ປ່ຽເປັນ Trial' : 'ເປີດໃຊ້ຖາວອນ'}
+                                </button>
+                                <button onclick="adminDeleteAccount('${item.device_id}')" class="px-2 py-1 rounded font-bold bg-red-100 text-red-600 hover:bg-red-200 cursor-pointer">
+                                    🗑️ ລຶບ
                                 </button>
                             </div>
                         </div>
@@ -808,34 +953,75 @@
                 });
                 html += `</div>`;
                 container.innerHTML = html;
-            } catch (err) {
-                container.innerHTML = `<p class="text-center text-red-500 py-4">ເກີດຂໍ້ຜິດພາດໃນການເຊື່ອມຕໍ່</p>`;
-            }
+            } catch (e) {}
         }
 
-        async function toggleDeviceStatus(targetId, newStatus) {
+        async function adminCreateUser() {
+            let u = document.getElementById('new-admin-user').value.trim().toUpperCase();
+            let p = document.getElementById('new-admin-pass').value.trim();
+
+            if (!u || !p) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ Username ແລະ Password ໃຫ້ຄົບຖ້ວນ!", "⚠️");
+                return;
+            }
+
             if (!supabaseClient) return;
+
             try {
-                let { error } = await supabaseClient
-                    .from('licenses')
-                    .update({ status: newStatus })
-                    .eq('device_id', targetId);
+                let { error } = await supabaseClient.from('licenses').upsert({
+                    device_id: u,
+                    status: 'permanent',
+                    created_at: new Date().toISOString()
+                }, { onConflict: 'device_id' });
 
                 if (error) {
-                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດອັບເດດສະຖານະໄດ້", "⚠️");
+                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດສ້າງບັນຊີໄດ້: " + error.message, "⚠️");
                     return;
                 }
-                showAlert("ສຳເລັດ", "ອັບເດດສະຖານະ Device ID ສຳເລັດຮຽບຮ້ອຍ!", "✅");
-                loadAllDevices();
+
+                showAlert("ສຳເລັດ", `ສ້າງບັນຊີ [Username: ${u}] ສຳເລັດຮຽບຮ້ອຍ!`, "⭐");
+                document.getElementById('new-admin-user').value = "";
+                document.getElementById('new-admin-pass').value = "";
+                await loadAllDevices();
             } catch (e) {
                 showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດ", "⚠️");
             }
         }
 
-        window.addEventListener('DOMContentLoaded', () => {
+        async function adminDeleteAccount(targetId) {
+            showCustomConfirm("ຢືນຢັນການລຶບ", `ທ່ານຕ້ອງການລຶບບັນຊີ [${targetId}] ນີ້ອອກຈາກລະບົບແທ້ບໍ? ເຄື່ອງນີ້ຈະບໍ່ສາມາດນຳໃຊ້ໄດ້ອີກຕໍ່ໄປ!`, async (confirmed) => {
+                if (!confirmed) return;
+                if (!supabaseClient) return;
+
+                try {
+                    let { error } = await supabaseClient.from('licenses').delete().eq('device_id', targetId);
+                    if (error) {
+                        showAlert("ຜິດພາດ", "ບໍ່ສາມາດລຶບບັນຊີໄດ້", "⚠️");
+                        return;
+                    }
+                    showAlert("ສຳເລັດ", `ລຶບບັນຊີ [${targetId}] ອອກຈາກລະບົບຮຽບຮ້ອຍແລ້ວ!`, "🗑️");
+                    loadAllDevices();
+                } catch (e) {
+                    showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດ", "⚠️");
+                }
+            });
+        }
+
+        async function toggleDeviceStatus(targetId, newStatus) {
+            if (!supabaseClient) return;
+            try {
+                await supabaseClient.from('licenses').update({ status: newStatus }).eq('device_id', targetId);
+                showAlert("ສຳເລັດ", `ອັບເດດສະຖານະ [${targetId}] ຮຽບຮ້ອຍ!`, "✅");
+                loadAllDevices();
+            } catch (e) {}
+        }
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            await initDeviceId();
             checkRoleAndLicense();
         });
 
+        // Realtime Listener
         if (supabaseClient) {
             supabaseClient
                 .channel('public:sales_history')
@@ -854,6 +1040,7 @@
         let lastScanTime = 0;
         let globalHistoryList = []; 
         let excelRows = []; 
+        let duplicateRemovedList = []; 
 
         function showAlert(title, message, icon = "✅") {
             document.getElementById('alert-title').innerText = title;
@@ -867,7 +1054,6 @@
         }
 
         let deleteTargetIndex = null;
-
         function promptDeleteHistory(index) {
             deleteTargetIndex = index;
             document.getElementById('custom-confirm-delete-modal').classList.remove('hidden');
@@ -875,29 +1061,20 @@
 
         async function closeConfirmDelete(confirmed) {
             document.getElementById('custom-confirm-delete-modal').classList.add('hidden');
-            if (!confirmed || deleteTargetIndex === null) {
-                deleteTargetIndex = null;
-                return;
-            }
+            if (!confirmed || deleteTargetIndex === null) { deleteTargetIndex = null; return; }
 
             let targetItem = globalHistoryList[deleteTargetIndex];
-            if (!targetItem) {
-                deleteTargetIndex = null;
-                return;
-            }
+            if (!targetItem) { deleteTargetIndex = null; return; }
+
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            localHistory = localHistory.filter(tx => (tx.id !== targetItem.id && tx.created_at !== targetItem.createdAt));
+            localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
 
             if (targetItem.source === 'cloud' && targetItem.id && supabaseClient) {
-                try {
-                    let { error } = await supabaseClient.from('sales_history').delete().eq('id', targetItem.id);
-                    if (error) {
-                        showAlert("ຜິດພາດ", "ບໍ່ສາມາດລຶບຂໍ້ມູນຈາກ Cloud ໄດ້", "⚠️");
-                        deleteTargetIndex = null;
-                        return;
-                    }
-                } catch (err) {}
+                try { await supabaseClient.from('sales_history').delete().eq('id', targetItem.id); } catch (e) {}
             }
 
-            showAlert("ສຳເລັດ", "ສຳເລັດການລຶບຂໍ້ມູນຖີ້ມ", "✅");
+            showAlert("ສຳເລັດ", "ລຶບປະຫວັດສຳເລັດ", "✅");
             loadCloudHistory();
             deleteTargetIndex = null;
         }
@@ -905,72 +1082,29 @@
         function openScanner() {
             document.getElementById('scanner-container').classList.remove('hidden');
             if (!html5QrCode) {
-                try {
-                    html5QrCode = new Html5Qrcode("reader");
-                } catch(err) {
-                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດເປີດກ້ອງໄດ້: " + err, "⚠️");
-                    return;
-                }
+                try { html5QrCode = new Html5Qrcode("reader"); } catch(err) { return; }
             }
-            
             html5QrCode.start(
                 { facingMode: "environment" },
                 { fps: 10, qrbox: 250 },
                 (decodedText) => {
                     let currentTime = new Date().getTime();
-                    if (decodedText === lastScannedCode && (currentTime - lastScanTime < 3000)) {
-                        return;
-                    }
+                    if (decodedText === lastScannedCode && (currentTime - lastScanTime < 3000)) return;
                     lastScannedCode = decodedText;
                     lastScanTime = currentTime;
                     showConfirmModal(decodedText);
                 },
                 (errorMessage) => {}
-            ).catch(err => {
-                showAlert("ຜິດພາດ", "ບໍ່ສາມາດເປີດກ້ອງໄດ້: " + err, "⚠️");
-            });
+            ).catch(err => {});
         }
 
         function showConfirmModal(text) {
             tempScannedCode = text;
             let parsedName = text;
-            let parsedPrice = 0;
-            let parsedCost = 0;
-
-            if (text.includes("ລາຄາຂາຍ") || text.includes("ລາຄາຊື້")) {
-                let lines = text.split(/\r?\n/);
-                for (let line of lines) {
-                    let cleanLine = line.trim();
-                    if (cleanLine.includes("ລາຄາຂາຍ")) {
-                        parsedPrice = parseInt(cleanLine.replace(/[^0-9]/g, '')) || 0;
-                    } else if (cleanLine.includes("ລາຄາຊື້")) {
-                        parsedCost = parseInt(cleanLine.replace(/[^0-9]/g, '')) || 0;
-                    } else if (!cleanLine.includes("ກີບ") && cleanLine.length > 0) {
-                        parsedName = cleanLine;
-                    }
-                }
-            } else {
-                let savedRows = localStorage.getItem('pos_excel_rows');
-                let foundItem = null;
-                if (savedRows) {
-                    try {
-                        let rows = JSON.parse(savedRows);
-                        let cleanText = text.trim().toLowerCase();
-                        foundItem = rows.find(r => r.name && String(r.name).trim().toLowerCase() === cleanText);
-                    } catch(e) {}
-                }
-
-                if (foundItem) {
-                    parsedName = foundItem.name || text;
-                    parsedCost = parseFloat(String(foundItem.cost || 0).replace(/[^0-9.]/g, '')) || 0;
-                    parsedPrice = parseFloat(String(foundItem.price || 0).replace(/[^0-9.]/g, '')) || 0;
-                }
-            }
-
             document.getElementById('modal-code').innerText = text;
             document.getElementById('modal-name').value = parsedName;
-            document.getElementById('modal-cost').value = parsedCost > 0 ? parsedCost : "";
-            document.getElementById('modal-price').value = parsedPrice > 0 ? parsedPrice : "";
+            document.getElementById('modal-cost').value = "";
+            document.getElementById('modal-price').value = "";
             document.getElementById('confirm-modal').classList.remove('hidden');
         }
 
@@ -979,74 +1113,46 @@
             let costInput = parseFloat(document.getElementById('modal-cost').value) || 0;
             let priceInput = parseFloat(document.getElementById('modal-price').value) || 0;
 
-            if (!nameInput) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຊື່ສິນຄ້າ!", "⚠️");
-                return;
-            }
+            if (!nameInput) { showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຊື່ສິນຄ້າ!", "⚠️"); return; }
 
             let existing = cart.find(item => item.code === tempScannedCode);
-            if (existing) {
-                existing.qty += 1;
-            } else {
-                cart.push({ code: tempScannedCode, name: nameInput, cost: costInput, price: priceInput, qty: 1 });
-            }
+            if (existing) { existing.qty += 1; } 
+            else { cart.push({ code: tempScannedCode, name: nameInput, cost: costInput, price: priceInput, qty: 1 }); }
             renderCart();
             document.getElementById('confirm-modal').classList.add('hidden');
-            tempScannedCode = "";
         }
 
-        function cancelScannedItem() {
-            document.getElementById('confirm-modal').classList.add('hidden');
-            tempScannedCode = "";
-        }
-
+        function cancelScannedItem() { document.getElementById('confirm-modal').classList.add('hidden'); }
         function closeScanner() {
             if (html5QrCode) {
-                html5QrCode.stop().then(() => {
-                    document.getElementById('scanner-container').classList.add('hidden');
-                }).catch(() => {
-                    document.getElementById('scanner-container').classList.add('hidden');
-                });
-            } else {
-                document.getElementById('scanner-container').classList.add('hidden');
-            }
+                html5QrCode.stop().then(() => { document.getElementById('scanner-container').classList.add('hidden'); }).catch(() => {});
+            } else { document.getElementById('scanner-container').classList.add('hidden'); }
         }
 
         function updateQty(index, delta) {
             cart[index].qty += delta;
-            if (cart[index].qty <= 0) {
-                cart.splice(index, 1);
-            }
+            if (cart[index].qty <= 0) cart.splice(index, 1);
             renderCart();
         }
 
-        function removeItem(index) {
-            cart.splice(index, 1);
-            renderCart();
-        }
+        function removeItem(index) { cart.splice(index, 1); renderCart(); }
 
         function renderCart() {
             let tbody = document.getElementById('cart-items');
             if (cart.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ (ກະລຸນາກົດສະແກນສິນຄ້າ)</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ</td></tr>`;
                 document.getElementById('grand-total-cost').innerText = "0 ກີບ";
                 document.getElementById('grand-total').innerText = "0 ກີບ";
+                document.getElementById('custom-final-price').value = "";
                 document.getElementById('final-total').innerText = "0 ກີບ";
                 document.getElementById('grand-total-profit').innerText = "0 ກີບ";
                 document.getElementById('change-amount').innerText = "0 ກີບ";
                 return;
             }
-
-            let html = '';
-            let grandTotal = 0;
-            let grandTotalCost = 0;
-
+            let html = '', grandTotal = 0, grandTotalCost = 0;
             cart.forEach((item, index) => {
-                let total = item.price * item.qty;
-                let totalCost = item.cost * item.qty;
-                grandTotal += total;
-                grandTotalCost += totalCost;
-
+                let total = item.price * item.qty, totalCost = item.cost * item.qty;
+                grandTotal += total; grandTotalCost += totalCost;
                 html += `
                     <tr class="hover:bg-gray-50 border-b">
                         <td class="p-3 font-medium text-gray-800">${item.name}</td>
@@ -1058,70 +1164,72 @@
                             <button onclick="updateQty(${index}, 1)" class="px-2 bg-gray-200 rounded font-bold cursor-pointer">+</button>
                         </td>
                         <td class="p-3 text-right font-bold text-gray-800">${total.toLocaleString()}</td>
-                        <td class="p-3 text-center">
-                            <button onclick="removeItem(${index})" class="text-red-500 hover:text-red-700 font-bold cursor-pointer">ລຶບ</button>
-                        </td>
+                        <td class="p-3 text-center"><button onclick="removeItem(${index})" class="text-red-500 font-bold cursor-pointer">ລຶບ</button></td>
                     </tr>
                 `;
             });
-
             tbody.innerHTML = html;
             document.getElementById('grand-total-cost').innerText = grandTotalCost.toLocaleString() + " ກີບ";
             document.getElementById('grand-total').innerText = grandTotal.toLocaleString() + " ກີບ";
+            
+            // ຕັ້ງຄ່າລາຄາຂາຍຕົວຈິງເລີ່ມຕົ້ນເທົ່າກັບລາຄາລວມ (ຖ້າຍັງບໍ່ໄດ້ປ້ອນ)
+            let customPriceInput = document.getElementById('custom-final-price');
+            if (!customPriceInput.value) {
+                customPriceInput.value = grandTotal;
+            }
             calculateChange();
         }
 
         function calculateChange() {
             let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
             let grandTotalCost = cart.reduce((sum, item) => sum + ((item.cost || 0) * item.qty), 0);
-            let discount = parseFloat(document.getElementById('discount-amount').value) || 0;
             
-            if (discount > grandTotal) discount = grandTotal;
+            let customPriceVal = document.getElementById('custom-final-price').value;
+            let finalTotal = customPriceVal !== "" ? (parseFloat(customPriceVal) || 0) : grandTotal;
+            if (finalTotal < 0) finalTotal = 0;
 
-            let finalTotal = grandTotal - discount;
             let grandTotalProfit = finalTotal - grandTotalCost;
 
             document.getElementById('final-total').innerText = finalTotal.toLocaleString() + " ກີບ";
             document.getElementById('grand-total-profit').innerText = grandTotalProfit.toLocaleString() + " ກີບ";
 
-            let cashInput = document.getElementById('cash-given').value;
-            let changeElem = document.getElementById('change-amount');
-            
-            if (!cashInput) {
-                changeElem.innerText = "0 ກີບ (ຈ່າຍພໍດີ)";
-                changeElem.className = "text-blue-600 text-xl font-bold";
-                return;
-            }
+            let cashInput = document.getElementById('cash-given').value, changeElem = document.getElementById('change-amount');
+            if (!cashInput) { changeElem.innerText = "0 ກີບ (ຈ່າຍພໍດີ)"; return; }
+            let cashGiven = parseFloat(cashInput) || 0, change = cashGiven - finalTotal;
+            changeElem.innerText = change >= 0 ? change.toLocaleString() + " ກີບ" : "ເງິນຍັງບໍ່ພໍ";
+        }
 
-            let cashGiven = parseFloat(cashInput) || 0;
-            let change = cashGiven - finalTotal;
-            
-            if (change >= 0) {
-                changeElem.innerText = change.toLocaleString() + " ກີບ";
-                changeElem.className = "text-green-600 text-xl font-bold";
-            } else {
-                changeElem.innerText = "ເງິນຍັງບໍ່ພໍ (" + Math.abs(change).toLocaleString() + " ກີບ)";
-                changeElem.className = "text-red-600 text-lg font-bold";
+        // ⌨️ ຟັງຊັນຮອງຮັບປຸ່ມ Enter ສຳລັບຄອມພິວເຕີ
+        function handleCustomPriceKeydown(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                document.getElementById('cash-given').focus();
+            }
+        }
+
+        function handleCashKeydown(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                checkout();
             }
         }
 
         async function checkout() {
-            if (cart.length === 0) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າກ່ອນຊຳລະເງິນ!", "⚠️");
-                return;
-            }
+            if (cart.length === 0) { showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າ!", "⚠️"); return; }
             let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
             let totalCost = cart.reduce((sum, item) => sum + ((item.cost || 0) * item.qty), 0);
-            let discount = parseFloat(document.getElementById('discount-amount').value) || 0;
-            let finalTotal = grandTotal - discount;
+            
+            let customPriceVal = document.getElementById('custom-final-price').value;
+            let finalTotal = customPriceVal !== "" ? (parseFloat(customPriceVal) || 0) : grandTotal;
+            let discount = grandTotal - finalTotal;
+            if (discount < 0) discount = 0;
+
             let cashGiven = document.getElementById('cash-given').value ? (parseFloat(document.getElementById('cash-given').value) || 0) : finalTotal;
 
-            if (cashGiven < finalTotal) {
-                showAlert("ແຈ້ງເຕືອນ", "ຈຳນວນເງິນທີ່ລູກຄ້າຈ່າຍຍັງບໍ່ພໍ!", "⚠️");
-                return;
-            }
-
             let txData = {
+                id: 'TX-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+                device_id: deviceId,
+                created_at: new Date().toISOString(),
                 items: cart,
                 total_items: cart.reduce((sum, item) => sum + item.qty, 0),
                 total_cost: totalCost,
@@ -1132,409 +1240,484 @@
                 change: cashGiven - finalTotal
             };
 
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            localHistory.unshift(txData);
+            localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
+
             if (supabaseClient) {
                 try {
-                    let { error } = await supabaseClient.from('sales_history').insert([txData]);
-                    if (error) {
-                        showAlert("ຜິດພາດ", "ບໍ່ສາມາດບັນທຶກລົງ Cloud ໄດ້: " + error.message, "⚠️");
-                        return;
-                    }
-                } catch (err) {
-                    showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການເຊື່ອມຕໍ່ Server", "⚠️");
-                    return;
-                }
+                    await supabaseClient.from('sales_history').insert([{
+                        device_id: deviceId,
+                        items: cart,
+                        total_items: txData.total_items,
+                        total_cost: totalCost,
+                        sub_total: grandTotal,
+                        discount: discount,
+                        total: finalTotal,
+                        cash: cashGiven,
+                        change: txData.change,
+                        created_at: txData.created_at
+                    }]);
+                } catch (err) {}
             }
 
-            showAlert("ສຳເລັດ", "ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ ແລະ ສົ່ງຂໍ້ມູນໄປທຸກເຄື່ອງແລ້ວ!", "✅");
-            cart = [];
-            document.getElementById('cash-given').value = '';
-            document.getElementById('discount-amount').value = '';
+            showAlert("ສຳເລັດ", "ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ!", "✅");
+            cart = []; 
+            document.getElementById('cash-given').value = ''; 
+            document.getElementById('custom-final-price').value = '';
             renderCart();
         }
 
         async function loadCloudHistory() {
             let listDiv = document.getElementById('history-list');
-            listDiv.innerHTML = `<p class="text-center py-4">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
+            listDiv.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
             document.getElementById('history-summary').classList.add('hidden');
             globalHistoryList = [];
 
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            let combinedMap = new Map();
+
+            localHistory.forEach(tx => { combinedMap.set(tx.id || tx.created_at, tx); });
+
             if (supabaseClient) {
                 try {
-                    let { data, error } = await supabaseClient
+                    let { data: cloudSales, error } = await supabaseClient
                         .from('sales_history')
                         .select('*')
+                        .eq('device_id', deviceId)
                         .order('created_at', { ascending: false });
-                    
-                    if (!error && data) {
-                        data.forEach(tx => {
-                            let totalItemCount = tx.total_items || (tx.items ? tx.items.reduce((s, i) => s + i.qty, 0) : 0);
-                            let calcCost = tx.total_cost !== undefined ? tx.total_cost : (tx.items ? tx.items.reduce((s, i) => s + ((i.cost || 0) * i.qty), 0) : 0);
-                            globalHistoryList.push({
-                                id: tx.id,
-                                source: 'cloud',
-                                createdAt: tx.created_at,
-                                date: new Date(tx.created_at).toLocaleString(),
-                                totalItems: totalItemCount,
-                                totalCost: calcCost,
-                                subTotal: tx.sub_total || tx.total,
-                                discount: tx.discount || 0,
-                                total: tx.total,
-                                cash: tx.cash,
-                                change: tx.change,
-                                items: tx.items || []
-                            });
+
+                    if (!error && cloudSales) {
+                        cloudSales.forEach(tx => {
+                            let key = tx.id || tx.created_at;
+                            if (!combinedMap.has(key)) {
+                                combinedMap.set(key, {
+                                    id: tx.id, source: 'cloud', device_id: tx.device_id, created_at: tx.created_at,
+                                    total_items: tx.total_items || 0, total_cost: tx.total_cost || 0,
+                                    discount: tx.discount || 0, total: tx.total, cash: tx.cash, change: tx.change, items: tx.items || []
+                                });
+                            }
                         });
                     }
                 } catch (err) {}
             }
 
+            globalHistoryList = Array.from(combinedMap.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
             if (globalHistoryList.length === 0) {
                 listDiv.innerHTML = `<p class="text-gray-500 text-center py-4">ຍັງບໍ່ມີປະຫວັດການຂາຍ.</p>`;
-                document.getElementById('history-summary').classList.add('hidden');
             } else {
-                let html = '';
-                let sumCost = 0;
-                let sumPrice = 0;
-
+                let html = '', sumCost = 0, sumPrice = 0;
                 globalHistoryList.forEach((tx, index) => {
-                    sumCost += tx.totalCost;
-                    sumPrice += tx.total;
-
-                    let itemsHtml = '';
-                    if (tx.items && tx.items.length > 0) {
-                        tx.items.forEach(item => {
-                            let itemTotal = item.price * item.qty;
-                            itemsHtml += `
-                                <div class="flex justify-between text-xs text-gray-600 pl-3 py-0.5 border-l-2 border-blue-400 my-1">
-                                    <span>🔹 ${item.name} (x${item.qty})</span>
-                                    <span class="font-medium">${itemTotal.toLocaleString()} ກີບ</span>
-                                </div>
-                            `;
-                        });
-                    }
-
+                    sumCost += (tx.total_cost || 0); sumPrice += (tx.total || 0);
                     html += `
                         <div class="border-b pb-3 mb-3 bg-gray-50 p-3 rounded-xl border-l-4 border-blue-600 shadow-sm">
                             <div class="flex justify-between items-center mb-1">
-                                <span class="font-bold text-blue-800 text-xs">📅 ${tx.date}</span>
-                                <div class="flex items-center gap-2">
-                                    <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">📦 ${tx.totalItems} ລາຍການ</span>
-                                    <button onclick="promptDeleteHistory(${index})" class="text-xs bg-red-100 hover:bg-red-200 text-red-600 px-2 py-0.5 rounded font-bold cursor-pointer transition">🗑️ ລຶບ</button>
-                                </div>
+                                <span class="font-bold text-blue-800 text-xs">📅 ${new Date(tx.created_at).toLocaleString()} [ID: ${tx.device_id}]</span>
+                                <button onclick="promptDeleteHistory(${index})" class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded font-bold cursor-pointer">🗑️ ລຶບ</button>
                             </div>
-                            <div class="my-1.5 space-y-1">${itemsHtml}</div>
-                            ${tx.discount > 0 ? `<div class="text-xs text-red-600 font-semibold mb-1">ສ່ວນຫຼຸດ: -${tx.discount.toLocaleString()} ກີບ</div>` : ''}
-                            <div class="border-t pt-1.5 mt-1 flex justify-between items-center text-xs font-bold text-gray-800">
-                                <span>ຍອດຂາຍຕົວຈິງ: <span class="text-green-600">${tx.total.toLocaleString()} ກີບ</span></span>
-                                <span class="text-gray-500 font-normal">ຮັບ: ${tx.cash.toLocaleString()} | ທອນ: ${tx.change.toLocaleString()}</span>
-                            </div>
+                            <div class="text-xs text-gray-800 font-bold">ຍອດຂາຍ: ${(tx.total || 0).toLocaleString()} ກີບ</div>
                         </div>
                     `;
                 });
                 listDiv.innerHTML = html;
-
-                let sumProfit = sumPrice - sumCost;
                 document.getElementById('sum-total-cost').innerText = sumCost.toLocaleString() + " ກີບ";
                 document.getElementById('sum-total-price').innerText = sumPrice.toLocaleString() + " ກີບ";
-                document.getElementById('sum-total-profit').innerText = sumProfit.toLocaleString() + " ກີບ";
+                document.getElementById('sum-total-profit').innerText = (sumPrice - sumCost).toLocaleString() + " ກີບ";
                 document.getElementById('history-summary').classList.remove('hidden');
             }
         }
 
-        function openHistory() {
-            document.getElementById('history-modal').classList.remove('hidden');
-            loadCloudHistory();
-        }
+        function openHistory() { document.getElementById('history-modal').classList.remove('hidden'); loadCloudHistory(); }
+        function closeHistory() { document.getElementById('history-modal').classList.add('hidden'); }
+        async function openReport() { document.getElementById('report-modal').classList.remove('hidden'); }
+        function closeReport() { document.getElementById('report-modal').classList.add('hidden'); }
 
-        function closeHistory() {
-            document.getElementById('history-modal').classList.add('hidden');
-        }
+        // --- ຟັງຊັນຈັດການຕາຕະລາງສ້າງ QR Code ແລະ ຈັດການວັນ/ເດືອນ/ປີ ---
+        async function openExcelGenerator() {
+            document.getElementById('excel-generator-modal').classList.remove('hidden');
+            duplicateRemovedList = [];
+            updateDuplicateReportButton();
 
-        async function openReport() {
-            document.getElementById('report-modal').classList.remove('hidden');
-            if (!document.getElementById('report-year').value) {
-                document.getElementById('report-year').value = new Date().getFullYear();
-            }
-            await calculateReport();
-        }
-
-        function closeReport() {
-            document.getElementById('report-modal').classList.add('hidden');
-        }
-
-        function toggleReportFilter() {
-            let type = document.getElementById('report-type').value;
-            document.querySelectorAll('.report-filter-group').forEach(el => el.classList.add('hidden'));
-
-            if (type === 'monthly') {
-                document.getElementById('filter-monthly').classList.remove('hidden');
-            } else if (type === 'quarterly') {
-                document.getElementById('filter-quarterly').classList.remove('hidden');
-            } else if (type === 'duration') {
-                document.getElementById('filter-duration').classList.remove('hidden');
-            }
-            calculateReport();
-        }
-
-        async function calculateReport() {
-            let type = document.getElementById('report-type').value;
-            let selectedYear = parseInt(document.getElementById('report-year').value) || new Date().getFullYear();
-            
-            let reportAllData = [];
             if (supabaseClient) {
                 try {
-                    let { data, error } = await supabaseClient.from('sales_history').select('*');
-                    if (!error && data) {
-                        data.forEach(tx => {
-                            let calcCost = tx.total_cost !== undefined ? tx.total_cost : (tx.items ? tx.items.reduce((s, i) => s + ((i.cost || 0) * i.qty), 0) : 0);
-                            reportAllData.push({ createdAt: tx.created_at, totalCost: calcCost, total: tx.total });
-                        });
+                    let { data } = await supabaseClient.from('products').select('*').eq('device_id', deviceId);
+                    if (data && data.length > 0) {
+                        excelRows = data.map(item => ({
+                            code: item.code,
+                            cost: item.cost,
+                            profitPct: item.profit_pct,
+                            price: item.price,
+                            qty: item.qty || 1,
+                            dateAdded: item.date_added || item.updated_at ? new Date(item.date_added || item.updated_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+                        }));
+                        localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
+                    } else {
+                        let savedRows = localStorage.getItem('pos_saved_excel_rows');
+                        excelRows = savedRows ? JSON.parse(savedRows) : [];
                     }
-                } catch (err) {}
-            }
-
-            let finalFiltered = reportAllData.filter(tx => {
-                let d = new Date(tx.createdAt);
-                if (isNaN(d.getTime())) return false;
-                let y = d.getFullYear();
-                let m = d.getMonth() + 1;
-
-                if (y !== selectedYear) return false;
-
-                if (type === 'monthly') {
-                    let targetMonth = parseInt(document.getElementById('report-month').value);
-                    return m === targetMonth;
-                } else if (type === 'quarterly') {
-                    let q = parseInt(document.getElementById('report-quarter').value);
-                    let startMonth = (q - 1) * 3 + 1;
-                    let endMonth = q * 3;
-                    return m >= startMonth && m <= endMonth;
-                } else if (type === 'duration') {
-                    let maxMonths = parseInt(document.getElementById('report-duration-months').value);
-                    return m >= 1 && m <= maxMonths;
+                } catch (e) {
+                    let savedRows = localStorage.getItem('pos_saved_excel_rows');
+                    excelRows = savedRows ? JSON.parse(savedRows) : [];
                 }
-                return true;
-            });
-
-            let sumCost = 0;
-            let sumPrice = 0;
-            finalFiltered.forEach(tx => {
-                sumCost += tx.totalCost;
-                sumPrice += tx.total;
-            });
-            let sumProfit = sumPrice - sumCost;
-
-            document.getElementById('rep-total-cost').innerText = sumCost.toLocaleString() + " ກີບ";
-            document.getElementById('rep-total-price').innerText = sumPrice.toLocaleString() + " ກີບ";
-            document.getElementById('rep-total-profit').innerText = sumProfit.toLocaleString() + " ກີບ";
-        }
-
-        function openExcelGenerator(type) {
-            let titleSpan = document.getElementById('excel-modal-title').querySelector('span');
-            titleSpan.innerText = "📱 ຕາຕະລາງສ້າງ QR Code ສິນຄ້າ";
-            
-            let savedRows = localStorage.getItem('pos_excel_rows');
-            if (savedRows) {
-                try { excelRows = JSON.parse(savedRows); } catch (e) { excelRows = []; }
+            } else {
+                let savedRows = localStorage.getItem('pos_saved_excel_rows');
+                excelRows = savedRows ? JSON.parse(savedRows) : [];
             }
 
             if (excelRows.length === 0) {
-                excelRows = [
-                    { name: "P001", cost: 158000, markup: 20, price: 190000 },
-                    { name: "P002", cost: 173000, markup: 20, price: 208000 },
-                    { name: "P003", cost: 188000, markup: 20, price: 226000 }
-                ];
+                addExcelRow();
+            } else {
+                renderExcelTable();
             }
-            renderExcelTable();
-            document.getElementById('excel-print-area').classList.add('hidden');
-            document.getElementById('excel-generator-modal').classList.remove('hidden');
         }
 
         function closeExcelGenerator() {
             document.getElementById('excel-generator-modal').classList.add('hidden');
+            document.getElementById('excel-print-area').classList.add('hidden');
         }
 
-        function addExcelRow() {
-            excelRows.push({ name: "", cost: 0, markup: 20, price: 0 });
+        function addExcelRow(code = '', cost = '', profitPct = 20, price = '', qty = 1, dateAdded = '') {
+            let today = new Date().toISOString().split('T')[0];
+            excelRows.push({ code: code, cost: cost, profitPct: profitPct, price: price, qty: qty, dateAdded: dateAdded || today });
             renderExcelTable();
         }
 
-        function deleteExcelRow(index) {
+        function removeExcelRow(index) {
             excelRows.splice(index, 1);
+            if (excelRows.length === 0) addExcelRow();
             renderExcelTable();
         }
 
-        function clearUnsavedRows() {
-            let savedRows = localStorage.getItem('pos_excel_rows');
-            excelRows = savedRows ? JSON.parse(savedRows) : [];
-            renderExcelTable();
-            showAlert("ສຳເລັດ", "ລຶບຂໍ້ມູນທີ່ຍັງບໍ່ທັນບັນທຶກຮຽບຮ້ອຍແລ້ວ!", "🧹");
-        }
+        async function clearUnsavedRows() {
+            excelRows = [];
+            duplicateRemovedList = [];
+            updateDuplicateReportButton();
+            addExcelRow();
+            document.getElementById('excel-print-area').classList.add('hidden');
+            localStorage.removeItem('pos_saved_excel_rows');
 
-        function updateExcelRow(index, field, value) {
-            if (field === 'name') {
-                excelRows[index].name = value;
-            } else if (field === 'cost') {
-                let costVal = parseFloat(value) || 0;
-                excelRows[index].cost = costVal;
-                let markupVal = excelRows[index].markup || 0;
-                let rawPrice = costVal * (1 + markupVal / 100);
-                excelRows[index].price = Math.ceil(rawPrice / 10000) * 10000;
-                let priceInput = document.getElementById(`price-input-${index}`);
-                if (priceInput) priceInput.value = excelRows[index].price ? excelRows[index].price.toLocaleString() : '';
-            } else if (field === 'markup') {
-                let markupVal = parseFloat(value) || 0;
-                excelRows[index].markup = markupVal;
-                let costVal = excelRows[index].cost || 0;
-                let rawPrice = costVal * (1 + markupVal / 100);
-                excelRows[index].price = Math.ceil(rawPrice / 10000) * 10000;
-                let priceInput = document.getElementById(`price-input-${index}`);
-                if (priceInput) priceInput.value = excelRows[index].price ? excelRows[index].price.toLocaleString() : '';
-            } else if (field === 'price') {
-                excelRows[index].price = parseFloat(value) || 0;
-            }
-        }
-
-        function handleTablePaste(e, startRow, startCol) {
-            e.preventDefault();
-            let pastedData = (e.clipboardData || window.clipboardData).getData('text');
-            if (!pastedData) return;
-
-            let rows = pastedData.split(/\r?\n/).map(row => row.split('\t'));
-            
-            if (rows.length > 0 && rows[rows.length - 1].length === 1 && rows[rows.length - 1][0] === "") {
-                rows.pop();
+            if (supabaseClient) {
+                try {
+                    await supabaseClient.from('products').delete().eq('device_id', deviceId);
+                } catch (e) {}
             }
 
-            rows.forEach((cols, rIdx) => {
-                let targetRowIndex = startRow + rIdx;
-                
-                while (targetRowIndex >= excelRows.length) {
-                    excelRows.push({ name: "", cost: 0, markup: 20, price: 0 });
-                }
-
-                cols.forEach((val, cIdx) => {
-                    let targetColIndex = startCol + cIdx;
-                    let cleanVal = val.trim();
-
-                    if (targetColIndex === 0) {
-                        excelRows[targetRowIndex].name = cleanVal;
-                    } else if (targetColIndex === 1) {
-                        let costVal = parseFloat(cleanVal.replace(/[^0-9.]/g, '')) || 0;
-                        excelRows[targetRowIndex].cost = costVal;
-                        let markupVal = excelRows[targetRowIndex].markup || 20;
-                        let rawPrice = costVal * (1 + markupVal / 100);
-                        excelRows[targetRowIndex].price = Math.ceil(rawPrice / 10000) * 10000;
-                    } else if (targetColIndex === 2) {
-                        let markupVal = parseFloat(cleanVal.replace(/[^0-9.]/g, '')) || 20;
-                        excelRows[targetRowIndex].markup = markupVal;
-                        let costVal = excelRows[targetRowIndex].cost || 0;
-                        let rawPrice = costVal * (1 + markupVal / 100);
-                        excelRows[targetRowIndex].price = Math.ceil(rawPrice / 10000) * 10000;
-                    } else if (targetColIndex === 3) {
-                        excelRows[targetRowIndex].price = parseFloat(cleanVal.replace(/[^0-9.]/g, '')) || 0;
-                    }
-                });
-            });
-
-            renderExcelTable();
-            showAlert("ສຳເລັດ", "ວາງຂໍ້ມູນຈາກ Excel ລົງຕາຕະລາງຮຽບຮ້ອຍແລ້ວ!", "📋");
-        }
-
-        function saveExcelData(isSilent = false) {
-            excelRows.forEach(row => {
-                row.cost = parseFloat(String(row.cost || 0).replace(/[^0-9.]/g, '')) || 0;
-                row.price = parseFloat(String(row.price || 0).replace(/[^0-9.]/g, '')) || 0;
-                row.markup = parseFloat(String(row.markup || 20).replace(/[^0-9.]/g, '')) || 20;
-            });
-            localStorage.setItem('pos_excel_rows', JSON.stringify(excelRows));
-            if (!isSilent) showAlert("ສຳເລັດ", "ບັນທຶກຂໍ້ມູນຮຽບຮ້ອຍແລ້ວ!", "💾");
+            showAlert("ສຳເລັດ", "ລຶບຂໍ້ມູນທັງໝົດອອກຈາກລະບົບຮຽບຮ້ອຍແລ້ວ", "🧹");
         }
 
         function renderExcelTable() {
             let tbody = document.getElementById('excel-tbody');
-            if (excelRows.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນ</td></tr>`;
-                return;
-            }
             let html = '';
+            let today = new Date().toISOString().split('T')[0];
+
             excelRows.forEach((row, index) => {
+                let costFormatted = row.cost !== '' && !isNaN(row.cost) ? Number(row.cost).toLocaleString() : '';
+                let priceFormatted = row.price !== '' && !isNaN(row.price) ? Number(row.price).toLocaleString() : '';
+                let totalVal = (Number(row.price) || 0) * (Number(row.qty) || 1);
+                let totalFormatted = totalVal > 0 ? totalVal.toLocaleString() : '0';
+                let rowDate = row.dateAdded || today;
+
                 html += `
-                    <tr class="hover:bg-gray-50 border-b">
+                    <tr class="border-b hover:bg-gray-50">
                         <td class="p-2 border-r text-center font-bold text-gray-500 text-xs">${index + 1}</td>
-                        <td class="p-2 border-r"><input type="text" value="${row.name || ''}" oninput="updateExcelRow(${index}, 'name', this.value)" onpaste="handleTablePaste(event, ${index}, 0)" class="w-full border rounded px-2 py-1 text-sm font-semibold outline-none"></td>
-                        <td class="p-2 border-r"><input type="text" value="${row.cost ? Number(row.cost).toLocaleString() : ''}" oninput="let raw = this.value.replace(/[^0-9]/g, ''); updateExcelRow(${index}, 'cost', raw);" onpaste="handleTablePaste(event, ${index}, 1)" class="w-full border rounded px-2 py-1 text-right text-sm font-bold text-blue-600 outline-none"></td>
-                        <td class="p-2 border-r text-center"><input type="text" value="${row.markup || 20}" oninput="let raw = this.value.replace(/[^0-9.]/g, ''); updateExcelRow(${index}, 'markup', raw);" onpaste="handleTablePaste(event, ${index}, 2)" class="w-20 border rounded px-2 py-1 text-center text-sm font-bold text-orange-600 outline-none"> %</td>
-                        <td class="p-2 border-r"><input type="text" id="price-input-${index}" value="${row.price ? Number(row.price).toLocaleString() : ''}" oninput="let raw = this.value.replace(/[^0-9]/g, ''); updateExcelRow(${index}, 'price', raw);" onpaste="handleTablePaste(event, ${index}, 3)" class="w-full border rounded px-2 py-1 text-right text-sm font-bold text-green-600 outline-none"></td>
-                        <td class="p-2 text-center"><button onclick="deleteExcelRow(${index})" class="text-red-500 font-bold text-xs bg-red-50 px-2 py-1 rounded cursor-pointer">ລຶບ</button></td>
+                        <td class="p-2 border-r">
+                            <input type="text" value="${row.code}" oninput="updateExcelRowData(${index}, 'code', this.value)" placeholder="ຊື່ສິນຄ້າ ຫຼື ລະຫັດ" class="w-full border rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-blue-500">
+                        </td>
+                        <td class="p-2 border-r">
+                            <input type="text" value="${costFormatted}" oninput="updateExcelRowData(${index}, 'cost_raw', this.value)" placeholder="0" class="w-full border rounded px-2 py-1 text-right text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-blue-600">
+                        </td>
+                        <td class="p-2 border-r">
+                            <input type="number" value="${row.profitPct}" oninput="updateExcelRowData(${index}, 'profitPct', this.value)" placeholder="20" class="w-full border rounded px-2 py-1 text-center text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-amber-600">
+                        </td>
+                        <td class="p-2 border-r">
+                            <input type="text" value="${priceFormatted}" oninput="updateExcelRowData(${index}, 'price_raw', this.value)" placeholder="0" class="w-full border rounded px-2 py-1 text-right text-xs outline-none focus:ring-1 focus:ring-blue-500 font-bold text-green-600">
+                        </td>
+                        <td class="p-2 border-r">
+                            <input type="number" value="${row.qty}" oninput="updateExcelRowData(${index}, 'qty', this.value)" placeholder="1" class="w-full border rounded px-2 py-1 text-center text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-gray-700">
+                        </td>
+                        <td class="p-2 border-r text-right font-bold text-gray-800 text-xs">
+                            ${totalFormatted}
+                        </td>
+                        <td class="p-2 border-r text-center">
+                            <input type="date" value="${rowDate}" onchange="updateExcelRowData(${index}, 'dateAdded', this.value)" class="border rounded px-1.5 py-1 text-[11px] outline-none font-semibold text-purple-700 bg-purple-50">
+                        </td>
+                        <td class="p-2 text-center">
+                            <button onclick="removeExcelRow(${index})" class="bg-red-100 text-red-600 hover:bg-red-200 px-2 py-1 rounded text-xs font-bold cursor-pointer flex items-center justify-center gap-1 mx-auto shadow-sm">🗑️ ລຶບ</button>
+                        </td>
                     </tr>
                 `;
             });
             tbody.innerHTML = html;
         }
 
+        function updateExcelRowData(index, field, value) {
+            if (field === 'code') {
+                let trimmedVal = value.trim();
+                if (trimmedVal !== "") {
+                    let isDuplicate = excelRows.some((r, i) => i !== index && r.code.trim().toLowerCase() === trimmedVal.toLowerCase());
+                    if (isDuplicate) {
+                        duplicateRemovedList.push({ code: trimmedVal, reason: "ພິມລະຫັດສິນຄ້າຊ້ຳກັນໃນຕາຕະລາງ" });
+                        updateDuplicateReportButton();
+                        showAlert("ແຈ້ງເຕືອນຊ້ຳກັນ", `⚠️ ຂໍ້ມູນລະຫັດສິນຄ້າ [${trimmedVal}] ຊ້ຳກັນໃນລະບົບ!`, "⚠️");
+                        excelRows[index][field] = ""; 
+                        renderExcelTable();
+                        return;
+                    }
+                }
+                excelRows[index][field] = value;
+            } else if (field === 'cost_raw') {
+                let cleanVal = value.replace(/,/g, '');
+                excelRows[index].cost = cleanVal === '' ? '' : parseFloat(cleanVal) || 0;
+                let cost = parseFloat(excelRows[index].cost) || 0;
+                let pct = parseFloat(excelRows[index].profitPct) || 0;
+                if (cost > 0 && pct >= 0) {
+                    let calculatedPrice = cost + (cost * pct / 100);
+                    excelRows[index].price = Math.round(calculatedPrice);
+                }
+                renderExcelTable();
+            } else if (field === 'price_raw') {
+                let cleanVal = value.replace(/,/g, '');
+                excelRows[index].price = cleanVal === '' ? '' : parseFloat(cleanVal) || 0;
+                renderExcelTable();
+            } else {
+                excelRows[index][field] = value;
+                if (field === 'profitPct') {
+                    let cost = parseFloat(excelRows[index].cost) || 0;
+                    let pct = parseFloat(value) || 0;
+                    if (cost > 0 && pct >= 0) {
+                        let calculatedPrice = cost + (cost * pct / 100);
+                        excelRows[index].price = Math.round(calculatedPrice);
+                        renderExcelTable();
+                    }
+                }
+            }
+        }
+
         function handleExcelUpload(event) {
             let file = event.target.files[0];
             if (!file) return;
             let reader = new FileReader();
+            let today = new Date().toISOString().split('T')[0];
+
             reader.onload = function(e) {
-                let data = new Uint8Array(e.target.result);
-                let workbook = XLSX.read(data, { type: 'array' });
-                let worksheet = workbook.Sheets[workbook.SheetNames[0]];
-                let json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-                let importedRows = [];
-                json.forEach(row => {
-                    if (row && row[0]) {
-                        let name = String(row[0]).trim();
-                        let cost = parseFloat(String(row[1] || 0).replace(/[^0-9.]/g, '')) || 0;
-                        let markup = parseFloat(String(row[2] || 20).replace(/[^0-9.]/g, '')) || 20;
-                        let price = parseFloat(String(row[3] || 0).replace(/[^0-9.]/g, '')) || 0;
-                        if (price === 0 && cost > 0) price = Math.ceil((cost * (1 + markup / 100)) / 10000) * 10000;
-                        importedRows.push({ name, cost, markup, price });
+                try {
+                    let data = new Uint8Array(e.target.result);
+                    let workbook = XLSX.read(data, { type: 'array' });
+                    let firstSheetName = workbook.SheetNames[0];
+                    let worksheet = workbook.Sheets[firstSheetName];
+                    let json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    
+                    let newRows = [];
+                    let duplicates = [];
+                    let existingCodes = new Set();
+
+                    excelRows.forEach(r => {
+                        if (r.code.trim()) existingCodes.add(r.code.trim().toLowerCase());
+                    });
+
+                    for (let i = 1; i < json.length; i++) {
+                        let row = json[i];
+                        if (row && row.length > 0) {
+                            let code = row[0] ? String(row[0]).trim() : '';
+                            let cost = row[1] !== undefined ? parseFloat(row[1]) || 0 : 0;
+                            let profitPct = row[2] !== undefined ? parseFloat(row[2]) || 20 : 20;
+                            let price = row[3] !== undefined ? parseFloat(row[3]) || 0 : 0;
+                            let qty = row[4] !== undefined ? parseInt(row[4]) || 1 : 1;
+                            let rowDate = row[5] ? String(row[5]).trim() : today;
+
+                            if (code) {
+                                let lowerCode = code.toLowerCase();
+                                if (existingCodes.has(lowerCode)) {
+                                    duplicates.push({ code: code, reason: "ລະຫັດສິນຄ້າຊ້ຳກັນໃນລະບົບ" });
+                                } else {
+                                    existingCodes.add(lowerCode);
+                                    newRows.push({ code: code, cost: cost, profitPct: profitPct, price: price, qty: qty, dateAdded: rowDate });
+                                }
+                            }
+                        }
                     }
-                });
-                if (importedRows.length > 0) {
-                    excelRows = importedRows;
-                    renderExcelTable();
-                    showAlert("ສຳເລັດ", `ນຳເຂົ້າຂໍ້ມູນສຳເລັດ ${importedRows.length} ລາຍການ!`, "📁");
+
+                    if (duplicates.length > 0) {
+                        duplicateRemovedList.push(...duplicates);
+                        updateDuplicateReportButton();
+                        showAlert("ແຈ້ງເຕືອນຊ້ຳກັນ", `⚠️ ພົບລະຫັດສິນຄ້າຊ້ຳກັນ ${duplicates.length} ລາຍການ ແລະ ຖືກຕັດອອກອັດຕະໂນມັດ!`, "⚠️");
+                    }
+
+                    if (newRows.length > 0) {
+                        excelRows.push(...newRows);
+                        renderExcelTable();
+                        if (duplicates.length === 0) {
+                            showAlert("ສຳເລັດ", `ນຳເຂົ້າຂໍ້ມູນ Excel ສຳເລັດ ${newRows.length} ລາຍການ!`, "📁");
+                        }
+                    } else if (duplicates.length === 0) {
+                        showAlert("ແຈ້ງເຕືອນ", "ບໍ່ພົບຂໍ້ມູນໃໝ່ໃນໄຟລ໌ Excel", "⚠️");
+                    }
+                } catch (err) {
+                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດອ່ານໄຟລ໌ Excel ໄດ້", "❌");
                 }
+                event.target.value = '';
             };
             reader.readAsArrayBuffer(file);
         }
 
+        function updateDuplicateReportButton() {
+            let btn = document.getElementById('btn-duplicate-report');
+            if (duplicateRemovedList.length > 0) {
+                btn.classList.remove('hidden');
+                btn.innerText = `📋 ລາຍງານລາຍການທີ່ຖືກຕັດ (${duplicateRemovedList.length})`;
+            } else {
+                btn.classList.add('hidden');
+            }
+        }
+
+        function openDuplicateReportModal() {
+            let listContainer = document.getElementById('duplicate-report-list');
+            let html = '';
+            duplicateRemovedList.forEach((item, idx) => {
+                html += `<div class="p-2 border-b flex justify-between items-center bg-white rounded shadow-sm">
+                    <span class="font-bold text-red-600">ລະຫັດ: ${item.code}</span>
+                    <span class="text-gray-500 text-[10px]">${item.reason}</span>
+                </div>`;
+            });
+            listContainer.innerHTML = html || '<p class="text-center text-gray-400 py-2">ບໍ່ມີລາຍການຖືກຕັດ</p>';
+            document.getElementById('duplicate-report-modal').classList.remove('hidden');
+        }
+
+        function closeDuplicateReportModal() {
+            document.getElementById('duplicate-report-modal').classList.add('hidden');
+        }
+
+        async function saveExcelData() {
+            let validRows = excelRows.filter(r => r.code.trim() !== '');
+            localStorage.setItem('pos_saved_excel_rows', JSON.stringify(validRows));
+
+            if (supabaseClient) {
+                try {
+                    let { data: existingCloudData } = await supabaseClient.from('products').select('id, code').eq('device_id', deviceId);
+                    if (existingCloudData) {
+                        let currentCodes = new Set(validRows.map(r => r.code));
+                        let toDeleteIds = existingCloudData.filter(item => !currentCodes.has(item.code)).map(item => item.id);
+                        if (toDeleteIds.length > 0) {
+                            await supabaseClient.from('products').delete().in('id', toDeleteIds);
+                        }
+                    }
+
+                    if (validRows.length > 0) {
+                        let payload = validRows.map(row => ({
+                            device_id: deviceId,
+                            code: row.code,
+                            cost: parseFloat(row.cost) || 0,
+                            profit_pct: parseFloat(row.profitPct) || 20,
+                            price: parseFloat(row.price) || 0,
+                            qty: parseInt(row.qty) || 1,
+                            date_added: row.dateAdded || new Date().toISOString().split('T')[0],
+                            updated_at: new Date().toISOString()
+                        }));
+                        await supabaseClient.from('products').upsert(payload, { onConflict: 'device_id,code' });
+                    } else {
+                        await supabaseClient.from('products').delete().eq('device_id', deviceId);
+                    }
+                } catch (err) {
+                    console.error("Cloud sync warning:", err);
+                }
+            }
+
+            showAlert("ສຳເລັດ", `ບັນທຶກຂໍ້ມູນສິນຄ້າທັງໝົດ ${validRows.length} ລາຍການຮຽບຮ້ອຍແລ້ວ!`, "💾");
+        }
+
         function generateExcelCodes() {
-            saveExcelData(true);
-            let container = document.getElementById('excel-preview-cards');
-            container.innerHTML = "";
-            excelRows.forEach((row, index) => {
-                if (!row.name) return;
-                container.innerHTML += `
-                    <div class="bg-white border rounded-xl p-3 shadow-sm text-center space-y-2 flex flex-col items-center justify-between">
-                        <div class="border-b w-full pb-1">
-                            <h5 style="font-weight: bold; font-size: 16px;">${row.name}</h5>
-                            <p style="font-size: 13px; color: #4b5563;">ຂາຍ: <span style="color: #16a34a; font-weight: bold;">${Number(row.price).toLocaleString()} ກີບ</span></p>
+            renderPreviewCards(excelRows.filter(r => r.code.trim() !== ''));
+        }
+
+        function renderPreviewCards(rowsToRender) {
+            let previewContainer = document.getElementById('excel-preview-cards');
+            let printArea = document.getElementById('excel-print-area');
+            let html = '';
+            
+            if (rowsToRender.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ບໍ່ມີຂໍ້ມູນສິນຄ້າໃນວັນທີ່ເລືອກ!", "⚠️");
+                return;
+            }
+
+            rowsToRender.forEach((row, idx) => {
+                let safeCode = row.code.replace(/"/g, '&quot;');
+                let priceNum = parseFloat(row.price) || 0;
+                let priceStr = priceNum.toLocaleString() + " ກີບ";
+                html += `
+                    <div class="bg-white border-2 border-dashed border-gray-300 p-4 rounded-xl text-center space-y-2 shadow-sm break-inside-avoid">
+                        <div class="font-bold text-gray-800 text-sm truncate">${safeCode}</div>
+                        <div class="flex justify-center my-2 min-h-[120px] items-center">
+                            <div id="qr-svg-${idx}"></div>
                         </div>
-                        <div id="excel-qrcode-${index}" class="py-2"></div>
+                        <div class="font-extrabold text-green-600 text-base">${priceStr}</div>
                     </div>
                 `;
             });
-            document.getElementById('excel-print-area').classList.remove('hidden');
+
+            previewContainer.innerHTML = html;
+            printArea.classList.remove('hidden');
+
+            rowsToRender.forEach((row, idx) => {
+                let container = document.getElementById(`qr-svg-${idx}`);
+                if (container && window.QRCode) {
+                    QRCode.toString(row.code, { type: 'svg', width: 120, margin: 1 }, function (err, svgString) {
+                        if (!err && container) {
+                            container.innerHTML = svgString;
+                        }
+                    });
+                }
+            });
+        }
+
+        function promptPrintDate() {
+            let validRows = excelRows.filter(r => r.code.trim() !== '');
+            if (validRows.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຂໍ້ມູນສິນຄ້າກ່ອນສັ່ງພິມ!", "⚠️");
+                return;
+            }
+
+            let uniqueDates = [...new Set(validRows.map(r => r.dateAdded || new Date().toISOString().split('T')[0]))].sort().reverse();
+            let selectElem = document.getElementById('print-date-select');
+            let html = `<option value="all">🌟 ທຸກວັນ (ພິມທັງໝົດ)</option>`;
+            
+            uniqueDates.forEach(d => {
+                let count = validRows.filter(r => (r.dateAdded || new Date().toISOString().split('T')[0]) === d).length;
+                let parts = d.split('-');
+                let formattedDate = parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : d;
+                html += `<option value="${d}">📅 ວັນທີ: ${formattedDate} (${count} ລາຍການ)</option>`;
+            });
+
+            selectElem.innerHTML = html;
+            document.getElementById('print-date-modal').classList.remove('hidden');
+        }
+
+        function closePrintDateModal() {
+            document.getElementById('print-date-modal').classList.add('hidden');
+        }
+
+        function confirmAndPrintByDate() {
+            let selectedDate = document.getElementById('print-date-select').value;
+            closePrintDateModal();
+
+            let validRows = excelRows.filter(r => r.code.trim() !== '');
+            let filteredRows = selectedDate === 'all' 
+                ? validRows 
+                : validRows.filter(r => (r.dateAdded || new Date().toISOString().split('T')[0]) === selectedDate);
+
+            if (filteredRows.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ບໍ່ມີລາຍການໃນວັນທີ່ເລືອກ!", "⚠️");
+                return;
+            }
+
+            renderPreviewCards(filteredRows);
             setTimeout(() => {
-                excelRows.forEach((row, index) => {
-                    let qrDiv = document.getElementById(`excel-qrcode-${index}`);
-                    if (qrDiv) {
-                        qrDiv.innerHTML = "";
-                        let canvas = document.createElement('canvas');
-                        QRCode.toCanvas(canvas, `ຊື່ສິນຄ້າ: ${row.name}\nລາຄາຊື້: ${row.cost} ກີບ\nລາຄາຂາຍ: ${row.price} ກີບ`, { width: 140, margin: 1 }, function (error) {
-                            if (!error) qrDiv.appendChild(canvas);
-                        });
-                    }
-                });
-            }, 100);
+                window.print();
+            }, 500);
         }
 
         function printExcelCodes() {
-            window.print();
+            promptPrintDate();
         }
     </script>
 </body>
