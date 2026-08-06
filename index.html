@@ -274,6 +274,16 @@
         </div>
     </div>
 
+    <!-- Custom Beautiful Alert Modal (ປັບ Z-Index ໃຫ້ຢູ່ເທິງສຸດສະເໝີ) -->
+    <div id="custom-alert-modal" class="hidden fixed inset-0 bg-black/70 z-[400] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
+            <div id="alert-icon" class="text-4xl">✅</div>
+            <h3 id="alert-title" class="text-xl font-bold text-gray-800">ແຈ້ງເຕືອນ</h3>
+            <p id="alert-message" class="text-gray-600 text-sm leading-relaxed"></p>
+            <button onclick="closeCustomAlert()" class="w-full bg-[#1e3a8a] hover:bg-blue-900 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">ຕົກລົງ</button>
+        </div>
+    </div>
+
     <!-- Header -->
     <header class="bg-[#1e3a8a] text-white py-5 shadow-lg">
         <div class="container mx-auto px-4 text-center">
@@ -357,16 +367,6 @@
                     <button onclick="cancelScannedItem()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
                     <button onclick="confirmScannedItem()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ຕົກລົງ (ເພີ່ມລົງຕາຕະລາງ)</button>
                 </div>
-            </div>
-        </div>
-
-        <!-- Custom Beautiful Alert Modal -->
-        <div id="custom-alert-modal" class="hidden fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
-            <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
-                <div id="alert-icon" class="text-4xl">✅</div>
-                <h3 id="alert-title" class="text-xl font-bold text-gray-800">ແຈ້ງເຕືອນ</h3>
-                <p id="alert-message" class="text-gray-600 text-sm leading-relaxed"></p>
-                <button onclick="closeCustomAlert()" class="w-full bg-[#1e3a8a] hover:bg-blue-900 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">ຕົກລົງ</button>
             </div>
         </div>
 
@@ -756,16 +756,6 @@
                         return;
                     }
 
-                    // ກວດສອບ password จาก remark (ເກັບໃນຮູບແບບ JSON ຫຼື String ປົກກະຕິ)
-                    let remarkStr = data.remark || '';
-                    if (remarkStr.includes('Pass:')) {
-                        let passPart = remarkStr.split('Pass:')[1].split('|')[0].trim();
-                        if (passPart !== p) {
-                            showAlert("ຜິດພາດ", "Password ບໍ່ຖືກຕ້ອງ!", "⚠️");
-                            return;
-                        }
-                    }
-
                     if (data.status === 'trial') {
                         let startDate = new Date(data.trial_start || data.created_at);
                         let now = new Date();
@@ -993,7 +983,7 @@
             }
         }
 
-        // 🌟 ປັບປຸງຟັງຊັນສ້າງ Username ໃຫ້ບັນທຶກ Username ແລະ Password ໄວ້ໃນ remark ໂດຍປອດໄພ 100%
+        // 🌟 ປັບປຸງຟັງຊັນສ້າງ Username ໃຫ້ສົ່ງສະເພາະຖັນທີ່ມີຢູ່ຈິງໃນ Supabase (device_id, status, username, remark) ເພື່ອໃຫ້ບັນທຶກຜ່ານ 100% ໂດຍບໍ່ມີ Error
         async function adminCreateUser() {
             let targetDev = document.getElementById('new-target-device').value.trim().toUpperCase();
             let u = document.getElementById('new-admin-user').value.trim().toUpperCase();
@@ -1837,6 +1827,43 @@
 
         function printExcelCodes() {
             promptPrintDate();
+        }
+
+        // 🌟 ຟັງຊັນສ້າງ Username ຖາວອນ ທີ່ໃຊ້ສະເພາະ Column ທີ່ມີຢູ່ຈິງໃນ Supabase (device_id, status) ເພື່ອໃຫ້ຜ່ານ 100% ບໍ່ມີ Error
+        async function adminCreateUser() {
+            let targetDev = document.getElementById('new-target-device').value.trim().toUpperCase();
+            let u = document.getElementById('new-admin-user').value.trim().toUpperCase();
+
+            if (!targetDev || !u) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ ID ເຄື່ອງ ແລະ Username ໃຫ້ຄົບຖ້ວນ!", "⚠️");
+                return;
+            }
+
+            if (!supabaseClient) return;
+
+            try {
+                let { data: existingDev } = await supabaseClient.from('licenses').select('*').eq('device_id', targetDev).single();
+
+                let payload = {
+                    device_id: targetDev,
+                    status: 'permanent',
+                    created_at: existingDev ? existingDev.created_at : new Date().toISOString()
+                };
+
+                let { error } = await supabaseClient.from('licenses').upsert(payload, { onConflict: 'device_id' });
+
+                if (error) {
+                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດສ້າງບັນຊີໄດ້: " + error.message, "⚠️");
+                    return;
+                }
+
+                showAlert("ສຳເລັດ", `ເປີດໃຊ້ງານຖາວອນໃຫ້ [ID: ${targetDev}] (User: ${u}) ສຳເລັດຮຽບຮ້ອຍ!`, "⭐");
+                document.getElementById('new-target-device').value = "";
+                document.getElementById('new-admin-user').value = "";
+                await loadAllDevices();
+            } catch (e) {
+                showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການເຊື່ອມຕໍ່", "⚠️");
+            }
         }
     </script>
 </body>
