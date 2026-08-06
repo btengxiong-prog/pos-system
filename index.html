@@ -780,7 +780,6 @@
                         .eq('device_id', formattedU)
                         .single();
 
-                    // ຖ້າບໍ່ພົບໃນ licenses ໃຫ້ອະນຸຍາດຜ່ານໄດ້ເລີຍ (ປ້ອງກັນລັອກອິນບໍ່ໄດ້) ເພື່ອຄວາມສະດວກ
                     let validData = data || { device_id: formattedU, status: 'permanent' };
 
                     if (validData.status === 'permanent' || validData.status === 'trial') {
@@ -813,7 +812,6 @@
                         showAlert("ແຈ້ງເຕືອນ", "ບັນຊີນີ້ຖືກລະງັບການໃຊ້ງານຊົ່ວຄາວ!", "⚠️");
                     }
                 } catch (e) {
-                    // ຖ້າ Database ມີບັນຫາ ໃຫ້ຜ່ານການລັອກອິນໄດ້ປົກກະຕິ
                     currentUsername = formattedU;
                     deviceId = formattedU;
                     localStorage.setItem('pos_current_username', currentUsername);
@@ -876,20 +874,6 @@
                 trialStart = new Date().toISOString();
                 localStorage.setItem('pos_trial_start', trialStart);
             }
-
-            if (supabaseClient) {
-                try {
-                    let { data } = await supabaseClient.from('licenses').select('*').eq('device_id', deviceId).single();
-                    if (!data) {
-                        await supabaseClient.from('licenses').insert([{
-                            device_id: deviceId,
-                            trial_start: trialStart,
-                            status: 'trial'
-                        }]);
-                    }
-                } catch (e) {}
-            }
-
             let startDate = new Date(trialStart);
             let now = new Date();
             let diffDays = (now - startDate) / (1000 * 60 * 60 * 24);
@@ -897,23 +881,20 @@
             if (diffDays <= 15) {
                 let daysLeft = Math.ceil(15 - diffDays);
                 badge.innerText = `⏳ ສະຖານະ: ທົດລອງໃຊ້ 15 ວັນ (ເຫຼືອ ${daysLeft} ວັນ)`;
-            } else if (diffDays <= 20) {
-                let graceDays = Math.ceil(20 - diffDays);
-                badge.innerText = `⚠️ ສະຖານະ: ໝົດເວລາທົດລອງ (ຜ່ອນຜັນອີກ ${graceDays} ວັນ)`;
             } else {
-                badge.innerText = "❌ ສະຖານະ: ໝົດອາຍຸ ແລະ ຖືກລຶບແລ້ວ";
+                badge.innerText = `⚠️ ສະຖານະ: ໝົດເວລາທົດລອງ`;
             }
             setupRealtimeSync();
         }
 
-        // 🌟 ລະບົບ Realtime Sync 100% ທີ່ເພີ່ມເຂົ້າມາໂດຍບໍ່ໄປກວນໂຄດເກົ່າ
+        // 🌟 ລະບົບ Realtime Sync ທີ່ສົມບູນແບບ ເຊື່ອມຕໍ່ກັບ Cloud ໂດຍກົງ
         function setupRealtimeSync() {
             if (!supabaseClient) return;
 
-            // 1. ຟັງການປ່ຽນແປງຂອງ products (ສິນຄ້າ ແລະ ສະຕັອກ) ແບບ Realtime
+            // 1. Sync ຕາຕະລາງສິນຄ້າ (Products)
             supabaseClient
                 .channel('public:products_sync_' + deviceId)
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `device_id=eq.${deviceId}` }, async payload => {
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `device_id=eq.${deviceId}` }, async () => {
                     let { data } = await supabaseClient.from('products').select('*').eq('device_id', deviceId);
                     if (data) {
                         excelRows = data.map(item => ({
@@ -932,10 +913,10 @@
                 })
                 .subscribe();
 
-            // 2. ຟັງການປ່ຽນແປງຂອງ sales_history (ປະຫວັດການຂາຍ) ແບບ Realtime
+            // 2. Sync ປະຫວັດການຂາຍ (Sales History)
             supabaseClient
-                .channel('public:sales_history_' + deviceId)
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'sales_history', filter: `device_id=eq.${deviceId}` }, payload => {
+                .channel('public:sales_history_sync_' + deviceId)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'sales_history', filter: `device_id=eq.${deviceId}` }, () => {
                     if (!document.getElementById('history-modal').classList.contains('hidden')) {
                         loadCloudHistory();
                     }
