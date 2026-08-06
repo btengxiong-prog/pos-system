@@ -126,7 +126,7 @@
                 <button onclick="loadAllDevices()" class="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg cursor-pointer font-bold">🔄 ໂຫຼດຂໍ້ມູນໃໝ່</button>
             </div>
             
-            <!-- ຟອມສ້າງ Username ໃຫ້ສະມາຊິກຖາວອນ (ເພີ່ມຊ່ອງປ້ອນ ID ເຄື່ອງລູກຄ້າ) -->
+            <!-- ຟອມສ້າງ Username ໃຫ້ສະມາຊິກຖາວອນ -->
             <div class="bg-blue-50 p-4 rounded-xl border border-blue-200 space-y-3">
                 <h4 class="font-bold text-blue-900 text-sm">➕ ສ້າງ Username ໃຫ້ສະມາຊິກຖາວອນ</h4>
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -756,13 +756,14 @@
                         return;
                     }
 
+                    // 🌟 ກວດສອບສະຖານະ: ຖ້າຖືກປ່ຽນກຳນົດເປັນ trial ແລະ ໝົດອາຍຸ ຫຼື ຖືກລະງັບ
                     if (data.status === 'trial') {
                         let startDate = new Date(data.trial_start || data.created_at);
                         let now = new Date();
                         let diffDays = (now - startDate) / (1000 * 60 * 60 * 24);
                         if (diffDays > 20) {
                             await supabaseClient.from('licenses').delete().eq('device_id', formattedU);
-                            showAlert("ໝົດອາຍຸ", "ບັນຊີນີ້ໝົດອາຍຸທົດລອງ ແລະ ຖືກລະງັບຖິ້ມແລ້ວ!", "❌");
+                            showAlert("ໝົດອາຍຸ", "ບັນຊີນີ້ຖືກລະງັບຊົ່ວຄາວເນື່ອງຈາກໝົດອາຍຸ/ຄ້າງຊຳລະຄ່າບໍລິການ!", "❌");
                             return;
                         }
                     }
@@ -792,7 +793,7 @@
                         document.getElementById('admin-manage-btn').classList.add('hidden');
                         document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ສະມາຊິກ [${currentUsername}]`;
                     } else {
-                        showAlert("ແຈ້ງເຕືອນ", "ບັນຊີນີ້ບໍ່ສາມາດໃຊ້ງານໄດ້!", "⚠️");
+                        showAlert("ແຈ້ງເຕືອນ", "ບັນຊີນີ້ຖືກລະງັບການໃຊ້ງານຊົ່ວຄາວ!", "⚠️");
                     }
                 } catch (e) {
                     showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການເຊື່ອມຕໍ່", "⚠️");
@@ -915,6 +916,7 @@
             document.getElementById('admin-manager-modal').classList.add('hidden');
         }
 
+        // 🌟 ປັບປຸງໜ້າຕ່າງ Admin ໃຫ້ສະແດງໝາຍເຫດ ແລະ ປຸ່ມຈັດການສະຖານະ (ຖາວອນ / ລະງັບຊົ່ວຄາວ)
         async function loadAllDevices() {
             let container = document.getElementById('device-list-container');
             container.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງດຶງຂໍ້ມູນ...</p>`;
@@ -924,26 +926,36 @@
                 let { data } = await supabaseClient.from('licenses').select('*').order('created_at', { ascending: false });
                 if (!data) return;
 
-                let html = `<div class="space-y-2">`;
+                let html = `<div class="space-y-3">`;
 
                 data.forEach((item, idx) => {
                     let isPerm = item.status === 'permanent';
+                    let remark = item.remark || '';
                     html += `
-                        <div class="flex justify-between items-center bg-gray-50 p-2.5 rounded-xl border text-xs">
-                            <div>
-                                <span class="font-bold text-gray-400">#${idx + 1}</span>
-                                <span class="font-mono font-bold text-blue-600 ml-2 text-sm">${item.device_id}</span>
-                                <div class="text-[10px] text-gray-500">ສ້າງເມື່ອ: ${new Date(item.created_at).toLocaleString()}</div>
+                        <div class="bg-gray-50 p-3 rounded-xl border text-xs space-y-2">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <span class="font-bold text-gray-400">#${idx + 1}</span>
+                                    <span class="font-mono font-bold text-blue-600 ml-2 text-sm">${item.device_id}</span>
+                                    <div class="text-[10px] text-gray-500">ສ້າງເມື່ອ: ${new Date(item.created_at).toLocaleString()}</div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2.5 py-1 rounded-full font-bold ${isPerm ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}">
+                                        ${isPerm ? '⭐ ຖາວອນ' : '⏳ ທົດລອງ / ລະງັບ'}
+                                    </span>
+                                    <button onclick="toggleDeviceStatus('${item.device_id}', '${isPerm ? 'trial' : 'permanent'}')" class="px-3 py-1.5 rounded font-bold ${isPerm ? 'bg-amber-500 text-white' : 'bg-green-600 text-white'} cursor-pointer shadow-sm">
+                                        ${isPerm ? '🔒 ປ່ຽນເປັນທົດລອງ/ບ໋ອກ' : '🔓 ເປີດໃຊ້ຖາວອນ'}
+                                    </button>
+                                    <button onclick="adminDeleteAccount('${item.device_id}')" class="px-2.5 py-1.5 rounded font-bold bg-red-100 text-red-600 hover:bg-red-200 cursor-pointer">
+                                        🗑️ ລຶບ
+                                    </button>
+                                </div>
                             </div>
-                            <div class="flex items-center gap-2">
-                                <span class="px-2 py-0.5 rounded-full font-bold ${isPerm ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}">
-                                    ${isPerm ? '⭐ ຖາວອນ' : '⏳ ທົດລອງ'}
-                                </span>
-                                <button onclick="toggleDeviceStatus('${item.device_id}', '${isPerm ? 'trial' : 'permanent'}')" class="px-2.5 py-1 rounded font-bold ${isPerm ? 'bg-amber-200 text-amber-800' : 'bg-green-200 text-green-800'} cursor-pointer">
-                                    ${isPerm ? 'ປ່ຽເປັນ Trial' : 'ເປີດໃຊ້ຖາວອນ'}
-                                </button>
-                                <button onclick="adminDeleteAccount('${item.device_id}')" class="px-2 py-1 rounded font-bold bg-red-100 text-red-600 hover:bg-red-200 cursor-pointer">
-                                    🗑️ ລຶບ
+                            <!-- ໂຊນໝາຍເຫດ (Remark) -->
+                            <div class="flex gap-2 items-center pt-1 border-t">
+                                <input type="text" id="remark-${item.device_id}" value="${remark}" placeholder="ປ້ອນໝາຍເຫດ (ເຊັ່ນ: ຄ้างຊຳລະຄ່າບໍລິການ, ຊຳລະແລ້ວ 06/08/2026)" class="flex-1 border rounded px-2.5 py-1 text-xs outline-none bg-white font-medium text-gray-700">
+                                <button onclick="saveDeviceRemark('${item.device_id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-bold cursor-pointer shadow-sm">
+                                    💾 บันทຶກໝາຍເຫດ
                                 </button>
                             </div>
                         </div>
@@ -954,7 +966,24 @@
             } catch (e) {}
         }
 
-        // 🌟 ປັບປຸງຟັງຊັນສ້າງ Username ຖາວອນ ໃຫ້ຮອງຮັບການປ້ອນ ID ເຄື່ອງ (ເຊັ່ນ POS-A0001) ໄປອັບເດດ/ສ້າງໃນ Supabase ຢ່າງຊັດເຈນ
+        async function saveDeviceRemark(targetId) {
+            let inputElem = document.getElementById(`remark-${targetId}`);
+            if (!inputElem || !supabaseClient) return;
+            let remarkText = inputElem.value.trim();
+
+            try {
+                let { error } = await supabaseClient.from('licenses').update({ remark: remarkText }).eq('device_id', targetId);
+                if (error) {
+                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດບັນທຶກໝາຍເຫດໄດ້", "⚠️");
+                    return;
+                }
+                showAlert("ສຳເລັດ", `ບັນທຶກໝາຍເຫດໃຫ້ [${targetId}] ຮຽບຮ້ອຍ!`, "💾");
+                await loadAllDevices();
+            } catch (e) {
+                showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດ", "⚠️");
+            }
+        }
+
         async function adminCreateUser() {
             let targetDev = document.getElementById('new-target-device').value.trim().toUpperCase();
             let u = document.getElementById('new-admin-user').value.trim().toUpperCase();
@@ -968,12 +997,12 @@
             if (!supabaseClient) return;
 
             try {
-                // ກວດສອບວ່າ ID ເຄື່ອງມີຢູ່ໃນລະບົບແລ້ວ ຫຼື ຍັງ
                 let { data: existingDev } = await supabaseClient.from('licenses').select('*').eq('device_id', targetDev).single();
 
                 let { error } = await supabaseClient.from('licenses').upsert({
                     device_id: targetDev,
                     status: 'permanent',
+                    remark: 'ເປີດໃຊ້ງານຖາວອນແລ້ວ',
                     created_at: existingDev ? existingDev.created_at : new Date().toISOString()
                 }, { onConflict: 'device_id' });
 
@@ -1014,7 +1043,8 @@
         async function toggleDeviceStatus(targetId, newStatus) {
             if (!supabaseClient) return;
             try {
-                await supabaseClient.from('licenses').update({ status: newStatus }).eq('device_id', targetId);
+                let defaultRemark = newStatus === 'permanent' ? 'ເປີດໃຊ້ງານຖາວອນແລ້ວ (ຈ່າຍຄ່າບໍລິການ)' : 'ລະງັບຊົ່ວຄາວ (ຄ້າງຊຳລະຄ່າບໍລິການ)';
+                await supabaseClient.from('licenses').update({ status: newStatus, remark: defaultRemark }).eq('device_id', targetId);
                 showAlert("ສຳເລັດ", `ອັບເດດສະຖານະ [${targetId}] ຮຽບຮ້ອຍ!`, "✅");
                 loadAllDevices();
             } catch (e) {}
