@@ -739,7 +739,7 @@
             document.getElementById('role-select-modal').classList.add('hidden');
             document.getElementById('unified-login-modal').classList.add('hidden');
             checkTrialLicense();
-            setupRealtimeSync(); // 🌟 ເປີດ Realtime Sync
+            setupRealtimeSync(); 
         }
 
         function showUnifiedLoginModal() {
@@ -796,7 +796,7 @@
                     document.getElementById('admin-manage-btn').classList.add('hidden');
                     document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ສະມາຊິກ [${currentUsername}]`;
                     
-                    setupRealtimeSync(); // 🌟 ເປີດ Realtime Sync ທັນທີ
+                    setupRealtimeSync(); 
                 } catch (e) {
                     currentUsername = formattedU;
                     deviceId = formattedU;
@@ -873,38 +873,42 @@
             setupRealtimeSync();
         }
 
-        // 🌟 ລະບົບ Realtime Sync ທີ່ສົມບູນແບບ ແລະ ຣີເຟຣດປະຫວັດການຂາຍອັດຕະໂນມັດ
+        // 🌟 ລະບົບ Realtime Sync ທີ່ກວ້າງຂວາງ ແລະ ບໍ່ຕິດ Filter ເພື່ອຮັບສັນຍານ 100%
         function setupRealtimeSync() {
             if (!supabaseClient) return;
 
-            // 1. Sync ຕາຕະລາງສິນຄ້າ (Products)
+            // 1. ຟັງການປ່ຽນແປງຕາຕະລາງ products ຂອງ ID ປັດຈຸບັນ
             supabaseClient
-                .channel('public:products_sync_' + deviceId)
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `device_id=eq.${deviceId}` }, async () => {
-                    let { data } = await supabaseClient.from('products').select('*').eq('device_id', deviceId);
-                    if (data) {
-                        excelRows = data.map(item => ({
-                            code: item.code,
-                            cost: item.cost,
-                            profitPct: item.profit_pct,
-                            price: item.price,
-                            qty: item.qty || 1,
-                            dateAdded: item.date_added || item.updated_at ? new Date(item.date_added || item.updated_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
-                        }));
-                        localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
-                        if (!document.getElementById('excel-generator-modal').classList.contains('hidden')) {
-                            renderExcelTable();
+                .channel('global_products_sync')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, async (payload) => {
+                    if (payload.new && payload.new.device_id === deviceId) {
+                        let { data } = await supabaseClient.from('products').select('*').eq('device_id', deviceId);
+                        if (data) {
+                            excelRows = data.map(item => ({
+                                code: item.code,
+                                cost: item.cost,
+                                profitPct: item.profit_pct,
+                                price: item.price,
+                                qty: item.qty || 1,
+                                dateAdded: item.date_added || item.updated_at ? new Date(item.date_added || item.updated_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+                            }));
+                            localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
+                            if (!document.getElementById('excel-generator-modal').classList.contains('hidden')) {
+                                renderExcelTable();
+                            }
                         }
                     }
                 })
                 .subscribe();
 
-            // 2. Sync ປະຫວັດການຂາຍ (Sales History) - ຣີເຟຣດໜ້າປະຫວັດທັນທີເມື່ອມີການຂາຍຈາກເຄື່ອງອື່ນ
+            // 2. ຟັງການປ່ຽນແປງຕາຕະລາງ sales_history ຂອງ ID ປັດຈຸບັນ (Realtime Auto-Refresh History)
             supabaseClient
-                .channel('public:sales_history_sync_' + deviceId)
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'sales_history', filter: `device_id=eq.${deviceId}` }, () => {
-                    if (!document.getElementById('history-modal').classList.contains('hidden')) {
-                        loadCloudHistory();
+                .channel('global_history_sync')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sales_history' }, (payload) => {
+                    if (payload.new && payload.new.device_id === deviceId) {
+                        if (!document.getElementById('history-modal').classList.contains('hidden')) {
+                            loadCloudHistory();
+                        }
                     }
                 })
                 .subscribe();
