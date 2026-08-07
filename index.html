@@ -187,7 +187,7 @@
                 <h4 class="font-bold text-gray-900 mt-2">1. ການເລືອກໂໝດເຂົ້າໃຊ້ງານ & License</h4>
                 <p class="text-xs text-gray-600 leading-relaxed">
                     - <b>⏳ ທົດລອງໃຊ້ 15 ວັນ:</b> ລະບົບທົດລອງໃຊ້ງານຟຣີ.<br>
-                    - <b>🔑 ລັອກອິນເຂົ້າລະບົບ:</b> ສໍາລັບສະມາຊິກຖາວອນ ປ້ອນ Username ແລະ Password ທີ່ໄດ້ຮັບຈາກ Admin ເเพื่อແບ່ງປັນຂໍ້ມູນ (Shared Inventory) ໃຫ້ກົງກັນທຸກເຄື່ອງໃນຮ້ານ.
+                    - <b>🔑 ລັອກອິນເຂົ້າລະບົບ:</b> ສໍາລັບສະມາຊິກຖາວອນ ປ້ອນ Username ແລະ Password ທີ່ໄດ້ຮັບຈາກ Admin ເພື່ອແບ່ງປັນຂໍ້ມູນ (Shared Inventory) ໃຫ້ກົງກັນທຸກເຄື່ອງໃນຮ້ານ.
                 </p>
             </div>
 
@@ -806,8 +806,12 @@
             input.value = Number(val).toLocaleString('en-US');
         }
 
-        let deviceId = localStorage.getItem('pos_device_id');
-        let currentUsername = localStorage.getItem('pos_current_username') || null;
+        function cleanDevId(id) {
+            return id ? String(id).trim().toUpperCase() : '';
+        }
+
+        let deviceId = cleanDevId(localStorage.getItem('pos_device_id'));
+        let currentUsername = cleanDevId(localStorage.getItem('pos_current_username')) || null;
 
         async function initDeviceId() {
             if (currentUsername) {
@@ -886,7 +890,7 @@
                 return;
             }
 
-            if (u === "POSXIONG" && p === "POS@21082007") {
+            if (u.toUpperCase() === "POSXIONG" && p === "POS@21082007") {
                 localStorage.setItem('pos_user_role', 'admin');
                 document.getElementById('unified-login-modal').classList.add('hidden');
                 document.getElementById('role-select-modal').classList.add('hidden');
@@ -897,18 +901,32 @@
                 return;
             }
 
-            let formattedU = u.toUpperCase();
+            let formattedU = cleanDevId(u);
             if (supabaseClient) {
                 try {
                     let { data } = await supabaseClient.from('licenses').select('*').eq('device_id', formattedU).single();
                     let validData = data || { device_id: formattedU, status: 'permanent' };
 
+                    let oldDeviceId = deviceId;
                     currentUsername = validData.device_id;
                     deviceId = validData.device_id;
                     localStorage.setItem('pos_current_username', currentUsername);
                     localStorage.setItem('pos_device_id', deviceId);
                     localStorage.setItem('pos_license_status', validData.status);
                     localStorage.removeItem('pos_user_role');
+
+                    // 🌟 Migrate ຂໍ້ມູນເກົ່າໃນ Local
+                    let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+                    localHistory.forEach(tx => { tx.device_id = deviceId; });
+                    localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
+
+                    // 🌟 Migrate ຂໍ້ມູນເກົ່າໃນ Cloud ໃຫ້ເປັນ Username ໃຫມ່
+                    if (oldDeviceId && oldDeviceId !== deviceId) {
+                        try {
+                            await supabaseClient.from('sales_history').update({ device_id: deviceId }).eq('device_id', oldDeviceId);
+                            await supabaseClient.from('products').update({ device_id: deviceId }).eq('device_id', oldDeviceId);
+                        } catch(e) {}
+                    }
 
                     document.getElementById('unified-login-modal').classList.add('hidden');
                     document.getElementById('role-select-modal').classList.add('hidden');
@@ -917,6 +935,7 @@
                     document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ສະມາຊິກ [${currentUsername}] (Shared Store Sync)`;
                     
                     setupRealtimeSync(); 
+                    loadCloudHistory();
                 } catch (e) {
                     currentUsername = formattedU;
                     deviceId = formattedU;
@@ -999,26 +1018,12 @@
             supabaseClient
                 .channel('pos_global_master_channel')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, async () => {
-                    let { data } = await supabaseClient.from('products').select('*');
-                    if (data) {
-                        let myData = data.filter(item => String(item.device_id).toUpperCase() === String(deviceId).toUpperCase());
-                        excelRows = myData.map(item => ({
-                            id: item.id || ('ROW-' + Math.random().toString(36).substring(2, 6)),
-                            code: item.code,
-                            cost: item.cost,
-                            originalCost: item.original_cost || item.cost,
-                            profitPct: item.profit_pct,
-                            price: item.price,
-                            qty: item.qty || 1,
-                            dateAdded: item.date_added || item.updated_at ? new Date(item.date_added || item.updated_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
-                        }));
-                        localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
-                        if (!document.getElementById('excel-generator-modal').classList.contains('hidden')) {
-                            renderExcelTable();
-                        }
+                    await fetchProductsForGenerator();
+                    if (!document.getElementById('excel-generator-modal').classList.contains('hidden')) {
+                        renderExcelTable();
                     }
                 })
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sales_history' }, () => {
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'sales_history' }, () => {
                     if (!document.getElementById('history-modal').classList.contains('hidden')) {
                         loadCloudHistory();
                     }
@@ -1095,7 +1100,7 @@
         }
 
         async function adminCreateUser() {
-            let targetDev = document.getElementById('new-target-device').value.trim().toUpperCase();
+            let targetDev = cleanDevId(document.getElementById('new-target-device').value);
 
             if (!targetDev) {
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ ID ເຄື່ອງໃຫ້ຄົບຖ້ວນ!", "⚠️");
@@ -1177,7 +1182,6 @@
         let lastScanTime = 0;
         let globalHistoryList = []; 
         let excelRows = []; 
-        let duplicateRemovedList = []; 
         let currentCodeType = 'qrcode'; 
 
         function showAlert(title, message, icon = "✅") {
@@ -1196,7 +1200,7 @@
             if (!targetItem) return;
 
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-            localHistory = localHistory.filter(tx => (tx.id !== targetItem.id && tx.created_at !== targetItem.createdAt));
+            localHistory = localHistory.filter(tx => (tx.id !== targetItem.id && tx.created_at !== targetItem.created_at));
             localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
 
             if (targetItem.source === 'cloud' && targetItem.id && supabaseClient) {
@@ -1210,7 +1214,6 @@
             document.getElementById('custom-confirm-delete-modal').classList.add('hidden');
         }
 
-        // 🌟 Custom Dropdown Toggle Logic
         function toggleCustomDropdown(menuId, event) {
             if (event) event.stopPropagation();
             let menus = ['import-export-menu', 'history-id-menu', 'create-code-menu', 'report-menu'];
@@ -1272,16 +1275,7 @@
                     } catch (e) {
                         let foundItem = excelRows.find(r => {
                             let codeStr = String(r.code).trim();
-                            let cleanCodeNum = codeStr.replace(/\D/g, '').padStart(9, '0').slice(-9);
-                            let barcode13 = "888" + cleanCodeNum;
-                            let rawWithout888 = cleanDecoded.startsWith('888') ? cleanDecoded.slice(3).replace(/^0+/, '') : cleanDecoded;
-                            let rawCodeClean = codeStr.replace(/^0+/, '');
-
-                            return codeStr.toLowerCase() === cleanDecoded.toLowerCase() || 
-                                   barcode13 === cleanDecoded || 
-                                   rawWithout888 === rawCodeClean ||
-                                   cleanDecoded.includes(codeStr) ||
-                                   codeStr.toLowerCase().includes(rawWithout888.toLowerCase());
+                            return codeStr.toLowerCase() === cleanDecoded.toLowerCase() || cleanDecoded.includes(codeStr);
                         });
 
                         if (foundItem) {
@@ -1575,6 +1569,7 @@
             renderCart();
         }
 
+        // 🌟 ຟັງຊັນໂຫຼດປະຫວັດທີ່ຖືກແກ້ໄຂແບບຕົງຈຸດ 100%
         async function loadCloudHistory() {
             let listDiv = document.getElementById('history-list');
             listDiv.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
@@ -1584,39 +1579,40 @@
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
             let combinedMap = new Map();
 
-            localHistory.forEach(tx => { combinedMap.set(tx.id || tx.created_at, tx); });
+            localHistory.forEach(tx => { 
+                if (cleanDevId(tx.device_id) === deviceId) {
+                    combinedMap.set(tx.id || tx.created_at, tx); 
+                }
+            });
 
             if (supabaseClient) {
                 try {
-                    let { data: cloudSales, error } = await supabaseClient
-                        .from('sales_history')
-                        .select('*')
-                        .order('created_at', { ascending: false });
+                    // 🌟 ດຶງຂໍ້ມູນ Supabase ແບບ Direct Match (ປ້ອງກັນ Case Sensitive)
+                    let query = supabaseClient.from('sales_history').select('*');
+                    
+                    if (currentUsername) {
+                        query = query.or(`device_id.ilike.${deviceId},device_id.ilike.POS-%`);
+                    } else {
+                        query = query.ilike('device_id', deviceId);
+                    }
+
+                    let { data: cloudSales, error } = await query.order('created_at', { ascending: false });
 
                     if (!error && cloudSales) {
                         cloudSales.forEach(tx => {
-                            // 🌟 ປັບປຸງການກັ່ນຕອງ: ໃຫ້ສະແດງທັງໝົດທີ່ກ່ຽວຂ້ອງກັບ device_id ປັດຈຸບັນ (ລວມທັງກໍລະນີທີ່ເຄີຍບັນທຶກດ້ວຍ ID ເກົ່າແຕ່ເປັນຮ້ານດຽວກັນ)
-                            let isMatch = false;
-                            if (tx.device_id && String(tx.device_id).toUpperCase() === String(deviceId).toUpperCase()) {
-                                isMatch = true;
-                            } else if (currentUsername && tx.device_id && String(tx.device_id).toUpperCase().startsWith('POS-')) {
-                                // ຖ້າຢູ່ໃນໂໝດສະມາຊິກຖາວອນ ໃຫ້ດຶງຂໍ້ມູນປະຫວັດມາສະແດງຮ່ວມກັນເພື່ອຄວາມຕໍ່ເນື່ອງ
-                                isMatch = true;
-                            }
-
-                            if (isMatch) {
-                                let key = tx.id || tx.created_at;
-                                if (!combinedMap.has(key)) {
-                                    combinedMap.set(key, {
-                                        id: tx.id, source: 'cloud', device_id: tx.device_id, created_at: tx.created_at,
-                                        total_items: tx.total_items || 0, total_cost: tx.total_cost || 0,
-                                        discount: tx.discount || 0, total: tx.total, cash: tx.cash, change: tx.change, items: tx.items || []
-                                    });
-                                }
+                            let key = tx.id || tx.created_at;
+                            if (!combinedMap.has(key)) {
+                                combinedMap.set(key, {
+                                    id: tx.id, source: 'cloud', device_id: cleanDevId(tx.device_id), created_at: tx.created_at,
+                                    total_items: tx.total_items || 0, total_cost: tx.total_cost || 0,
+                                    discount: tx.discount || 0, total: tx.total, cash: tx.cash, change: tx.change, items: tx.items || []
+                                });
                             }
                         });
                     }
-                } catch (err) {}
+                } catch (err) {
+                    console.error("Cloud history error:", err);
+                }
             }
 
             globalHistoryList = Array.from(combinedMap.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -1689,21 +1685,15 @@
             let totalPrice = 0;
 
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-            let allSales = [...localHistory];
+            let allSales = localHistory.filter(tx => cleanDevId(tx.device_id) === deviceId);
 
             if (supabaseClient) {
                 try {
                     let { data: cloudSales } = await supabaseClient.from('sales_history').select('*');
                     if (cloudSales) {
                         cloudSales.forEach(tx => {
-                            let isMatch = false;
-                            if (tx.device_id && String(tx.device_id).toUpperCase() === String(deviceId).toUpperCase()) {
-                                isMatch = true;
-                            } else if (currentUsername && tx.device_id && String(tx.device_id).toUpperCase().startsWith('POS-')) {
-                                isMatch = true;
-                            }
-
-                            if (isMatch) {
+                            let cleanTxDev = cleanDevId(tx.device_id);
+                            if (cleanTxDev === deviceId || (currentUsername && cleanTxDev.startsWith('POS-'))) {
                                 if (!allSales.some(s => (s.id === tx.id || s.created_at === tx.created_at))) {
                                     allSales.push({
                                         total_cost: tx.total_cost || 0,
@@ -1787,8 +1777,9 @@
                     let { data } = await supabaseClient.from('products').select('*');
                     if (data && data.length > 0) {
                         let myData = data.filter(item => {
-                            if (String(item.device_id).toUpperCase() === String(deviceId).toUpperCase()) return true;
-                            if (currentUsername && String(item.device_id).toUpperCase().startsWith('POS-')) return true;
+                            let cleanItemDev = cleanDevId(item.device_id);
+                            if (cleanItemDev === deviceId) return true;
+                            if (currentUsername && cleanItemDev.startsWith('POS-')) return true;
                             return false;
                         });
                         excelRows = myData.map(item => ({
