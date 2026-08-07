@@ -328,7 +328,7 @@
             <button onclick="closeStockInScanner()" class="mt-3 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded w-full font-bold cursor-pointer">ປິດກ້ອງ</button>
         </div>
 
-        <!-- Confirmation & Price Input Popup (ສຳລັບຂາຍ) -->
+        <!-- Confirmation & Price Input Popup (ສຳລັບຂາຍ - ດຶງລາຄາຂາຍຕົວຈິງຈາກ QR Code ມາສະແດງໂດຍກົງ 100%) -->
         <div id="confirm-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
                 <div class="text-3xl text-center">📦</div>
@@ -355,7 +355,7 @@
             </div>
         </div>
 
-        <!-- Stock-In Input Modal (ໜ້າຕ່າງປ້ອນລາຄານຳເຂົ້າສິນຄ້າ) -->
+        <!-- Stock-In Input Modal (ໜ້າຕ່າງນຳເຂົ້າສິນຄ້າ - ບໍ່ມີຊ່ອງປ້ອນລາຄາຂາຍ ຕາມຮູບທີ 3) -->
         <div id="stock-in-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
                 <div class="text-3xl text-center">📥</div>
@@ -365,10 +365,6 @@
                     <div>
                         <label class="block font-semibold text-gray-700 mb-1">ລາຄາຊື້ (ກີບ):</label>
                         <input type="text" id="stock-in-cost" oninput="formatInputMoney(this)" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 text-right font-bold text-blue-600 text-lg" placeholder="ປ້ອນລາຄາຊື້">
-                    </div>
-                    <div>
-                        <label class="block font-semibold text-gray-700 mb-1">ລາຄາຂາຍ (ກີບ):</label>
-                        <input type="text" id="stock-in-price" oninput="formatInputMoney(this)" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 text-right font-bold text-green-600 text-lg" placeholder="ປ້ອນລາຄາຂາຍ">
                     </div>
                 </div>
                 <div class="flex gap-2 pt-2">
@@ -603,7 +599,6 @@
             </div>
 
             <div class="overflow-x-auto border rounded-xl shadow-inner max-h-[50vh]">
-                <!-- 🌟 ຂະຫຍາຍຄວາມກວ້າງຄໍລຳ "ຊື່ສິນຄ້າ (ລະຫັດ)" ໃຫ້ເຫັນຕົວເລກ Barcode ຍາວໆ ເຕັມ 100% (min-w-[180px]) -->
                 <table class="w-full border-collapse bg-white min-w-[820px]">
                     <thead>
                         <tr class="bg-gray-100 text-gray-700 text-xs uppercase sticky top-0 border-b">
@@ -1121,7 +1116,7 @@
             deleteTargetIndex = null;
         }
 
-        // 🌟 ຟັງຊັນສະແກນຂາຍສິນຄ້າ: ດຶງລາຄາຊື້ ແລະ ລາຄາຂາຍຫຼ້າສຸດຈາກຖານຂໍ້ມູນອັດຕະໂນມັດ 100%
+        // 🌟 ຟັງຊັນສະແກນຂາຍສິນຄ້າ: ດຶງລາຄາຊື້ ແລະ ລາຄາຂາຍຕົວຈິງ (`row.price`) ມາສະແດງຜົນຢ່າງຖືກຕ້ອງ 100%
         async function openScanner() {
             document.getElementById('scanner-container').classList.remove('hidden');
             await fetchProductsForGenerator();
@@ -1161,8 +1156,12 @@
                     if (foundItem) {
                         scannedCode = foundItem.code;
                         scannedCost = parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0;
-                        let pct = parseFloat(String(foundItem.profitPct).replace(/,/g, '')) || 20;
-                        scannedPrice = scannedCost > 0 ? scannedCost + (scannedCost * pct / 100) : (parseFloat(String(foundItem.price).replace(/,/g, '')) || 0);
+                        // 🌟 ດຶງລາຄາຂາຍຕົວຈິງ (`row.price`) ທີ່ຖືກບັນທຶກໄວ້ໃນຕາຕະລາງ QR Code ມາໃຊ້ໂດຍກົງ 100%
+                        scannedPrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
+                        if (scannedPrice <= 0 && scannedCost > 0) {
+                            let pct = parseFloat(String(foundItem.profitPct).replace(/,/g, '')) || 20;
+                            scannedPrice = scannedCost + (scannedCost * pct / 100);
+                        }
                         scannedName = foundItem.code;
                     } else {
                         try {
@@ -1220,10 +1219,8 @@
             let found = excelRows.find(r => String(r.code).trim().toLowerCase() === code.toLowerCase());
             if (found) {
                 document.getElementById('stock-in-cost').value = formatNumberWithCommas(found.cost || 0);
-                document.getElementById('stock-in-price').value = formatNumberWithCommas(found.price || 0);
             } else {
                 document.getElementById('stock-in-cost').value = "";
-                document.getElementById('stock-in-price').value = "";
             }
 
             document.getElementById('stock-in-modal').classList.remove('hidden');
@@ -1233,23 +1230,28 @@
             document.getElementById('stock-in-modal').classList.add('hidden');
         }
 
-        // 🌟 ຢືນຢັນການນຳເຂົ້າສິນຄ້າ (ລັອກຕົວເລກ Barcode ຍາວໆ ໄວ້ເປັນລະຫັດຫຼັກ ບໍ່ໃຫ້ປ່ຽນແປງ)
+        // 🌟 ຢືນຢັນການນຳເຂົ້າສິນຄ້າ (ມີແຕ່ລາຄາຊື້ ໂດຍຄຳນວນລາຄາຂາຍອັດຕະໂນມັດ 20% ຫຼື ໃຊ້ລາຄາເກົ່າ)
         async function confirmStockIn() {
             let costVal = parseFloat(String(document.getElementById('stock-in-cost').value).replace(/,/g, '')) || 0;
-            let priceVal = parseFloat(String(document.getElementById('stock-in-price').value).replace(/,/g, '')) || 0;
 
-            if (costVal <= 0 || priceVal <= 0) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນລາຄາຊື້ ແລະ ລາຄາຂາຍໃຫ້ຖືກຕ້ອງ!", "⚠️");
+            if (costVal <= 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນລາຄາຊື້ໃຫ້ຖືກຕ້ອງ!", "⚠️");
                 return;
             }
 
             let existingIdx = excelRows.findIndex(r => String(r.code).trim().toLowerCase() === currentStockInCode.toLowerCase());
             let today = new Date().toISOString().split('T')[0];
 
+            let priceVal = 0;
+            let profitPct = 20;
+
             if (existingIdx !== -1) {
+                profitPct = parseFloat(String(excelRows[existingIdx].profitPct).replace(/,/g, '')) || 20;
+                priceVal = costVal + (costVal * profitPct / 100);
                 excelRows[existingIdx].cost = costVal;
                 excelRows[existingIdx].price = priceVal;
             } else {
+                priceVal = costVal + (costVal * 20 / 100);
                 excelRows.push({
                     code: currentStockInCode,
                     cost: costVal,
@@ -1268,7 +1270,7 @@
                         device_id: deviceId,
                         code: currentStockInCode,
                         cost: costVal,
-                        profit_pct: 20,
+                        profit_pct: profitPct,
                         price: priceVal,
                         qty: 1,
                         date_added: today,
