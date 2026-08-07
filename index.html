@@ -739,7 +739,7 @@
             document.getElementById('role-select-modal').classList.add('hidden');
             document.getElementById('unified-login-modal').classList.add('hidden');
             checkTrialLicense();
-            setupRealtimeSync(); // 🌟 ເປີດ Realtime Sync ທີ່ນີ້
+            setupRealtimeSync(); // 🌟 ເປີດ Realtime Sync
         }
 
         function showUnifiedLoginModal() {
@@ -774,43 +774,29 @@
             let formattedU = u.toUpperCase();
             if (supabaseClient) {
                 try {
-                    let { data, error } = await supabaseClient
-                        .from('licenses')
-                        .select('*')
-                        .eq('device_id', formattedU)
-                        .single();
-
+                    let { data } = await supabaseClient.from('licenses').select('*').eq('device_id', formattedU).single();
                     let validData = data || { device_id: formattedU, status: 'permanent' };
 
-                    if (validData.status === 'permanent' || validData.status === 'trial') {
-                        let oldDeviceId = deviceId;
-                        currentUsername = validData.device_id;
-                        deviceId = validData.device_id;
-                        localStorage.setItem('pos_current_username', currentUsername);
-                        localStorage.setItem('pos_device_id', deviceId);
-                        localStorage.setItem('pos_license_status', validData.status);
-                        localStorage.removeItem('pos_user_role');
+                    let oldDeviceId = deviceId;
+                    currentUsername = validData.device_id;
+                    deviceId = validData.device_id;
+                    localStorage.setItem('pos_current_username', currentUsername);
+                    localStorage.setItem('pos_device_id', deviceId);
+                    localStorage.setItem('pos_license_status', validData.status);
+                    localStorage.removeItem('pos_user_role');
 
-                        if (oldDeviceId && oldDeviceId !== validData.device_id) {
-                            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-                            localHistory.forEach(tx => { tx.device_id = validData.device_id; });
-                            localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
-
-                            await supabaseClient
-                                .from('sales_history')
-                                .update({ device_id: validData.device_id })
-                                .eq('device_id', oldDeviceId);
-                        }
-
-                        document.getElementById('unified-login-modal').classList.add('hidden');
-                        document.getElementById('role-select-modal').classList.add('hidden');
-                        document.getElementById('admin-manage-btn').classList.add('hidden');
-                        document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ສະມາຊິກ [${currentUsername}]`;
-                        
-                        setupRealtimeSync(); // 🌟 ເປີດ Realtime Sync ທັນທີ
-                    } else {
-                        showAlert("ແຈ້ງເຕືອນ", "ບັນຊີນີ້ຖືກລະງັບການໃຊ້ງານຊົ່ວຄາວ!", "⚠️");
+                    if (oldDeviceId && oldDeviceId !== validData.device_id) {
+                        let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+                        localHistory.forEach(tx => { tx.device_id = validData.device_id; });
+                        localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
                     }
+
+                    document.getElementById('unified-login-modal').classList.add('hidden');
+                    document.getElementById('role-select-modal').classList.add('hidden');
+                    document.getElementById('admin-manage-btn').classList.add('hidden');
+                    document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ສະມາຊິກ [${currentUsername}]`;
+                    
+                    setupRealtimeSync(); // 🌟 ເປີດ Realtime Sync ທັນທີ
                 } catch (e) {
                     currentUsername = formattedU;
                     deviceId = formattedU;
@@ -887,7 +873,7 @@
             setupRealtimeSync();
         }
 
-        // 🌟 ລະບົບ Realtime Sync ທີ່ສົມບູນແບບ ເຊື່ອມຕໍ່ກັບ Cloud ໂດຍກົງ
+        // 🌟 ລະບົບ Realtime Sync ທີ່ສົມບູນແບບ ແລະ ຣີເຟຣດປະຫວັດການຂາຍອັດຕະໂນມັດ
         function setupRealtimeSync() {
             if (!supabaseClient) return;
 
@@ -903,7 +889,7 @@
                             profitPct: item.profit_pct,
                             price: item.price,
                             qty: item.qty || 1,
-                            dateAdded: item.date_added || new Date().toISOString().split('T')[0]
+                            dateAdded: item.date_added || item.updated_at ? new Date(item.date_added || item.updated_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
                         }));
                         localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
                         if (!document.getElementById('excel-generator-modal').classList.contains('hidden')) {
@@ -913,7 +899,7 @@
                 })
                 .subscribe();
 
-            // 2. Sync ປະຫວັດການຂາຍ (Sales History)
+            // 2. Sync ປະຫວັດການຂາຍ (Sales History) - ຣີເຟຣດໜ້າປະຫວັດທັນທີເມື່ອມີການຂາຍຈາກເຄື່ອງອື່ນ
             supabaseClient
                 .channel('public:sales_history_sync_' + deviceId)
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'sales_history', filter: `device_id=eq.${deviceId}` }, () => {
