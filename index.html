@@ -1021,7 +1021,9 @@
                             qty: item.qty || 1,
                             dateAdded: item.date_added || item.updated_at ? new Date(item.date_added || item.updated_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
                         }));
-                        localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
+                        if (!currentUsername) {
+                            localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
+                        }
                         if (!document.getElementById('excel-generator-modal').classList.contains('hidden')) {
                             renderExcelTable();
                         }
@@ -1204,12 +1206,14 @@
             let targetItem = globalHistoryList[index];
             if (!targetItem) return;
 
-            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-            localHistory = localHistory.filter(tx => (tx.id !== targetItem.id && tx.created_at !== targetItem.createdAt));
-            localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
-
-            if (targetItem.source === 'cloud' && targetItem.id && supabaseClient) {
-                try { await supabaseClient.from('sales_history').delete().eq('id', targetItem.id); } catch (e) {}
+            if (currentUsername) {
+                if (targetItem.id && supabaseClient) {
+                    try { await supabaseClient.from('sales_history').delete().eq('id', targetItem.id); } catch (e) {}
+                }
+            } else {
+                let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+                localHistory = localHistory.filter(tx => (tx.id !== targetItem.id && tx.created_at !== targetItem.createdAt));
+                localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
             }
 
             loadCloudHistory();
@@ -1271,7 +1275,6 @@
 
                     let cleanDecoded = decodedText.trim();
 
-                    // 🌟 ຟັງຊັນແກ້ໄຂ: ຖ້າສະແກນ QR Code ມາເປັນ JSON (ມີ code, cost, price) ໃຫ້ແຍກອອກມາຢ່າງຖືກຕ້ອງ 100%
                     try {
                         let parsedJson = JSON.parse(cleanDecoded);
                         if (parsedJson && parsedJson.code) {
@@ -1281,7 +1284,6 @@
                             scannedName = parsedJson.code;
                         }
                     } catch (e) {
-                        // ຖ້າບໍ່ແມ່ນ JSON ໃຫ້ຊອກຫາໃນ excelRows ຕາມປົກກະຕິ
                         let foundItem = excelRows.find(r => {
                             let codeStr = String(r.code).trim();
                             let cleanCodeNum = codeStr.replace(/\D/g, '').padStart(9, '0').slice(-9);
@@ -1324,7 +1326,6 @@
                     let cleanDecoded = decodedText.trim();
                     closeStockInScanner();
                     
-                    // 🌟 ຖ້າສະແກນ QR ທີ່ມີ JSON ມານຳເຂົ້າສິນຄ້າ
                     try {
                         let parsedJson = JSON.parse(cleanDecoded);
                         if (parsedJson && parsedJson.code) {
@@ -1405,7 +1406,9 @@
                 });
             }
 
-            localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
+            if (!currentUsername) {
+                localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
+            }
 
             if (supabaseClient) {
                 try {
@@ -1563,9 +1566,11 @@
                 change: cashGiven - finalTotal
             };
 
-            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-            localHistory.unshift(txData);
-            localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
+            if (!currentUsername) {
+                let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+                localHistory.unshift(txData);
+                localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
+            }
 
             if (supabaseClient) {
                 try {
@@ -1597,10 +1602,12 @@
             document.getElementById('history-summary').classList.add('hidden');
             globalHistoryList = [];
 
-            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
             let combinedMap = new Map();
 
-            localHistory.forEach(tx => { combinedMap.set(tx.id || tx.created_at, tx); });
+            if (!currentUsername) {
+                let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+                localHistory.forEach(tx => { combinedMap.set(tx.id || tx.created_at, tx); });
+            }
 
             if (supabaseClient) {
                 try {
@@ -1695,8 +1702,11 @@
             let totalCost = 0;
             let totalPrice = 0;
 
-            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-            let allSales = [...localHistory];
+            let allSales = [];
+            if (!currentUsername) {
+                let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+                allSales.push(...localHistory);
+            }
 
             if (supabaseClient) {
                 try {
@@ -1796,13 +1806,19 @@
                             qty: item.qty || 1,
                             dateAdded: item.date_added || item.updated_at ? new Date(item.date_added || item.updated_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
                         }));
-                        localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
+                        if (!currentUsername) {
+                            localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
+                        }
                         return;
                     }
                 } catch (e) {}
             }
-            let savedRows = localStorage.getItem('pos_saved_excel_rows');
-            excelRows = savedRows ? JSON.parse(savedRows) : [];
+            if (!currentUsername) {
+                let savedRows = localStorage.getItem('pos_saved_excel_rows');
+                excelRows = savedRows ? JSON.parse(savedRows) : [];
+            } else {
+                excelRows = [];
+            }
         }
 
         function closeExcelGenerator() {
@@ -1827,7 +1843,9 @@
             excelRows = [];
             renderExcelTable(); 
             document.getElementById('excel-print-area').classList.add('hidden');
-            localStorage.removeItem('pos_saved_excel_rows');
+            if (!currentUsername) {
+                localStorage.removeItem('pos_saved_excel_rows');
+            }
 
             if (supabaseClient) {
                 try {
@@ -2246,7 +2264,9 @@
         async function saveExcelData() {
             syncTableInputsToData();
             let validRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
-            localStorage.setItem('pos_saved_excel_rows', JSON.stringify(validRows));
+            if (!currentUsername) {
+                localStorage.setItem('pos_saved_excel_rows', JSON.stringify(validRows));
+            }
 
             if (supabaseClient) {
                 try {
