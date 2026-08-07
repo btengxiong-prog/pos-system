@@ -605,7 +605,7 @@
         </div>
     </div>
 
-    <!-- 🌟 Barcode Generator Modal (ໃຊ້ເລກ 13 ຫຼັກ ທີ່ຜູກລາຄາຊື້-ຂາຍໃນລະບົບຢ່າງສົມບູນ 100%) -->
+    <!-- 🌟 Barcode Generator Modal (ໃຊ້ເລກ 13 ຫຼັກ ແລະ ເຊື່ອມໂຍງລາຄາຊື້-ຂາຍຢ່າງສົມບູນ 100%) -->
     <div id="barcode-generator-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-xl max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
@@ -614,7 +614,7 @@
                 </h3>
                 <button onclick="closeBarcodeGenerator()" class="text-gray-500 hover:text-gray-700 font-bold text-lg cursor-pointer">✕</button>
             </div>
-            <p class="text-xs text-gray-600">ປ້າຍ Barcode ຖືກສ້າງຂຶ້ນດ້ວຍຕົວເລກ 13 ຫຼັກມາດຕະຖານ ທີ່ສະແກນຜ່ານມືຖືໄດ້ໄວ ແລະ ດึงລາຄາຊື້-ຂາຍຂຶ້ນມາທັນທີ:</p>
+            <p class="text-xs text-gray-600">ປ້າຍ Barcode ຖືກສ້າງຂຶ້ນດ້ວຍຕົວເລກ 13 ຫຼັກມາດຕະຖານ ທີ່ສະແກນຜ່ານມືຖືໄດ້ໄວ ແລະ ດຶງລາຄາຊື້-ຂາຍຂຶ້ນມາທັນທີ:</p>
             <div id="barcode-preview-cards" class="grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[60vh] overflow-y-auto p-2">
             </div>
             <div class="flex gap-2 pt-2">
@@ -1100,8 +1100,13 @@
             deleteTargetIndex = null;
         }
 
-        function openScanner() {
+        // 🌟 ຟັງຊັນສະແກນ Barcode ທີ່ດຶງຂໍ້ມູນລາຄາຊື້ ແລະ ລາຄາຂາຍຈາກ Database/LocalStorage ມາສະແດງຜົນໃນຮູບ 2 ຢ່າງສົມບູນ 100%
+        async function openScanner() {
             document.getElementById('scanner-container').classList.remove('hidden');
+            
+            // ໂຫຼດຂໍ້ມູນສິນຄ້າຫຼ້າສຸດມาก່ອນສະແກນສະເໝີ ເພື່ອໃຫ້ມີຂໍ້ມູນ Mapping ครบถ้วน
+            await fetchProductsForGenerator();
+
             if (!html5QrCode) {
                 try { html5QrCode = new Html5Qrcode("reader"); } catch(err) { return; }
             }
@@ -1119,12 +1124,14 @@
                     let scannedPrice = 0;
                     let scannedName = decodedText;
 
-                    // 🌟 ລະບົບອ່ານ Barcode (ທັງເລກ 13 ຫຼັກ ແລະ ລະຫັດສິນຄ້າປົກກະຕິ) ພ້ອມດຶງລາຄາຊື້-ຂາຍຢ່າງສົມບູນ 100%
                     let cleanDecoded = decodedText.trim();
+                    
+                    // 🔍 ຄົ້ນຫາສິນຄ້າຈາກ excelRows ໂດຍທຽບທັງ Code ປົກກະຕິ ແລະ Barcode 13 ຫຼັກ (888...)
                     let foundItem = excelRows.find(r => {
                         let codeStr = String(r.code).trim();
-                        let barcode13 = "888" + String(r.code).replace(/\D/g, '').padStart(9, '0').slice(-9);
-                        return codeStr.toLowerCase() === cleanDecoded.toLowerCase() || barcode13 === cleanDecoded;
+                        let cleanCodeNum = codeStr.replace(/\D/g, '').padStart(9, '0').slice(-9);
+                        let barcode13 = "888" + cleanCodeNum;
+                        return codeStr.toLowerCase() === cleanDecoded.toLowerCase() || barcode13 === cleanDecoded || cleanDecoded.includes(codeStr);
                     });
 
                     if (foundItem) {
@@ -1529,7 +1536,7 @@
             document.getElementById('excel-print-area').classList.add('hidden');
         }
 
-        // 🌟 ຟັງຊັນສ້າງ Barcode (ໃຊ້ເລກ 13 ຫຼັກ ແລະ ເຊື່ອມໂຍງລາຄາຊື້-ຂາຍຢ່າງສົມບູນ 100%)
+        // 🌟 ຟັງຊັນສ້າງ Barcode (ເຊື່ອມໂຍງລະຫັດ 13 ຫຼັກ ກັບລາຄາຊື້-ຂາຍໃນລະບົບ 100%)
         async function openBarcodeGenerator() {
             let modal = document.getElementById('barcode-generator-modal');
             let container = document.getElementById('barcode-preview-cards');
@@ -1590,7 +1597,7 @@
                         lineColor: "#000",
                         width: 2.2,
                         height: 60,
-                        displayValue: true, // ສະແດງຕົວເລກ 13 ຫຼັກໃຕ້ Barcode ຢ່າງຊັດເຈນ
+                        displayValue: true,
                         fontSize: 16,
                         fontOptions: "bold",
                         textMargin: 4
