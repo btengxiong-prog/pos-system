@@ -606,7 +606,7 @@
         </div>
     </div>
 
-    <!-- 🌟 Barcode Generator Modal (ຝັງຂໍ້ມູນ ຊື້/ຂາຍ ໃນ Barcode ຢ່າງສົມບູນ) -->
+    <!-- 🌟 Barcode Generator Modal (ດຶງຂໍ້ມູນຈາກແຫຼ່ງດຽວກັນກັບ QR Code ມາສ້າງ Barcode ພ້ອມຝັງ ຊື້/ຂາຍ) -->
     <div id="barcode-generator-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-xl max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
@@ -615,7 +615,7 @@
                 </h3>
                 <button onclick="closeBarcodeGenerator()" class="text-gray-500 hover:text-gray-700 font-bold text-lg cursor-pointer">✕</button>
             </div>
-            <p class="text-xs text-gray-600">ປ້າຍ Barcode ຈະຖືກສ້າງຂຶ້ນໂດຍຝັງຂໍ້ມູນ <b>ຊື້ ແລະ ຂາຍ</b> ໄວ້ຂ້າງໃນຢ່າງສົມບູນ:</p>
+            <p class="text-xs text-gray-600">ປ້າຍ Barcode ດຶງຂໍ້ມູນຈາກລະບົບມາສ້າງ ໂດຍຝັງຂໍ້ມູນ <b>ຊື້ ແລະ ຂາຍ</b> ໄວ້ຂ້າງໃນຢ່າງສົມບູນ:</p>
             <div id="barcode-preview-cards" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-h-[50vh] overflow-y-auto p-2">
             </div>
             <div class="flex gap-2 pt-2">
@@ -1482,7 +1482,11 @@
             document.getElementById('excel-generator-modal').classList.remove('hidden');
             duplicateRemovedList = [];
             updateDuplicateReportButton();
+            await fetchProductsForGenerator();
+            renderExcelTable();
+        }
 
+        async function fetchProductsForGenerator() {
             if (supabaseClient) {
                 try {
                     let { data } = await supabaseClient.from('products').select('*');
@@ -1497,21 +1501,12 @@
                             dateAdded: item.date_added || item.updated_at ? new Date(item.date_added || item.updated_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
                         }));
                         localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
-                    } else {
-                        let savedRows = localStorage.getItem('pos_saved_excel_rows');
-                        excelRows = savedRows ? JSON.parse(savedRows) : [];
+                        return;
                     }
-                } catch (e) {
-                    let savedRows = localStorage.getItem('pos_saved_excel_rows');
-                    excelRows = savedRows ? JSON.parse(savedRows) : [];
-                }
-            } else {
-                let savedRows = localStorage.getItem('pos_saved_excel_rows');
-                excelRows = savedRows ? JSON.parse(savedRows) : [];
+                } catch (e) {}
             }
-
-            excelRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
-            renderExcelTable();
+            let savedRows = localStorage.getItem('pos_saved_excel_rows');
+            excelRows = savedRows ? JSON.parse(savedRows) : [];
         }
 
         function closeExcelGenerator() {
@@ -1519,15 +1514,18 @@
             document.getElementById('excel-print-area').classList.add('hidden');
         }
 
-        // 🌟 ຟັງຊັນສ້າງ Barcode ພ້ອມຝັງຂໍ້ມູນ JSON (ຊື້/ຂາຍ) ໄວ້ຢ່າງສົມບູນ
+        // 🌟 ຟັງຊັນສ້າງ Barcode ທີ່ດຶງຂໍ້ມູນຈາກແຫຼ່ງດຽວກັນກັບ QR Code ມາສະແດງຜົນ ແລະ ຝັງ ຊື້/ຂາຍ ຢ່າງສົມບູນ
         async function openBarcodeGenerator() {
             let modal = document.getElementById('barcode-generator-modal');
             let container = document.getElementById('barcode-preview-cards');
             modal.classList.remove('hidden');
+            container.innerHTML = `<p class="text-center text-gray-500 py-4 col-span-full">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າ...</p>`;
 
+            await fetchProductsForGenerator();
             let validRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
+
             if (validRows.length === 0) {
-                container.innerHTML = `<p class="text-center text-gray-400 py-4 col-span-full">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ</p>`;
+                container.innerHTML = `<p class="text-center text-gray-400 py-4 col-span-full">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ (ກະລຸນາເພີ່ມສິນຄ້າໃນ QR Code ກ່ອນ)</p>`;
                 return;
             }
 
