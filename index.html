@@ -26,10 +26,10 @@
                 visibility: hidden !important;
             }
             #excel-generator-modal, #excel-generator-modal *,
-            #barcode-generator-modal, #barcode-generator-modal * {
+            #stock-in-modal, #stock-in-modal * {
                 visibility: visible !important;
             }
-            #excel-generator-modal, #barcode-generator-modal {
+            #excel-generator-modal, #stock-in-modal {
                 position: absolute !important;
                 left: 0 !important;
                 top: 0 !important;
@@ -283,8 +283,8 @@
                 <button onclick="openExcelGenerator()" class="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     📱 ສ້າງ QR Code
                 </button>
-                <!-- 🌟 ປ່ຽນຄຳສັ່ງເປັນ "ນຳເຂົ້າສິນຄ້າ" ຢ່າງຖືກຕ້ອງຕາມຄຳສັ່ງ -->
-                <button onclick="openBarcodeGenerator()" class="w-full sm:w-auto bg-pink-600 hover:bg-pink-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
+                <!-- 🌟 ປຸ່ມ "ນຳເຂົ້າສິນຄ້າ" (ສຳລັບສະແກນ QR/Barcode ເພື່ອນຳເຂົ້າສິນຄ້າໃໝ່/ປັບລາຄາ) -->
+                <button onclick="openStockInScanner()" class="w-full sm:w-auto bg-pink-600 hover:bg-pink-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     📦 ນຳເຂົ້າສິນຄ້າ
                 </button>
                 <button onclick="openMyDeviceModal()" class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
@@ -309,7 +309,7 @@
     <!-- Main Content -->
     <main class="container mx-auto px-4 mt-6 max-w-4xl">
         
-        <!-- Scanner Modal -->
+        <!-- Scanner Modal (ສຳລັບຂາຍສິນຄ້າ) -->
         <div id="scanner-container" class="hidden mb-6 bg-white p-4 rounded-xl shadow border">
             <div class="flex justify-between items-center mb-2">
                 <h3 class="font-bold text-lg text-gray-700">📷 ກຳລັງສະແກນ QR / ບາໂຄດ</h3>
@@ -319,7 +319,17 @@
             <button onclick="closeScanner()" class="mt-3 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded w-full font-bold cursor-pointer">ປິດກ້ອງ</button>
         </div>
 
-        <!-- Confirmation & Price Input Popup -->
+        <!-- 🌟 Stock-In Scanner Modal (ສຳລັບປຸ່ມ "ນຳເຂົ້າສິນຄ້າ") -->
+        <div id="stock-in-scanner-container" class="hidden mb-6 bg-white p-4 rounded-xl shadow border">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="font-bold text-lg text-pink-700">📦 ສະແກນ Barcode ເພື່ອນຳເຂົ້າສິນຄ້າ</h3>
+                <span class="text-xs bg-pink-100 text-pink-700 px-2 py-1 rounded font-semibold">ກຳລັງເປີດກ້ອງ...</span>
+            </div>
+            <div id="stock-in-reader" class="w-full max-w-md mx-auto"></div>
+            <button onclick="closeStockInScanner()" class="mt-3 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded w-full font-bold cursor-pointer">ປິດກ້ອງ</button>
+        </div>
+
+        <!-- Confirmation & Price Input Popup (ສຳລັບຂາຍ) -->
         <div id="confirm-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
                 <div class="text-3xl text-center">📦</div>
@@ -342,6 +352,29 @@
                 <div class="flex gap-2 pt-2">
                     <button onclick="cancelScannedItem()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
                     <button onclick="confirmScannedItem()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ຕົກລົງ (ເພີ່ມລົງຕາຕະລາງ)</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 🌟 Stock-In Input Modal (ສຳລັບປ້ອນລາຄານຳເຂົ້າສິນຄ້າ ພ້ອມປຸ່ມ ຍົກເລີກ ແລະ ຕົກລົງ/ຢືນຢັນ) -->
+        <div id="stock-in-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+                <div class="text-3xl text-center">📥</div>
+                <h3 class="text-xl font-bold text-pink-700 text-center">ນຳເຂົ້າສິນຄ້າ / ປັບປຸງລາຄາ</h3>
+                <div class="bg-gray-50 p-4 rounded-xl text-left text-sm space-y-3 border">
+                    <p><b>ລະຫັດ Barcode/QR:</b> <span id="stock-in-code" class="text-pink-600 font-bold text-xs break-all"></span></p>
+                    <div>
+                        <label class="block font-semibold text-gray-700 mb-1">ລາຄາຊື້ (ກີບ):</label>
+                        <input type="text" id="stock-in-cost" oninput="formatInputMoney(this)" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 text-right font-bold text-blue-600 text-lg" placeholder="ປ້ອນລາຄາຊື້">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-gray-700 mb-1">ລາຄາຂາຍ (ກີບ):</label>
+                        <input type="text" id="stock-in-price" oninput="formatInputMoney(this)" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 text-right font-bold text-green-600 text-lg" placeholder="ປ້ອນລາຄາຂາຍ">
+                    </div>
+                </div>
+                <div class="flex gap-2 pt-2">
+                    <button onclick="closeStockInModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
+                    <button onclick="confirmStockIn()" class="flex-1 bg-pink-600 hover:bg-pink-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">ຕົກລົງ / ຢືນຢັນ</button>
                 </div>
             </div>
         </div>
@@ -533,7 +566,7 @@
         </div>
     </div>
 
-    <!-- Excel-like Table Code Generator Modal -->
+    <!-- Excel-like Table Code Generator Modal (ຍັງຄົງຮັກສາໄວ້ສຳລັບເມນູ QR Code ຕາມໂຄດຫຼັກ) -->
     <div id="excel-generator-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-xl max-w-5xl w-full p-6 max-h-[90vh] overflow-y-auto space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
@@ -548,7 +581,6 @@
                     <button onclick="clearUnsavedRows()" class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow flex items-center gap-1">
                         🧹 ລຶບຂໍ້ມູນທີ່ຍັງບໍ່ທັນບັນທຶກ
                     </button>
-                    <!-- 🌟 ປຸ່ມລາຍງານລາຍການທີ່ຖືກຕັດ (ສະແດງຜົນອັດຕະໂນມັດເມື່ອມີລາຍການຊ້ຳ) -->
                     <button id="btn-duplicate-report" onclick="openDuplicateReportModal()" class="hidden bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow flex items-center gap-1">
                         📋 ລາຍງານລາຍການທີ່ຖືກຕັດ (0)
                     </button>
@@ -602,27 +634,6 @@
                     ⚙️ ສ້າງ QR Code ທັງໝົດ
                 </button>
                 <button onclick="closeExcelGenerator()" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 px-6 rounded-xl transition cursor-pointer">ປິດ</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 🌟 Stock In Modal (ປ່ຽນຊື່ເປັນ "ນຳເຂົ້າສິນຄ້າ" ພ້ອມຕັດແຖວ P001 ແລະ ລາຄາຂາຍອອກຕາມຄຳສັ່ງ) -->
-    <div id="barcode-generator-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-xl max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto space-y-4">
-            <div class="flex justify-between items-center border-b pb-3">
-                <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2">
-                    <span>📦 ລະບົບນຳເຂົ້າສິນຄ້າ (ສ້າງ Barcode ປ້າຍລາຄາ)</span>
-                </h3>
-                <button onclick="closeBarcodeGenerator()" class="text-gray-500 hover:text-gray-700 font-bold text-lg cursor-pointer">✕</button>
-            </div>
-            <p class="text-xs text-gray-600">ລາຍການປ້າຍ Barcode ສຳລັບນຳເຂົ້າສິນຄ້າ (ສະແກນງ່າຍ 100% ແລະ ເຊື່ອມໂຍງລາຄາຊື້-ຂາຍໃນລະບົບ):</p>
-            <div id="barcode-preview-cards" class="grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[60vh] overflow-y-auto p-2">
-            </div>
-            <div class="flex gap-2 pt-2">
-                <button onclick="window.print()" class="flex-1 bg-pink-600 hover:bg-pink-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">
-                    🖨️ ພິມປ້າຍ Barcode ທັງໝົດ
-                </button>
-                <button onclick="closeBarcodeGenerator()" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 px-6 rounded-xl transition cursor-pointer">ປິດ</button>
             </div>
         </div>
     </div>
@@ -1057,6 +1068,7 @@
 
         let cart = [];
         let html5QrCode = null;
+        let stockInQrCode = null; // ສຳລັບກ້ອງນຳເຂົ້າສິນຄ້າ
         let tempScannedCode = "";
         let lastScannedCode = "";
         let lastScanTime = 0;
@@ -1101,11 +1113,9 @@
             deleteTargetIndex = null;
         }
 
-        // 🌟 ຟັງຊັນສະແກນ Barcode: ດຶງລາຄາຊື້ ແລະ ລາຄາຂາຍຈາກ Database/LocalStorage ມາສະແດງຜົນໃນຮູບ 2 ຢ່າງສົມບູນ 100%
+        // 🌟 ຟັງຊັນສະແກນຂາຍສິນຄ້າ (ປົກກະຕິ)
         async function openScanner() {
             document.getElementById('scanner-container').classList.remove('hidden');
-            
-            // ໂຫຼດຂໍ້ມູນສິນຄ້າຈາກ Database ແລະ LocalStorage ມາກ່ອນສະແກນທຸກຄັ້ງ
             await fetchProductsForGenerator();
 
             if (!html5QrCode) {
@@ -1126,8 +1136,6 @@
                     let scannedName = decodedText;
 
                     let cleanDecoded = decodedText.trim();
-                    
-                    // 🔍 ຄົ້ນຫາສິນຄ້າຈາກ excelRows ຢ່າງແມ້ນຍຳ 100% (ຮອງຮັບທັງເລກ 888... ແລະ ລະຫັດສິນຄ້າປົກກະຕິ)
                     let foundItem = excelRows.find(r => {
                         let codeStr = String(r.code).trim();
                         let cleanCodeNum = codeStr.replace(/\D/g, '').padStart(9, '0').slice(-9);
@@ -1164,6 +1172,109 @@
                 },
                 (errorMessage) => {}
             ).catch(err => {});
+        }
+
+        // 🌟 ຟັງຊັນໃໝ່: ເປີດກ້ອງສະແກນສິນຄ້າສຳລັບ "ນຳເຂົ້າສິນຄ້າ"
+        async function openBarcodeGenerator() {
+            document.getElementById('stock-in-scanner-container').classList.remove('hidden');
+            await fetchProductsForGenerator();
+
+            if (!stockInQrCode) {
+                try { stockInQrCode = new Html5Qrcode("stock-in-reader"); } catch(err) { return; }
+            }
+            stockInQrCode.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: 250 },
+                (decodedText) => {
+                    let cleanDecoded = decodedText.trim();
+                    closeStockInScanner();
+                    
+                    // ເອົາລະຫັດທີ່ສະແກນໄດ້ ໄປເປີດ Modal ປ້ອນລາຄານຳເຂົ້າ
+                    openStockInModal(cleanDecoded);
+                },
+                (errorMessage) => {}
+            ).catch(err => {});
+        }
+
+        function closeStockInScanner() {
+            if (stockInQrCode) {
+                stockInQrCode.stop().then(() => { 
+                    document.getElementById('stock-in-scanner-container').classList.add('hidden'); 
+                }).catch(() => {});
+            } else { 
+                document.getElementById('stock-in-scanner-container').classList.add('hidden'); 
+            }
+        }
+
+        let currentStockInCode = "";
+        function openStockInModal(code) {
+            currentStockInCode = code;
+            document.getElementById('stock-in-code').innerText = code;
+            
+            // ກວດສອບວ່າຫາກມີສິນຄ້ານີ້ຢູ່ແລ້ວ ໃຫ້ດຶງລາຄາເກົ່າຂຶ້ນມາສະແດງ
+            let found = excelRows.find(r => String(r.code).trim().toLowerCase() === code.toLowerCase());
+            if (found) {
+                document.getElementById('stock-in-cost').value = formatNumberWithCommas(found.cost || 0);
+                document.getElementById('stock-in-price').value = formatNumberWithCommas(found.price || 0);
+            } else {
+                document.getElementById('stock-in-cost').value = "";
+                document.getElementById('stock-in-price').value = "";
+            }
+
+            document.getElementById('stock-in-modal').classList.remove('hidden');
+        }
+
+        function closeStockInModal() {
+            document.getElementById('stock-in-modal').classList.add('hidden');
+        }
+
+        // 🌟 ຢືນຢັນການນຳເຂົ້າສິນຄ້າ (ບັນທຶກລົງ Database / excelRows)
+        async function confirmStockIn() {
+            let costVal = parseFloat(String(document.getElementById('stock-in-cost').value).replace(/,/g, '')) || 0;
+            let priceVal = parseFloat(String(document.getElementById('stock-in-price').value).replace(/,/g, '')) || 0;
+
+            if (costVal <= 0 || priceVal <= 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນລາຄາຊື້ ແລະ ລາຄາຂາຍໃຫ້ถูกต้อง!", "⚠️");
+                return;
+            }
+
+            let existingIdx = excelRows.findIndex(r => String(r.code).trim().toLowerCase() === currentStockInCode.toLowerCase());
+            let today = new Date().toISOString().split('T')[0];
+
+            if (existingIdx !== -1) {
+                excelRows[existingIdx].cost = costVal;
+                excelRows[existingIdx].price = priceVal;
+            } else {
+                excelRows.push({
+                    code: currentStockInCode,
+                    cost: costVal,
+                    profitPct: 20,
+                    price: priceVal,
+                    qty: 1,
+                    dateAdded: today
+                });
+            }
+
+            // ບັນທຶກລົງ LocalStorage ແລະ Supabase
+            localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
+
+            if (supabaseClient) {
+                try {
+                    await supabaseClient.from('products').upsert([{
+                        device_id: deviceId,
+                        code: currentStockInCode,
+                        cost: costVal,
+                        profit_pct: 20,
+                        price: priceVal,
+                        qty: 1,
+                        date_added: today,
+                        updated_at: new Date().toISOString()
+                    }], { onConflict: 'device_id,code' });
+                } catch (e) {}
+            }
+
+            closeStockInModal();
+            showAlert("ສຳເລັດ", `ນຳເຂົ້າສິນຄ້າ [${currentStockInCode}] ຮຽບຮ້ອຍແລ້ວ!`, "📦");
         }
 
         function showConfirmModal(text) {
@@ -1542,69 +1653,6 @@
         function closeExcelGenerator() {
             document.getElementById('excel-generator-modal').classList.add('hidden');
             document.getElementById('excel-print-area').classList.add('hidden');
-        }
-
-        // 🌟 ຟັງຊັນສ້າງ Barcode (ນຳເຂົ້າສິນຄ້າ): ຕັດແຖວ P001 ແລະ ລາຄາຂາຍອອກ ໃຫ້ເຫຼືອພຽງຊື່ຮ້ານ ແລະ ເສັ້ນ Barcode ສະອາດໆ ຕາມຄຳສັ່ງ
-        async function openBarcodeGenerator() {
-            let modal = document.getElementById('barcode-generator-modal');
-            let container = document.getElementById('barcode-preview-cards');
-            modal.classList.remove('hidden');
-            container.innerHTML = `<p class="text-center text-gray-500 py-4 col-span-full">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າ...</p>`;
-
-            await fetchProductsForGenerator();
-            let validRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
-
-            if (validRows.length === 0) {
-                container.innerHTML = `<p class="text-center text-gray-400 py-4 col-span-full">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ (ກະລຸນາເພີ່ມສິນຄ້າກ່ອນ)</p>`;
-                return;
-            }
-
-            let html = '';
-            validRows.forEach((row, idx) => {
-                html += `
-                    <div class="bg-white border-2 border-gray-400 rounded-xl overflow-hidden shadow-md break-inside-avoid flex flex-col">
-                        <!-- ຫົວປ້າຍຮ້ານຄ້າ -->
-                        <div class="bg-yellow-400 px-3 py-2 text-center border-b border-gray-300">
-                            <div class="text-base font-extrabold text-blue-900 tracking-wide">ຮ້ານ ມາຸ ສຸພາພອນ ວາ (ນ້ອຍ)</div>
-                            <div class="text-xs font-bold text-red-600">ຂາຍເຄື່ອງ ສົ່ງ-ຍ້ອຍ</div>
-                        </div>
-                        
-                        <!-- 🌟 ຕັດແຖວ P001 ແລະ ລາຄາຂາຍອອກຕາມຄຳສັ່ງ 100% (ເຫຼືອພຽງ Barcode ສະອາດໆ) -->
-                        <div class="p-6 text-center bg-white flex justify-center items-center">
-                            <svg id="barcode-svg-${idx}"></svg>
-                        </div>
-
-                        <!-- ຕີນປ້າຍ (Footer Info) -->
-                        <div class="bg-[#1e3a8a] text-white px-3 py-1.5 flex justify-between items-center text-[11px] font-semibold">
-                            <span>📞 020 55572855</span>
-                            <span>📍 ຮ້ານ ມາຸ ສຸພາພອນ ວາ (ນ້ອຍ)</span>
-                        </div>
-                    </div>
-                `;
-            });
-            container.innerHTML = html;
-
-            validRows.forEach((row, idx) => {
-                try {
-                    let cleanCodeNum = String(row.code).replace(/\D/g, '').padStart(9, '0').slice(-9);
-                    let barcode13Digits = "888" + cleanCodeNum;
-
-                    JsBarcode(`#barcode-svg-${idx}`, barcode13Digits, {
-                        format: "CODE128",
-                        lineColor: "#000",
-                        width: 2.2,
-                        height: 70,
-                        displayValue: true,
-                        fontSize: 18,
-                        fontOptions: "bold",
-                        textMargin: 6
-                    });
-                } catch (e) {}
-            });
-        }
-
-        function closeBarcodeGenerator() {
-            document.getElementById('barcode-generator-modal').classList.add('hidden');
         }
 
         function addExcelRow(code = '', cost = '', profitPct = 20, price = '', qty = 1, dateAdded = '') {
@@ -2084,30 +2132,6 @@
 
             selectElem.innerHTML = html;
             document.getElementById('print-date-modal').classList.remove('hidden');
-        }
-
-        function closePrintDateModal() {
-            document.getElementById('print-date-modal').classList.add('hidden');
-        }
-
-        async function confirmAndPrintByDate() {
-            let selectedDate = document.getElementById('print-date-select').value;
-            closePrintDateModal();
-
-            let validRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
-            let filteredRows = selectedDate === 'all' 
-                ? validRows 
-                : validRows.filter(r => (r.dateAdded || new Date().toISOString().split('T')[0]) === selectedDate);
-
-            if (filteredRows.length === 0) {
-                showAlert("ແຈ້ງເຕືອນ", "ບໍ່ມີລາຍການໃນວັນທີ່ເລືອກ!", "⚠️");
-                return;
-            }
-
-            await renderPreviewCards(filteredRows);
-            setTimeout(() => {
-                window.print();
-            }, 600);
         }
 
         function printExcelCodes() {
