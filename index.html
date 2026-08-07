@@ -27,10 +27,11 @@
             }
             #excel-generator-modal, #excel-generator-modal *,
             #stock-in-modal, #stock-in-modal *,
-            #currency-index-modal, #currency-index-modal * {
+            #currency-index-modal, #currency-index-modal *,
+            #select-import-date-modal, #select-import-date-modal * {
                 visibility: visible !important;
             }
-            #excel-generator-modal, #stock-in-modal, #currency-index-modal {
+            #excel-generator-modal, #stock-in-modal, #currency-index-modal, #select-import-date-modal {
                 position: absolute !important;
                 left: 0 !important;
                 top: 0 !important;
@@ -234,7 +235,20 @@
         </div>
     </div>
 
-    <!-- 🌟 Modal ດັດສະນີເງິນ (ເພີ່ມປຸ່ມ "📦 ສິນຄ້ານຳເຂົ້າ" ຕາມຮູບທີ 2) -->
+    <!-- 🌟 Modal ເລືອກວັນນຳເຂົ້າສິນຄ້າ (ເມື່ອກົດປຸ່ມ "ສິນຄ້ານຳເຂົ້າ") -->
+    <div id="select-import-date-modal" class="hidden fixed inset-0 bg-black/60 z-[380] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4 text-center">
+            <div class="text-3xl">📦</div>
+            <h3 class="text-lg font-bold text-pink-700">ເລືອກວັນນຳເຂົ້າສິນຄ້າ</h3>
+            <p class="text-xs text-gray-600">ກະລຸນາເລືອກວັນ/ເດືອນ/ປີ ຂອງສິນຄ້ານຳເຂົ້າທີ່ຕ້ອງການ:</p>
+            <div id="import-date-list-container" class="max-h-48 overflow-y-auto space-y-2 text-xs border p-3 rounded-xl bg-gray-50 text-left">
+                <!-- List items populated dynamically -->
+            </div>
+            <button onclick="closeSelectImportDateModal()" class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer text-sm">ປິດ</button>
+        </div>
+    </div>
+
+    <!-- Modal ດັດສະນີເງິນ -->
     <div id="currency-index-modal" class="hidden fixed inset-0 bg-black/60 z-[370] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 text-left">
             <div class="flex justify-between items-center border-b pb-3">
@@ -246,11 +260,11 @@
             <p class="text-xs text-gray-600">ກະລຸນາລະບຸວັນທີ ແລະ Rate ຂອງວັນນຳເຂົ້າ ແລະ ວັນສົ່ງສິນຄ້າ ເພື່ອຫາຄ່າດັດສະນີເງິນ:</p>
             
             <div class="space-y-3 bg-gray-50 p-4 rounded-xl border">
-                <!-- 1) Rate ວັນນຳເຂົ້າສິນຄ້າ (ພ້ອມປຸ່ມ ສິນຄ້ານຳເຂົ້າ ມຸມຂວາເທິງ) -->
+                <!-- 1) Rate ວັນນຳເຂົ້າສິນຄ້າ -->
                 <div>
                     <div class="flex justify-between items-center mb-1">
                         <label class="block text-xs font-bold text-gray-700">Rate ວັນນຳເຂົ້າສິນຄ້າ:</label>
-                        <button onclick="openStockInScanner()" class="bg-pink-600 hover:bg-pink-700 text-white px-2.5 py-1 rounded-lg text-[11px] font-bold shadow transition flex items-center gap-1 cursor-pointer">
+                        <button onclick="openSelectImportDateModal()" class="bg-pink-600 hover:bg-pink-700 text-white px-2.5 py-1 rounded-lg text-[11px] font-bold shadow transition flex items-center gap-1 cursor-pointer">
                             📦 ສິນຄ້ານຳເຂົ້າ
                         </button>
                     </div>
@@ -1835,7 +1849,7 @@
             showAlert("ສຳເລັດ", "ຄຳນວນລາຄາຂາຍຕາມສູດ ROUNDUP ສຳເລັດ!", "🏷️");
         }
 
-        // 🌟 ຟັງຊັນເປີດ Modal ດັດສະນີເງິນ (ພ້ອມປຸ່ມ "📦 ສິນຄ້ານຳເຂົ້າ")
+        // 🌟 ຟັງຊັນເປີດ Modal ດັດສະນີເງິນ
         function openCurrencyIndexModal() {
             let today = new Date().toISOString().split('T')[0];
             let savedData = JSON.parse(localStorage.getItem('pos_saved_currency_index') || '{}');
@@ -1866,6 +1880,43 @@
             }
         }
 
+        // 🌟 ຟັງຊັນເປີດ Modal ເລືອກວັນນຳເຂົ້າສິນຄ້າ
+        function openSelectImportDateModal() {
+            syncTableInputsToData();
+            let uniqueDates = [...new Set(excelRows.map(r => r.dateAdded).filter(d => d))].sort().reverse();
+            let container = document.getElementById('import-date-list-container');
+
+            if (uniqueDates.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-400 py-2">ບໍ່ມີວັນທີນຳເຂົ້າໃນລະບົບ</p>`;
+            } else {
+                let html = '';
+                uniqueDates.forEach(d => {
+                    let count = excelRows.filter(r => r.dateAdded === d).length;
+                    let parts = d.split('-');
+                    let formattedDate = parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : d;
+                    html += `
+                        <div onclick="selectImportDate('${d}')" class="p-2.5 bg-white border rounded-lg cursor-pointer hover:bg-pink-50 flex justify-between items-center shadow-sm">
+                            <span class="font-bold text-gray-800">📅 ${formattedDate}</span>
+                            <span class="text-xs bg-pink-100 text-pink-700 px-2 py-0.5 rounded font-semibold">${count} ລາຍການ</span>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            }
+            document.getElementById('select-import-date-modal').classList.remove('hidden');
+        }
+
+        function closeSelectImportDateModal() {
+            document.getElementById('select-import-date-modal').classList.add('hidden');
+        }
+
+        // 🌟 ເມື່ອເລືອກວັນທີ ໃຫ້ເດັ້ງໃສ່ຫ້ອງ "Rate ວັນນຳເຂົ້າສິນຄ້າ" ໂດຍອັດຕະໂນມັດ
+        function selectImportDate(dateStr) {
+            document.getElementById('date-import').value = dateStr;
+            closeSelectImportDateModal();
+            showAlert("ສຳເລັດ", `ເລືອກວັນນຳເຂົ້າ: ${dateStr} ຮຽບຮ້ອຍແລ້ວ!`, "📅");
+        }
+
         // 🌟 ບັນທຶກ/ປະຕິບັດ (ຄູນລາຄາຊື້ຈິງດ້ວຍ Index)
         function applyCurrencyIndexToTable() {
             let imp = parseFloat(String(document.getElementById('rate-import').value).replace(/,/g, '')) || 0;
@@ -1880,7 +1931,6 @@
 
             let indexVal = shp / imp;
 
-            // 1) ບັນທຶກຄ່າໜ້ານີ້ໄວ້ໃນ localStorage
             let currencyData = {
                 dateImport: dateImportVal,
                 rateImport: imp,
@@ -1892,7 +1942,6 @@
 
             syncTableInputsToData();
 
-            // 2) ເອົາ Index ไปคูณกับ ລາຄາຊື້ຕົ້ນສະບັບ (`originalCost`)
             excelRows.forEach(row => {
                 if (!row.originalCost && row.cost) {
                     row.originalCost = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
