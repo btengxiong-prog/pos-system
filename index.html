@@ -25,10 +25,11 @@
             body * {
                 visibility: hidden !important;
             }
-            #excel-generator-modal, #excel-generator-modal * {
+            #excel-generator-modal, #excel-generator-modal *,
+            #barcode-generator-modal, #barcode-generator-modal * {
                 visibility: visible !important;
             }
-            #excel-generator-modal {
+            #excel-generator-modal, #barcode-generator-modal {
                 position: absolute !important;
                 left: 0 !important;
                 top: 0 !important;
@@ -38,34 +39,6 @@
                 z-index: 999999 !important;
                 overflow: visible !important;
                 max-height: none !important;
-            }
-            #excel-print-area {
-                display: block !important;
-                visibility: visible !important;
-                position: absolute !important;
-                left: 0 !important;
-                top: 0 !important;
-                width: 100% !important;
-                height: auto !important;
-                background: white !important;
-                overflow: visible !important;
-            }
-            #excel-preview-cards {
-                display: grid !important;
-                grid-template-columns: repeat(3, 1fr) !important;
-                gap: 15px !important;
-                max-height: none !important;
-                overflow: visible !important;
-                visibility: visible !important;
-            }
-            #excel-generator-modal > div > div:not(#excel-print-area),
-            .flex.justify-between.items-center.border-b.pb-3,
-            .bg-blue-50.border.border-blue-200,
-            .overflow-x-auto.border.rounded-xl.shadow-inner,
-            .flex.gap-2.pt-2,
-            #print-btn-element, 
-            #excel-print-area h4 {
-                display: none !important;
             }
             @page {
                 size: auto;
@@ -310,7 +283,7 @@
                 <button onclick="openExcelGenerator()" class="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     📱 ສ້າງ QR Code
                 </button>
-                <!-- 🌟 ເພີ່ມປຸ່ມ ສ້າງ Barcode ໃໝ່ -->
+                <!-- 🌟 ປຸ່ມສ້າງ Barcode -->
                 <button onclick="openBarcodeGenerator()" class="w-full sm:w-auto bg-pink-600 hover:bg-pink-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     📉 ສ້າງ Barcode
                 </button>
@@ -633,16 +606,16 @@
         </div>
     </div>
 
-    <!-- 🌟 Barcode Generator Modal (ເພີ່ມໃໝ່) -->
+    <!-- 🌟 Barcode Generator Modal (ຝັງຂໍ້ມູນ ຊື້/ຂາຍ ໃນ Barcode ຢ່າງສົມບູນ) -->
     <div id="barcode-generator-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-xl max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
                 <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2">
-                    <span>📉 ຕາຕະລາງສ້າງ Barcode ສິນຄ້າ</span>
+                    <span>📉 ຕາຕະລາງສ້າງ Barcode ສິນຄ້າ (ຝັງລາຄາ ຊື້-ຂາຍ)</span>
                 </h3>
                 <button onclick="closeBarcodeGenerator()" class="text-gray-500 hover:text-gray-700 font-bold text-lg cursor-pointer">✕</button>
             </div>
-            <p class="text-xs text-gray-600">ປ້າຍ Barcode ຈະຖືກສ້າງຂຶ້ນຈາກຂໍ້ມູນສິນຄ້າທີ່ທ່ານມີໃນລະບົບ:</p>
+            <p class="text-xs text-gray-600">ປ້າຍ Barcode ຈະຖືກສ້າງຂຶ້ນໂດຍຝັງຂໍ້ມູນ <b>ຊື້ ແລະ ຂາຍ</b> ໄວ້ຂ້າງໃນຢ່າງສົມບູນ:</p>
             <div id="barcode-preview-cards" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-h-[50vh] overflow-y-auto p-2">
             </div>
             <div class="flex gap-2 pt-2">
@@ -1546,7 +1519,7 @@
             document.getElementById('excel-print-area').classList.add('hidden');
         }
 
-        // 🌟 ຟັງຊັນສຳລັບເປີດ Barcode Generator Modal
+        // 🌟 ຟັງຊັນສ້າງ Barcode ພ້ອມຝັງຂໍ້ມູນ JSON (ຊື້/ຂາຍ) ໄວ້ຢ່າງສົມບູນ
         async function openBarcodeGenerator() {
             let modal = document.getElementById('barcode-generator-modal');
             let container = document.getElementById('barcode-preview-cards');
@@ -1580,13 +1553,24 @@
 
             validRows.forEach((row, idx) => {
                 try {
-                    JsBarcode(`#barcode-svg-${idx}`, String(row.code), {
+                    let cost = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
+                    let pct = parseFloat(String(row.profitPct).replace(/,/g, '')) || 20;
+                    let calculatedPrice = cost > 0 ? cost + (cost * pct / 100) : (parseFloat(String(row.price).replace(/,/g, '')) || 0);
+
+                    // ຝັງຂໍ້ມູນ JSON (code, cost, price) ໄວ້ໃນ Barcode ຢ່າງສົມບູນ
+                    let barcodePayload = JSON.stringify({
+                        code: row.code,
+                        cost: cost,
+                        price: calculatedPrice
+                    });
+
+                    JsBarcode(`#barcode-svg-${idx}`, barcodePayload, {
                         format: "CODE128",
                         lineColor: "#000",
-                        width: 1.8,
+                        width: 1.5,
                         height: 50,
                         displayValue: true,
-                        fontSize: 14
+                        fontSize: 12
                     });
                 } catch (e) {}
             });
