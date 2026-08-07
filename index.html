@@ -505,7 +505,7 @@
                         <option value="5">ພຶດສະພາ</option>
                         <option value="6">ມິຖຸນາ</option>
                         <option value="7">ກໍລະກົດ</option>
-                        <option value="8">ສິງຫາ</option>
+                        <option value="8" selected>ສິງຫາ</option>
                         <option value="9">ກັນຍາ</option>
                         <option value="10">ຕຸລາ</option>
                         <option value="11">ພະຈິກ</option>
@@ -1296,7 +1296,6 @@
             renderCart();
         }
 
-        // 🌟 ຟັງຊັນດຶງປະຫວັດການຂາຍແບບຍືດຍຸ່ນ 100% (ກວາດເອົາທຸກປະຫວັດທີ່ກົງກັບ ID ເຄື່ອງ)
         async function loadCloudHistory() {
             let listDiv = document.getElementById('history-list');
             listDiv.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
@@ -1377,8 +1376,99 @@
 
         function openHistory() { document.getElementById('history-modal').classList.remove('hidden'); loadCloudHistory(); }
         function closeHistory() { document.getElementById('history-modal').classList.add('hidden'); }
-        async function openReport() { document.getElementById('report-modal').classList.remove('hidden'); }
-        function closeReport() { document.getElementById('report-modal').classList.add('hidden'); }
+        
+        // 🌟 ລະບົບລາຍງານຍອດຂາຍ (ທີ່ເພີ່ມເຂົ້າມາແກ້ໄຂບັນຫາ 0 ກີບ)
+        function toggleReportFilter() {
+            let reportType = document.getElementById('report-type').value;
+            document.getElementById('filter-monthly').classList.add('hidden');
+            document.getElementById('filter-quarterly').classList.add('hidden');
+            document.getElementById('filter-duration').classList.add('hidden');
+
+            if (reportType === 'monthly') {
+                document.getElementById('filter-monthly').classList.remove('hidden');
+            } else if (reportType === 'quarterly') {
+                document.getElementById('filter-quarterly').classList.remove('hidden');
+            } else if (reportType === 'duration') {
+                document.getElementById('filter-duration').classList.remove('hidden');
+            }
+            calculateReport();
+        }
+
+        async function calculateReport() {
+            let reportType = document.getElementById('report-type').value;
+            let year = parseInt(document.getElementById('report-year').value);
+            
+            let totalCost = 0;
+            let totalPrice = 0;
+
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            let allSales = [...localHistory];
+
+            if (supabaseClient) {
+                try {
+                    let { data: cloudSales } = await supabaseClient.from('sales_history').select('*');
+                    if (cloudSales) {
+                        cloudSales.forEach(tx => {
+                            if (tx.device_id && String(tx.device_id).toUpperCase() === String(deviceId).toUpperCase()) {
+                                if (!allSales.some(s => (s.id === tx.id || s.created_at === tx.created_at))) {
+                                    allSales.push({
+                                        total_cost: tx.total_cost || 0,
+                                        total: tx.total || 0,
+                                        created_at: tx.created_at
+                                    });
+                                }
+                            }
+                        });
+                    }
+                } catch (e) {}
+            }
+
+            allSales.forEach(tx => {
+                let txDate = new Date(tx.created_at);
+                if (isNaN(txDate)) return;
+
+                let txYear = txDate.getFullYear();
+                let txMonth = txDate.getMonth() + 1;
+
+                if (txYear === year) {
+                    let match = false;
+
+                    if (reportType === 'monthly') {
+                        let selectedMonth = parseInt(document.getElementById('report-month').value);
+                        if (txMonth === selectedMonth) match = true;
+                    } 
+                    else if (reportType === 'quarterly') {
+                        let quarter = parseInt(document.getElementById('report-quarter').value);
+                        let qMonths = { 1: [1,2,3], 2: [4,5,6], 3: [7,8,9], 4: [10,11,12] };
+                        if (qMonths[quarter].includes(txMonth)) match = true;
+                    } 
+                    else if (reportType === 'duration') {
+                        let durationMonths = parseInt(document.getElementById('report-duration-months').value);
+                        if (txMonth <= durationMonths) match = true;
+                    }
+
+                    if (match) {
+                        totalCost += parseFloat(tx.total_cost || 0);
+                        totalPrice += parseFloat(tx.total || 0);
+                    }
+                }
+            });
+
+            let profit = totalPrice - totalCost;
+
+            document.getElementById('rep-total-cost').innerText = formatNumberWithCommas(totalCost) + " ກີບ";
+            document.getElementById('rep-total-price').innerText = formatNumberWithCommas(totalPrice) + " ກີບ";
+            document.getElementById('rep-total-profit').innerText = formatNumberWithCommas(profit) + " ກີບ";
+        }
+
+        async function openReport() { 
+            document.getElementById('report-modal').classList.remove('hidden'); 
+            toggleReportFilter();
+        }
+
+        function closeReport() { 
+            document.getElementById('report-modal').classList.add('hidden'); 
+        }
 
         async function openExcelGenerator() {
             document.getElementById('excel-generator-modal').classList.remove('hidden');
