@@ -102,7 +102,7 @@
             <div class="space-y-3 text-left">
                 <div>
                     <label class="block text-xs font-bold text-gray-700 mb-1">Username:</label>
-                    <input type="text" id="unified-login-username" class="w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-emerald-500 font-semibold" placeholder="ປ້ອນ Username">
+                    <input type="text" id="unified-login-username" class="w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-emerald-500 font-semibold uppercase" placeholder="ປ້ອນ Username">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-gray-700 mb-1">Password:</label>
@@ -873,15 +873,16 @@
             setupRealtimeSync();
         }
 
-        // 🌟 ລະບົບ Realtime Sync ທີ່ກວ້າງຂວາງ ແລະ ບໍ່ຕິດ Filter ເພື່ອຮັບສັນຍານ 100%
+        // 🌟 ລະບົບ Realtime Sync ທີ່ແກ້ໄຂໃຫ້ດຶງຂໍ້ມູນທຸກເຄື່ອງໂດຍບໍ່ຜິດພາດ
         function setupRealtimeSync() {
             if (!supabaseClient) return;
 
-            // 1. ຟັງການປ່ຽນແປງຕາຕະລາງ products ຂອງ ID ປັດຈຸບັນ
+            // 1. Sync ຕາຕະລາງສິນຄ້າ (Products) ແບບ Realtime 100%
             supabaseClient
-                .channel('global_products_sync')
+                .channel('pos_products_global_channel')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, async (payload) => {
-                    if (payload.new && payload.new.device_id === deviceId) {
+                    let targetDev = payload.new ? payload.new.device_id : (payload.old ? payload.old.device_id : null);
+                    if (targetDev && targetDev.toUpperCase() === String(deviceId).toUpperCase()) {
                         let { data } = await supabaseClient.from('products').select('*').eq('device_id', deviceId);
                         if (data) {
                             excelRows = data.map(item => ({
@@ -901,11 +902,12 @@
                 })
                 .subscribe();
 
-            // 2. ຟັງການປ່ຽນແປງຕາຕະລາງ sales_history ຂອງ ID ປັດຈຸບັນ (Realtime Auto-Refresh History)
+            // 2. Sync ປະຫວັດການຂາຍ (Sales History) ແບບ Realtime 100% ພ້ອມ Auto-Refresh ໜ້າປະຫວັດ
             supabaseClient
-                .channel('global_history_sync')
+                .channel('pos_history_global_channel')
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sales_history' }, (payload) => {
-                    if (payload.new && payload.new.device_id === deviceId) {
+                    let targetDev = payload.new ? payload.new.device_id : null;
+                    if (targetDev && targetDev.toUpperCase() === String(deviceId).toUpperCase()) {
                         if (!document.getElementById('history-modal').classList.contains('hidden')) {
                             loadCloudHistory();
                         }
