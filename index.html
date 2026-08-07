@@ -873,44 +873,39 @@
             setupRealtimeSync();
         }
 
-        // 🌟 ລະບົບ Realtime Sync ທີ່ແກ້ໄຂໃຫ້ດຶງຂໍ້ມູນທຸກເຄື່ອງໂດຍບໍ່ຜິດພາດ
+        // 🌟 ລະບົບ Realtime Sync ທີ່ກວ້າງຂວາງ ແລະ ເຊື່ອມຕໍ່ທຸກໜ້າຈໍແບບສົມບູນ 100%
         function setupRealtimeSync() {
             if (!supabaseClient) return;
 
-            // 1. Sync ຕາຕະລາງສິນຄ້າ (Products) ແບບ Realtime 100%
+            // 1. Sync ຕາຕະລາງ products ແບບ Realtime
             supabaseClient
                 .channel('pos_products_global_channel')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, async (payload) => {
-                    let targetDev = payload.new ? payload.new.device_id : (payload.old ? payload.old.device_id : null);
-                    if (targetDev && targetDev.toUpperCase() === String(deviceId).toUpperCase()) {
-                        let { data } = await supabaseClient.from('products').select('*').eq('device_id', deviceId);
-                        if (data) {
-                            excelRows = data.map(item => ({
-                                code: item.code,
-                                cost: item.cost,
-                                profitPct: item.profit_pct,
-                                price: item.price,
-                                qty: item.qty || 1,
-                                dateAdded: item.date_added || item.updated_at ? new Date(item.date_added || item.updated_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
-                            }));
-                            localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
-                            if (!document.getElementById('excel-generator-modal').classList.contains('hidden')) {
-                                renderExcelTable();
-                            }
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, async () => {
+                    let { data } = await supabaseClient.from('products').select('*');
+                    if (data) {
+                        let myData = data.filter(item => String(item.device_id).toUpperCase() === String(deviceId).toUpperCase());
+                        excelRows = myData.map(item => ({
+                            code: item.code,
+                            cost: item.cost,
+                            profitPct: item.profit_pct,
+                            price: item.price,
+                            qty: item.qty || 1,
+                            dateAdded: item.date_added || item.updated_at ? new Date(item.date_added || item.updated_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+                        }));
+                        localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
+                        if (!document.getElementById('excel-generator-modal').classList.contains('hidden')) {
+                            renderExcelTable();
                         }
                     }
                 })
                 .subscribe();
 
-            // 2. Sync ປະຫວັດການຂາຍ (Sales History) ແບບ Realtime 100% ພ້ອມ Auto-Refresh ໜ້າປະຫວັດ
+            // 2. Sync ປະຫວັດການຂາຍ sales_history ແບບ Realtime (ຣີເຟຣດອັດຕະໂນມັດທັນທີເມື່ອມີການຂາຍ)
             supabaseClient
                 .channel('pos_history_global_channel')
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sales_history' }, (payload) => {
-                    let targetDev = payload.new ? payload.new.device_id : null;
-                    if (targetDev && targetDev.toUpperCase() === String(deviceId).toUpperCase()) {
-                        if (!document.getElementById('history-modal').classList.contains('hidden')) {
-                            loadCloudHistory();
-                        }
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sales_history' }, () => {
+                    if (!document.getElementById('history-modal').classList.contains('hidden')) {
+                        loadCloudHistory();
                     }
                 })
                 .subscribe();
@@ -1307,6 +1302,7 @@
             renderCart();
         }
 
+        // 🌟 ປັບປຸງຟັງຊັນດຶງປະຫວັດໃຫ້ກວ້າງຂวางຂຶ້ນ ໂດຍກວດສອບ device_id ທັງແບບພິມໃຫຍ່/ພິມນ້ອຍ
         async function loadCloudHistory() {
             let listDiv = document.getElementById('history-list');
             listDiv.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
@@ -1323,18 +1319,20 @@
                     let { data: cloudSales, error } = await supabaseClient
                         .from('sales_history')
                         .select('*')
-                        .eq('device_id', deviceId)
                         .order('created_at', { ascending: false });
 
                     if (!error && cloudSales) {
                         cloudSales.forEach(tx => {
-                            let key = tx.id || tx.created_at;
-                            if (!combinedMap.has(key)) {
-                                combinedMap.set(key, {
-                                    id: tx.id, source: 'cloud', device_id: tx.device_id, created_at: tx.created_at,
-                                    total_items: tx.total_items || 0, total_cost: tx.total_cost || 0,
-                                    discount: tx.discount || 0, total: tx.total, cash: tx.cash, change: tx.change, items: tx.items || []
-                                });
+                            // ກວດສອບ device_id ໃຫ້ກົງກັນແບບບໍ່ສົນໃຈຕົວພິມໃຫຍ່/ພິມນ້ອຍ
+                            if (tx.device_id && String(tx.device_id).toUpperCase() === String(deviceId).toUpperCase()) {
+                                let key = tx.id || tx.created_at;
+                                if (!combinedMap.has(key)) {
+                                    combinedMap.set(key, {
+                                        id: tx.id, source: 'cloud', device_id: tx.device_id, created_at: tx.created_at,
+                                        total_items: tx.total_items || 0, total_cost: tx.total_cost || 0,
+                                        discount: tx.discount || 0, total: tx.total, cash: tx.cash, change: tx.change, items: tx.items || []
+                                    });
+                                }
                             }
                         });
                     }
@@ -1396,9 +1394,10 @@
 
             if (supabaseClient) {
                 try {
-                    let { data } = await supabaseClient.from('products').select('*').eq('device_id', deviceId);
+                    let { data } = await supabaseClient.from('products').select('*');
                     if (data && data.length > 0) {
-                        excelRows = data.map(item => ({
+                        let myData = data.filter(item => String(item.device_id).toUpperCase() === String(deviceId).toUpperCase());
+                        excelRows = myData.map(item => ({
                             code: item.code,
                             cost: item.cost,
                             profitPct: item.profit_pct,
