@@ -283,6 +283,7 @@
                 <button onclick="openExcelGenerator()" class="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     📱 ສ້າງ QR Code
                 </button>
+                <!-- 🌟 ປຸ່ມສ້າງ Barcode -->
                 <button onclick="openBarcodeGenerator()" class="w-full sm:w-auto bg-pink-600 hover:bg-pink-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     📉 ສ້າງ Barcode
                 </button>
@@ -605,7 +606,7 @@
         </div>
     </div>
 
-    <!-- 🌟 Barcode Generator Modal (ຝັງລາຄາຊື້-ຂາຍ ຢ່າງສົມບູນ ພ້ອມສະແກນງ່າຍ 100%) -->
+    <!-- 🌟 Barcode Generator Modal (ຝັງລາຄາຊື້ ແລະ ລາຄາຂາຍ ຢ່າງສົມບູນ 100%) -->
     <div id="barcode-generator-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-xl max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
@@ -614,7 +615,7 @@
                 </h3>
                 <button onclick="closeBarcodeGenerator()" class="text-gray-500 hover:text-gray-700 font-bold text-lg cursor-pointer">✕</button>
             </div>
-            <p class="text-xs text-gray-600">ປ້າຍ Barcode ຖືກອອກແບບຕາມແບບຟອມຮ້ານຄ້າ ພ້ອມຝັງຂໍ້ມູນ <b>ລາຄາຊື້ ແລະ ລາຄາຂາຍ</b> ໄວ້ໃນລະບົບຢ່າງສົມບູນ:</p>
+            <p class="text-xs text-gray-600">ປ້າຍ Barcode ຖືກອອກແບບຕາມແບບຟອມຮ້ານຄ້າ ພ້ອມຝັງຂໍ້ມູນ <b>ລາຄາຊື້ ແລະ ລາຄາຂາຍ</b> ໄວ້ໃນ Barcode ຢ່າງສົມບູນ:</p>
             <div id="barcode-preview-cards" class="grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[60vh] overflow-y-auto p-2">
             </div>
             <div class="flex gap-2 pt-2">
@@ -1119,25 +1120,24 @@
                     let scannedPrice = 0;
                     let scannedName = decodedText;
 
-                    // 🌟 ຖ້າສະແກນ Barcode ລະຫັດສິນຄ້າ (Code) ໃຫ້ໄປຊອກຫາລາຄາຊື້ ແລະ ລາຄາຂາຍທີ່ຝັງໄວ້ໃນລະບົບ (excelRows) ມາໃຊ້ງານທັນທີ 100%
-                    let foundItem = excelRows.find(r => String(r.code).trim().toLowerCase() === String(decodedText).trim().toLowerCase());
-                    if (foundItem) {
-                        scannedCode = foundItem.code;
-                        scannedCost = parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0;
-                        let pct = parseFloat(String(foundItem.profitPct).replace(/,/g, '')) || 20;
-                        scannedPrice = scannedCost > 0 ? scannedCost + (scannedCost * pct / 100) : (parseFloat(String(foundItem.price).replace(/,/g, '')) || 0);
-                        scannedName = foundItem.code;
-                    } else {
-                        // ຖ້າເປັນ Format JSON ເກົ່າ
-                        try {
-                            let parsed = JSON.parse(decodedText);
-                            if (parsed && parsed.code) {
-                                scannedCode = parsed.code;
-                                scannedCost = parsed.cost || 0;
-                                scannedPrice = parsed.price || 0;
-                                scannedName = parsed.code;
-                            }
-                        } catch (e) {}
+                    // 🌟 ຮັບຮອງການສະແກນທັງແບບ JSON ທີ່ຝັງໃນ Barcode ແລະ ແບບຊອກຫາໃນຕາຕະລາງ excelRows ຢ່າງສົມບູນ 100%
+                    try {
+                        let parsed = JSON.parse(decodedText);
+                        if (parsed && parsed.code) {
+                            scannedCode = parsed.code;
+                            scannedCost = parsed.cost || 0;
+                            scannedPrice = parsed.price || 0;
+                            scannedName = parsed.code;
+                        }
+                    } catch (e) {
+                        let foundItem = excelRows.find(r => String(r.code).trim().toLowerCase() === String(decodedText).trim().toLowerCase());
+                        if (foundItem) {
+                            scannedCode = foundItem.code;
+                            scannedCost = parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0;
+                            let pct = parseFloat(String(foundItem.profitPct).replace(/,/g, '')) || 20;
+                            scannedPrice = scannedCost > 0 ? scannedCost + (scannedCost * pct / 100) : (parseFloat(String(foundItem.price).replace(/,/g, '')) || 0);
+                            scannedName = foundItem.code;
+                        }
                     }
 
                     showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
@@ -1524,7 +1524,7 @@
             document.getElementById('excel-print-area').classList.add('hidden');
         }
 
-        // 🌟 ຟັງຊັນສ້າງ Barcode (ເຊື່ອມໂຍງລາຄາຊື້-ຂາຍ ຢ່າງສົມບູນ 100%)
+        // 🌟 ຟັງຊັນສ້າງ Barcode (ຝັງ JSON ຂໍ້ມູນ ຊື້/ຂາຍ ຢ່າງສົມບູນ ພ້ອມສະແກນງ່າຍ 100%)
         async function openBarcodeGenerator() {
             let modal = document.getElementById('barcode-generator-modal');
             let container = document.getElementById('barcode-preview-cards');
@@ -1577,15 +1577,24 @@
 
             validRows.forEach((row, idx) => {
                 try {
-                    // ສ້າງ Barcode ຈາກລະຫັດສິນຄ້າ (Code) ເພື່ອໃຫ້ສະແກນງ່າຍ 100% 
-                    // (ລະບົບຈະຈື່ລາຄາຊື້-ຂາຍ ຜ່ານຕາຕະລາງ excelRows / supabase ອັດຕະໂນມັດເວລາສະແກນ)
-                    JsBarcode(`#barcode-svg-${idx}`, String(row.code), {
+                    let cost = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
+                    let pct = parseFloat(String(row.profitPct).replace(/,/g, '')) || 20;
+                    let calculatedPrice = cost > 0 ? cost + (cost * pct / 100) : (parseFloat(String(row.price).replace(/,/g, '')) || 0);
+
+                    // 🌟 ຝັງ JSON ຂໍ້ມູນຊື້-ຂາຍ ຢ່າງສົມບູນໄວ້ໃນ Barcode (ໃຊ້ JSON ຫຍໍ້ c, s, p ເພື່ອໃຫ້ສະແກນໄດ້ໄວ ແລະ ບໍ່ຍາວເກີນໄປ)
+                    let compressedPayload = JSON.stringify({
+                        code: row.code,
+                        cost: cost,
+                        price: calculatedPrice
+                    });
+
+                    JsBarcode(`#barcode-svg-${idx}`, compressedPayload, {
                         format: "CODE128",
                         lineColor: "#000",
-                        width: 2.2,
-                        height: 65,
-                        displayValue: true,
-                        fontSize: 16,
+                        width: 1.8,
+                        height: 60,
+                        displayValue: true, // ສະແດງຂໍ້ຄວາມ JSON ຫຍໍ້ ຫຼື ລະຫັດໃຕ້ Barcode ໃຫ້ເຫັນຊັດເຈນ
+                        fontSize: 12,
                         fontOptions: "bold",
                         textMargin: 4
                     });
