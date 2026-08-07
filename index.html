@@ -806,8 +806,8 @@
             input.value = Number(val).toLocaleString('en-US');
         }
 
+        let deviceId = localStorage.getItem('pos_device_id');
         let currentUsername = localStorage.getItem('pos_current_username') || null;
-        let deviceId = currentUsername || localStorage.getItem('pos_device_id');
 
         async function initDeviceId() {
             if (currentUsername) {
@@ -906,12 +906,19 @@
                     let { data } = await supabaseClient.from('licenses').select('*').eq('device_id', formattedU).single();
                     let validData = data || { device_id: formattedU, status: 'permanent' };
 
+                    let oldDeviceId = deviceId;
                     currentUsername = validData.device_id;
                     deviceId = validData.device_id;
                     localStorage.setItem('pos_current_username', currentUsername);
                     localStorage.setItem('pos_device_id', deviceId);
                     localStorage.setItem('pos_license_status', validData.status);
                     localStorage.removeItem('pos_user_role');
+
+                    if (oldDeviceId && oldDeviceId !== validData.device_id) {
+                        let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+                        localHistory.forEach(tx => { tx.device_id = validData.device_id; });
+                        localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
+                    }
 
                     document.getElementById('unified-login-modal').classList.add('hidden');
                     document.getElementById('role-select-modal').classList.add('hidden');
@@ -920,7 +927,6 @@
                     document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ສະມາຊິກ [${currentUsername}]`;
                     
                     setupRealtimeSync(); 
-                    await fetchProductsForGenerator();
                 } catch (e) {
                     currentUsername = formattedU;
                     deviceId = formattedU;
@@ -1003,9 +1009,25 @@
             supabaseClient
                 .channel('pos_global_master_channel')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, async () => {
-                    await fetchProductsForGenerator();
+                    let { data } = await supabaseClient.from('products').select('*');
+                    if (data) {
+                        let myData = data.filter(item => String(item.device_id).toUpperCase() === String(deviceId).toUpperCase());
+                        excelRows = myData.map(item => ({
+                            code: item.code,
+                            cost: item.cost,
+                            originalCost: item.original_cost || item.cost,
+                            profitPct: item.profit_pct,
+                            price: item.price,
+                            qty: item.qty || 1,
+                            dateAdded: item.date_added || item.updated_at ? new Date(item.date_added || item.updated_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+                        }));
+                        localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
+                        if (!document.getElementById('excel-generator-modal').classList.contains('hidden')) {
+                            renderExcelTable();
+                        }
+                    }
                 })
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'sales_history' }, () => {
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sales_history' }, () => {
                     if (!document.getElementById('history-modal').classList.contains('hidden')) {
                         loadCloudHistory();
                     }
@@ -1154,7 +1176,6 @@
         window.addEventListener('DOMContentLoaded', async () => {
             await initDeviceId();
             checkRoleAndLicense();
-            await fetchProductsForGenerator();
         });
 
         let cart = [];
@@ -1250,6 +1271,7 @@
 
                     let cleanDecoded = decodedText.trim();
 
+                    // 🌟 ຟັງຊັນແກ້ໄຂ: ຖ້າສະແກນ QR Code ມາເປັນ JSON (ມີ code, cost, price) ໃຫ້ແຍກອອກມາຢ່າງຖືກຕ້ອງ 100%
                     try {
                         let parsedJson = JSON.parse(cleanDecoded);
                         if (parsedJson && parsedJson.code) {
@@ -1259,6 +1281,7 @@
                             scannedName = parsedJson.code;
                         }
                     } catch (e) {
+                        // ຖ້າບໍ່ແມ່ນ JSON ໃຫ້ຊອກຫາໃນ excelRows ຕາມປົກກະຕິ
                         let foundItem = excelRows.find(r => {
                             let codeStr = String(r.code).trim();
                             let cleanCodeNum = codeStr.replace(/\D/g, '').padStart(9, '0').slice(-9);
@@ -1288,82 +1311,91 @@
         }
 
         async function openStockInScanner() {
-            // 🌟 1. ສະແດງ Container ກ້ອງຂຶ້ນມาก່ອນ ເພື່ອໃຫ້ DOM ພ້ອມ 100%
-            let container = document.getElementById('stock-in-scanner-container');
-            container.classList.remove('hidden');
+            document.getElementById('stock-in-scanner-container').classList.remove('hidden');
             await fetchProductsForGenerator();
 
-            // 🌟 2. ຖ້າມີ Instance ເກົ່າຄ້າງຢູ່ ໃຫ້ຢຸດການເຮັດວຽກກ່ອນ
-            if (stockInQrCode) {
-                try {
-                    await stockInQrCode.stop();
-                } catch (e) {}
-                stockInQrCode = null;
+            if (!stockInQrCode) {
+                try { stockInQrCode = new Html5Qrcode("stock-in-reader"); } catch(err) { return; }
             }
+            stockInQrCode.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: 250 },
+                (decodedText) => {
+                    let cleanDecoded = decodedText.trim();
+                    closeStockInScanner();
+                    
+                    // 🌟 ຖ້າສະແກນ QR ທີ່ມີ JSON ມານຳເຂົ້າສິນຄ້າ
+                    try {
+                        let parsedJson = JSON.parse(cleanDecoded);
+                        if (parsedJson && parsedJson.code) {
+                            openStockInModal(parsedJson.code, parsedJson.cost);
+                            return;
+                        }
+                    } catch (e) {}
 
-            try {
-                stockInQrCode = new Html5Qrcode("stock-in-reader");
-                await stockInQrCode.start(
-                    { facingMode: "environment" },
-                    { fps: 10, qrbox: 250 },
-                    (decodedText) => {
-                        let cleanDecoded = decodedText.trim();
-                        
-                        try {
-                            let parsedJson = JSON.parse(cleanDecoded);
-                            if (parsedJson && parsedJson.code) {
-                                processStockInSilent(parsedJson.code, parsedJson.cost);
-                                return;
-                            }
-                        } catch (e) {}
-
-                        processStockInSilent(cleanDecoded);
-                    },
-                    (errorMessage) => {}
-                );
-            } catch (err) {
-                console.error("Scanner start error:", err);
-            }
+                    openStockInModal(cleanDecoded);
+                },
+                (errorMessage) => {}
+            ).catch(err => {});
         }
 
         function closeStockInScanner() {
             if (stockInQrCode) {
                 stockInQrCode.stop().then(() => { 
-                    stockInQrCode = null;
                     document.getElementById('stock-in-scanner-container').classList.add('hidden'); 
-                }).catch(() => {
-                    stockInQrCode = null;
-                    document.getElementById('stock-in-scanner-container').classList.add('hidden');
-                });
+                }).catch(() => {});
             } else { 
                 document.getElementById('stock-in-scanner-container').classList.add('hidden'); 
             }
         }
 
-        async function processStockInSilent(code, defaultCost = null) {
-            let costVal = defaultCost !== null ? parseFloat(defaultCost) : 0;
-            if (costVal <= 0) {
+        let currentStockInCode = "";
+        function openStockInModal(code, defaultCost = null) {
+            currentStockInCode = code;
+            document.getElementById('stock-in-code').innerText = code;
+            
+            if (defaultCost !== null && defaultCost > 0) {
+                document.getElementById('stock-in-cost').value = formatNumberWithCommas(defaultCost);
+            } else {
                 let found = excelRows.find(r => String(r.code).trim().toLowerCase() === code.toLowerCase());
                 if (found) {
-                    costVal = parseFloat(String(found.cost).replace(/,/g, '')) || 0;
+                    document.getElementById('stock-in-cost').value = formatNumberWithCommas(found.cost || 0);
+                } else {
+                    document.getElementById('stock-in-cost').value = "";
                 }
             }
 
+            document.getElementById('stock-in-modal').classList.remove('hidden');
+        }
+
+        function closeStockInModal() {
+            document.getElementById('stock-in-modal').classList.add('hidden');
+        }
+
+        async function confirmStockIn() {
+            let costVal = parseFloat(String(document.getElementById('stock-in-cost').value).replace(/,/g, '')) || 0;
+
+            if (costVal <= 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນລາຄາຊື້ໃຫ້ຖືກຕ້ອງ!", "⚠️");
+                return;
+            }
+
+            let existingIdx = excelRows.findIndex(r => String(r.code).trim().toLowerCase() === currentStockInCode.toLowerCase());
             let today = new Date().toISOString().split('T')[0];
-            let existingIdx = excelRows.findIndex(r => String(r.code).trim().toLowerCase() === code.toLowerCase());
+
             let priceVal = 0;
             let profitPct = 20;
 
             if (existingIdx !== -1) {
                 profitPct = parseFloat(String(excelRows[existingIdx].profitPct).replace(/,/g, '')) || 20;
-                priceVal = costVal > 0 ? costVal + (costVal * profitPct / 100) : (parseFloat(String(excelRows[existingIdx].price).replace(/,/g, '')) || 0);
+                priceVal = costVal + (costVal * profitPct / 100);
                 excelRows[existingIdx].cost = costVal;
                 excelRows[existingIdx].originalCost = costVal;
                 excelRows[existingIdx].price = priceVal;
             } else {
-                priceVal = costVal > 0 ? costVal + (costVal * 20 / 100) : 0;
+                priceVal = costVal + (costVal * 20 / 100);
                 excelRows.push({
-                    code: code,
+                    code: currentStockInCode,
                     cost: costVal,
                     originalCost: costVal,
                     profitPct: 20,
@@ -1379,7 +1411,7 @@
                 try {
                     await supabaseClient.from('products').upsert([{
                         device_id: deviceId,
-                        code: code,
+                        code: currentStockInCode,
                         cost: costVal,
                         original_cost: costVal,
                         profit_pct: profitPct,
@@ -1390,10 +1422,9 @@
                     }], { onConflict: 'device_id,code' });
                 } catch (e) {}
             }
-        }
 
-        function closeStockInModal() {
-            document.getElementById('stock-in-modal').classList.add('hidden');
+            closeStockInModal();
+            showAlert("ສຳເລັດ", `ນຳເຂົ້າສິນຄ້າ [${currentStockInCode}] ຮຽບຮ້ອຍແລ້ວ!`, "📦");
         }
 
         function showConfirmModalParsed(code, name, cost, price) {
@@ -2095,7 +2126,7 @@
                             <input type="text" data-field="price" value="${priceFormatted}" oninput="handleInputLive(${index}, 'price', this.value)" onkeydown="handleExcelCellKeydown(event, ${index}, 'price')" placeholder="0" class="w-full border rounded px-2.5 py-1.5 text-right text-xs outline-none focus:ring-1 focus:ring-blue-500 font-bold text-green-600">
                         </td>
                         <td class="p-2.5 border-r align-middle w-20">
-                            <input type="text" data-field="qty" value="${row.qty !== undefined && row.qty !== null ? row.qty : 1}" oninput="handleInputLive(${index}, 'qty', this.value)" onkeydown="handleExcelCellKeydown(event, ${index}, 'qty')" placeholder="1" class="w-full border rounded px-2.5 py-1.5 text-center text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-gray-700">
+                            <input type="text" data-field="qty" value="${row.qty !== undefined && row.qty !== null ? row.qty : 1}" oninput="handleInputLive(${index}, 'qty', this.value)" onkeydown="handleExcelCellKeydown(event, ${index}, 'qty')" placeholder="1" class="w-full border rounded px-2 py-1.5 text-center text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-gray-700">
                         </td>
                         <td class="p-2.5 border-r text-right align-middle font-bold text-gray-800 text-xs min-w-[120px]">
                             ${totalFormatted}
@@ -2311,7 +2342,7 @@
                     let container = document.getElementById(`qr-svg-${idx}`);
                     if (container && window.QRCode && row.code) {
                         let cost = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
-                        let pct = parseFloat(String(row.profitPct).replace(/,/g, '')) || 0;
+                        let pct = parseFloat(String(row.profitPct).replace(/,/g, '')) || 20;
                         let calculatedPrice = cost > 0 ? cost + (cost * pct / 100) : (parseFloat(String(row.price).replace(/,/g, '')) || 0);
 
                         let qrPayload = JSON.stringify({
