@@ -1587,24 +1587,22 @@
 
             if (supabaseClient) {
                 try {
-                    // 🌟 ຟັງຊັນແກ້ໄຂ: ດຶງປະຫວັດທັງໝົດໃນ Cloud ມາສະແດງທັນທີ ໂດຍບໍ່ກັ່ນກອງ device_id ເມື່ອເປັນ Permanent User
+                    // 🌟 ປັບປຸງ: ດຶງຂໍ້ມູນ sales_history ທັງໝົດຂອງ device_id (deviceId ປັດຈຸບັນ) ມາສະແດງຜົນຢ່າງຖືກຕ້ອງ 100%
                     let { data: cloudSales, error } = await supabaseClient
                         .from('sales_history')
                         .select('*')
+                        .eq('device_id', deviceId)
                         .order('created_at', { ascending: false });
 
                     if (!error && cloudSales) {
                         cloudSales.forEach(tx => {
-                            let matches = currentUsername ? (String(tx.device_id).toUpperCase() === String(deviceId).toUpperCase()) : true;
-                            if (matches || !currentUsername) {
-                                let key = tx.id || tx.created_at;
-                                if (!combinedMap.has(key)) {
-                                    combinedMap.set(key, {
-                                        id: tx.id, source: 'cloud', device_id: tx.device_id, created_at: tx.created_at,
-                                        total_items: tx.total_items || 0, total_cost: tx.total_cost || 0,
-                                        discount: tx.discount || 0, total: tx.total, cash: tx.cash, change: tx.change, items: tx.items || []
-                                    });
-                                }
+                            let key = tx.id || tx.created_at;
+                            if (!combinedMap.has(key)) {
+                                combinedMap.set(key, {
+                                    id: tx.id, source: 'cloud', device_id: tx.device_id, created_at: tx.created_at,
+                                    total_items: tx.total_items || 0, total_cost: tx.total_cost || 0,
+                                    discount: tx.discount || 0, total: tx.total, cash: tx.cash, change: tx.change, items: tx.items || []
+                                });
                             }
                         });
                     }
@@ -1688,18 +1686,15 @@
 
             if (supabaseClient) {
                 try {
-                    let { data: cloudSales } = await supabaseClient.from('sales_history').select('*');
+                    let { data: cloudSales } = await supabaseClient.from('sales_history').select('*').eq('device_id', deviceId);
                     if (cloudSales) {
                         cloudSales.forEach(tx => {
-                            let matches = currentUsername ? (String(tx.device_id).toUpperCase() === String(deviceId).toUpperCase()) : true;
-                            if (matches || !currentUsername) {
-                                if (!allSales.some(s => (s.id === tx.id || s.created_at === tx.created_at))) {
-                                    allSales.push({
-                                        total_cost: tx.total_cost || 0,
-                                        total: tx.total || 0,
-                                        created_at: tx.created_at
-                                    });
-                                }
+                            if (!allSales.some(s => (s.id === tx.id || s.created_at === tx.created_at))) {
+                                allSales.push({
+                                    total_cost: tx.total_cost || 0,
+                                    total: tx.total || 0,
+                                    created_at: tx.created_at
+                                });
                             }
                         });
                     }
@@ -1773,10 +1768,9 @@
         async function fetchProductsForGenerator() {
             if (supabaseClient) {
                 try {
-                    let { data } = await supabaseClient.from('products').select('*');
+                    let { data } = await supabaseClient.from('products').select('*').eq('device_id', deviceId);
                     if (data) {
-                        let myData = data.filter(item => String(item.device_id).toUpperCase() === String(deviceId).toUpperCase());
-                        excelRows = myData.map(item => ({
+                        excelRows = data.map(item => ({
                             code: item.code,
                             cost: item.cost,
                             originalCost: item.original_cost || item.cost,
@@ -2126,7 +2120,7 @@
                             <input type="text" data-field="price" value="${priceFormatted}" oninput="handleInputLive(${index}, 'price', this.value)" onkeydown="handleExcelCellKeydown(event, ${index}, 'price')" placeholder="0" class="w-full border rounded px-2.5 py-1.5 text-right text-xs outline-none focus:ring-1 focus:ring-blue-500 font-bold text-green-600">
                         </td>
                         <td class="p-2.5 border-r align-middle w-20">
-                            <input type="text" data-field="qty" value="${row.qty !== undefined && row.qty !== null ? row.qty : 1}" oninput="handleInputLive(${index}, 'qty', this.value)" onkeydown="handleExcelCellKeydown(event, ${index}, 'qty')" placeholder="1" class="w-full border rounded px-2 py-1.5 text-center text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-gray-700">
+                            <input type="text" data-field="qty" value="${row.qty !== undefined && row.qty !== null ? row.qty : 1}" oninput="handleInputLive(${index}, 'qty', this.value)" onkeydown="handleExcelCellKeydown(event, ${index}, 'qty')" placeholder="1" class="w-full border rounded px-2.5 py-1.5 text-center text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-gray-700">
                         </td>
                         <td class="p-2.5 border-r text-right align-middle font-bold text-gray-800 text-xs min-w-[120px]">
                             ${totalFormatted}
@@ -2344,7 +2338,7 @@
                     let container = document.getElementById(`qr-svg-${idx}`);
                     if (container && window.QRCode && row.code) {
                         let cost = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
-                        let pct = parseFloat(String(row.profitPct).replace(/,/g, '')) || 20;
+                        let pct = parseFloat(String(row.profitPct).replace(/,/g, '')) || 0;
                         let calculatedPrice = cost > 0 ? cost + (cost * pct / 100) : (parseFloat(String(row.price).replace(/,/g, '')) || 0);
 
                         let qrPayload = JSON.stringify({
