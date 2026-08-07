@@ -234,7 +234,7 @@
         </div>
     </div>
 
-    <!-- 🌟 Modal ດັດສະນີເງິນ (ອັບເດດຕາມຄຳສັ່ງ: Rate ວັນນຳເຂົ້າ ແລະ Rate ວັນສົ່ງສິນຄ້າ) -->
+    <!-- 🌟 Modal ດັດສະນີເງິນ (ອັບເດດ: Index = ນຳເຂົ້າ / ສ่งອອກ ແລະ ບັນທຶກ/ປະຕິບັດ) -->
     <div id="currency-index-modal" class="hidden fixed inset-0 bg-black/60 z-[370] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 text-left">
             <div class="flex justify-between items-center border-b pb-3">
@@ -246,7 +246,7 @@
             <p class="text-xs text-gray-600">ກະລຸນາລະບຸວັນທີ ແລະ Rate ຂອງວັນນຳເຂົ້າ ແລະ ວັນສົ່ງສິນຄ້າ ເພື່ອຫາຄ່າດັດສະນີເງິນ:</p>
             
             <div class="space-y-3 bg-gray-50 p-4 rounded-xl border">
-                <!-- 1) Rate ວັນນຳເຂົ້າສິນຄ້າ (ແບ່ງເປັນ 2 ຫ້ອງໃນແຖວດຽວ) -->
+                <!-- 1) Rate ວັນນຳເຂົ້າສິນຄ້າ -->
                 <div>
                     <label class="block text-xs font-bold text-gray-700 mb-1">Rate ວັນນຳເຂົ້າສິນຄ້າ:</label>
                     <div class="grid grid-cols-2 gap-2">
@@ -255,7 +255,7 @@
                     </div>
                 </div>
 
-                <!-- 2) Rate ວັນສົ່ງສິນຄ້າ (ແບ່ງເປັນ 2 ຫ້ອງໃນແຖວດຽວ) -->
+                <!-- 2) Rate ວັນສົ່ງສິນຄ້າ -->
                 <div>
                     <label class="block text-xs font-bold text-gray-700 mb-1">Rate ວັນສົ່ງສິນຄ້າ:</label>
                     <div class="grid grid-cols-2 gap-2">
@@ -266,7 +266,7 @@
 
                 <div class="border-t pt-2 space-y-1">
                     <div class="flex justify-between text-xs font-bold text-gray-700">
-                        <span>ຄ່າດັດສະນີເງິນ (Index = ສส่ง / ນຳເຂົ້າ):</span>
+                        <span>ຄ່າດັດສະນີເງິນ (Index = ນຳເຂົ້າ / ສົ່ງອອກ):</span>
                         <span id="index-result-val" class="text-blue-600 font-mono text-sm">1.000000</span>
                     </div>
                 </div>
@@ -274,7 +274,7 @@
 
             <div class="flex gap-2 pt-2">
                 <button onclick="closeCurrencyIndexModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer text-sm">ຍົກເລີກ</button>
-                <button onclick="applyCurrencyIndexToTable()" class="flex-1 bg-orange-600 hover:bg-orange-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">🚀 ປະຕິບັດ (ຄູນປັບລາຄາ)</button>
+                <button onclick="applyCurrencyIndexToTable()" class="flex-1 bg-orange-600 hover:bg-orange-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">💾 ບັນທຶກ/ປະຕິບັດ (ຄູນປັບລາຄາ)</button>
             </div>
         </div>
     </div>
@@ -952,6 +952,7 @@
                         excelRows = myData.map(item => ({
                             code: item.code,
                             cost: item.cost,
+                            originalCost: item.original_cost || item.cost, // 🌟 ຈຳລາຄາຊື້ຈິງ
                             profitPct: item.profit_pct,
                             price: item.price,
                             qty: item.qty || 1,
@@ -1269,12 +1270,14 @@
                 profitPct = parseFloat(String(excelRows[existingIdx].profitPct).replace(/,/g, '')) || 20;
                 priceVal = costVal + (costVal * profitPct / 100);
                 excelRows[existingIdx].cost = costVal;
+                excelRows[existingIdx].originalCost = costVal; // 🌟 ບັນທຶກລາຄາຊື້ຈິງ
                 excelRows[existingIdx].price = priceVal;
             } else {
                 priceVal = costVal + (costVal * 20 / 100);
                 excelRows.push({
                     code: currentStockInCode,
                     cost: costVal,
+                    originalCost: costVal, // 🌟 ບັນທຶກລາຄາຊື້ຈິງ
                     profitPct: 20,
                     price: priceVal,
                     qty: 1,
@@ -1290,6 +1293,7 @@
                         device_id: deviceId,
                         code: currentStockInCode,
                         cost: costVal,
+                        original_cost: costVal,
                         profit_pct: profitPct,
                         price: priceVal,
                         qty: 1,
@@ -1655,6 +1659,7 @@
                         excelRows = myData.map(item => ({
                             code: item.code,
                             cost: item.cost,
+                            originalCost: item.original_cost || item.cost,
                             profitPct: item.profit_pct,
                             price: item.price,
                             qty: item.qty || 1,
@@ -1677,7 +1682,7 @@
         function addExcelRow(code = '', cost = '', profitPct = 20, price = '', qty = 1, dateAdded = '') {
             syncTableInputsToData();
             let today = new Date().toISOString().split('T')[0];
-            excelRows.push({ code: code, cost: cost, profitPct: profitPct, price: price, qty: qty, dateAdded: dateAdded || today });
+            excelRows.push({ code: code, cost: cost, originalCost: cost || 0, profitPct: profitPct, price: price, qty: qty, dateAdded: dateAdded || today });
             renderExcelTable();
         }
 
@@ -1707,6 +1712,7 @@
                 excelRows[index].code = value;
             } else if (field === 'cost') {
                 excelRows[index].cost = value;
+                excelRows[index].originalCost = value; // ອັບເດດລາຄາຊື້ຕົ້ນສະບັບນຳເມື່ອກອກເອງ
             } else if (field === 'profitPct') {
                 excelRows[index].profitPct = value;
             } else if (field === 'price') {
@@ -1753,7 +1759,11 @@
                     let dateInput = tr.querySelector('input[data-field="dateAdded"]');
 
                     if (codeInput) excelRows[index].code = codeInput.value.trim();
-                    if (costInput) excelRows[index].cost = costInput.value.trim();
+                    if (costInput) {
+                        let cVal = costInput.value.trim();
+                        excelRows[index].cost = cVal;
+                        if (!excelRows[index].originalCost) excelRows[index].originalCost = cVal;
+                    }
                     if (pctInput) excelRows[index].profitPct = pctInput.value.trim();
                     if (priceInput) excelRows[index].price = priceInput.value.trim();
                     if (qtyInput) excelRows[index].qty = qtyInput.value.trim() === '' ? 1 : qtyInput.value.trim();
@@ -1820,14 +1830,17 @@
             showAlert("ສຳເລັດ", "ຄຳນວນລາຄາຂາຍຕາມສູດ ROUNDUP ສຳເລັດ!", "🏷️");
         }
 
-        // 🌟 ຟັງຊັນເປີດ Modal ດັດສະນີເງິນ (ຕັ້ງຄ່າວັນທີເລີ່ມຕົ້ນເປັນມື້ນີ້)
+        // 🌟 ຟັງຊັນເປີດ Modal ດັດສະນີເງິນ (ໂຫຼດຄ່າທີ່ເຄີຍບັນທຶກໄວ້ຫຼ້າສຸດມາສະແດງ)
         function openCurrencyIndexModal() {
             let today = new Date().toISOString().split('T')[0];
-            document.getElementById('date-import').value = today;
-            document.getElementById('date-ship').value = today;
-            document.getElementById('rate-import').value = "";
-            document.getElementById('rate-ship').value = "";
-            document.getElementById('index-result-val').innerText = "1.000000";
+            let savedData = JSON.parse(localStorage.getItem('pos_saved_currency_index') || '{}');
+            
+            document.getElementById('date-import').value = savedData.dateImport || today;
+            document.getElementById('rate-import').value = savedData.rateImport ? formatNumberWithCommas(savedData.rateImport) : "";
+            document.getElementById('date-ship').value = savedData.dateShip || today;
+            document.getElementById('rate-ship').value = savedData.rateShip ? formatNumberWithCommas(savedData.rateShip) : "";
+            
+            calculateCurrencyIndexResult();
             document.getElementById('currency-index-modal').classList.remove('hidden');
         }
 
@@ -1841,14 +1854,14 @@
             let resElem = document.getElementById('index-result-val');
 
             if (imp > 0 && shp > 0) {
-                let indexVal = shp / imp; // Rate ສົ່ງ / Rate ນຳເຂົ້າ
+                let indexVal = shp / imp; // Index = ມື້ສົ່ງ / ມື້ນຳເຂົ້າ
                 resElem.innerText = indexVal.toFixed(6);
             } else {
                 resElem.innerText = "1.000000";
             }
         }
 
-        // 🌟 ປະຕິບັດນຳໃຊ້ຄ່າດັດສະນີເງິນ ໄປຄູນປັບລາຄາຊື້ ແລະ ລາຄາຂາຍໃນຕາຕະລາງທັງໝົດ
+        // 🌟 ບັນທຶກ ແລະ ປະຕິບັດ (ຄູນລາຄາຊື້ຈິງດ້ວຍ Index)
         function applyCurrencyIndexToTable() {
             let imp = parseFloat(String(document.getElementById('rate-import').value).replace(/,/g, '')) || 0;
             let shp = parseFloat(String(document.getElementById('rate-ship').value).replace(/,/g, '')) || 0;
@@ -1861,22 +1874,36 @@
             }
 
             let indexVal = shp / imp;
+
+            // 1) ບັນທຶກຄ່າໜ້ານີ້ໄວ້ໃນ localStorage
+            let currencyData = {
+                dateImport: dateImportVal,
+                rateImport: imp,
+                dateShip: dateShipVal,
+                rateShip: shp,
+                index: indexVal
+            };
+            localStorage.setItem('pos_saved_currency_index', JSON.stringify(currencyData));
+
             syncTableInputsToData();
 
+            // 2) ເອົາ Index ไปคูณกับ ລາຄາຊື້ຕົ້ນສະບັບ (`originalCost`)
             excelRows.forEach(row => {
-                let cost = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
-                let price = parseFloat(String(row.price).replace(/,/g, '')) || 0;
+                if (!row.originalCost && row.cost) {
+                    row.originalCost = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
+                }
+                let baseCost = parseFloat(String(row.originalCost || 0).replace(/,/g, '')) || 0;
 
-                // ຖ້າວັນທີໃນແຖວຕົກກົງກັບວັນນຳເຂົ້າ ຫຼື ຕ້ອງການຄູນປັບທັງໝົດ
-                if (cost > 0) {
-                    let newCost = cost * indexVal;
-                    row.cost = Math.ceil(newCost / 1000) * 1000;
+                if (baseCost > 0) {
+                    let newCost = baseCost * indexVal;
+                    row.cost = Math.ceil(newCost / 1000) * 1000; // ປັດມົນຮອບ 1,000
+
+                    // ຄຳນວນລາຄາຂາຍໃໝ່ຕາມເປີເຊັນ (%)
+                    let pct = parseFloat(String(row.profitPct).replace(/,/g, '')) || 20;
+                    let rawPrice = row.cost * (1 + pct / 100);
+                    row.price = Math.ceil(rawPrice / 1000) * 1000;
                 }
-                if (price > 0) {
-                    let newPrice = price * indexVal;
-                    row.price = Math.ceil(newPrice / 1000) * 1000;
-                }
-                // ອັບເດດວັນທີໃນແຖວໃຫ້ເປັນວັນສົ່ງສິນຄ້າ
+
                 if (dateShipVal) {
                     row.dateAdded = dateShipVal;
                 }
@@ -1884,7 +1911,7 @@
 
             renderExcelTable();
             closeCurrencyIndexModal();
-            showAlert("ສຳເລັດ", `ຄູນປັບລາຄາດ້ວຍດັດສະນີເງິນ (${indexVal.toFixed(6)}) ສຳເລັດຮຽບຮ້ອຍ!`, "💵");
+            showAlert("ສຳເລັດ", `ບັນທຶກ ແລະ ຄູນປັບລາຄາດ້ວຍດັດສະນີເງິນ (${indexVal.toFixed(6)}) ສຳເລັດຮຽບຮ້ອຍ!`, "💾");
         }
 
         function applyMoneyIndex() {
@@ -1920,6 +1947,10 @@
                 let pctVal = parseFloat(String(row.profitPct !== undefined && row.profitPct !== null ? row.profitPct : 20).replace(/,/g, '')) || 20;
                 let qtyVal = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1;
 
+                if (!row.originalCost && costVal > 0) {
+                    row.originalCost = costVal;
+                }
+
                 let costFormatted = costVal > 0 ? formatNumberWithCommas(costVal) : (row.cost !== undefined && row.cost !== '' ? row.cost : '');
                 let priceFormatted = priceVal > 0 ? formatNumberWithCommas(priceVal) : (row.price !== undefined && row.price !== '' ? row.price : '');
                 let totalVal = priceVal * qtyVal;
@@ -1950,7 +1981,7 @@
                             <input type="text" data-field="price" value="${priceFormatted}" oninput="handleInputLive(${index}, 'price', this.value)" onkeydown="handleExcelCellKeydown(event, ${index}, 'price')" placeholder="0" class="w-full border rounded px-2.5 py-1.5 text-right text-xs outline-none focus:ring-1 focus:ring-blue-500 font-bold text-green-600">
                         </td>
                         <td class="p-2.5 border-r align-middle w-20">
-                            <input type="text" data-field="qty" value="${row.qty !== undefined && row.qty !== null ? row.qty : 1}" oninput="handleInputLive(${index}, 'qty', this.value)" onkeydown="handleExcelCellKeydown(event, ${index}, 'qty')" placeholder="1" class="w-full border rounded px-2.5 py-1.5 text-center text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-gray-700">
+                            <input type="text" data-field="qty" value="${row.qty !== undefined && row.qty !== null ? row.qty : 1}" oninput="handleInputLive(${index}, 'qty', this.value)" onkeydown="handleExcelCellKeydown(event, ${index}, 'qty')" placeholder="1" class="w-full border rounded px-2 py-1.5 text-center text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-gray-700">
                         </td>
                         <td class="p-2.5 border-r text-right align-middle font-bold text-gray-800 text-xs min-w-[120px]">
                             ${totalFormatted}
@@ -2032,7 +2063,7 @@
                                     duplicates.push({ code: possibleCode, reason: "ລະຫັດສິນຄ້າຊ້ຳກັນໃນລະບົບ" });
                                 } else {
                                     existingCodes.add(lowerCode);
-                                    newRows.push({ code: possibleCode, cost: cost, profitPct: profitPct, price: price, qty: qty, dateAdded: rowDate });
+                                    newRows.push({ code: possibleCode, cost: cost, originalCost: cost, profitPct: profitPct, price: price, qty: qty, dateAdded: rowDate });
                                 }
                             }
                         }
@@ -2088,6 +2119,7 @@
                             device_id: deviceId,
                             code: row.code,
                             cost: parseFloat(String(row.cost).replace(/,/g, '')) || 0,
+                            original_cost: parseFloat(String(row.originalCost || row.cost).replace(/,/g, '')) || 0,
                             profit_pct: parseFloat(String(row.profitPct).replace(/,/g, '')) || 20,
                             price: parseFloat(String(row.price).replace(/,/g, '')) || 0,
                             qty: parseInt(String(row.qty).replace(/,/g, '')) || 1,
