@@ -845,9 +845,6 @@
         }
 
         function checkRoleAndLicense() {
-            document.getElementById('role-select-modal').classList.remove('hidden');
-            document.getElementById('unified-login-modal').classList.add('hidden');
-
             let userRole = localStorage.getItem('pos_user_role');
             let adminBtn = document.getElementById('admin-manage-btn');
 
@@ -1013,6 +1010,7 @@
                     if (data) {
                         let myData = data.filter(item => String(item.device_id).toUpperCase() === String(deviceId).toUpperCase());
                         excelRows = myData.map(item => ({
+                            id: item.id || ('ROW-' + Math.random().toString(36).substring(2, 6)),
                             code: item.code,
                             cost: item.cost,
                             originalCost: item.original_cost || item.cost,
@@ -1382,46 +1380,39 @@
                 return;
             }
 
-            let existingIdx = excelRows.findIndex(r => String(r.code).trim().toLowerCase() === currentStockInCode.toLowerCase());
             let today = new Date().toISOString().split('T')[0];
+            let rawPrice = costVal + (costVal * 20 / 100);
+            let priceVal = Math.ceil(rawPrice / 1000) * 1000;
+            let newRowId = 'ROW-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
 
-            let priceVal = 0;
-            let profitPct = 20;
-
-            if (existingIdx !== -1) {
-                profitPct = parseFloat(String(excelRows[existingIdx].profitPct).replace(/,/g, '')) || 20;
-                priceVal = costVal + (costVal * profitPct / 100);
-                excelRows[existingIdx].cost = costVal;
-                excelRows[existingIdx].originalCost = costVal;
-                excelRows[existingIdx].price = priceVal;
-            } else {
-                priceVal = costVal + (costVal * 20 / 100);
-                excelRows.push({
-                    code: currentStockInCode,
-                    cost: costVal,
-                    originalCost: costVal,
-                    profitPct: 20,
-                    price: priceVal,
-                    qty: 1,
-                    dateAdded: today
-                });
-            }
+            // 🌟 ເພີ່ມແຖວໃໝ່ສະເໝີ ເພື່ອຮອງຮັບ P001 ທີ່ລາຄາຕ່າງກັນ ໃຫ້ຢູ່ພ້ອມກັນໄດ້ 100%
+            excelRows.push({
+                id: newRowId,
+                code: currentStockInCode,
+                cost: costVal,
+                originalCost: costVal,
+                profitPct: 20,
+                price: priceVal,
+                qty: 1,
+                dateAdded: today
+            });
 
             localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
 
             if (supabaseClient) {
                 try {
-                    await supabaseClient.from('products').upsert([{
+                    await supabaseClient.from('products').insert([{
+                        id: newRowId,
                         device_id: deviceId,
                         code: currentStockInCode,
                         cost: costVal,
                         original_cost: costVal,
-                        profit_pct: profitPct,
+                        profit_pct: 20,
                         price: priceVal,
                         qty: 1,
                         date_added: today,
                         updated_at: new Date().toISOString()
-                    }], { onConflict: 'device_id,code' });
+                    }]);
                 } catch (e) {}
             }
 
@@ -1789,6 +1780,7 @@
                     if (data && data.length > 0) {
                         let myData = data.filter(item => String(item.device_id).toUpperCase() === String(deviceId).toUpperCase());
                         excelRows = myData.map(item => ({
+                            id: item.id || ('ROW-' + Math.random().toString(36).substring(2, 6)),
                             code: item.code,
                             cost: item.cost,
                             originalCost: item.original_cost || item.cost,
@@ -1814,7 +1806,8 @@
         function addExcelRow(code = '', cost = '', profitPct = 20, price = '', qty = 1, dateAdded = '') {
             syncTableInputsToData();
             let today = new Date().toISOString().split('T')[0];
-            excelRows.push({ code: code, cost: cost, originalCost: cost || 0, profitPct: profitPct, price: price, qty: qty, dateAdded: dateAdded || today });
+            let newId = 'ROW-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
+            excelRows.push({ id: newId, code: code, cost: cost, originalCost: cost || 0, profitPct: profitPct, price: price, qty: qty, dateAdded: dateAdded || today });
             renderExcelTable();
         }
 
@@ -1883,6 +1876,9 @@
             let rowsInput = document.querySelectorAll('#excel-tbody tr');
             rowsInput.forEach((tr, index) => {
                 if (excelRows[index]) {
+                    if (!excelRows[index].id) {
+                        excelRows[index].id = 'ROW-' + Date.now() + '-' + index;
+                    }
                     let codeInput = tr.querySelector('input[data-field="code"]');
                     let costInput = tr.querySelector('input[data-field="cost"]');
                     let pctInput = tr.querySelector('input[data-field="profitPct"]');
@@ -2159,12 +2155,6 @@
                     let json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
                     
                     let newRows = [];
-                    let duplicates = [];
-                    let existingCodes = new Set();
-
-                    excelRows.forEach(r => {
-                        if (r.code && String(r.code).trim()) existingCodes.add(String(r.code).trim().toLowerCase());
-                    });
 
                     let headerRowIndex = -1;
                     for (let i = 0; i < json.length; i++) {
@@ -2203,32 +2193,19 @@
                                 let price = row[priceIdx] !== undefined ? row[priceIdx] : 0;
                                 let qty = row[qtyIdx] !== undefined ? row[qtyIdx] : 1;
                                 let rowDate = row[dateIdx] ? String(row[dateIdx]).trim() : today;
+                                let uniqueId = 'ROW-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
 
-                                let lowerCode = possibleCode.toLowerCase();
-                                if (existingCodes.has(lowerCode)) {
-                                    duplicates.push({ code: possibleCode, reason: "ລະຫັດສິນຄ້າຊ້ຳກັນໃນລະບົບ" });
-                                } else {
-                                    existingCodes.add(lowerCode);
-                                    newRows.push({ code: possibleCode, cost: cost, originalCost: cost, profitPct: profitPct, price: price, qty: qty, dateAdded: rowDate });
-                                }
+                                newRows.push({ id: uniqueId, code: possibleCode, cost: cost, originalCost: cost, profitPct: profitPct, price: price, qty: qty, dateAdded: rowDate });
                             }
                         }
-                    }
-
-                    if (duplicates.length > 0) {
-                        duplicateRemovedList.push(...duplicates);
-                        updateDuplicateReportButton();
-                        showAlert("ແຈ້ງເຕືອນຊ້ຳກັນ", `⚠️ ພົບລະຫັດສິນຄ້າຊ້ຳກັນ ${duplicates.length} ລາຍການ ແລະ ຖືກຕັດອອກອັດຕະໂນມັດ!`, "⚠️");
                     }
 
                     if (newRows.length > 0) {
                         excelRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
                         excelRows.push(...newRows);
                         renderExcelTable();
-                        if (duplicates.length === 0) {
-                            showAlert("ສຳເລັດ", `ນຳເຂົ້າຂໍ້ມູນ Excel ສຳເລັດ ${newRows.length} ລາຍການ!`, "📁");
-                        }
-                    } else if (duplicates.length === 0) {
+                        showAlert("ສຳເລັດ", `ນຳເຂົ້າຂໍ້ມູນ Excel ສຳເລັດ ${newRows.length} ລາຍການ!`, "📁");
+                    } else {
                         showAlert("ແຈ້ງເຕືອນ", "ບໍ່ພົບຂໍ້ມູນສິນຄ້າໃນໄຟລ໌ Excel", "⚠️");
                     }
                 } catch (err) {
@@ -2251,10 +2228,10 @@
 
             if (supabaseClient) {
                 try {
-                    let { data: existingCloudData } = await supabaseClient.from('products').select('id, code').eq('device_id', deviceId);
+                    let { data: existingCloudData } = await supabaseClient.from('products').select('id').eq('device_id', deviceId);
                     if (existingCloudData) {
-                        let currentCodes = new Set(validRows.map(r => r.code));
-                        let toDeleteIds = existingCloudData.filter(item => !currentCodes.has(item.code)).map(item => item.id);
+                        let currentIds = new Set(validRows.map(r => r.id));
+                        let toDeleteIds = existingCloudData.filter(item => !currentIds.has(item.id)).map(item => item.id);
                         if (toDeleteIds.length > 0) {
                             await supabaseClient.from('products').delete().in('id', toDeleteIds);
                         }
@@ -2262,6 +2239,7 @@
 
                     if (validRows.length > 0) {
                         let payload = validRows.map(row => ({
+                            id: row.id,
                             device_id: deviceId,
                             code: row.code,
                             cost: parseFloat(String(row.cost).replace(/,/g, '')) || 0,
@@ -2272,7 +2250,7 @@
                             date_added: row.dateAdded || new Date().toISOString().split('T')[0],
                             updated_at: new Date().toISOString()
                         }));
-                        await supabaseClient.from('products').upsert(payload, { onConflict: 'device_id,code' });
+                        await supabaseClient.from('products').upsert(payload, { onConflict: 'id' });
                     } else {
                         await supabaseClient.from('products').delete().eq('device_id', deviceId);
                     }
@@ -2302,11 +2280,7 @@
             rowsToRender.forEach((row, idx) => {
                 let safeCode = row.code ? String(row.code).replace(/"/g, '&quot;') : '';
                 
-                let cost = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
-                let pct = parseFloat(String(row.profitPct).replace(/,/g, '')) || 20;
-                let calculatedPrice = cost > 0 ? cost + (cost * pct / 100) : (parseFloat(String(row.price).replace(/,/g, '')) || 0);
-                
-                let priceNum = calculatedPrice > 0 ? calculatedPrice : (parseFloat(String(row.price).replace(/,/g, '')) || 0);
+                let priceNum = parseFloat(String(row.price).replace(/,/g, '')) || 0;
                 let priceStr = formatNumberWithCommas(priceNum) + " ກີບ";
 
                 html += `
@@ -2342,8 +2316,14 @@
                 } else {
                     let container = document.getElementById(`qr-svg-${idx}`);
                     if (container && window.QRCode && row.code) {
-                        // 🌟 ປັບປຸງຈຸດນີ້: ໃຫ້ QR Code ສ້າງຈາກລະຫັດສິນຄ້າ (code) ໂດຍກົງ ເພື່ອໃຫ້ເວລາສະແກນອອກມາຕົງກັບຕາຕະລາງ 100%
-                        let qrPayload = String(row.code).trim();
+                        let cost = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
+                        let finalPrice = parseFloat(String(row.price).replace(/,/g, '')) || 0;
+
+                        let qrPayload = JSON.stringify({
+                            code: row.code,
+                            cost: cost,
+                            price: finalPrice
+                        });
 
                         await new Promise((resolve) => {
                             QRCode.toString(qrPayload, { type: 'svg', width: 120, margin: 1 }, function (err, svgString) {
