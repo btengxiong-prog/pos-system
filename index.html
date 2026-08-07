@@ -1390,14 +1390,12 @@
 
             if (existingIdx !== -1) {
                 profitPct = parseFloat(String(excelRows[existingIdx].profitPct).replace(/,/g, '')) || 20;
-                let rawPrice = costVal + (costVal * profitPct / 100);
-                priceVal = Math.ceil(rawPrice / 1000) * 1000;
+                priceVal = costVal + (costVal * profitPct / 100);
                 excelRows[existingIdx].cost = costVal;
                 excelRows[existingIdx].originalCost = costVal;
                 excelRows[existingIdx].price = priceVal;
             } else {
-                let rawPrice = costVal + (costVal * 20 / 100);
-                priceVal = Math.ceil(rawPrice / 1000) * 1000;
+                priceVal = costVal + (costVal * 20 / 100);
                 excelRows.push({
                     code: currentStockInCode,
                     cost: costVal,
@@ -2304,8 +2302,11 @@
             rowsToRender.forEach((row, idx) => {
                 let safeCode = row.code ? String(row.code).replace(/"/g, '&quot;') : '';
                 
-                // 🌟 ດຶງລາຄາຂາຍຕົວຈິງ (`price`) ທີ່ ROUNDUP ແລ້ວໃນຕາຕະລາງມາສະແດງຜົນ
-                let priceNum = parseFloat(String(row.price).replace(/,/g, '')) || 0;
+                let cost = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
+                let pct = parseFloat(String(row.profitPct).replace(/,/g, '')) || 20;
+                let calculatedPrice = cost > 0 ? cost + (cost * pct / 100) : (parseFloat(String(row.price).replace(/,/g, '')) || 0);
+                
+                let priceNum = calculatedPrice > 0 ? calculatedPrice : (parseFloat(String(row.price).replace(/,/g, '')) || 0);
                 let priceStr = formatNumberWithCommas(priceNum) + " ກີບ";
 
                 html += `
@@ -2341,15 +2342,8 @@
                 } else {
                     let container = document.getElementById(`qr-svg-${idx}`);
                     if (container && window.QRCode && row.code) {
-                        // 🌟 ປັບປຸງຈຸດນີ້: ຝັງລາຄາຂາຍທີ່ ROUNDUP ແລ້ວລົງໃນ QR Payload ຮ່ວມກັບ Code ເພື່ອໃຫ້ເວລາສະແກນແລ້ວລາຄາຖືກຕ້ອງກົງກັນ 100%
-                        let cost = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
-                        let finalPrice = parseFloat(String(row.price).replace(/,/g, '')) || 0;
-
-                        let qrPayload = JSON.stringify({
-                            code: row.code,
-                            cost: cost,
-                            price: finalPrice
-                        });
+                        // 🌟 ປັບປຸງຈຸດນີ້: ໃຫ້ QR Code ສ້າງຈາກລະຫັດສິນຄ້າ (code) ໂດຍກົງ ເພື່ອໃຫ້ເວລາສະແກນອອກມາຕົງກັບຕາຕະລາງ 100%
+                        let qrPayload = String(row.code).trim();
 
                         await new Promise((resolve) => {
                             QRCode.toString(qrPayload, { type: 'svg', width: 120, margin: 1 }, function (err, svgString) {
