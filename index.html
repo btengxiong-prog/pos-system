@@ -129,7 +129,7 @@
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
             <div class="text-4xl">🆔</div>
             <h3 class="text-lg font-bold text-gray-800">ລະຫັດ ID ເຄື່ອງຂອງທ່ານ</h3>
-            <p class="text-xs text-gray-600">ແຈ້ງລະຫັດ ID ນີ້ໃຫ້ Admin ເພື່ອສ້າງ Username ຖາວອນ</p>
+            <p class="text-xs text-gray-600">ແຈ້ງລະຫັດ ID ນี้ໃຫ້ Admin ເພື່ອສ້າງ Username ຖາວອນ</p>
             <div class="bg-gray-50 p-3 rounded-xl border">
                 <p id="my-device-id-text" class="font-mono font-bold text-blue-600 text-sm break-all"></p>
             </div>
@@ -318,6 +318,9 @@
         </div>
     </div>
 
+    <!-- Toast Notification Container for Continuous Scan -->
+    <div id="toast-container" class="fixed top-5 right-5 z-[500] space-y-2 pointer-events-none"></div>
+
     <!-- Header -->
     <header class="bg-[#1e3a8a] text-white py-5 shadow-lg">
         <div class="container mx-auto px-4 text-center">
@@ -423,7 +426,7 @@
         <!-- Stock-In Scanner Modal -->
         <div id="stock-in-scanner-container" class="hidden mb-6 bg-white p-4 rounded-xl shadow border">
             <div class="flex justify-between items-center mb-2">
-                <h3 class="font-bold text-lg text-pink-700">📷 ກຳລັງສະແກນ QR / ບາໂຄດ (ນຳເຂົ້າສິນຄ້າ)</h3>
+                <h3 class="font-bold text-lg text-pink-700">📷 ສະແກນນຳເຂົ້າສິນຄ້າ (ສະແກນຕໍ່ເນື່ອງໄດ້ເລື້ອຍໆ)</h3>
                 <span class="text-xs bg-pink-100 text-pink-700 px-2 py-1 rounded font-semibold">ກຳລັງເປີດກ້ອງ...</span>
             </div>
             <div id="stock-in-reader" class="w-full max-w-md mx-auto"></div>
@@ -806,8 +809,8 @@
             input.value = Number(val).toLocaleString('en-US');
         }
 
+        let deviceId = localStorage.getItem('pos_device_id');
         let currentUsername = localStorage.getItem('pos_current_username') || null;
-        let deviceId = currentUsername || localStorage.getItem('pos_device_id');
 
         async function initDeviceId() {
             if (currentUsername) {
@@ -906,12 +909,19 @@
                     let { data } = await supabaseClient.from('licenses').select('*').eq('device_id', formattedU).single();
                     let validData = data || { device_id: formattedU, status: 'permanent' };
 
+                    let oldDeviceId = deviceId;
                     currentUsername = validData.device_id;
                     deviceId = validData.device_id;
                     localStorage.setItem('pos_current_username', currentUsername);
                     localStorage.setItem('pos_device_id', deviceId);
                     localStorage.setItem('pos_license_status', validData.status);
                     localStorage.removeItem('pos_user_role');
+
+                    if (oldDeviceId && oldDeviceId !== validData.device_id) {
+                        let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+                        localHistory.forEach(tx => { tx.device_id = validData.device_id; });
+                        localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
+                    }
 
                     document.getElementById('unified-login-modal').classList.add('hidden');
                     document.getElementById('role-select-modal').classList.add('hidden');
@@ -920,7 +930,6 @@
                     document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ສະມາຊິກ [${currentUsername}]`;
                     
                     setupRealtimeSync(); 
-                    await fetchProductsForGenerator();
                 } catch (e) {
                     currentUsername = formattedU;
                     deviceId = formattedU;
@@ -1003,9 +1012,25 @@
             supabaseClient
                 .channel('pos_global_master_channel')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, async () => {
-                    await fetchProductsForGenerator();
+                    let { data } = await supabaseClient.from('products').select('*');
+                    if (data) {
+                        let myData = data.filter(item => String(item.device_id).toUpperCase() === String(deviceId).toUpperCase());
+                        excelRows = myData.map(item => ({
+                            code: item.code,
+                            cost: item.cost,
+                            originalCost: item.original_cost || item.cost,
+                            profitPct: item.profit_pct,
+                            price: item.price,
+                            qty: item.qty || 1,
+                            dateAdded: item.date_added || item.updated_at ? new Date(item.date_added || item.updated_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+                        }));
+                        localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
+                        if (!document.getElementById('excel-generator-modal').classList.contains('hidden')) {
+                            renderExcelTable();
+                        }
+                    }
                 })
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'sales_history' }, () => {
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sales_history' }, () => {
                     if (!document.getElementById('history-modal').classList.contains('hidden')) {
                         loadCloudHistory();
                     }
@@ -1118,7 +1143,7 @@
         }
 
         async function adminDeleteAccount(targetId) {
-            showCustomConfirm("ຢືນຢັນການລຶບ", `ທ່ານຕ້ອງການລຶບບັນຊີ [${targetId}] ນີ້ອອກຈາກລະບົບແທ້ບໍ? ເຄື່ອງນີ້ຈະບໍ່ສາມາດນຳໃຊ້ໄດ້ອີກຕໍ່ໄປ!`, async (confirmed) => {
+            showCustomConfirm("ຢືນຢັນການລຶບ", `ທ່ານຕ້ອງການລຶບບັນຊີ [${targetId}] ນี้ອອກຈາກລະບົບແທ້ບໍ? ເຄື່ອງນີ້ຈະບໍ່ສາມາດນຳໃຊ້ໄດ້ອີກຕໍ່ໄປ!`, async (confirmed) => {
                 if (!confirmed) return;
                 if (!supabaseClient) return;
 
@@ -1154,7 +1179,6 @@
         window.addEventListener('DOMContentLoaded', async () => {
             await initDeviceId();
             checkRoleAndLicense();
-            await fetchProductsForGenerator();
         });
 
         let cart = [];
@@ -1177,6 +1201,40 @@
 
         function closeCustomAlert() {
             document.getElementById('custom-alert-modal').classList.add('hidden');
+        }
+
+        // 🌟 Toast Notification ຟັງຊັນສຳລັບແຈ້ງເຕືອນແບບບໍ່ຂັດຈັງຫວະການສະແກນ
+        function showToast(message, icon = "📦") {
+            let container = document.getElementById('toast-container');
+            let toast = document.createElement('div');
+            toast.className = "bg-gray-900 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 pointer-events-auto transform transition-all duration-300 translate-y-2 opacity-0 text-sm font-semibold border border-gray-700";
+            toast.innerHTML = `<span class="text-xl">${icon}</span> <span>${message}</span>`;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-2', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 2500);
+        }
+
+        // 🌟 ສຽງປີບອັດຕະໂນມັດເວລາສະແກນສິນຄ້າສຳເລັດ
+        function playBeepSound() {
+            try {
+                let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                osc.type = "sine";
+                osc.frequency.value = 880;
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.15);
+            } catch (e) {}
         }
 
         async function promptDeleteHistory(index) {
@@ -1220,7 +1278,6 @@
             });
         }
 
-        // 🌟 ຮັບຟັງ Event ຄລິກທົ່ວໜ້າຈໍໃນຄອມພີວເຕີ ເພື່ອປິດເມນູເມື່ອກົດນອກກອບ 100%
         window.addEventListener('click', function(e) {
             if (!e.target.closest('.relative')) {
                 closeAllCustomDropdowns();
@@ -1288,77 +1345,78 @@
         }
 
         async function openStockInScanner() {
-            // 🌟 1. ສະແດງ Container ໃຫ້ກ້ອງພ້ອມໃຊ້ງານ 100% ກ່ອນສັ່ງ Start
-            let container = document.getElementById('stock-in-scanner-container');
-            container.classList.remove('hidden');
+            document.getElementById('stock-in-scanner-container').classList.remove('hidden');
             await fetchProductsForGenerator();
 
-            if (stockInQrCode) {
-                try { await stockInQrCode.stop(); } catch(e) {}
-                stockInQrCode = null;
+            if (!stockInQrCode) {
+                try { stockInQrCode = new Html5Qrcode("stock-in-reader"); } catch(err) { return; }
             }
+            stockInQrCode.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: 250 },
+                (decodedText) => {
+                    let currentTime = new Date().getTime();
+                    // 🌟 ປ້ອງກັນການສະແກນຊ້ຳໃນເວລາໃກ້ຄຽງກັນເກີນໄປ (ภายใน 2 ວິນາທີ)
+                    if (decodedText === lastScannedCode && (currentTime - lastScanTime < 2000)) return;
+                    lastScannedCode = decodedText;
+                    lastScanTime = currentTime;
 
-            try {
-                stockInQrCode = new Html5Qrcode("stock-in-reader");
-                await stockInQrCode.start(
-                    { facingMode: "environment" },
-                    { fps: 15, qrbox: { width: 250, height: 250 } },
-                    (decodedText) => {
-                        let cleanDecoded = decodedText.trim();
-                        
-                        try {
-                            let parsedJson = JSON.parse(cleanDecoded);
-                            if (parsedJson && parsedJson.code) {
-                                processStockInSilent(parsedJson.code, parsedJson.cost);
-                                return;
-                            }
-                        } catch (e) {}
+                    let cleanDecoded = decodedText.trim();
+                    let parsedCost = 0;
+                    let targetCode = cleanDecoded;
 
-                        processStockInSilent(cleanDecoded);
-                    },
-                    (errorMessage) => {}
-                );
-            } catch (err) {
-                console.error("Stock-In Scanner error:", err);
-            }
+                    try {
+                        let parsedJson = JSON.parse(cleanDecoded);
+                        if (parsedJson && parsedJson.code) {
+                            targetCode = parsedJson.code;
+                            parsedCost = parseFloat(parsedJson.cost) || 0;
+                        }
+                    } catch (e) {}
+
+                    // 🌟 ດຳເນີນການນຳເຂົ້າສິນຄ້າອັດຕະໂນມັດທັນທີ ໂດຍບໍ່ເປີດ Modal ຂັດຈັງຫວະ
+                    processQuickStockIn(targetCode, parsedCost);
+                },
+                (errorMessage) => {}
+            ).catch(err => {});
         }
 
         function closeStockInScanner() {
             if (stockInQrCode) {
                 stockInQrCode.stop().then(() => { 
-                    stockInQrCode = null;
                     document.getElementById('stock-in-scanner-container').classList.add('hidden'); 
-                }).catch(() => {
-                    stockInQrCode = null;
-                    document.getElementById('stock-in-scanner-container').classList.add('hidden');
-                });
+                }).catch(() => {});
             } else { 
                 document.getElementById('stock-in-scanner-container').classList.add('hidden'); 
             }
         }
 
-        async function processStockInSilent(code, defaultCost = null) {
-            let costVal = defaultCost !== null ? parseFloat(defaultCost) : 0;
+        // 🌟 ຟັງຊັນນຳເຂົ້າສິນຄ້າແບບວ່ອງໄວ (Continuous Quick Stock-In)
+        async function processQuickStockIn(code, defaultCost = 0) {
+            playBeepSound();
+
+            let existingIdx = excelRows.findIndex(r => String(r.code).trim().toLowerCase() === code.toLowerCase());
+            let today = new Date().toISOString().split('T')[0];
+
+            let costVal = defaultCost;
+            let profitPct = 20;
+
             if (costVal <= 0) {
-                let found = excelRows.find(r => String(r.code).trim().toLowerCase() === code.toLowerCase());
-                if (found) {
-                    costVal = parseFloat(String(found.cost).replace(/,/g, '')) || 0;
+                if (existingIdx !== -1) {
+                    costVal = parseFloat(String(excelRows[existingIdx].cost).replace(/,/g, '')) || 0;
+                    profitPct = parseFloat(String(excelRows[existingIdx].profitPct).replace(/,/g, '')) || 20;
+                } else {
+                    costVal = 0; // ຖ້າບໍ່ມີລາຄາເດີມ ໃຫ້ເປັນ 0 ຫຼື 1
                 }
             }
 
-            let today = new Date().toISOString().split('T')[0];
-            let existingIdx = excelRows.findIndex(r => String(r.code).trim().toLowerCase() === code.toLowerCase());
-            let priceVal = 0;
-            let profitPct = 20;
+            let priceVal = costVal + (costVal * profitPct / 100);
 
             if (existingIdx !== -1) {
-                profitPct = parseFloat(String(excelRows[existingIdx].profitPct).replace(/,/g, '')) || 20;
-                priceVal = costVal > 0 ? costVal + (costVal * profitPct / 100) : (parseFloat(String(excelRows[existingIdx].price).replace(/,/g, '')) || 0);
                 excelRows[existingIdx].cost = costVal;
                 excelRows[existingIdx].originalCost = costVal;
                 excelRows[existingIdx].price = priceVal;
+                excelRows[existingIdx].qty = (parseInt(excelRows[existingIdx].qty) || 1) + 1;
             } else {
-                priceVal = costVal > 0 ? costVal + (costVal * 20 / 100) : 0;
                 excelRows.push({
                     code: code,
                     cost: costVal,
@@ -1374,6 +1432,7 @@
 
             if (supabaseClient) {
                 try {
+                    let targetQty = existingIdx !== -1 ? excelRows[existingIdx].qty : 1;
                     await supabaseClient.from('products').upsert([{
                         device_id: deviceId,
                         code: code,
@@ -1381,17 +1440,22 @@
                         original_cost: costVal,
                         profit_pct: profitPct,
                         price: priceVal,
-                        qty: 1,
+                        qty: targetQty,
                         date_added: today,
                         updated_at: new Date().toISOString()
                     }], { onConflict: 'device_id,code' });
                 } catch (e) {}
             }
+
+            showToast(`ນຳເຂົ້າສິນຄ້າ [${code}] ສຳເລັດ!`, "📦");
         }
 
-        function closeStockInModal() {
-            document.getElementById('stock-in-modal').classList.add('hidden');
+        function openStockInModal(code, defaultCost = null) {
+            processQuickStockIn(code, defaultCost);
         }
+
+        function closeStockInModal() {}
+        function confirmStockIn() {}
 
         function showConfirmModalParsed(code, name, cost, price) {
             tempScannedCode = code;
@@ -2092,7 +2156,7 @@
                             <input type="text" data-field="price" value="${priceFormatted}" oninput="handleInputLive(${index}, 'price', this.value)" onkeydown="handleExcelCellKeydown(event, ${index}, 'price')" placeholder="0" class="w-full border rounded px-2.5 py-1.5 text-right text-xs outline-none focus:ring-1 focus:ring-blue-500 font-bold text-green-600">
                         </td>
                         <td class="p-2.5 border-r align-middle w-20">
-                            <input type="text" data-field="qty" value="${row.qty !== undefined && row.qty !== null ? row.qty : 1}" oninput="handleInputLive(${index}, 'qty', this.value)" onkeydown="handleExcelCellKeydown(event, ${index}, 'qty')" placeholder="1" class="w-full border rounded px-2.5 py-1.5 text-center text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-gray-700">
+                            <input type="text" data-field="qty" value="${row.qty !== undefined && row.qty !== null ? row.qty : 1}" oninput="handleInputLive(${index}, 'qty', this.value)" onkeydown="handleExcelCellKeydown(event, ${index}, 'qty')" placeholder="1" class="w-full border rounded px-2 py-1.5 text-center text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-gray-700">
                         </td>
                         <td class="p-2.5 border-r text-right align-middle font-bold text-gray-800 text-xs min-w-[120px]">
                             ${totalFormatted}
@@ -2308,7 +2372,7 @@
                     let container = document.getElementById(`qr-svg-${idx}`);
                     if (container && window.QRCode && row.code) {
                         let cost = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
-                        let pct = parseFloat(String(row.profitPct).replace(/,/g, '')) || 0;
+                        let pct = parseFloat(String(row.profitPct).replace(/,/g, '')) || 20;
                         let calculatedPrice = cost > 0 ? cost + (cost * pct / 100) : (parseFloat(String(row.price).replace(/,/g, '')) || 0);
 
                         let qrPayload = JSON.stringify({
