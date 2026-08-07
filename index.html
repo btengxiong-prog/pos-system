@@ -26,10 +26,11 @@
                 visibility: hidden !important;
             }
             #excel-generator-modal, #excel-generator-modal *,
-            #stock-in-modal, #stock-in-modal * {
+            #stock-in-modal, #stock-in-modal *,
+            #currency-index-modal, #currency-index-modal * {
                 visibility: visible !important;
             }
-            #excel-generator-modal, #stock-in-modal {
+            #excel-generator-modal, #stock-in-modal, #currency-index-modal {
                 position: absolute !important;
                 left: 0 !important;
                 top: 0 !important;
@@ -229,6 +230,41 @@
             <div class="flex gap-2 pt-2">
                 <button onclick="closeUpdatePctModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer text-sm">ຍົກເລີກ</button>
                 <button onclick="confirmUpdateGlobalPct()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">ຕົກລົງ / ຢືນຢັນ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🌟 Modal ສຳລັບคำນວນດັດສະນີເງິນ (ສົມທຽບອັດຕາແລກປ່ຽນລາຍວັນ) -->
+    <div id="currency-index-modal" class="hidden fixed inset-0 bg-black/60 z-[370] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 text-left">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-lg font-bold text-orange-600 flex items-center gap-2">
+                    <span>💵 ຄຳນວນດັດສະນີເງິນ (ກີບ/ໄທ)</span>
+                </h3>
+                <button onclick="closeCurrencyIndexModal()" class="text-gray-500 hover:text-gray-700 font-bold text-lg cursor-pointer">✕</button>
+            </div>
+            <p class="text-xs text-gray-600">ປ້ອນອັດຕາແລກປ່ຽນ 1 ບາດໄທ ຂອງ 2 ວັນ ເພື່ອຫາຄ່າດັດສະນີເງິນມາຄູນປັບລາຄາສິນຄ້າ:</p>
+            
+            <div class="space-y-3 bg-gray-50 p-4 rounded-xl border">
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">ອັດຕາແລກປ່ຽນ ວັນກ່ອນ (ມື້ວານ):</label>
+                    <input type="text" id="rate-prev" oninput="formatInputMoney(this); calculateCurrencyIndexResult();" placeholder="ຕົວຢ່າງ: 688.55" class="w-full border rounded-lg px-3 py-2 text-right font-semibold outline-none bg-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">ອັດຕາແລກປ່ຽນ ວັນປະຈຸບັນ (ມື້ນີ້):</label>
+                    <input type="text" id="rate-curr" oninput="formatInputMoney(this); calculateCurrencyIndexResult();" placeholder="ຕົວຢ່າງ: 688.86" class="w-full border rounded-lg px-3 py-2 text-right font-semibold outline-none bg-white">
+                </div>
+                <div class="border-t pt-2 space-y-1">
+                    <div class="flex justify-between text-xs font-bold text-gray-700">
+                        <span>ຄ່າດັດສະນີເງິນ (Index):</span>
+                        <span id="index-result-val" class="text-blue-600 font-mono text-sm">1.000000</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex gap-2 pt-2">
+                <button onclick="closeCurrencyIndexModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer text-sm">ຍົກເລີກ</button>
+                <button onclick="applyCurrencyIndexToTable()" class="flex-1 bg-orange-600 hover:bg-orange-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">🚀 ປະຕິບັດ (ຄູນປັບລາຄາ)</button>
             </div>
         </div>
     </div>
@@ -577,7 +613,7 @@
                         + ເພີ່ມແຖວ
                     </button>
                     
-                    <!-- 🌟 ດ໋ອບດາວ "ຄຳນວນ/ອັບ (%)" -->
+                    <!-- ດ໋ອບດາວ "ຄຳນວນ/ອັບ (%)" -->
                     <select id="calc-pct-dropdown" onchange="handleCalcPctDropdown(this)" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow outline-none transition">
                         <option value="" disabled selected>📊 ຄຳນວນ/ອັບ (%)</option>
                         <option value="calc">🧮 ຄຳນວນເປີເຊັນ</option>
@@ -587,7 +623,8 @@
                     <button onclick="calculateSalePrices()" class="bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow flex items-center gap-1 transition">
                         🏷️ ຄຳນວນລາຄາຂາຍ
                     </button>
-                    <button onclick="applyMoneyIndex()" class="bg-orange-600 hover:bg-orange-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow flex items-center gap-1 transition">
+                    <!-- 🌟 ປຸ່ມ "ດັດສະນີເງິນ" ເປີດ Modal ໃໝ່ -->
+                    <button onclick="openCurrencyIndexModal()" class="bg-orange-600 hover:bg-orange-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow flex items-center gap-1 transition">
                         💵 ດັດສະນີເງິນ
                     </button>
                 </div>
@@ -1744,7 +1781,7 @@
             showAlert("ສຳເລັດ", `ອັບເດດເປີເຊັນ (%) ເປັນ ${val}% ທຸກລາຍການແລ້ວ!`, "📊");
         }
 
-        // 🌟 ຟັງຊັນ "ຄຳນວນເປີເຊັນ" (ໃຊ້ Math.round ເພື່ອກວດສອບຄວາມກົງກັນ ປ້ອງກັນບໍ່ໃຫ້ອອກສີແດງແບບຜິດພາດ)
+        // 🌟 ຟັງຊັນ "ຄຳນວນເປີເຊັນ" (ໃຊ້ ROUND/Math.round ທຽບລາຄາຊື້ ແລະ ລາຄາຂາຍ)
         function calculatePercentage() {
             syncTableInputsToData();
             excelRows.forEach(row => {
@@ -1772,6 +1809,63 @@
             });
             renderExcelTable();
             showAlert("ສຳເລັດ", "ຄຳນວນລາຄາຂາຍຕາມສູດ ROUNDUP ສຳເລັດ!", "🏷️");
+        }
+
+        // 🌟 ຟັງຊັນເປີດ Modal ດັດສະນີເງິນ
+        function openCurrencyIndexModal() {
+            document.getElementById('rate-prev').value = "";
+            document.getElementById('rate-curr').value = "";
+            document.getElementById('index-result-val').innerText = "1.000000";
+            document.getElementById('currency-index-modal').classList.remove('hidden');
+        }
+
+        function closeCurrencyIndexModal() {
+            document.getElementById('currency-index-modal').classList.add('hidden');
+        }
+
+        function calculateCurrencyIndexResult() {
+            let prev = parseFloat(String(document.getElementById('rate-prev').value).replace(/,/g, '')) || 0;
+            let curr = parseFloat(String(rateCurr = document.getElementById('rate-curr').value).replace(/,/g, '')) || 0;
+            let resElem = document.getElementById('index-result-val');
+
+            if (prev > 0 && curr > 0) {
+                let indexVal = curr / prev;
+                resElem.innerText = indexVal.toFixed(6);
+            } else {
+                resElem.innerText = "1.000000";
+            }
+        }
+
+        // 🌟 ປະຕິບັດນຳໃຊ້ຄ່າດັດສະນີເງິນ ໄປຄູນປັບລາຄາຊື້ ແລະ ລາຄາຂາຍໃນຕາຕະລາງທັງໝົດ
+        function applyCurrencyIndexToTable() {
+            let prev = parseFloat(String(document.getElementById('rate-prev').value).replace(/,/g, '')) || 0;
+            let curr = parseFloat(String(document.getElementById('rate-curr').value).replace(/,/g, '')) || 0;
+
+            if (prev <= 0 || curr <= 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນອັດຕາແລກປ່ຽນທັງ 2 ວັນໃຫ້ຖືກຕ້ອງ!", "⚠️");
+                return;
+            }
+
+            let indexVal = curr / prev;
+            syncTableInputsToData();
+
+            excelRows.forEach(row => {
+                let cost = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
+                let price = parseFloat(String(row.price).replace(/,/g, '')) || 0;
+
+                if (cost > 0) {
+                    let newCost = cost * indexVal;
+                    row.cost = Math.ceil(newCost / 1000) * 1000; // ປັດມົນຮອບ 1,000
+                }
+                if (price > 0) {
+                    let newPrice = price * indexVal;
+                    row.price = Math.ceil(newPrice / 1000) * 1000; // ປັດມົນຮອບ 1,000
+                }
+            });
+
+            renderExcelTable();
+            closeCurrencyIndexModal();
+            showAlert("ສຳເລັດ", `ຄູນປັບລາຄາດ້ວຍດັດສະນີເງິນ (${indexVal.toFixed(6)}) ສຳເລັດຮຽບຮ້ອຍ!`, "💵");
         }
 
         function applyMoneyIndex() {
@@ -1813,7 +1907,6 @@
                 let totalFormatted = totalVal > 0 ? formatNumberWithCommas(totalVal) : '0';
                 let rowDate = row.dateAdded || today;
 
-                // 🌟 ໃຊ້ Math.round ເພື່ອກວດສອບຄວາມສອດຄ້ອງ (ຖ້າປັດມົນແລ້ວບໍ່ກົງກັນ ໃຫ້ Cell ເປີເຊັນເປັນສີແດງ ຕົວໜັງສືສີຂາວ)
                 let exactPct = costVal > 0 ? ((priceVal - costVal) / costVal) * 100 : 0;
                 let roundedExactPct = Math.round(exactPct);
                 let isMismatch = (costVal > 0 && priceVal > 0 && Math.abs(roundedExactPct - pctVal) > 0);
@@ -1838,7 +1931,7 @@
                             <input type="text" data-field="price" value="${priceFormatted}" oninput="handleInputLive(${index}, 'price', this.value)" onkeydown="handleExcelCellKeydown(event, ${index}, 'price')" placeholder="0" class="w-full border rounded px-2.5 py-1.5 text-right text-xs outline-none focus:ring-1 focus:ring-blue-500 font-bold text-green-600">
                         </td>
                         <td class="p-2.5 border-r align-middle w-20">
-                            <input type="text" data-field="qty" value="${row.qty !== undefined && row.qty !== null ? row.qty : 1}" oninput="handleInputLive(${index}, 'qty', this.value)" onkeydown="handleExcelCellKeydown(event, ${index}, 'qty')" placeholder="1" class="w-full border rounded px-2 py-1.5 text-center text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-gray-700">
+                            <input type="text" data-field="qty" value="${row.qty !== undefined && row.qty !== null ? row.qty : 1}" oninput="handleInputLive(${index}, 'qty', this.value)" onkeydown="handleExcelCellKeydown(event, ${index}, 'qty')" placeholder="1" class="w-full border rounded px-2.5 py-1.5 text-center text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-gray-700">
                         </td>
                         <td class="p-2.5 border-r text-right align-middle font-bold text-gray-800 text-xs min-w-[120px]">
                             ${totalFormatted}
