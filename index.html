@@ -328,7 +328,7 @@
             <button onclick="closeStockInScanner()" class="mt-3 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded w-full font-bold cursor-pointer">ປິດກ້ອງ</button>
         </div>
 
-        <!-- Confirmation & Price Input Popup (ສຳລັບຂາຍ - ດຶງລາຄາຂາຍຕົວຈິງຈາກ QR Code ມາສະແດງໂດຍກົງ 100%) -->
+        <!-- Confirmation & Price Input Popup -->
         <div id="confirm-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
                 <div class="text-3xl text-center">📦</div>
@@ -355,7 +355,7 @@
             </div>
         </div>
 
-        <!-- Stock-In Input Modal (ໜ້າຕ່າງນຳເຂົ້າສິນຄ້າ - ບໍ່ມີຊ່ອງປ້ອນລາຄາຂາຍ ຕາມຮູບທີ 3) -->
+        <!-- Stock-In Input Modal -->
         <div id="stock-in-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
                 <div class="text-3xl text-center">📥</div>
@@ -453,7 +453,7 @@
                 <button onclick="loadCloudHistory()" class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded cursor-pointer">🔄 ໂຫຼດໃໝ່</button>
             </h3>
             <div id="history-list" class="space-y-3 text-sm text-gray-600">
-                <p class="text-center py-4">ກຳລັງໂຫຼດຂໍ້ມູນ...</p>
+                <p class="text-center py-4">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>
             </div>
             <div id="history-summary" class="mt-4 pt-3 border-t-2 border-dashed border-gray-300 bg-blue-50 p-3 rounded-xl space-y-1.5 hidden">
                 <div class="flex justify-between text-xs font-semibold text-gray-700">
@@ -894,7 +894,6 @@
             setupRealtimeSync();
         }
 
-        // 🌟 Realtime Sync ສຳລັບໂຄດຫຼັກ (Global Sync 100%)
         function setupRealtimeSync() {
             if (!supabaseClient) return;
 
@@ -1071,7 +1070,7 @@
 
         let cart = [];
         let html5QrCode = null;
-        let stockInQrCode = null; 
+        let stockInQrCode = null;
         let tempScannedCode = "";
         let lastScannedCode = "";
         let lastScanTime = 0;
@@ -1090,18 +1089,10 @@
             document.getElementById('custom-alert-modal').classList.add('hidden');
         }
 
-        let deleteTargetIndex = null;
-        function promptDeleteHistory(index) {
-            deleteTargetIndex = index;
-            document.getElementById('custom-confirm-delete-modal').classList.remove('hidden');
-        }
-
-        async function closeConfirmDelete(confirmed) {
-            document.getElementById('custom-confirm-delete-modal').classList.add('hidden');
-            if (!confirmed || deleteTargetIndex === null) { deleteTargetIndex = null; return; }
-
-            let targetItem = globalHistoryList[deleteTargetIndex];
-            if (!targetItem) { deleteTargetIndex = null; return; }
+        // 🌟 ຕັດຂັ້ນຕອນປັ໊ບອັບຢືນຢັນອອກ (ລຶບທັນທີ)
+        async function promptDeleteHistory(index) {
+            let targetItem = globalHistoryList[index];
+            if (!targetItem) return;
 
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
             localHistory = localHistory.filter(tx => (tx.id !== targetItem.id && tx.created_at !== targetItem.createdAt));
@@ -1111,12 +1102,14 @@
                 try { await supabaseClient.from('sales_history').delete().eq('id', targetItem.id); } catch (e) {}
             }
 
-            showAlert("ສຳເລັດ", "ລຶບປະຫວັດສຳເລັດ", "✅");
             loadCloudHistory();
-            deleteTargetIndex = null;
         }
 
-        // 🌟 ຟັງຊັນສະແກນຂາຍສິນຄ້າ: ດຶງລາຄາຊື້ ແລະ ລາຄາຂາຍຕົວຈິງ (`row.price`) ມາສະແດງຜົນຢ່າງຖືກຕ້ອງ 100%
+        async function closeConfirmDelete(confirmed) {
+            document.getElementById('custom-confirm-delete-modal').classList.add('hidden');
+        }
+
+        // 🌟 ຟັງຊັນສະແກນຂາຍສິນຄ້າ
         async function openScanner() {
             document.getElementById('scanner-container').classList.remove('hidden');
             await fetchProductsForGenerator();
@@ -1156,23 +1149,9 @@
                     if (foundItem) {
                         scannedCode = foundItem.code;
                         scannedCost = parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0;
-                        // 🌟 ດຶງລາຄາຂາຍຕົວຈິງ (`row.price`) ທີ່ຖືກບັນທຶກໄວ້ໃນຕາຕະລາງ QR Code ມາໃຊ້ໂດຍກົງ 100%
+                        // 🌟 ດຶງລາຄາຂາຍຕົວຈິງ (`row.price`) ມາສະແດງ
                         scannedPrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
-                        if (scannedPrice <= 0 && scannedCost > 0) {
-                            let pct = parseFloat(String(foundItem.profitPct).replace(/,/g, '')) || 20;
-                            scannedPrice = scannedCost + (scannedCost * pct / 100);
-                        }
                         scannedName = foundItem.code;
-                    } else {
-                        try {
-                            let parsed = JSON.parse(decodedText);
-                            if (parsed && parsed.code) {
-                                scannedCode = parsed.code;
-                                scannedCost = parsed.cost || 0;
-                                scannedPrice = parsed.price || 0;
-                                scannedName = parsed.code;
-                            }
-                        } catch (e) {}
                     }
 
                     showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
@@ -1181,7 +1160,6 @@
             ).catch(err => {});
         }
 
-        // 🌟 ຟັງຊັນສຳລັບປຸ່ມ "ນຳເຂົ້າສິນຄ້າ"
         async function openStockInScanner() {
             document.getElementById('stock-in-scanner-container').classList.remove('hidden');
             await fetchProductsForGenerator();
@@ -1230,7 +1208,6 @@
             document.getElementById('stock-in-modal').classList.add('hidden');
         }
 
-        // 🌟 ຢືນຢັນການນຳເຂົ້າສິນຄ້າ (ມີແຕ່ລາຄາຊື້ ໂດຍຄຳນວນລາຄາຂາຍອັດຕະໂນມັດ 20% ຫຼື ໃຊ້ລາຄາເກົ່າ)
         async function confirmStockIn() {
             let costVal = parseFloat(String(document.getElementById('stock-in-cost').value).replace(/,/g, '')) || 0;
 
@@ -1281,10 +1258,6 @@
 
             closeStockInModal();
             showAlert("ສຳເລັດ", `ນຳເຂົ້າສິນຄ້າ [${currentStockInCode}] ຮຽບຮ້ອຍແລ້ວ!`, "📦");
-        }
-
-        function showConfirmModal(text) {
-            showConfirmModalParsed(text, text, "", "");
         }
 
         function showConfirmModalParsed(code, name, cost, price) {
@@ -1966,7 +1939,7 @@
                 </div>`;
             });
             listContainer.innerHTML = html || '<p class="text-center text-gray-400 py-2">ບໍ່ມີລາຍການຖືກຕັດ</p>';
-            document.getElementById('duplicate-report-modal').classList.add('hidden');
+            document.getElementById('duplicate-report-modal').classList.remove('hidden');
         }
 
         function closeDuplicateReportModal() {
