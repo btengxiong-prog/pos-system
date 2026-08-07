@@ -331,7 +331,7 @@
             
             <div class="mt-4 grid grid-cols-2 sm:flex sm:flex-wrap justify-center gap-2 sm:gap-3 items-center max-w-4xl mx-auto">
                 
-                <!-- Custom Dropdown: ນຳເຂົ້າ/ສົ່ງອອກສິນຄ້າ -->
+                <!-- 1) Custom Dropdown: ນຳເຂົ້າ/ສົ່ງອອກສິນຄ້າ -->
                 <div class="relative inline-block text-left w-full sm:w-auto">
                     <button type="button" onclick="toggleCustomDropdown('import-export-menu', event)" class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                         📦 ນຳເຂົ້າ/ສົ່ງອອກສິນຄ້າ <span class="text-xs">▼</span>
@@ -346,7 +346,7 @@
                     </div>
                 </div>
 
-                <!-- Custom Dropdown: 📊 ປະຫວັດ ແລະ ID ເຄື່ອງ -->
+                <!-- 2) Custom Dropdown: 📊 ປະຫວັດ ແລະ ID ເຄື່ອງ -->
                 <div class="relative inline-block text-left w-full sm:w-auto">
                     <button type="button" onclick="toggleCustomDropdown('history-id-menu', event)" class="w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                         📊 ປະຫວັດ ແລະ ID ເຄື່ອງ <span class="text-xs">▼</span>
@@ -1270,25 +1270,38 @@
                     let scannedName = decodedText;
 
                     let cleanDecoded = decodedText.trim();
-                    let foundItem = excelRows.find(r => {
-                        let codeStr = String(r.code).trim();
-                        let cleanCodeNum = codeStr.replace(/\D/g, '').padStart(9, '0').slice(-9);
-                        let barcode13 = "888" + cleanCodeNum;
-                        let rawWithout888 = cleanDecoded.startsWith('888') ? cleanDecoded.slice(3).replace(/^0+/, '') : cleanDecoded;
-                        let rawCodeClean = codeStr.replace(/^0+/, '');
 
-                        return codeStr.toLowerCase() === cleanDecoded.toLowerCase() || 
-                               barcode13 === cleanDecoded || 
-                               rawWithout888 === rawCodeClean ||
-                               cleanDecoded.includes(codeStr) ||
-                               codeStr.toLowerCase().includes(rawWithout888.toLowerCase());
-                    });
+                    // 🌟 ຟັງຊັນແກ້ໄຂ: ຖ້າສະແກນ QR Code ມາເປັນ JSON (ມີ code, cost, price) ໃຫ້ແຍກອອກມາຢ່າງຖືກຕ້ອງ 100%
+                    try {
+                        let parsedJson = JSON.parse(cleanDecoded);
+                        if (parsedJson && parsedJson.code) {
+                            scannedCode = parsedJson.code;
+                            scannedCost = parseFloat(parsedJson.cost) || 0;
+                            scannedPrice = parseFloat(parsedJson.price) || 0;
+                            scannedName = parsedJson.code;
+                        }
+                    } catch (e) {
+                        // ຖ້າບໍ່ແມ່ນ JSON ໃຫ້ຊອກຫາໃນ excelRows ຕາມປົກກະຕິ
+                        let foundItem = excelRows.find(r => {
+                            let codeStr = String(r.code).trim();
+                            let cleanCodeNum = codeStr.replace(/\D/g, '').padStart(9, '0').slice(-9);
+                            let barcode13 = "888" + cleanCodeNum;
+                            let rawWithout888 = cleanDecoded.startsWith('888') ? cleanDecoded.slice(3).replace(/^0+/, '') : cleanDecoded;
+                            let rawCodeClean = codeStr.replace(/^0+/, '');
 
-                    if (foundItem) {
-                        scannedCode = foundItem.code;
-                        scannedCost = parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0;
-                        scannedPrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
-                        scannedName = foundItem.code;
+                            return codeStr.toLowerCase() === cleanDecoded.toLowerCase() || 
+                                   barcode13 === cleanDecoded || 
+                                   rawWithout888 === rawCodeClean ||
+                                   cleanDecoded.includes(codeStr) ||
+                                   codeStr.toLowerCase().includes(rawWithout888.toLowerCase());
+                        });
+
+                        if (foundItem) {
+                            scannedCode = foundItem.code;
+                            scannedCost = parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0;
+                            scannedPrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
+                            scannedName = foundItem.code;
+                        }
                     }
 
                     showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
@@ -1310,6 +1323,16 @@
                 (decodedText) => {
                     let cleanDecoded = decodedText.trim();
                     closeStockInScanner();
+                    
+                    // 🌟 ຖ້າສະແກນ QR ທີ່ມີ JSON ມານຳເຂົ້າສິນຄ້າ
+                    try {
+                        let parsedJson = JSON.parse(cleanDecoded);
+                        if (parsedJson && parsedJson.code) {
+                            openStockInModal(parsedJson.code, parsedJson.cost);
+                            return;
+                        }
+                    } catch (e) {}
+
                     openStockInModal(cleanDecoded);
                 },
                 (errorMessage) => {}
@@ -1327,15 +1350,19 @@
         }
 
         let currentStockInCode = "";
-        function openStockInModal(code) {
+        function openStockInModal(code, defaultCost = null) {
             currentStockInCode = code;
             document.getElementById('stock-in-code').innerText = code;
             
-            let found = excelRows.find(r => String(r.code).trim().toLowerCase() === code.toLowerCase());
-            if (found) {
-                document.getElementById('stock-in-cost').value = formatNumberWithCommas(found.cost || 0);
+            if (defaultCost !== null && defaultCost > 0) {
+                document.getElementById('stock-in-cost').value = formatNumberWithCommas(defaultCost);
             } else {
-                document.getElementById('stock-in-cost').value = "";
+                let found = excelRows.find(r => String(r.code).trim().toLowerCase() === code.toLowerCase());
+                if (found) {
+                    document.getElementById('stock-in-cost').value = formatNumberWithCommas(found.cost || 0);
+                } else {
+                    document.getElementById('stock-in-cost').value = "";
+                }
             }
 
             document.getElementById('stock-in-modal').classList.remove('hidden');
