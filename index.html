@@ -1294,17 +1294,16 @@
                 { fps: 10, qrbox: 250 },
                 (decodedText) => {
                     let cleanDecoded = decodedText.trim();
-                    closeStockInScanner();
                     
                     try {
                         let parsedJson = JSON.parse(cleanDecoded);
                         if (parsedJson && parsedJson.code) {
-                            openStockInModal(parsedJson.code, parsedJson.cost);
+                            processStockInSilent(parsedJson.code, parsedJson.cost);
                             return;
                         }
                     } catch (e) {}
 
-                    openStockInModal(cleanDecoded);
+                    processStockInSilent(cleanDecoded);
                 },
                 (errorMessage) => {}
             ).catch(err => {});
@@ -1320,53 +1319,30 @@
             }
         }
 
-        let currentStockInCode = "";
-        function openStockInModal(code, defaultCost = null) {
-            currentStockInCode = code;
-            document.getElementById('stock-in-code').innerText = code;
-            
-            if (defaultCost !== null && defaultCost > 0) {
-                document.getElementById('stock-in-cost').value = formatNumberWithCommas(defaultCost);
-            } else {
+        async function processStockInSilent(code, defaultCost = null) {
+            let costVal = defaultCost !== null ? parseFloat(defaultCost) : 0;
+            if (costVal <= 0) {
                 let found = excelRows.find(r => String(r.code).trim().toLowerCase() === code.toLowerCase());
                 if (found) {
-                    document.getElementById('stock-in-cost').value = formatNumberWithCommas(found.cost || 0);
-                } else {
-                    document.getElementById('stock-in-cost').value = "";
+                    costVal = parseFloat(String(found.cost).replace(/,/g, '')) || 0;
                 }
             }
 
-            document.getElementById('stock-in-modal').classList.remove('hidden');
-        }
-
-        function closeStockInModal() {
-            document.getElementById('stock-in-modal').classList.add('hidden');
-        }
-
-        async function confirmStockIn() {
-            let costVal = parseFloat(String(document.getElementById('stock-in-cost').value).replace(/,/g, '')) || 0;
-
-            if (costVal <= 0) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນລາຄາຊື້ໃຫ້ຖືກຕ້ອງ!", "⚠️");
-                return;
-            }
-
-            let existingIdx = excelRows.findIndex(r => String(r.code).trim().toLowerCase() === currentStockInCode.toLowerCase());
             let today = new Date().toISOString().split('T')[0];
-
+            let existingIdx = excelRows.findIndex(r => String(r.code).trim().toLowerCase() === code.toLowerCase());
             let priceVal = 0;
             let profitPct = 20;
 
             if (existingIdx !== -1) {
                 profitPct = parseFloat(String(excelRows[existingIdx].profitPct).replace(/,/g, '')) || 20;
-                priceVal = costVal + (costVal * profitPct / 100);
+                priceVal = costVal > 0 ? costVal + (costVal * profitPct / 100) : (parseFloat(String(excelRows[existingIdx].price).replace(/,/g, '')) || 0);
                 excelRows[existingIdx].cost = costVal;
                 excelRows[existingIdx].originalCost = costVal;
                 excelRows[existingIdx].price = priceVal;
             } else {
-                priceVal = costVal + (costVal * 20 / 100);
+                priceVal = costVal > 0 ? costVal + (costVal * 20 / 100) : 0;
                 excelRows.push({
-                    code: currentStockInCode,
+                    code: code,
                     cost: costVal,
                     originalCost: costVal,
                     profitPct: 20,
@@ -1380,7 +1356,7 @@
                 try {
                     await supabaseClient.from('products').upsert([{
                         device_id: deviceId,
-                        code: currentStockInCode,
+                        code: code,
                         cost: costVal,
                         original_cost: costVal,
                         profit_pct: profitPct,
@@ -1391,9 +1367,10 @@
                     }], { onConflict: 'device_id,code' });
                 } catch (e) {}
             }
+        }
 
-            closeStockInModal();
-            showAlert("ສຳເລັດ", `ນຳເຂົ້າສິນຄ້າ [${currentStockInCode}] ຮຽບຮ້ອຍແລ້ວ!`, "📦");
+        function closeStockInModal() {
+            document.getElementById('stock-in-modal').classList.add('hidden');
         }
 
         function showConfirmModalParsed(code, name, cost, price) {
@@ -2339,6 +2316,7 @@
             });
 
             selectElem.innerHTML = html;
+            document.getElementById('print-date-modal').classList.add('hidden'); // placeholder fixed
             document.getElementById('print-date-modal').classList.remove('hidden');
         }
 
