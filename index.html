@@ -408,7 +408,8 @@
             </div>
             <div class="flex justify-between items-center text-gray-700 border-t pt-2">
                 <span class="font-medium text-red-600">ລາຄາຂາຍຕົວຈິງ (ພິມແກ້ໄຂໄດ້):</span>
-                <input type="number" id="custom-final-price" oninput="calculateChange()" onkeydown="handleCustomPriceKeydown(event)" placeholder="ປ້ອນລາຄາຂາຍຕົວຈິງ" class="border rounded-lg px-3 py-1.5 text-right w-52 focus:ring-2 focus:ring-red-500 outline-none font-bold text-red-600 bg-white">
+                <!-- 🌟 ປັບປຸງເປັນ type="text" ແລະ ເພີ່ມ oninput="formatInputMoney(this)" -->
+                <input type="text" id="custom-final-price" oninput="formatInputMoney(this); calculateChange();" onkeydown="handleCustomPriceKeydown(event)" placeholder="ປ້ອນລາຄາຂາຍຕົວຈິງ" class="border rounded-lg px-3 py-1.5 text-right w-52 focus:ring-2 focus:ring-red-500 outline-none font-bold text-red-600 bg-white">
             </div>
             <div class="flex justify-between items-center text-lg font-bold text-gray-800 border-t pt-2">
                 <span>ລາຄາຂາຍຕົວຈິງ (ສະແດງຜົນ):</span>
@@ -420,7 +421,8 @@
             </div>
             <div class="flex justify-between items-center text-gray-700 border-t pt-2">
                 <span class="font-medium">ເງິນລູກຄ້າຈ່າຍ (ຖ້າມີທອນ):</span>
-                <input type="number" id="cash-given" oninput="calculateChange()" onkeydown="handleCashKeydown(event)" placeholder="ບໍ່ຈຳເປັນຕ້ອງປ້ອນ ຖ້າຈ່າຍພໍດີ" class="border rounded-lg px-3 py-1.5 text-right w-52 focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                <!-- 🌟 ປັບປຸງເປັນ type="text" ແລະ ເພີ່ມ oninput="formatInputMoney(this)" -->
+                <input type="text" id="cash-given" oninput="formatInputMoney(this); calculateChange();" onkeydown="handleCashKeydown(event)" placeholder="ບໍ່ຈຳເປັນຕ້ອງປ້ອນ ຖ້າຈ່າຍພໍດີ" class="border rounded-lg px-3 py-1.5 text-right w-52 focus:ring-2 focus:ring-blue-500 outline-none bg-white">
             </div>
             <div class="flex justify-between items-center text-lg font-bold text-gray-800 border-t pt-2">
                 <span>ເງິນທອນ:</span>
@@ -678,6 +680,16 @@
         function formatNumberWithCommas(num) {
             if (num === "" || num === null || isNaN(num)) return "";
             return Number(num).toLocaleString('en-US');
+        }
+
+        // 🌟 ຟັງຊັນຈັດູບແບບຕົວເລກເວລາພິມໃນ Input ໃຫ້ສະແດງເຄື່ອງໝາຍຈຸດອັດຕະໂນມັດ
+        function formatInputMoney(input) {
+            let val = input.value.replace(/,/g, '');
+            if (val === "" || isNaN(val)) {
+                input.value = "";
+                return;
+            }
+            input.value = Number(val).toLocaleString('en-US');
         }
 
         let deviceId = localStorage.getItem('pos_device_id');
@@ -1213,7 +1225,8 @@
             let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
             let grandTotalCost = cart.reduce((sum, item) => sum + ((item.cost || 0) * item.qty), 0);
             
-            let customPriceVal = document.getElementById('custom-final-price').value;
+            // 🌟 ປັບປຸງການອ່ານຄ່າຈາກ Input ໂດຍການຕັດເຄື່ອງໝາຍຈຸດອອກກ່ອນຄຳນວນ
+            let customPriceVal = document.getElementById('custom-final-price').value.replace(/,/g, '');
             let finalTotal = customPriceVal !== "" ? (parseFloat(customPriceVal) || 0) : grandTotal;
             if (finalTotal < 0) finalTotal = 0;
 
@@ -1222,7 +1235,7 @@
             document.getElementById('final-total').innerText = formatNumberWithCommas(finalTotal) + " ກີບ";
             document.getElementById('grand-total-profit').innerText = formatNumberWithCommas(grandTotalProfit) + " ກີບ";
 
-            let cashInput = document.getElementById('cash-given').value, changeElem = document.getElementById('change-amount');
+            let cashInput = document.getElementById('cash-given').value.replace(/,/g, ''), changeElem = document.getElementById('change-amount');
             if (!cashInput) { changeElem.innerText = "0 ກີບ (ຈ່າຍພໍດີ)"; return; }
             let cashGiven = parseFloat(cashInput) || 0, change = cashGiven - finalTotal;
             changeElem.innerText = change >= 0 ? formatNumberWithCommas(change) + " ກີບ" : "ເງິນຍັງບໍ່ພໍ";
@@ -1247,12 +1260,14 @@
             let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
             let totalCost = cart.reduce((sum, item) => sum + ((item.cost || 0) * item.qty), 0);
             
-            let customPriceVal = document.getElementById('custom-final-price').value;
+            // 🌟 ປັບປຸງການອ່ານຄ່າຕັດເຄື່ອງໝາຍຈຸດອອກ
+            let customPriceVal = document.getElementById('custom-final-price').value.replace(/,/g, '');
             let finalTotal = customPriceVal !== "" ? (parseFloat(customPriceVal) || 0) : grandTotal;
             let discount = grandTotal - finalTotal;
             if (discount < 0) discount = 0;
 
-            let cashGiven = document.getElementById('cash-given').value ? (parseFloat(document.getElementById('cash-given').value) || 0) : finalTotal;
+            let cashGivenInput = document.getElementById('cash-given').value.replace(/,/g, '');
+            let cashGiven = cashGivenInput ? (parseFloat(cashGivenInput) || 0) : finalTotal;
 
             let txData = {
                 id: 'TX-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
@@ -1377,7 +1392,7 @@
         function openHistory() { document.getElementById('history-modal').classList.remove('hidden'); loadCloudHistory(); }
         function closeHistory() { document.getElementById('history-modal').classList.add('hidden'); }
         
-        // 🌟 ລະບົບລາຍງານຍອດຂາຍ (ທີ່ເພີ່ມເຂົ້າມາແກ້ໄຂບັນຫາ 0 ກີບ)
+        // ລະບົບລາຍງານຍອດຂາຍ
         function toggleReportFilter() {
             let reportType = document.getElementById('report-type').value;
             document.getElementById('filter-monthly').classList.add('hidden');
