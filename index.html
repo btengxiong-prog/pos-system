@@ -906,19 +906,12 @@
                     let { data } = await supabaseClient.from('licenses').select('*').eq('device_id', formattedU).single();
                     let validData = data || { device_id: formattedU, status: 'permanent' };
 
-                    let oldDeviceId = deviceId;
                     currentUsername = validData.device_id;
                     deviceId = validData.device_id;
                     localStorage.setItem('pos_current_username', currentUsername);
                     localStorage.setItem('pos_device_id', deviceId);
                     localStorage.setItem('pos_license_status', validData.status);
                     localStorage.removeItem('pos_user_role');
-
-                    if (oldDeviceId && oldDeviceId !== validData.device_id) {
-                        let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-                        localHistory.forEach(tx => { tx.device_id = validData.device_id; });
-                        localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
-                    }
 
                     document.getElementById('unified-login-modal').classList.add('hidden');
                     document.getElementById('role-select-modal').classList.add('hidden');
@@ -1009,27 +1002,9 @@
             supabaseClient
                 .channel('pos_global_master_channel')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, async () => {
-                    let { data } = await supabaseClient.from('products').select('*');
-                    if (data) {
-                        let myData = data.filter(item => String(item.device_id).toUpperCase() === String(deviceId).toUpperCase());
-                        excelRows = myData.map(item => ({
-                            code: item.code,
-                            cost: item.cost,
-                            originalCost: item.original_cost || item.cost,
-                            profitPct: item.profit_pct,
-                            price: item.price,
-                            qty: item.qty || 1,
-                            dateAdded: item.date_added || item.updated_at ? new Date(item.date_added || item.updated_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
-                        }));
-                        if (!currentUsername) {
-                            localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
-                        }
-                        if (!document.getElementById('excel-generator-modal').classList.contains('hidden')) {
-                            renderExcelTable();
-                        }
-                    }
+                    await fetchProductsForGenerator();
                 })
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sales_history' }, () => {
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'sales_history' }, () => {
                     if (!document.getElementById('history-modal').classList.contains('hidden')) {
                         loadCloudHistory();
                     }
@@ -1178,6 +1153,7 @@
         window.addEventListener('DOMContentLoaded', async () => {
             await initDeviceId();
             checkRoleAndLicense();
+            await fetchProductsForGenerator();
         });
 
         let cart = [];
@@ -1611,6 +1587,7 @@
 
             if (supabaseClient) {
                 try {
+                    // 🌟 ຟັງຊັນແກ້ໄຂ: ດຶງປະຫວັດທັງໝົດໃນ Cloud ມາສະແດງທັນທີ ໂດຍບໍ່ກັ່ນກອງ device_id ເມື່ອເປັນ Permanent User
                     let { data: cloudSales, error } = await supabaseClient
                         .from('sales_history')
                         .select('*')
@@ -1618,7 +1595,8 @@
 
                     if (!error && cloudSales) {
                         cloudSales.forEach(tx => {
-                            if (tx.device_id && String(tx.device_id).toUpperCase() === String(deviceId).toUpperCase()) {
+                            let matches = currentUsername ? (String(tx.device_id).toUpperCase() === String(deviceId).toUpperCase()) : true;
+                            if (matches || !currentUsername) {
                                 let key = tx.id || tx.created_at;
                                 if (!combinedMap.has(key)) {
                                     combinedMap.set(key, {
@@ -1713,7 +1691,8 @@
                     let { data: cloudSales } = await supabaseClient.from('sales_history').select('*');
                     if (cloudSales) {
                         cloudSales.forEach(tx => {
-                            if (tx.device_id && String(tx.device_id).toUpperCase() === String(deviceId).toUpperCase()) {
+                            let matches = currentUsername ? (String(tx.device_id).toUpperCase() === String(deviceId).toUpperCase()) : true;
+                            if (matches || !currentUsername) {
                                 if (!allSales.some(s => (s.id === tx.id || s.created_at === tx.created_at))) {
                                     allSales.push({
                                         total_cost: tx.total_cost || 0,
@@ -1795,7 +1774,7 @@
             if (supabaseClient) {
                 try {
                     let { data } = await supabaseClient.from('products').select('*');
-                    if (data && data.length > 0) {
+                    if (data) {
                         let myData = data.filter(item => String(item.device_id).toUpperCase() === String(deviceId).toUpperCase());
                         excelRows = myData.map(item => ({
                             code: item.code,
@@ -1808,6 +1787,9 @@
                         }));
                         if (!currentUsername) {
                             localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
+                        }
+                        if (!document.getElementById('excel-generator-modal').classList.contains('hidden')) {
+                            renderExcelTable();
                         }
                         return;
                     }
