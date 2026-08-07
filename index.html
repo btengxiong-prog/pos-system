@@ -1155,7 +1155,6 @@
             await initDeviceId();
             checkRoleAndLicense();
             await fetchProductsForGenerator();
-            await loadCloudHistory(); // 🌟 ໂຫຼດປະຫວັດລ່ວງໜ້າທັນທີເມື່ອເປີດໜ້າຈໍ
         });
 
         let cart = [];
@@ -1184,9 +1183,14 @@
             let targetItem = globalHistoryList[index];
             if (!targetItem) return;
 
-            if (targetItem.id && supabaseClient) {
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            localHistory = localHistory.filter(tx => (tx.id !== targetItem.id && tx.created_at !== targetItem.createdAt));
+            localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
+
+            if (targetItem.source === 'cloud' && targetItem.id && supabaseClient) {
                 try { await supabaseClient.from('sales_history').delete().eq('id', targetItem.id); } catch (e) {}
             }
+
             loadCloudHistory();
         }
 
@@ -1284,37 +1288,53 @@
         }
 
         async function openStockInScanner() {
-            document.getElementById('stock-in-scanner-container').classList.remove('hidden');
+            // 🌟 1. ສະແດງ Container ກ້ອງຂຶ້ນມาก່ອນ ເພື່ອໃຫ້ DOM ພ້ອມ 100%
+            let container = document.getElementById('stock-in-scanner-container');
+            container.classList.remove('hidden');
             await fetchProductsForGenerator();
 
-            if (!stockInQrCode) {
-                try { stockInQrCode = new Html5Qrcode("stock-in-reader"); } catch(err) { return; }
+            // 🌟 2. ຖ້າມີ Instance ເກົ່າຄ້າງຢູ່ ໃຫ້ຢຸດການເຮັດວຽກກ່ອນ
+            if (stockInQrCode) {
+                try {
+                    await stockInQrCode.stop();
+                } catch (e) {}
+                stockInQrCode = null;
             }
-            stockInQrCode.start(
-                { facingMode: "environment" },
-                { fps: 10, qrbox: 250 },
-                (decodedText) => {
-                    let cleanDecoded = decodedText.trim();
-                    
-                    try {
-                        let parsedJson = JSON.parse(cleanDecoded);
-                        if (parsedJson && parsedJson.code) {
-                            processStockInSilent(parsedJson.code, parsedJson.cost);
-                            return;
-                        }
-                    } catch (e) {}
 
-                    processStockInSilent(cleanDecoded);
-                },
-                (errorMessage) => {}
-            ).catch(err => {});
+            try {
+                stockInQrCode = new Html5Qrcode("stock-in-reader");
+                await stockInQrCode.start(
+                    { facingMode: "environment" },
+                    { fps: 10, qrbox: 250 },
+                    (decodedText) => {
+                        let cleanDecoded = decodedText.trim();
+                        
+                        try {
+                            let parsedJson = JSON.parse(cleanDecoded);
+                            if (parsedJson && parsedJson.code) {
+                                processStockInSilent(parsedJson.code, parsedJson.cost);
+                                return;
+                            }
+                        } catch (e) {}
+
+                        processStockInSilent(cleanDecoded);
+                    },
+                    (errorMessage) => {}
+                );
+            } catch (err) {
+                console.error("Scanner start error:", err);
+            }
         }
 
         function closeStockInScanner() {
             if (stockInQrCode) {
                 stockInQrCode.stop().then(() => { 
+                    stockInQrCode = null;
                     document.getElementById('stock-in-scanner-container').classList.add('hidden'); 
-                }).catch(() => {});
+                }).catch(() => {
+                    stockInQrCode = null;
+                    document.getElementById('stock-in-scanner-container').classList.add('hidden');
+                });
             } else { 
                 document.getElementById('stock-in-scanner-container').classList.add('hidden'); 
             }
@@ -1352,6 +1372,8 @@
                     dateAdded: today
                 });
             }
+
+            localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
 
             if (supabaseClient) {
                 try {
@@ -1510,10 +1532,13 @@
                 change: cashGiven - finalTotal
             };
 
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            localHistory.unshift(txData);
+            localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
+
             if (supabaseClient) {
                 try {
                     await supabaseClient.from('sales_history').insert([{
-                        id: txData.id,
                         device_id: deviceId,
                         items: cart,
                         total_items: txData.total_items,
@@ -1533,7 +1558,6 @@
             document.getElementById('cash-given').value = ''; 
             document.getElementById('custom-final-price').value = '';
             renderCart();
-            loadCloudHistory(); // 🌟 ບັນທຶກແລ້ວໂຫຼດປະຫວັດຂຶ້ນມາທັນທີ
         }
 
         async function loadCloudHistory() {
@@ -1541,6 +1565,11 @@
             listDiv.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
             document.getElementById('history-summary').classList.add('hidden');
             globalHistoryList = [];
+
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            let combinedMap = new Map();
+
+            localHistory.forEach(tx => { combinedMap.set(tx.id || tx.created_at, tx); });
 
             if (supabaseClient) {
                 try {
@@ -1551,23 +1580,22 @@
 
                     if (!error && cloudSales) {
                         cloudSales.forEach(tx => {
-                            globalHistoryList.push({
-                                id: tx.id, 
-                                source: 'cloud', 
-                                device_id: tx.device_id, 
-                                created_at: tx.created_at,
-                                total_items: tx.total_items || 0, 
-                                total_cost: tx.total_cost || 0,
-                                discount: tx.discount || 0, 
-                                total: tx.total, 
-                                cash: tx.cash, 
-                                change: tx.change, 
-                                items: tx.items || []
-                            });
+                            if (tx.device_id && String(tx.device_id).toUpperCase() === String(deviceId).toUpperCase()) {
+                                let key = tx.id || tx.created_at;
+                                if (!combinedMap.has(key)) {
+                                    combinedMap.set(key, {
+                                        id: tx.id, source: 'cloud', device_id: tx.device_id, created_at: tx.created_at,
+                                        total_items: tx.total_items || 0, total_cost: tx.total_cost || 0,
+                                        discount: tx.discount || 0, total: tx.total, cash: tx.cash, change: tx.change, items: tx.items || []
+                                    });
+                                }
+                            }
                         });
                     }
                 } catch (err) {}
             }
+
+            globalHistoryList = Array.from(combinedMap.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
             if (globalHistoryList.length === 0) {
                 listDiv.innerHTML = `<p class="text-gray-500 text-center py-4">ຍັງບໍ່ມີປະຫວັດການຂາຍ.</p>`;
@@ -1636,18 +1664,23 @@
             let totalCost = 0;
             let totalPrice = 0;
 
-            let allSales = [];
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            let allSales = [...localHistory];
 
             if (supabaseClient) {
                 try {
                     let { data: cloudSales } = await supabaseClient.from('sales_history').select('*');
                     if (cloudSales) {
                         cloudSales.forEach(tx => {
-                            allSales.push({
-                                total_cost: tx.total_cost || 0,
-                                total: tx.total || 0,
-                                created_at: tx.created_at
-                            });
+                            if (tx.device_id && String(tx.device_id).toUpperCase() === String(deviceId).toUpperCase()) {
+                                if (!allSales.some(s => (s.id === tx.id || s.created_at === tx.created_at))) {
+                                    allSales.push({
+                                        total_cost: tx.total_cost || 0,
+                                        total: tx.total || 0,
+                                        created_at: tx.created_at
+                                    });
+                                }
+                            }
                         });
                     }
                 } catch (e) {}
@@ -1721,8 +1754,9 @@
             if (supabaseClient) {
                 try {
                     let { data } = await supabaseClient.from('products').select('*');
-                    if (data) {
-                        excelRows = data.map(item => ({
+                    if (data && data.length > 0) {
+                        let myData = data.filter(item => String(item.device_id).toUpperCase() === String(deviceId).toUpperCase());
+                        excelRows = myData.map(item => ({
                             code: item.code,
                             cost: item.cost,
                             originalCost: item.original_cost || item.cost,
@@ -1731,14 +1765,13 @@
                             qty: item.qty || 1,
                             dateAdded: item.date_added || item.updated_at ? new Date(item.date_added || item.updated_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
                         }));
-                        if (!document.getElementById('excel-generator-modal').classList.contains('hidden')) {
-                            renderExcelTable();
-                        }
+                        localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
                         return;
                     }
                 } catch (e) {}
             }
-            excelRows = [];
+            let savedRows = localStorage.getItem('pos_saved_excel_rows');
+            excelRows = savedRows ? JSON.parse(savedRows) : [];
         }
 
         function closeExcelGenerator() {
@@ -1763,10 +1796,11 @@
             excelRows = [];
             renderExcelTable(); 
             document.getElementById('excel-print-area').classList.add('hidden');
+            localStorage.removeItem('pos_saved_excel_rows');
 
             if (supabaseClient) {
                 try {
-                    await supabaseClient.from('products').delete().neq('id', 0);
+                    await supabaseClient.from('products').delete().eq('device_id', deviceId);
                 } catch (e) {}
             }
 
@@ -2181,10 +2215,11 @@
         async function saveExcelData() {
             syncTableInputsToData();
             let validRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
+            localStorage.setItem('pos_saved_excel_rows', JSON.stringify(validRows));
 
             if (supabaseClient) {
                 try {
-                    let { data: existingCloudData } = await supabaseClient.from('products').select('id, code');
+                    let { data: existingCloudData } = await supabaseClient.from('products').select('id, code').eq('device_id', deviceId);
                     if (existingCloudData) {
                         let currentCodes = new Set(validRows.map(r => r.code));
                         let toDeleteIds = existingCloudData.filter(item => !currentCodes.has(item.code)).map(item => item.id);
@@ -2207,7 +2242,7 @@
                         }));
                         await supabaseClient.from('products').upsert(payload, { onConflict: 'device_id,code' });
                     } else {
-                        await supabaseClient.from('products').delete().neq('id', 0);
+                        await supabaseClient.from('products').delete().eq('device_id', deviceId);
                     }
                 } catch (err) {
                     console.error("Cloud sync warning:", err);
