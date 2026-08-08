@@ -104,7 +104,6 @@
             <div class="bg-blue-50 p-4 rounded-xl border border-blue-200 space-y-3">
                 <h4 class="font-bold text-blue-900 text-sm">➕ ສ້າງ Username ແລະ Password ໃຫ້ເຈົ້າຂອງຮ້ານ</h4>
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <!-- 🌟 ໃຊ້ Datalist ໃຫ້ສາມາດຄລິກເລືອກສະເພາະບັນຊີທົດລອງ ຫຼື ພິມເອງໄດ້ -->
                     <input type="text" id="new-target-device" list="trial-devices-list" placeholder="ID ເຄື່ອງ (ເລືອກ ຫຼື ພິມ)" class="border rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none bg-white">
                     <datalist id="trial-devices-list">
                     </datalist>
@@ -889,21 +888,28 @@
             }
         }
 
+        // 🌟 แก้ไขฟังก์ชัน selectRole ให้ทำงานได้ 100%
         function selectRole(role) {
-            document.getElementById('role-select-modal').classList.add('hidden');
-            document.getElementById('unified-login-modal').classList.add('hidden');
+            let roleModal = document.getElementById('role-select-modal');
+            let loginModal = document.getElementById('unified-login-modal');
+            if (roleModal) roleModal.classList.add('hidden');
+            if (loginModal) loginModal.classList.add('hidden');
             checkTrialLicense();
             setupRealtimeSync(); 
         }
 
         function showUnifiedLoginModal() {
-            document.getElementById('role-select-modal').classList.add('hidden');
-            document.getElementById('unified-login-modal').classList.remove('hidden');
+            let roleModal = document.getElementById('role-select-modal');
+            let loginModal = document.getElementById('unified-login-modal');
+            if (roleModal) roleModal.classList.add('hidden');
+            if (loginModal) loginModal.classList.remove('hidden');
         }
 
         function backToRoleSelectFromUnified() {
-            document.getElementById('unified-login-modal').classList.add('hidden');
-            document.getElementById('role-select-modal').classList.add('hidden');
+            let roleModal = document.getElementById('role-select-modal');
+            let loginModal = document.getElementById('unified-login-modal');
+            if (loginModal) loginModal.classList.add('hidden');
+            if (roleModal) roleModal.classList.remove('hidden');
         }
 
         async function verifyUnifiedLogin() {
@@ -1063,11 +1069,13 @@
             let now = new Date();
             let diffDays = (now - startDate) / (1000 * 60 * 60 * 24);
 
-            if (diffDays <= 15) {
-                let daysLeft = Math.ceil(15 - diffDays);
-                badge.innerText = `⏳ ສະຖານະ: ພະນັກງານຂາຍ / Cashier (ເຫຼືອທົດລອງ ${daysLeft} ວັນ)`;
-            } else {
-                badge.innerText = `⚠️ ສະຖານະ: ໝົດເວລາທົດລອງ`;
+            if (badge) {
+                if (diffDays <= 15) {
+                    let daysLeft = Math.ceil(15 - diffDays);
+                    badge.innerText = `⏳ ສະຖານະ: ພະນັກງານຂາຍ / Cashier (ເຫຼືອທົດລອງ ${daysLeft} ວັນ)`;
+                } else {
+                    badge.innerText = `⚠️ ສະຖານະ: ໝົດເວລາທົດລອງ`;
+                }
             }
             setupRealtimeSync();
         }
@@ -1131,15 +1139,14 @@
             document.getElementById('admin-manager-modal').classList.add('hidden');
         }
 
-        // 🌟 ໂຫຼດລາຍຊື່ສະເພາະບັນຊີທົດລອງ (Trial) ມາໃສ່ Datalist ໃຫ້ເລືອກ ຫຼື ພິມເອງ
         async function loadAllDevices() {
             let container = document.getElementById('device-list-container');
             let datalist = document.getElementById('trial-devices-list');
             
-            container.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງດຶງຂໍ້ມູນ...</p>`;
+            if (container) container.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງດຶງຂໍ້ມູນ...</p>`;
             
             if (!supabaseClient) {
-                container.innerHTML = `<p class="text-center py-4 text-red-500">ຍັງບໍ່ໄດ້ເຊື່ອມຕໍ່ Supabase</p>`;
+                if (container) container.innerHTML = `<p class="text-center py-4 text-red-500">ຍັງບໍ່ໄດ້ເຊື່ອມຕໍ່ Supabase</p>`;
                 return;
             }
 
@@ -1148,12 +1155,11 @@
                 if (error) throw error;
 
                 if (!data || data.length === 0) {
-                    container.innerHTML = `<p class="text-center py-4 text-gray-400">ຍັງບໍ່ມີບັນຊີໃນລະບົບ</p>`;
-                    datalist.innerHTML = ``;
+                    if (container) container.innerHTML = `<p class="text-center py-4 text-gray-400">ຍັງບໍ່ມີບັນຊີໃນລະບົບ</p>`;
+                    if (datalist) datalist.innerHTML = ``;
                     return;
                 }
 
-                // 🌟 กรองเอาเฉพาะบัญชีที่เป็นสถานะ trial (กำลังทดลอง) มาใส่ datalist
                 let trialDatalistHtml = ``;
                 data.forEach(item => {
                     let status = item.status || 'trial';
@@ -1161,7 +1167,7 @@
                         trialDatalistHtml += `<option value="${item.device_id}">`;
                     }
                 });
-                datalist.innerHTML = trialDatalistHtml;
+                if (datalist) datalist.innerHTML = trialDatalistHtml;
 
                 let html = `<div class="space-y-3">`;
                 let now = new Date();
@@ -1224,9 +1230,9 @@
                     `;
                 });
                 html += `</div>`;
-                container.innerHTML = html;
+                if (container) container.innerHTML = html;
             } catch (e) {
-                container.innerHTML = `<p class="text-center py-4 text-red-500">ຜິດພາດ: ${e.message}</p>`;
+                if (container) container.innerHTML = `<p class="text-center py-4 text-red-500">ຜິດພາດ: ${e.message}</p>`;
             }
         }
 
@@ -1318,6 +1324,13 @@
 
         window.addEventListener('DOMContentLoaded', async () => {
             await initDeviceId();
+            // 🌟 เช็คสถานะการล็อกอินตอนเปิดเว็บ
+            let userRole = localStorage.getItem('pos_user_role');
+            let shopOwner = localStorage.getItem('pos_shop_owner');
+            if (userRole === 'admin' || shopOwner === 'true') {
+                let roleModal = document.getElementById('role-select-modal');
+                if (roleModal) roleModal.classList.add('hidden');
+            }
             checkRoleAndLicense();
         });
 
@@ -2353,7 +2366,7 @@
                             <input type="text" data-field="price" value="${priceFormatted}" oninput="handleInputLive(${index}, 'price', this.value)" onkeydown="handleExcelCellKeydown(event, ${index}, 'price')" placeholder="0" class="w-full border rounded px-2.5 py-1.5 text-right text-xs outline-none focus:ring-1 focus:ring-blue-500 font-bold text-green-600">
                         </td>
                         <td class="p-2.5 border-r align-middle w-20">
-                            <input type="text" data-field="qty" value="${row.qty !== undefined && row.qty !== null ? row.qty : 1}" oninput="handleInputLive(${index}, 'qty', this.value)" onkeydown="handleExcelCellKeydown(event, ${index}, 'qty')" placeholder="1" class="w-full border rounded px-2.5 py-1.5 text-center text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-gray-700">
+                            <input type="text" data-field="qty" value="${row.qty !== undefined && row.qty !== null ? row.qty : 1}" oninput="handleInputLive(${index}, 'qty', this.value)" onkeydown="handleExcelCellKeydown(event, ${index}, 'qty')" placeholder="1" class="w-full border rounded px-2 py-1.5 text-center text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-gray-700">
                         </td>
                         <td class="p-2.5 border-r text-right align-middle font-bold text-gray-800 text-xs min-w-[120px]">
                             ${totalFormatted}
