@@ -197,29 +197,6 @@
         </div>
     </div>
 
-    <!-- Custom Confirm Modal -->
-    <div id="custom-confirm-modal" class="hidden fixed inset-0 bg-black/60 z-[300] flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
-            <div class="text-4xl">⚠️</div>
-            <h3 id="confirm-title" class="text-xl font-bold text-gray-800">ຢືນຢັນການລຶບ</h3>
-            <p id="confirm-message" class="text-gray-600 text-sm leading-relaxed"></p>
-            <div class="flex gap-2 pt-2">
-                <button onclick="resolveCustomConfirm(false)" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
-                <button onclick="resolveCustomConfirm(true)" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ຕົກລົງ</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Custom Beautiful Alert Modal -->
-    <div id="custom-alert-modal" class="hidden fixed inset-0 bg-black/70 z-[400] flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
-            <div id="alert-icon" class="text-4xl">✅</div>
-            <h3 id="alert-title" class="text-xl font-bold text-gray-800">ແຈ້ງເຕືອນ</h3>
-            <p id="alert-message" class="text-gray-600 text-sm leading-relaxed"></p>
-            <button onclick="closeCustomAlert()" class="w-full bg-[#1e3a8a] hover:bg-blue-900 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">ຕົກລົງ</button>
-        </div>
-    </div>
-
     <!-- Header -->
     <header class="bg-[#1e3a8a] text-white py-5 shadow-lg">
         <div class="container mx-auto px-4 text-center">
@@ -496,12 +473,12 @@
                 change: cashGiven - finalTotal
             };
 
-            // 1. Save to Local Cache Immediately
+            // 1. ບັນທຶກລົງ Local Cache
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
             localHistory.unshift(txData);
             localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
 
-            // 2. Save to Supabase Cloud
+            // 2. ບັນທຶກລົງ Supabase Cloud
             if (supabaseClient) {
                 try {
                     await supabaseClient.from('sales_history').insert([{
@@ -529,21 +506,21 @@
             loadCloudHistory();
         }
 
-        // 🌟 ຟັງຊັນໂຫຼດປະຫວັດການຂາຍແບບ Multi-Fallback 100% ບໍ່ມີທາງຂຶ້ນ "ຍັງບໍ່ມີປະຫວັດ" ຖ້າມີການຂາຍ
+        // 🌟 ຟັງຊັນໂຫຼດປະຫວັດການຂາຍ - Absolute Global Render 100% ບໍ່ມີທາງຂຶ້ນ "ຍັງບໍ່ມີປະຫວັດ" ຖ້າມີຂໍ້ມູນໃດໆ
         async function loadCloudHistory() {
             let listDiv = document.getElementById('history-list');
             if (listDiv) listDiv.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
             
             let combinedMap = new Map();
 
-            // STEP 1: ດຶງຂໍ້ມູນຈາກ Local Cache ທຸກຢ່າງ
+            // STEP 1: ດຶງ Local History ທັງໝົດ
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
             localHistory.forEach(tx => {
                 let key = tx.id || tx.created_at;
                 combinedMap.set(key, tx);
             });
 
-            // STEP 2: ດຶງຂໍ້ມູນຈາກ Supabase Cloud ທັງໝົດ ແລ້ວນຳມາ Merge
+            // STEP 2: ດຶງ Cloud Sales History ທັງໝົດຈາກ Supabase ໂດຍບໍ່ມີ Filter ມາບລັອກ
             if (supabaseClient) {
                 try {
                     let { data: cloudSales, error } = await supabaseClient
@@ -557,20 +534,20 @@
                             combinedMap.set(key, {
                                 id: tx.id,
                                 source: 'cloud',
-                                device_id: cleanDevId(tx.device_id),
+                                device_id: cleanDevId(tx.device_id) || deviceId,
                                 created_at: tx.created_at,
                                 total_items: tx.total_items || 0,
-                                total_cost: tx.total_cost || 0,
-                                discount: tx.discount || 0,
-                                total: tx.total || 0,
-                                cash: tx.cash || 0,
-                                change: tx.change || 0,
+                                total_cost: parseFloat(tx.total_cost) || 0,
+                                discount: parseFloat(tx.discount) || 0,
+                                total: parseFloat(tx.total) || 0,
+                                cash: parseFloat(tx.cash) || 0,
+                                change: parseFloat(tx.change) || 0,
                                 items: tx.items || []
                             });
                         });
                     }
                 } catch (e) {
-                    console.warn("Cloud Sync warning, showing local cache:", e);
+                    console.warn("Cloud Fetch warning, using local cache:", e);
                 }
             }
 
@@ -584,8 +561,8 @@
             } else {
                 let html = '', sumCost = 0, sumPrice = 0;
                 globalHistoryList.forEach((tx, index) => {
-                    let txCost = (tx.total_cost || 0);
-                    let txPrice = (tx.total || 0);
+                    let txCost = (parseFloat(tx.total_cost) || 0);
+                    let txPrice = (parseFloat(tx.total) || 0);
                     let txProfit = txPrice - txCost;
 
                     sumCost += txCost; 
@@ -594,7 +571,7 @@
                     html += `
                         <div class="border-b pb-3 mb-3 bg-gray-50 p-3 rounded-xl border-l-4 border-blue-600 shadow-sm space-y-1">
                             <div class="flex justify-between items-center mb-1">
-                                <span class="font-bold text-blue-800 text-xs">📅 ${new Date(tx.created_at).toLocaleString()} [ID: ${tx.device_id}]</span>
+                                <span class="font-bold text-blue-800 text-xs">📅 ${new Date(tx.created_at).toLocaleString()} [ID: ${tx.device_id || deviceId}]</span>
                                 <button onclick="promptDeleteHistory(${index})" class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded font-bold cursor-pointer">🗑️ ລຶບ</button>
                             </div>
                             <div class="flex justify-between text-xs text-gray-700 font-semibold">
