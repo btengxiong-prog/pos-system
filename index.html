@@ -394,7 +394,7 @@
                     </div>
                 </div>
 
-                <!-- ປຸ່ມ: ⚙️ ຈັດການລະບົບ (Admin) - ສະແດງສະເພາະ Admin -->
+                <!-- ປຸ່ມ: ⚙️ ຈັດການລະບົບ (Admin) -->
                 <button id="admin-manage-btn" onclick="openAdminManager()" class="hidden w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     ⚙️ ຈັດການລະບົບ
                 </button>
@@ -1059,7 +1059,15 @@
 
             try {
                 let { data } = await supabaseClient.from('licenses').select('*').order('created_at', { ascending: false });
-                if (!data) return;
+                if (!data) {
+                    container.innerHTML = `<p class="text-center py-4 text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນບັນຊີ</p>`;
+                    return;
+                }
+
+                if (data.length === 0) {
+                    container.innerHTML = `<p class="text-center py-4 text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນບັນຊີ</p>`;
+                    return;
+                }
 
                 let html = `<div class="space-y-3">`;
 
@@ -1091,18 +1099,29 @@
                 });
                 html += `</div>`;
                 container.innerHTML = html;
-            } catch (e) {}
+            } catch (e) {
+                container.innerHTML = `<p class="text-center py-4 text-red-500">ຜິດພາດໃນການໂຫຼດຂໍ້ມູນ</p>`;
+            }
         }
 
         async function adminCreateUser() {
             let targetDev = document.getElementById('new-target-device').value.trim().toUpperCase();
+            if (!targetDev) {
+                let altUser = document.getElementById('new-admin-user');
+                if (altUser && altUser.value.trim()) {
+                    targetDev = altUser.value.trim().toUpperCase();
+                }
+            }
 
             if (!targetDev) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ ID ເຄື່ອງໃຫ້ຄົບຖ້ວນ!", "⚠️");
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ ID ເຄື່ອງ ຫຼື Username ໃຫ້ຄົບຖ້ວນ!", "⚠️");
                 return;
             }
 
-            if (!supabaseClient) return;
+            if (!supabaseClient) {
+                showAlert("ຜິດພາດ", "ຍັງບໍ່ໄດ້ເຊື່ອມຕໍ່ Supabase", "❌");
+                return;
+            }
 
             try {
                 let { data: existingDev } = await supabaseClient.from('licenses').select('*').eq('device_id', targetDev).single();
@@ -1120,10 +1139,14 @@
                     return;
                 }
 
-                showAlert("ສຳເລັດ", `ເປີດໃຊ້ງານຖາວອນໃຫ້ ID: ${targetDev} ສຳເລັດຮຽບຮ້ອຍ!`, "⭐");
+                showAlert("ສຳເລັດ", `ເປີດໃຊ້ງານຖາວອນໃຫ້ Username/ID: ${targetDev} ສຳເລັດຮຽບຮ້ອຍ!`, "⭐");
+                
                 document.getElementById('new-target-device').value = "";
-                document.getElementById('new-admin-user').value = "";
-                document.getElementById('new-admin-pass').value = "";
+                let uInput = document.getElementById('new-admin-user');
+                let pInput = document.getElementById('new-admin-pass');
+                if (uInput) uInput.value = "";
+                if (pInput) pInput.value = "";
+
                 await loadAllDevices();
             } catch (e) {
                 showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການເຊື່ອມຕໍ່", "⚠️");
@@ -1177,7 +1200,6 @@
         let lastScanTime = 0;
         let globalHistoryList = []; 
         let excelRows = []; 
-        let duplicateRemovedList = []; 
         let currentCodeType = 'qrcode'; 
 
         function showAlert(title, message, icon = "✅") {
@@ -1211,7 +1233,6 @@
 
                     if (!error && cloudSales) {
                         cloudSales.forEach(tx => {
-                            // 🌟 ປັບປຸງ: ໃຫ້ສະແດງປະຫວັດການຂາຍທັງໝົດໃນ Shared Store (ຖ້າ device_id ກົງກັນ ຫຼື ເປັນ Username ດຽວກັນ)
                             let txDev = String(tx.device_id || '').toUpperCase();
                             let curDev = String(deviceId || '').toUpperCase();
                             if (txDev === curDev || txDev.includes(curDev) || curDev.includes(txDev)) {
@@ -1517,7 +1538,7 @@
             if (val === "calc") {
                 calculatePercentage();
             } else if (val === "update") {
-                document.getElementById('update-pct-modal').classList.add('hidden'); // fixed syntax
+                document.getElementById('update-pct-modal').classList.remove('hidden');
             }
         }
 
