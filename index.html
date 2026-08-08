@@ -15,9 +15,25 @@
     <!-- JsBarcode & QRCode CDN -->
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+    <!-- Google Fonts -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Lao:wght@400;700&display=swap');
-        body { font-family: 'Phetsarath OT', 'Saysettha OT', 'Noto Serif Lao', sans-serif; }
+        body {
+            font-family: 'Phetsarath OT', 'Saysettha OT', 'Noto Serif Lao', 'Times New Roman', Times, serif;
+        }
+        @media print {
+            body * { visibility: hidden !important; }
+            #excel-generator-modal, #excel-generator-modal *,
+            #stock-in-modal, #stock-in-modal *,
+            #currency-index-modal, #currency-index-modal *,
+            #select-import-date-modal, #select-import-date-modal * { visibility: visible !important; }
+            #excel-generator-modal, #stock-in-modal, #currency-index-modal, #select-import-date-modal {
+                position: absolute !important; left: 0 !important; top: 0 !important;
+                width: 100% !important; height: auto !important; background: white !important;
+                z-index: 999999 !important; overflow: visible !important; max-height: none !important;
+            }
+            @page { size: auto; margin: 5mm; }
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen pb-10">
@@ -29,10 +45,10 @@
             <h3 class="text-xl font-bold text-gray-800">ກະລຸນາເລືອກ ປະເພດການເຂົ້າໃຊ້ງານ</h3>
             <p class="text-gray-600 text-xs">ກະລຸນາເລືອກໂໝດທີ່ທ່ານຕ້ອງການເຂົ້າສູ່ລະບົບ POS</p>
             <div class="space-y-3 pt-2">
-                <button type="button" onclick="selectRole('trial')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition cursor-pointer shadow">
+                <button type="button" onclick="selectRole('trial')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition cursor-pointer shadow flex items-center justify-center gap-2">
                     ⏳ ທົດລອງໃຊ້ 15 ວັນ (ເຂົ້າໃຊ້ທັນທີ)
                 </button>
-                <button type="button" onclick="showUnifiedLoginModal()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl transition cursor-pointer shadow">
+                <button type="button" onclick="showUnifiedLoginModal()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl transition cursor-pointer shadow flex items-center justify-center gap-2">
                     🔑 ລັອກອິນເຂົ້າລະບົບ (ສະມາຊິກ / Admin)
                 </button>
             </div>
@@ -62,19 +78,194 @@
         </div>
     </div>
 
+    <!-- Admin Device Manager Modal -->
+    <div id="admin-manager-modal" class="hidden fixed inset-0 bg-black/60 z-[250] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-3xl w-full p-6 max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                    <span>📋 ຈັດການບັນຊີ ແລະ ລະບົບ POS (Admin)</span>
+                </h3>
+                <button type="button" onclick="loadAllDevices()" class="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg cursor-pointer font-bold">🔄 ໂຫຼດຂໍ້ມູນໃໝ່</button>
+            </div>
+            
+            <div class="bg-blue-50 p-4 rounded-xl border border-blue-200 space-y-3">
+                <h4 class="font-bold text-blue-900 text-sm">➕ ສ້າງ Username ແລະ Password ໃຫ້ສະມາຊິກຖາວອນ</h4>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <input type="text" id="new-target-device" placeholder="ID ເຄື່ອງ (ເຊັ່ນ: POS-A0001)" class="border rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none bg-white">
+                    <input type="text" id="new-admin-user" placeholder="USERNAME (ເຊັ່ນ: SHOP001)" class="border rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none bg-white">
+                    <input type="text" id="new-admin-pass" placeholder="Password" class="border rounded-lg px-3 py-2 text-xs font-semibold outline-none bg-white">
+                </div>
+                <button type="button" onclick="adminCreateUser()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg text-xs transition cursor-pointer shadow">
+                    💾 ບັນທຶກ ແລະ ສ້າງບັນຊີສະມາຊິກ
+                </button>
+            </div>
+
+            <div class="space-y-2">
+                <h5 class="font-bold text-xs text-gray-700">📋 ລາຍຊື່ບັນຊີທັງໝົດໃນລະບົບ:</h5>
+                <div id="device-list-container" class="space-y-2 text-sm text-gray-700">
+                    <p class="text-center py-4">ກຳລັງໂຫຼດ...</p>
+                </div>
+            </div>
+
+            <button type="button" onclick="closeAdminManager()" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ປິດ</button>
+        </div>
+    </div>
+
+    <!-- Show My Device ID Modal -->
+    <div id="my-device-modal" class="hidden fixed inset-0 bg-black/60 z-[250] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
+            <div class="text-4xl">🆔</div>
+            <h3 class="text-lg font-bold text-gray-800">ລະຫັດ ID ເຄື່ອງຂອງທ່ານ</h3>
+            <p class="text-xs text-gray-600">ແຈ້ງລະຫັດ ID ນີ້ໃຫ້ Admin ເພື່ອສ້າງ Username ຖາວອນ</p>
+            <div class="bg-gray-50 p-3 rounded-xl border">
+                <p id="my-device-id-text" class="font-mono font-bold text-blue-600 text-sm break-all"></p>
+            </div>
+            <div class="space-y-2">
+                <button type="button" onclick="copyMyDeviceId()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">📋 ກ໋ອບປີ ID</button>
+                <button type="button" onclick="closeMyDeviceModal()" class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl text-sm transition cursor-pointer">ປິດ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Registration Modal -->
+    <div id="register-payment-modal" class="hidden fixed inset-0 bg-black/70 z-[280] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
+            <div class="text-4xl">💳</div>
+            <h3 class="text-lg font-bold text-gray-800">ລົງທະບຽນ / ຊຳລະຄ່າບໍລິການ</h3>
+            <p class="text-xs text-gray-600">ກະລຸນາໂອນເງິນຜ່ານບັນຊີທະນາຄານດ້ານລ່າງນີ້</p>
+            <div class="bg-gray-50 p-4 rounded-xl border text-left space-y-2 text-xs font-bold text-gray-700">
+                <div>🏦 ທະນາຄານ: <span class="text-green-700">ພົງສະຫວັນ</span></div>
+                <div>🔢 ເລກບັນຊີ: <span class="font-mono text-blue-600 text-sm">1006000000470</span></div>
+                <div>👤 ຊື່ບັນຊີ: BOUNTENG XIONGTONGMUA</div>
+            </div>
+            <button type="button" onclick="closeRegisterModal()" class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl text-sm transition cursor-pointer">ປິດ</button>
+        </div>
+    </div>
+
+    <!-- User Manual Modal -->
+    <div id="user-manual-modal" class="hidden fixed inset-0 bg-black/70 z-[290] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-2xl w-full p-6 max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl text-left">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-lg font-bold text-blue-900">📖 ຄູ່ມືການນຳໃຊ້ລະບົບຂາຍເຄື່ອງ POS</h3>
+                <button type="button" onclick="closeUserManual()" class="text-gray-500 font-bold text-lg cursor-pointer">✕</button>
+            </div>
+            <div class="space-y-3 text-sm text-gray-700">
+                <div class="bg-blue-50 p-3 rounded-xl border border-blue-100 text-xs text-blue-900 font-semibold">
+                    ✨ ສ້າງ ແລະ ພັດທະນາໂດຍ: ອາຈານ ບຸນແຕ່ງ ຊົ່ງຕົງມົວ | 📞 020 59456999, 020 99444448
+                </div>
+            </div>
+            <button type="button" onclick="closeUserManual()" class="w-full bg-blue-600 text-white font-bold py-2.5 rounded-xl text-sm">ປິດຄູ່ມື</button>
+        </div>
+    </div>
+
+    <!-- Currency Index Modal -->
+    <div id="currency-index-modal" class="hidden fixed inset-0 bg-black/60 z-[370] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 text-left">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-lg font-bold text-orange-600">💵 ຄຳນວນດັດສະນີເງິນ (ກີບ/ໄທ)</h3>
+                <button type="button" onclick="closeCurrencyIndexModal()" class="text-gray-500 font-bold text-lg cursor-pointer">✕</button>
+            </div>
+            <div class="space-y-3 bg-gray-50 p-4 rounded-xl border">
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">Rate ວັນນຳເຂົ້າສິນຄ້າ:</label>
+                    <input type="text" id="rate-import" oninput="formatInputMoney(this); calculateCurrencyIndexResult();" placeholder="Rate ມື້ນຳເຂົ້າ" class="w-full border rounded-lg px-2 py-2 text-right text-xs font-semibold outline-none bg-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">Rate ວັນສົ່ງສິນຄ້າ:</label>
+                    <input type="text" id="rate-ship" oninput="formatInputMoney(this); calculateCurrencyIndexResult();" placeholder="Rate ມື້ສົ່ງ" class="w-full border rounded-lg px-2 py-2 text-right text-xs font-semibold outline-none bg-white">
+                </div>
+                <div class="border-t pt-2 flex justify-between text-xs font-bold text-gray-700">
+                    <span>ຄ່າດັດສະນີເງິນ (Index = ນຳເຂົ້າ/ສົ່ງອອກ):</span>
+                    <span id="index-result-val" class="text-blue-600 font-mono text-sm">1.000000</span>
+                </div>
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button type="button" onclick="closeCurrencyIndexModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl text-sm">ຍົກເລີກ</button>
+                <button type="button" onclick="applyCurrencyIndexToTable()" class="flex-1 bg-orange-600 hover:bg-orange-700 text-white font-bold py-2.5 rounded-xl text-sm shadow">💾 ບັນທຶກ/ປະຕິບັດ</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Header -->
     <header class="bg-[#1e3a8a] text-white py-5 shadow-lg">
         <div class="container mx-auto px-4 text-center">
             <h1 class="text-2xl md:text-3xl font-bold flex items-center justify-center gap-2">
-                🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ
+                🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Smart Realtime Sync)
             </h1>
+            <div class="mt-1.5 text-xs md:text-sm text-yellow-300 font-semibold">
+                ✨ ວ່ອງໄວ ທັນໃຈ, ຍອດເງິນຖືກຕ້ອງ ຊັດເຈນ 100%, ບໍ່ເສຍເວລາ — ໃຜກໍ່ຂາຍເປັນ!
+            </div>
             <div id="license-status-badge" class="mt-1 text-xs text-cyan-200 font-semibold"></div>
             
-            <div class="mt-4 flex flex-wrap justify-center gap-3 items-center">
-                <button type="button" onclick="openHistory()" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-xl font-medium shadow transition text-xs sm:text-sm cursor-pointer">
-                    📊 ປະຫວັດການຂາຍ
+            <div class="mt-4 grid grid-cols-2 sm:flex sm:flex-wrap justify-center gap-2 sm:gap-3 items-center max-w-4xl mx-auto">
+                
+                <!-- 1) Dropdown: ນຳເຂົ້າ/ສົ່ງອອກສິນຄ້າ -->
+                <div class="relative inline-block text-left w-full sm:w-auto">
+                    <button type="button" onclick="toggleCustomDropdown('import-export-menu', event)" class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
+                        📦 ນຳເຂົ້າ/ສົ່ງອອກສິນຄ້າ <span class="text-xs">▼</span>
+                    </button>
+                    <div id="import-export-menu" class="hidden absolute left-0 sm:left-auto mt-2 w-56 rounded-xl bg-blue-600 shadow-2xl ring-1 ring-black/10 z-50 overflow-hidden text-left py-1">
+                        <button type="button" onclick="openStockInScanner(); closeAllCustomDropdowns();" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-blue-700 flex items-center gap-2 text-left cursor-pointer">
+                            📦 ນຳເຂົ້າສິນຄ້າ
+                        </button>
+                        <button type="button" onclick="openScanner(); closeAllCustomDropdowns();" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-blue-700 flex items-center gap-2 text-left cursor-pointer">
+                            📦 ນຳອອກສິນຄ້າ (ຂາຍ)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 2) Dropdown: 📊 ປະຫວັດ ແລະ ID ເຄື່ອງ -->
+                <div class="relative inline-block text-left w-full sm:w-auto">
+                    <button type="button" onclick="toggleCustomDropdown('history-id-menu', event)" class="w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
+                        📊 ປະຫວັດ ແລະ ID ເຄື່ອງ <span class="text-xs">▼</span>
+                    </button>
+                    <div id="history-id-menu" class="hidden absolute left-0 sm:left-auto mt-2 w-56 rounded-xl bg-gray-600 shadow-2xl ring-1 ring-black/10 z-50 overflow-hidden text-left py-1">
+                        <button type="button" onclick="openHistory(); closeAllCustomDropdowns();" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-gray-700 flex items-center gap-2 text-left cursor-pointer">
+                            📊 ປະຫວັດການຂາຍ
+                        </button>
+                        <button type="button" onclick="openMyDeviceModal(); closeAllCustomDropdowns();" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-gray-700 flex items-center gap-2 text-left cursor-pointer">
+                            🆔 ລະຫັດ ID ເຄື່ອງຂ້ອຍ
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 3) Dropdown: ສ້າງ QR Code/Barcode -->
+                <div class="relative inline-block text-left w-full sm:w-auto">
+                    <button type="button" onclick="toggleCustomDropdown('create-code-menu', event)" class="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
+                        📱 ສ້າງ QR Code/Barcode <span class="text-xs">▼</span>
+                    </button>
+                    <div id="create-code-menu" class="hidden absolute left-0 sm:left-auto mt-2 w-56 rounded-xl bg-purple-600 shadow-2xl ring-1 ring-black/10 z-50 overflow-hidden text-left py-1">
+                        <button type="button" onclick="currentCodeType='qrcode'; openExcelGenerator(); closeAllCustomDropdowns();" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-purple-700 flex items-center gap-2 text-left cursor-pointer">
+                            📱 ສ້າງ QR Code
+                        </button>
+                        <button type="button" onclick="currentCodeType='barcode'; openExcelGenerator(); closeAllCustomDropdowns();" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-purple-700 flex items-center gap-2 text-left cursor-pointer">
+                            📊 ສ້າງ Barcode
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 4) Dropdown: 📋 ຂໍ້ມູນ ແລະ ລະບົບ -->
+                <div class="relative inline-block text-left w-full sm:w-auto">
+                    <button type="button" onclick="toggleCustomDropdown('report-menu', event)" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
+                        📋 ຂໍ້ມູນ ແລະ ລະບົບ <span class="text-xs">▼</span>
+                    </button>
+                    <div id="report-menu" class="hidden absolute left-0 sm:left-auto mt-2 w-56 rounded-xl bg-emerald-600 shadow-2xl ring-1 ring-black/10 z-50 overflow-hidden text-left py-1">
+                        <button type="button" onclick="openRegisterModal(); closeAllCustomDropdowns();" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-emerald-700 flex items-center gap-2 text-left cursor-pointer">
+                            📝 ລົງທະບຽນ
+                        </button>
+                        <button type="button" onclick="openUserManual(); closeAllCustomDropdowns();" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-emerald-700 flex items-center gap-2 text-left cursor-pointer">
+                            📖 ຄູ່ມືການໃຊ້ງານ
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ປຸ່ມ Admin Manage -->
+                <button id="admin-manage-btn" type="button" onclick="openAdminManager()" class="hidden w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
+                    ⚙️ ຈັດການລະບົບ
                 </button>
-                <button type="button" onclick="adminLogout()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl font-medium shadow transition text-xs sm:text-sm cursor-pointer">
+
+                <!-- ປຸ່ມ Logout -->
+                <button type="button" onclick="adminLogout()" class="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     🚪 ປ່ຽນໂໝດ / ອອກລະບົບ
                 </button>
             </div>
@@ -83,6 +274,18 @@
 
     <!-- Main Content -->
     <main class="container mx-auto px-4 mt-6 max-w-4xl">
+        
+        <!-- Scanner Modal -->
+        <div id="scanner-container" class="hidden mb-6 bg-white p-4 rounded-xl shadow border">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="font-bold text-lg text-gray-700">📷 ກຳລັງສະແກນ QR / ບາໂຄດ (ຂາຍສິນຄ້າ)</h3>
+                <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold">ກຳລັງເປີດກ້ອງ...</span>
+            </div>
+            <div id="reader" class="w-full max-w-md mx-auto"></div>
+            <button type="button" onclick="closeScanner()" class="mt-3 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded w-full font-bold cursor-pointer">ປິດກ້ອງ</button>
+        </div>
+
+        <!-- Cart Section -->
         <div class="bg-white rounded-xl shadow overflow-hidden mb-6">
             <div class="bg-[#1e3a8a] text-white px-4 py-3 font-semibold flex items-center justify-between">
                 <span>📄 ລາຍການສິນຄ້າໃນກະຕ່າ</span>
@@ -112,6 +315,7 @@
             </div>
         </div>
 
+        <!-- Summary & Calculation -->
         <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 shadow mb-6 space-y-3">
             <div class="flex justify-between items-center text-base font-semibold text-gray-700">
                 <span>ລວມຍອດຊື້:</span>
@@ -120,6 +324,10 @@
             <div class="flex justify-between items-center text-base font-semibold text-gray-700">
                 <span>ລວມຍອດຂາຍ:</span>
                 <span id="grand-total" class="text-gray-800 text-lg">0 ກີບ</span>
+            </div>
+            <div class="flex justify-between items-center text-gray-700 border-t pt-2">
+                <span class="font-medium text-red-600">ລາຄາຂາຍຕົວຈິງ:</span>
+                <input type="text" id="custom-final-price" oninput="formatInputMoney(this); calculateChange();" placeholder="ປ້ອນລາຄາຂາຍຕົວຈິງ" class="border rounded-lg px-3 py-1.5 text-right w-52 focus:ring-2 focus:ring-red-500 outline-none font-bold text-red-600 bg-white">
             </div>
             <div class="flex justify-between items-center text-lg font-bold text-gray-800 border-t pt-2">
                 <span>ລາຄາຂາຍຕົວຈິງ:</span>
@@ -140,6 +348,19 @@
         </button>
     </main>
 
+    <!-- Excel Code Generator Modal -->
+    <div id="excel-generator-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl max-w-5xl w-full p-6 max-h-[90vh] overflow-y-auto space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 id="excel-modal-title" class="text-xl font-bold text-gray-800">📱 ຕາຕະລາງສ້າງ QR Code / Barcode</h3>
+                <button type="button" onclick="closeExcelGenerator()" class="bg-gray-500 text-white px-4 py-2 rounded-xl">ປິດ</button>
+            </div>
+            <div class="flex gap-2">
+                <button type="button" onclick="openCurrencyIndexModal()" class="bg-orange-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold">💵 ດັດສະນີເງິນ</button>
+            </div>
+        </div>
+    </div>
+
     <!-- History Modal -->
     <div id="history-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-xl max-w-xl w-full p-5 max-h-[80vh] overflow-y-auto">
@@ -157,15 +378,15 @@
     <!-- JavaScript Logic -->
     <script>
         const SUPABASE_URL = "https://omvrghcnswikqxixgcza.supabase.co"; 
-        // 🌟 ໃສ່ Key ທີ່ຖືກຕ້ອງຂອງທ່ານແລ້ວ
-        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9tdnJnaGNuc3dpa3F4aXhnY3phIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3ODgyNDEsImV4cCI6MjowMTM2NDI0MX0.JpYhfe_c_AWPAcuMjQ2rXIZTc1KKbimPyupzV0fYelE"; 
+        // 🌟 Anon Key ທີ່ຖືກຕ້ອງ 100%
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9tdnJnaGNuc3dpa3F4aXhnY3phIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3ODgyNDEsImV4cCI6MjA0MTM2NDI0MX0.JpYhfe_c_AWPAcuMjQ2rXIZTc1KKbimPyupzV0fYelE"; 
         
         let supabaseClient = null;
         try {
             if (window.supabase && typeof window.supabase.createClient === 'function') {
                 supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
             }
-        } catch (e) { console.warn("Supabase init error:", e); }
+        } catch (e) { console.warn("Supabase init bypassed safely:", e); }
 
         function formatNumberWithCommas(num) {
             if (num === "" || num === null || isNaN(num)) return "0";
@@ -184,6 +405,7 @@
 
         let deviceId = cleanDevId(localStorage.getItem('pos_device_id')) || 'POS-A0001';
         let currentUsername = cleanDevId(localStorage.getItem('pos_current_username')) || null;
+        let currentCodeType = 'qrcode';
 
         function checkRoleAndLicense() {
             let badge = document.getElementById('license-status-badge');
@@ -245,6 +467,91 @@
         function adminLogout() {
             localStorage.clear();
             location.reload();
+        }
+
+        function toggleCustomDropdown(menuId, event) {
+            if (event) event.stopPropagation();
+            let menus = ['import-export-menu', 'history-id-menu', 'create-code-menu', 'report-menu'];
+            menus.forEach(id => {
+                let m = document.getElementById(id);
+                if (m) {
+                    if (id === menuId) m.classList.toggle('hidden');
+                    else m.classList.add('hidden');
+                }
+            });
+        }
+
+        function closeAllCustomDropdowns() {
+            let menus = ['import-export-menu', 'history-id-menu', 'create-code-menu', 'report-menu'];
+            menus.forEach(id => {
+                let m = document.getElementById(id);
+                if (m) m.classList.add('hidden');
+            });
+        }
+
+        window.addEventListener('click', (e) => {
+            if (!e.target.closest('.relative')) closeAllCustomDropdowns();
+        });
+
+        // Modal Helpers
+        function openStockInScanner() { alert("ກຳລັງເປີດກ້ອງສະແກນນຳເຂົ້າ..."); }
+        function openScanner() {
+            let sc = document.getElementById('scanner-container');
+            if (sc) sc.classList.remove('hidden');
+        }
+        function closeScanner() {
+            let sc = document.getElementById('scanner-container');
+            if (sc) sc.classList.add('hidden');
+        }
+        function openMyDeviceModal() {
+            let m = document.getElementById('my-device-modal');
+            if (m) m.classList.remove('hidden');
+            let txt = document.getElementById('my-device-id-text');
+            if (txt) txt.innerText = deviceId;
+        }
+        function closeMyDeviceModal() {
+            let m = document.getElementById('my-device-modal');
+            if (m) m.classList.add('hidden');
+        }
+        function openExcelGenerator() {
+            let m = document.getElementById('excel-generator-modal');
+            if (m) m.classList.remove('hidden');
+        }
+        function closeExcelGenerator() {
+            let m = document.getElementById('excel-generator-modal');
+            if (m) m.classList.add('hidden');
+        }
+        function openRegisterModal() {
+            let m = document.getElementById('register-payment-modal');
+            if (m) m.classList.remove('hidden');
+        }
+        function closeRegisterModal() {
+            let m = document.getElementById('register-payment-modal');
+            if (m) m.classList.add('hidden');
+        }
+        function openUserManual() {
+            let m = document.getElementById('user-manual-modal');
+            if (m) m.classList.remove('hidden');
+        }
+        function closeUserManual() {
+            let m = document.getElementById('user-manual-modal');
+            if (m) m.classList.add('hidden');
+        }
+        function openCurrencyIndexModal() {
+            let m = document.getElementById('currency-index-modal');
+            if (m) m.classList.remove('hidden');
+        }
+        function closeCurrencyIndexModal() {
+            let m = document.getElementById('currency-index-modal');
+            if (m) m.classList.add('hidden');
+        }
+        function openAdminManager() {
+            let m = document.getElementById('admin-manager-modal');
+            if (m) m.classList.remove('hidden');
+        }
+        function closeAdminManager() {
+            let m = document.getElementById('admin-manager-modal');
+            if (m) m.classList.add('hidden');
         }
 
         // Cart Logic
@@ -313,7 +620,10 @@
 
         function calculateChange() {
             let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-            let finalTotal = grandTotal;
+            let customPriceElem = document.getElementById('custom-final-price');
+            let customPriceVal = customPriceElem ? customPriceElem.value.replace(/,/g, '') : '';
+            let finalTotal = customPriceVal !== "" ? (parseFloat(customPriceVal) || 0) : grandTotal;
+            if (finalTotal < 0) finalTotal = 0;
 
             document.getElementById('final-total').innerText = formatNumberWithCommas(finalTotal) + " ກີບ";
 
