@@ -1052,19 +1052,24 @@
             document.getElementById('admin-manager-modal').classList.add('hidden');
         }
 
+        // 🌟 ຟັງຊັນໂຫຼດລາຍຊື່ບັນຊີທັງໝົດ (ແກ້ໄຂໃຫ້ດຶງຂໍ້ມູນຢ່າງກວ້າງຂວາງ 100%)
         async function loadAllDevices() {
             let container = document.getElementById('device-list-container');
             container.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງດຶງຂໍ້ມູນ...</p>`;
-            if (!supabaseClient) return;
+            if (!supabaseClient) {
+                container.innerHTML = `<p class="text-center py-4 text-red-500">ຍັງບໍ່ໄດ້ເຊື່ອມຕໍ່ Supabase</p>`;
+                return;
+            }
 
             try {
-                let { data } = await supabaseClient.from('licenses').select('*').order('created_at', { ascending: false });
-                if (!data) {
-                    container.innerHTML = `<p class="text-center py-4 text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນບັນຊີ</p>`;
+                let { data, error } = await supabaseClient.from('licenses').select('*');
+                
+                if (error) {
+                    container.innerHTML = `<p class="text-center py-4 text-red-500">ຜິດພາດ: ${error.message}</p>`;
                     return;
                 }
 
-                if (data.length === 0) {
+                if (!data || data.length === 0) {
                     container.innerHTML = `<p class="text-center py-4 text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນບັນຊີ</p>`;
                     return;
                 }
@@ -1072,24 +1077,24 @@
                 let html = `<div class="space-y-3">`;
 
                 data.forEach((item, idx) => {
-                    let isPerm = item.status === 'permanent';
+                    let devId = item.device_id || item.id || item.username || 'UNKNOWN';
+                    let statusVal = item.status || 'permanent';
+                    let isPerm = statusVal === 'permanent' || statusVal === 'active';
+                    let createdAt = item.created_at ? new Date(item.created_at).toLocaleString() : 'ບໍ່ระบุວັນທີ';
+
                     html += `
                         <div class="bg-gray-50 p-3 rounded-xl border text-xs space-y-2">
                             <div class="flex justify-between items-center">
                                 <div>
                                     <span class="font-bold text-gray-400">#${idx + 1}</span>
-                                    <span class="font-mono font-bold text-blue-600 ml-2 text-sm">${item.device_id}</span>
-                                    <div class="text-[10px] text-gray-400">ສ້າງເມື່ອ: ${new Date(item.created_at).toLocaleString()}</div>
+                                    <span class="font-mono font-bold text-blue-600 ml-2 text-sm">${devId}</span>
+                                    <div class="text-[10px] text-gray-400">ສ້າງເມື່ອ: ${createdAt}</div>
                                 </div>
                                 <div class="flex items-center gap-2">
                                     <span class="px-2.5 py-1 rounded-full font-bold ${isPerm ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}">
                                         ${isPerm ? '⭐ ຖາວອນ' : '⏳ ທົດລອງ / ລະງັບ'}
                                     </span>
-                                    ${isPerm ? 
-                                        `<button onclick="toggleDeviceStatus('${item.device_id}', 'trial')" class="px-3 py-1.5 rounded font-bold bg-amber-500 text-white cursor-pointer shadow-sm">ປ່ຽນເປັນທົດລອງ</button>` :
-                                        `<button disabled class="px-3 py-1.5 rounded font-bold bg-gray-300 text-gray-600 cursor-not-allowed">ສະຖານະລໍຖ້າ</button>`
-                                    }
-                                    <button onclick="adminDeleteAccount('${item.device_id}')" class="px-2.5 py-1.5 rounded font-bold bg-red-100 text-red-600 hover:bg-red-200 cursor-pointer">
+                                    <button onclick="adminDeleteAccount('${devId}')" class="px-2.5 py-1.5 rounded font-bold bg-red-100 text-red-600 hover:bg-red-200 cursor-pointer">
                                         🗑️ ລຶບ
                                     </button>
                                 </div>
@@ -1100,7 +1105,7 @@
                 html += `</div>`;
                 container.innerHTML = html;
             } catch (e) {
-                container.innerHTML = `<p class="text-center py-4 text-red-500">ຜິດພາດໃນການໂຫຼດຂໍ້ມູນ</p>`;
+                container.innerHTML = `<p class="text-center py-4 text-red-500">ເກີດຂໍ້ຜິດພາດໃນການດຶງຂໍ້ມູນ</p>`;
             }
         }
 
@@ -1124,12 +1129,10 @@
             }
 
             try {
-                let { data: existingDev } = await supabaseClient.from('licenses').select('*').eq('device_id', targetDev).single();
-
                 let payload = {
                     device_id: targetDev,
                     status: 'permanent',
-                    created_at: existingDev ? existingDev.created_at : new Date().toISOString()
+                    created_at: new Date().toISOString()
                 };
 
                 let { error } = await supabaseClient.from('licenses').upsert(payload, { onConflict: 'device_id' });
@@ -1154,7 +1157,7 @@
         }
 
         async function adminDeleteAccount(targetId) {
-            showCustomConfirm("ຢືນຢັນການລຶບ", `ທ່ານຕ້ອງການລຶບບັນຊີ [${targetId}] ນີ້ອອກຈາກລະບົບແທ້ບໍ? ເຄື່ອງນີ້ຈະບໍ່ສາມາດນຳໃຊ້ໄດ້ອີກຕໍ່ໄປ!`, async (confirmed) => {
+            showCustomConfirm("ຢືນຢັນການລຶບ", `ທ່ານຕ້ອງການລຶບບັນຊີ [${targetId}] ນີ້ອອກຈາກລະບົບແທ້ບໍ?`, async (confirmed) => {
                 if (!confirmed) return;
                 if (!supabaseClient) return;
 
@@ -1170,21 +1173,6 @@
                     showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດ", "⚠️");
                 }
             });
-        }
-
-        async function toggleDeviceStatus(targetId, newStatus) {
-            if (!supabaseClient) return;
-            try {
-                let { error } = await supabaseClient.from('licenses').update({ status: newStatus }).eq('device_id', targetId);
-                if (error) {
-                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດປ່ຽນສະຖານະໄດ້: " + error.message, "⚠️");
-                    return;
-                }
-                showAlert("ສຳເລັດ", `ອັບເດດສະຖານະ [${targetId}] ຮຽບຮ້ອຍ!`, "✅");
-                loadAllDevices();
-            } catch (e) {
-                showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການເຊື່ອມຕໍ່", "⚠️");
-            }
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
@@ -1296,111 +1284,8 @@
         function openHistory() { document.getElementById('history-modal').classList.remove('hidden'); loadCloudHistory(); }
         function closeHistory() { document.getElementById('history-modal').classList.add('hidden'); }
         
-        function toggleReportFilter() {
-            let reportType = document.getElementById('report-type').value;
-            document.getElementById('filter-monthly').classList.add('hidden');
-            document.getElementById('filter-quarterly').classList.add('hidden');
-            document.getElementById('filter-duration').classList.add('hidden');
-
-            if (reportType === 'monthly') {
-                document.getElementById('filter-monthly').classList.remove('hidden');
-            } else if (reportType === 'quarterly') {
-                document.getElementById('filter-quarterly').classList.remove('hidden');
-            } else if (reportType === 'duration') {
-                document.getElementById('filter-duration').classList.add('hidden');
-            }
-            calculateReport();
-        }
-
-        async function calculateReport() {
-            let reportType = document.getElementById('report-type').value;
-            let year = parseInt(document.getElementById('report-year').value);
-            
-            let totalCost = 0;
-            let totalPrice = 0;
-
-            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-            let allSales = [...localHistory];
-
-            if (supabaseClient) {
-                try {
-                    let { data: cloudSales } = await supabaseClient.from('sales_history').select('*');
-                    if (cloudSales) {
-                        cloudSales.forEach(tx => {
-                            if (tx.device_id && String(tx.device_id).toUpperCase() === String(deviceId).toUpperCase()) {
-                                if (!allSales.some(s => (s.id === tx.id || s.created_at === tx.created_at))) {
-                                    allSales.push({
-                                        total_cost: tx.total_cost || 0,
-                                        total: tx.total || 0,
-                                        created_at: tx.created_at
-                                    });
-                                }
-                            }
-                        });
-                    }
-                } catch (e) {}
-            }
-
-            allSales.forEach(tx => {
-                let txDate = new Date(tx.created_at);
-                if (isNaN(txDate)) return;
-
-                let txYear = txDate.getFullYear();
-                let txMonth = txDate.getMonth() + 1;
-
-                if (txYear === year) {
-                    let match = false;
-
-                    if (reportType === 'monthly') {
-                        let selectedMonth = parseInt(document.getElementById('report-month').value);
-                        if (txMonth === selectedMonth) match = true;
-                    } 
-                    else if (reportType === 'quarterly') {
-                        let quarter = parseInt(document.getElementById('report-quarter').value);
-                        let qMonths = { 1: [1,2,3], 2: [4,5,6], 3: [7,8,9], 4: [10,11,12] };
-                        if (qMonths[quarter].includes(txMonth)) match = true;
-                    } 
-                    else if (reportType === 'duration') {
-                        let durationMonths = parseInt(document.getElementById('report-duration-months').value);
-                        if (txMonth <= durationMonths) match = true;
-                    }
-
-                    if (match) {
-                        totalCost += parseFloat(tx.total_cost || 0);
-                        totalPrice += parseFloat(tx.total || 0);
-                    }
-                }
-            });
-
-            let profit = totalPrice - totalCost;
-
-            document.getElementById('rep-total-cost').innerText = formatNumberWithCommas(totalCost) + " ກີບ";
-            document.getElementById('rep-total-price').innerText = formatNumberWithCommas(totalPrice) + " ກີບ";
-            document.getElementById('rep-total-profit').innerText = formatNumberWithCommas(profit) + " ກີບ";
-        }
-
-        async function openReport() { 
-            document.getElementById('report-modal').classList.remove('hidden'); 
-            toggleReportFilter();
-        }
-
-        function closeReport() { 
-            document.getElementById('report-modal').classList.add('hidden'); 
-        }
-
         async function openExcelGenerator() {
             document.getElementById('excel-generator-modal').classList.remove('hidden');
-            let titleText = document.getElementById('excel-modal-title-text');
-            let printTitle = document.getElementById('print-area-title');
-            
-            if (currentCodeType === 'barcode') {
-                titleText.innerText = "📊 ຕາຕະລາງສ້າງ Barcode ສິນຄ້າ";
-                printTitle.innerText = "🖨️ ຕົວຢ່າງປ້າຍ Barcode ສິນຄ້າ";
-            } else {
-                titleText.innerText = "📱 ຕາຕະລາງສ້າງ QR Code ສິນຄ້າ";
-                printTitle.innerText = "🖨️ ຕົວຢ່າງປ້າຍ QR Code ສິນຄ້າ";
-            }
-
             await fetchProductsForGenerator();
             renderExcelTable();
         }
@@ -1433,275 +1318,6 @@
         function closeExcelGenerator() {
             document.getElementById('excel-generator-modal').classList.add('hidden');
             document.getElementById('excel-print-area').classList.add('hidden');
-        }
-
-        function addExcelRow(code = '', cost = '', profitPct = 20, price = '', qty = 1, dateAdded = '') {
-            syncTableInputsToData();
-            let today = new Date().toISOString().split('T')[0];
-            let newId = 'ROW-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
-            excelRows.push({ id: newId, code: code, cost: cost, originalCost: cost || 0, profitPct: profitPct, price: price, qty: qty, dateAdded: dateAdded || today });
-            renderExcelTable();
-        }
-
-        function removeExcelRow(index) {
-            syncTableInputsToData();
-            excelRows.splice(index, 1);
-            renderExcelTable();
-        }
-
-        async function clearUnsavedRows() {
-            excelRows = [];
-            renderExcelTable(); 
-            document.getElementById('excel-print-area').classList.add('hidden');
-            localStorage.removeItem('pos_saved_excel_rows');
-
-            if (supabaseClient) {
-                try {
-                    await supabaseClient.from('products').delete().eq('device_id', deviceId);
-                } catch (e) {}
-            }
-
-            showAlert("ສຳເລັດ", "ລຶບຂໍ້ມູນທັງໝົດອອກຈາກລະບົບຮຽບຮ້ອຍແລ້ວ", "🧹");
-        }
-
-        function handleInputLive(index, field, value) {
-            if (field === 'code') {
-                excelRows[index].code = value;
-            } else if (field === 'cost') {
-                excelRows[index].cost = value;
-                excelRows[index].originalCost = value;
-            } else if (field === 'profitPct') {
-                excelRows[index].profitPct = value;
-            } else if (field === 'price') {
-                excelRows[index].price = value;
-            } else if (field === 'qty') {
-                excelRows[index].qty = value;
-            } else if (field === 'dateAdded') {
-                excelRows[index].dateAdded = value;
-            }
-        }
-
-        function handleExcelCellKeydown(event, rowIndex, fieldName) {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                syncTableInputsToData();
-
-                if (rowIndex === excelRows.length - 1) {
-                    addExcelRow();
-                } else {
-                    renderExcelTable();
-                }
-
-                setTimeout(() => {
-                    let nextRowInputs = document.querySelectorAll(`#excel-tbody tr`);
-                    if (nextRowInputs[rowIndex + 1]) {
-                        let targetInput = nextRowInputs[rowIndex + 1].querySelector(`[data-field="${fieldName}"]`);
-                        if (targetInput) {
-                            targetInput.focus();
-                        }
-                    }
-                }, 50);
-            }
-        }
-
-        function syncTableInputsToData() {
-            let rowsInput = document.querySelectorAll('#excel-tbody tr');
-            rowsInput.forEach((tr, index) => {
-                if (excelRows[index]) {
-                    if (!excelRows[index].id) {
-                        excelRows[index].id = 'ROW-' + Date.now() + '-' + index;
-                    }
-                    let codeInput = tr.querySelector('input[data-field="code"]');
-                    let costInput = tr.querySelector('input[data-field="cost"]');
-                    let pctInput = tr.querySelector('input[data-field="profitPct"]');
-                    let priceInput = tr.querySelector('input[data-field="price"]');
-                    let qtyInput = tr.querySelector('input[data-field="qty"]');
-                    let dateInput = tr.querySelector('input[data-field="dateAdded"]');
-
-                    if (codeInput) excelRows[index].code = codeInput.value.trim();
-                    if (costInput) {
-                        let cVal = costInput.value.trim();
-                        excelRows[index].cost = cVal;
-                        if (!excelRows[index].originalCost) excelRows[index].originalCost = cVal;
-                    }
-                    if (pctInput) excelRows[index].profitPct = pctInput.value.trim();
-                    if (priceInput) excelRows[index].price = priceInput.value.trim();
-                    if (qtyInput) excelRows[index].qty = qtyInput.value.trim() === '' ? 1 : qtyInput.value.trim();
-                    if (dateInput) excelRows[index].dateAdded = dateInput.value;
-                }
-            });
-        }
-
-        function handleCalcPctDropdown(selectElem) {
-            let val = selectElem.value;
-            selectElem.value = "";
-            if (val === "calc") {
-                calculatePercentage();
-            } else if (val === "update") {
-                document.getElementById('update-pct-modal').classList.remove('hidden');
-            }
-        }
-
-        function closeUpdatePctModal() {
-            document.getElementById('update-pct-modal').classList.add('hidden');
-        }
-
-        function confirmUpdateGlobalPct() {
-            let val = parseFloat(document.getElementById('input-global-pct').value);
-            if (isNaN(val)) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຕົວເລກເປີເຊັນທີ່ຖືກຕ້ອງ!", "⚠️");
-                return;
-            }
-            syncTableInputsToData();
-            excelRows.forEach(row => {
-                row.profitPct = val;
-            });
-            renderExcelTable();
-            closeUpdatePctModal();
-            showAlert("ສຳເລັດ", `ອັບເດດເປີເຊັນ (%) ເປັນ ${val}% ທຸກລາຍການແລ້ວ!`, "📊");
-        }
-
-        function calculatePercentage() {
-            syncTableInputsToData();
-            excelRows.forEach(row => {
-                let cost = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
-                let price = parseFloat(String(row.price).replace(/,/g, '')) || 0;
-                if (cost > 0 && price > cost) {
-                    let pct = ((price - cost) / cost) * 100;
-                    row.profitPct = Math.round(pct);
-                }
-            });
-            renderExcelTable();
-            showAlert("ສຳເລັດ", "ຄຳນວນເປີເຊັນສຳເລັດ!", "🧮");
-        }
-
-        function calculateSalePrices() {
-            syncTableInputsToData();
-            excelRows.forEach(row => {
-                let cost = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
-                let pct = parseFloat(String(row.profitPct).replace(/,/g, '')) || 20;
-                if (cost > 0) {
-                    let rawPrice = cost * (1 + pct / 100);
-                    let roundedPrice = Math.ceil(rawPrice / 1000) * 1000;
-                    row.price = roundedPrice;
-                }
-            });
-            renderExcelTable();
-            showAlert("ສຳເລັດ", "ຄຳນວນລາຄາຂາຍຕາມສູດ ROUNDUP ສຳເລັດ!", "🏷️");
-        }
-
-        function openCurrencyIndexModal() {
-            let today = new Date().toISOString().split('T')[0];
-            let savedData = JSON.parse(localStorage.getItem('pos_saved_currency_index') || '{}');
-            
-            document.getElementById('date-import').value = savedData.dateImport || today;
-            document.getElementById('rate-import').value = savedData.rateImport ? formatNumberWithCommas(savedData.rateImport) : "";
-            document.getElementById('date-ship').value = savedData.dateShip || today;
-            document.getElementById('rate-ship').value = savedData.rateShip ? formatNumberWithCommas(savedData.rateShip) : "";
-            
-            calculateCurrencyIndexResult();
-            document.getElementById('currency-index-modal').classList.remove('hidden');
-        }
-
-        function closeCurrencyIndexModal() {
-            document.getElementById('currency-index-modal').classList.add('hidden');
-        }
-
-        function calculateCurrencyIndexResult() {
-            let imp = parseFloat(String(document.getElementById('rate-import').value).replace(/,/g, '')) || 0;
-            let shp = parseFloat(String(document.getElementById('rate-ship').value).replace(/,/g, '')) || 0;
-            let resElem = document.getElementById('index-result-val');
-
-            if (imp > 0 && shp > 0) {
-                let indexVal = shp / imp;
-                resElem.innerText = indexVal.toFixed(6);
-            } else {
-                resElem.innerText = "1.000000";
-            }
-        }
-
-        function applyCurrencyIndexToTable() {
-            let imp = parseFloat(String(document.getElementById('rate-import').value).replace(/,/g, '')) || 0;
-            let shp = parseFloat(String(document.getElementById('rate-ship').value).replace(/,/g, '')) || 0;
-            let dateImportVal = document.getElementById('date-import').value;
-            let dateShipVal = document.getElementById('date-ship').value;
-
-            if (imp <= 0 || shp <= 0) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ Rate ວັນນຳເຂົ້າ ແລະ ວັນສົ່ງໃຫ້ຖືກຕ້ອງ!", "⚠️");
-                return;
-            }
-
-            let indexVal = shp / imp;
-
-            let currencyData = {
-                dateImport: dateImportVal,
-                rateImport: imp,
-                dateShip: dateShipVal,
-                rateShip: shp,
-                index: indexVal
-            };
-            localStorage.setItem('pos_saved_currency_index', JSON.stringify(currencyData));
-
-            syncTableInputsToData();
-
-            excelRows.forEach(row => {
-                if (!row.originalCost && row.cost) {
-                    row.originalCost = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
-                }
-                let baseCost = parseFloat(String(row.originalCost || 0).replace(/,/g, '')) || 0;
-
-                if (baseCost > 0) {
-                    let newCost = baseCost * indexVal;
-                    row.cost = Math.ceil(newCost / 1000) * 1000;
-
-                    let pct = parseFloat(String(row.profitPct).replace(/,/g, '')) || 20;
-                    let rawPrice = row.cost * (1 + pct / 100);
-                    row.price = Math.ceil(rawPrice / 1000) * 1000;
-                }
-
-                if (dateShipVal) {
-                    row.dateAdded = dateShipVal;
-                }
-            });
-
-            renderExcelTable();
-            closeCurrencyIndexModal();
-            showAlert("ສຳເລັດ", `ບັນທຶກ ແລະ ຄູນປັບລາຄາດ້ວຍດັດສະນີເງິນ (${indexVal.toFixed(6)}) ສຳເລັດຮຽບຮ້ອຍ!`, "💾");
-        }
-
-        function openSelectImportDateModal() {
-            syncTableInputsToData();
-            let uniqueDates = [...new Set(excelRows.map(r => r.dateAdded).filter(d => d))].sort().reverse();
-            let container = document.getElementById('import-date-list-container');
-
-            if (uniqueDates.length === 0) {
-                container.innerHTML = `<p class="text-center text-gray-400 py-2">ບໍ່ມີວັນທີນຳເຂົ້າໃນລະບົບ</p>`;
-            } else {
-                let html = '';
-                uniqueDates.forEach(d => {
-                    let count = excelRows.filter(r => r.dateAdded === d).length;
-                    let parts = d.split('-');
-                    let formattedDate = parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : d;
-                    html += `
-                        <div onclick="selectImportDate('${d}')" class="p-2.5 bg-white border rounded-lg cursor-pointer hover:bg-pink-50 flex justify-between items-center shadow-sm">
-                            <span class="font-bold text-gray-800">📅 ${formattedDate}</span>
-                            <span class="text-xs bg-pink-100 text-pink-700 px-2 py-0.5 rounded font-semibold">${count} ລາຍການ</span>
-                        </div>
-                    `;
-                });
-                container.innerHTML = html;
-            }
-            document.getElementById('select-import-date-modal').classList.remove('hidden');
-        }
-
-        function closeSelectImportDateModal() {
-            document.getElementById('select-import-date-modal').classList.add('hidden');
-        }
-
-        function selectImportDate(dateStr) {
-            document.getElementById('date-import').value = dateStr;
-            closeSelectImportDateModal();
-            showAlert("ສຳເລັດ", `ເລືອກວັນນຳເຂົ້າ: ${dateStr} ຮຽບຮ້ອຍແລ້ວ!`, "📅");
         }
     </script>
 </body>
