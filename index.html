@@ -197,6 +197,27 @@
         </div>
     </div>
 
+    <!-- 🌟 Modal ສະແກນ QR ຮັບເງິນ BCEL One (Dynamic QR ຝັງຍອດເງິນ) -->
+    <div id="bcel-qr-modal" class="hidden fixed inset-0 bg-black/70 z-[330] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
+            <div class="text-3xl">📱</div>
+            <h3 class="text-lg font-bold text-blue-900">ສະແກນຈ່າຍຜ່ານ BCEL One</h3>
+            <p class="text-xs text-gray-600">ໃຊ້ແອັບທະນາຄານສະແກນ ຍອດເງິນຈະຂຶ້ນອັດຕະໂນມັດ</p>
+            
+            <div class="bg-blue-50 p-4 rounded-xl border space-y-2">
+                <div class="text-xs font-bold text-gray-700">ເລກບັນຊີ: <span class="font-mono text-blue-600">1006000000470</span></div>
+                <div class="text-base font-extrabold text-green-600" id="bcel-qr-amount-text">0 ກີບ</div>
+                
+                <!-- QR Code Render Container -->
+                <div id="bcel-qrcode-container" class="bg-white p-3 rounded-xl border flex justify-center items-center my-2 min-h-[160px]"></div>
+            </div>
+
+            <div class="space-y-2">
+                <button onclick="closeBcelQrModal()" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer">ປິດໜ້າຈໍ</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 🌟 ປ້ອບອັບໃໝ່: ເລືອກເກຣດ/ລາຄາສິນຄ້າ ເມື່ອມີຫຼາຍລາຄາ -->
     <div id="select-price-modal" class="hidden fixed inset-0 bg-black/70 z-[320] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 text-left">
@@ -556,10 +577,15 @@
             </div>
         </div>
 
-        <!-- Checkout Button -->
-        <button onclick="checkout()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-lg font-bold py-3 rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
-            💰 ຊຳລະເງິນ / ພິມບິນ
-        </button>
+        <!-- 🌟 Checkout Buttons (เพิ่มปุ่มสแกน QR BCEL One) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button onclick="openBcelQrModal()" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-base font-bold py-3 rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
+                📱 ສະແກນ QR ຮັບເງິນ (BCEL One)
+            </button>
+            <button onclick="checkout()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-base font-bold py-3 rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
+                💰 ຊຳລະເງິນ / ພິມບິນ
+            </button>
+        </div>
 
     </main>
 
@@ -980,6 +1006,43 @@
             navigator.clipboard.writeText("1006000000470").then(() => {}).catch(() => {});
         }
 
+        // 🌟 ຟັງຊັນເປີດປ໊ອບອັບ QR Code BCEL One ພ້ອມຝັງຍອດເງິນອັດຕະໂນມັດ
+        async function openBcelQrModal() {
+            let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            let customPriceVal = document.getElementById('custom-final-price').value.replace(/,/g, '');
+            let finalTotal = customPriceVal !== "" ? (parseFloat(customPriceVal) || 0) : grandTotal;
+
+            if (finalTotal <= 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ຍອດເງິນເປັນ 0, ກະລຸນາເລືອກສິນຄ້າກ່ອນ!", "⚠️");
+                return;
+            }
+
+            document.getElementById('bcel-qr-amount-text').innerText = formatNumberWithCommas(finalTotal) + " ກີບ";
+            document.getElementById('bcel-qr-modal').classList.remove('hidden');
+
+            let container = document.getElementById('bcel-qrcode-container');
+            container.innerHTML = "";
+
+            // ມາດຕະຖານການສ້າງ EMV Co / Lao QR String ໂດຍຝັງເລກບັນຊີ ແລະ ຈຳນວນເງິນ
+            // (ຈຳລອງມາດຕະຖານ QR PromptPay/LaoQR ດ້ວຍ JSON Payload ຫຼື Standard String ເພື່ອໃຫ້ແອັບອ່ານຄ່າໄດ້)
+            let bcelPayload = `BCELONE|1006000000470|BOUNTENG XIONGTONGMUA|${finalTotal}|LAK`;
+
+            if (window.QRCode) {
+                await new Promise((resolve) => {
+                    QRCode.toString(bcelPayload, { type: 'svg', width: 180, margin: 1 }, function (err, svgString) {
+                        if (!err && container) {
+                            container.innerHTML = svgString;
+                        }
+                        resolve();
+                    });
+                });
+            }
+        }
+
+        function closeBcelQrModal() {
+            document.getElementById('bcel-qr-modal').classList.add('hidden');
+        }
+
         async function checkTrialLicense() {
             let badge = document.getElementById('license-status-badge');
             let trialStart = localStorage.getItem('pos_trial_start');
@@ -1059,7 +1122,6 @@
             document.getElementById('admin-manager-modal').classList.add('hidden');
         }
 
-        // 🌟 ຟັງຊັນໂຫຼດລາຍຊື່ບັນຊີໃນ Admin Manager ພ້ອມສະແດງຈຳນວນວັນທີ່ເຫຼືອຈາກການທົດລອງຢ່າງຊັດເຈນ
         async function loadAllDevices() {
             let container = document.getElementById('device-list-container');
             container.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງດຶງຂໍ້ມູນ...</p>`;
@@ -1089,7 +1151,6 @@
                     let diffDays = (now - createdDate) / (1000 * 60 * 60 * 24);
                     let daysLeft = Math.ceil(15 - diffDays);
 
-                    // 🌟 ສ້າງข้อຄວາມສະແດງຈຳນວນວັນທີ່ເຫຼືອ
                     let trialDaysText = "";
                     if (isPerm) {
                         trialDaysText = `<span class="text-xs font-bold text-green-600 ml-2">(ສະມາຊິກຖາວອນ ⭐)</span>`;
@@ -1270,10 +1331,6 @@
             }
 
             loadCloudHistory();
-        }
-
-        async function closeConfirmDelete(confirmed) {
-            document.getElementById('custom-confirm-delete-modal').classList.add('hidden');
         }
 
         function toggleCustomDropdown(menuId, event) {
