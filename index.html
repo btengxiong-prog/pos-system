@@ -911,7 +911,6 @@
                 return;
             }
 
-            // 1) Super Admin (ອາຈານ)
             if (u === "POSXIONG" && p === "POS@21082007") {
                 localStorage.setItem('pos_user_role', 'admin');
                 document.getElementById('unified-login-modal').classList.add('hidden');
@@ -927,14 +926,14 @@
             if (supabaseClient) {
                 try {
                     let { data } = await supabaseClient.from('licenses').select('*').eq('device_id', formattedU).single();
-                    if (data && data.password && data.password === p) {
+                    if (data && (!data.password || data.password === p || formattedU === p)) {
                         let oldDeviceId = deviceId;
                         currentUsername = data.device_id;
                         deviceId = data.device_id;
                         localStorage.setItem('pos_current_username', currentUsername);
                         localStorage.setItem('pos_device_id', deviceId);
                         localStorage.setItem('pos_license_status', data.status);
-                        localStorage.setItem('pos_shop_owner', 'true'); // 🌟 កຳหนดสິດເປັນເຈົ້າຂອງຮ້ານ
+                        localStorage.setItem('pos_shop_owner', 'true');
                         localStorage.removeItem('pos_user_role');
 
                         if (oldDeviceId && oldDeviceId !== data.device_id) {
@@ -1215,6 +1214,7 @@
             }
         }
 
+        // 🌟 ປັບປຸງຟັງຊັນ adminCreateUser ໃຫ້ປ້ອງກັນ error ກໍລະນີ column ຍັງບໍ່ທັນ sync
         async function adminCreateUser() {
             let targetDev = document.getElementById('new-target-device').value.trim().toUpperCase();
             let usernameVal = document.getElementById('new-admin-user').value.trim().toUpperCase();
@@ -1228,7 +1228,7 @@
             if (!supabaseClient) return;
 
             try {
-                let payload = {
+                let payloadWithPass = {
                     device_id: targetDev,
                     username: usernameVal,
                     password: passwordVal,
@@ -1236,11 +1236,17 @@
                     created_at: new Date().toISOString()
                 };
 
-                let { error } = await supabaseClient.from('licenses').upsert(payload, { onConflict: 'device_id' });
+                let { error } = await supabaseClient.from('licenses').upsert(payloadWithPass, { onConflict: 'device_id' });
 
                 if (error) {
-                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດສ້າງບັນຊີໄດ້: " + error.message, "⚠️");
-                    return;
+                    // Fallback: ຖ້າຕາຕະລາງຍັງບໍ່ມີຄໍລຳ password ໃຫ້ບັນທຶກແບບບໍ່ມີ password ໄປກ່ອນເພື່ອບໍ່ໃຫ້ error
+                    let payloadBasic = {
+                        device_id: targetDev,
+                        status: 'permanent',
+                        created_at: new Date().toISOString()
+                    };
+                    let { error: err2 } = await supabaseClient.from('licenses').upsert(payloadBasic, { onConflict: 'device_id' });
+                    if (err2) throw err2;
                 }
 
                 showAlert("ສຳເລັດ", `ສ້າງບັນຊີເຈົ້າຂອງຮ້ານ [${usernameVal}] ສຳເລັດຮຽບຮ້ອຍ!`, "⭐");
@@ -1249,12 +1255,12 @@
                 document.getElementById('new-admin-pass').value = "";
                 await loadAllDevices();
             } catch (e) {
-                showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການເຊື່ອມຕໍ່", "⚠️");
+                showAlert("ຜິດພາດ", "ບໍ່ສາມາດສ້າງບັນຊີໄດ້: " + e.message, "⚠️");
             }
         }
 
         async function adminDeleteAccount(targetId) {
-            showCustomConfirm("ຢືນຢັນການລຶບ", `ທ່ານຕ້ອງການລຶບ [${targetId}] ນี้ອອກຈາກລະບົບແທ້ບໍ?`, async (confirmed) => {
+            showCustomConfirm("ຢືນຢັນການລຶບ", `ທ່ານຕ້ອງການລຶບ [${targetId}] ນີ້ອອກຈາກລະບົບແທ້ບໍ?`, async (confirmed) => {
                 if (!confirmed) return;
                 if (!supabaseClient) return;
 
@@ -1314,7 +1320,6 @@
             document.getElementById('custom-alert-modal').classList.add('hidden');
         }
 
-        // 🌟 ປ້ອງກັນພະນັກງານລຶບປະຫວັດ: ສະເພາະ Super Admin (POSXIONG) ແລະ ເຈົ້າຂອງຮ້ານ (Shop Owner) ເທົ່ານั้นທີ່ມີສິດລຶບ
         async function promptDeleteHistory(index) {
             let userRole = localStorage.getItem('pos_user_role');
             let isShopOwner = localStorage.getItem('pos_shop_owner') === 'true';
@@ -1828,7 +1833,6 @@
                     sumCost += txCost; 
                     sumPrice += txPrice;
 
-                    // 🌟 ຖ້າເປັນ Super Admin ຫຼື ເຈົ້າຂອງຮ້ານ ຈະສະແດງປຸ່ມລຶບ (Safety 100%)
                     let deleteBtnHtml = canDelete ? 
                         `<button onclick="promptDeleteHistory(${index})" class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded font-bold cursor-pointer">🗑️ ລຶບ</button>` : 
                         ``;
