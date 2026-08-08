@@ -104,10 +104,11 @@
             <div class="bg-blue-50 p-4 rounded-xl border border-blue-200 space-y-3">
                 <h4 class="font-bold text-blue-900 text-sm">➕ ສ້າງ Username ແລະ Password ໃຫ້ເຈົ້າຂອງຮ້ານ</h4>
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <!-- 🌟 ປ່ຽນຊ່ອງ ID ເຄື່ອງ ໃຫ້ເປັນ Dropdown ໃຫ້ເລືອກ -->
-                    <select id="new-target-device" class="border rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none bg-white">
-                        <option value="" disabled selected>-- ເລືອກ ID ເຄື່ອງ / ບັນຊີ --</option>
-                    </select>
+                    <!-- 🌟 ໃຊ້ Datalist ໃຫ້ສາມາດຄລິກເລືອກສະເພາະບັນຊີທົດລອງ ຫຼື ພິມເອງໄດ້ -->
+                    <input type="text" id="new-target-device" list="trial-devices-list" placeholder="ID ເຄື່ອງ (ເລືອກ ຫຼື ພິມ)" class="border rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none bg-white">
+                    <datalist id="trial-devices-list">
+                    </datalist>
+                    
                     <input type="text" id="new-admin-user" placeholder="USERNAME (ເຊັ່ນ: SHOP001)" class="border rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none bg-white">
                     <input type="text" id="new-admin-pass" placeholder="Password" class="border rounded-lg px-3 py-2 text-xs font-semibold outline-none bg-white">
                 </div>
@@ -1130,15 +1131,15 @@
             document.getElementById('admin-manager-modal').classList.add('hidden');
         }
 
-        // 🌟 ໂຫຼດລາຍຊື່ບັນຊີທັງໝົດ ມາໃສ່ຕາຕະລາງ ແລະ ໃສ່ Dropdown
+        // 🌟 ໂຫຼດລາຍຊື່ສະເພາະບັນຊີທົດລອງ (Trial) ມາໃສ່ Datalist ໃຫ້ເລືອກ ຫຼື ພິມເອງ
         async function loadAllDevices() {
             let container = document.getElementById('device-list-container');
-            let selectDropdown = document.getElementById('new-target-device');
+            let datalist = document.getElementById('trial-devices-list');
             
             container.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງດຶງຂໍ້ມູນ...</p>`;
             
             if (!supabaseClient) {
-                container.innerHTML = `<p class="text-center py-4 text-red-500">ຍັງບໍ່ໄດ້ເຊື່ອມຕໍ່ Supabase</p>";
+                container.innerHTML = `<p class="text-center py-4 text-red-500">ຍັງບໍ່ໄດ້ເຊື່ອມຕໍ່ Supabase</p>`;
                 return;
             }
 
@@ -1147,18 +1148,20 @@
                 if (error) throw error;
 
                 if (!data || data.length === 0) {
-                    container.innerHTML = `<p class="text-center py-4 text-gray-400">ຍັງບໍ່ມີບັນຊີເຈົ້າຂອງຮ້ານໃນລະບົບ</p>`;
-                    selectDropdown.innerHTML = `<option value="" disabled selected>-- ບໍ່ມີ ID ເຄື່ອງໃນລະບົບ --</option>`;
+                    container.innerHTML = `<p class="text-center py-4 text-gray-400">ຍັງບໍ່ມີບັນຊີໃນລະບົບ</p>`;
+                    datalist.innerHTML = ``;
                     return;
                 }
 
-                // Populate Dropdown Options
-                let dropdownHtml = `<option value="" disabled selected>-- ເລືອກ ID ເຄື່ອງ / ບັນຊີ --</option>`;
+                // 🌟 กรองเอาเฉพาะบัญชีที่เป็นสถานะ trial (กำลังทดลอง) มาใส่ datalist
+                let trialDatalistHtml = ``;
                 data.forEach(item => {
-                    let labelStatus = item.status === 'permanent' ? '⭐ ຖາວອນ' : '⏳ ທົດລອງ';
-                    dropdownHtml += `<option value="${item.device_id}">[${labelStatus}] ${item.device_id}</option>`;
+                    let status = item.status || 'trial';
+                    if (status !== 'permanent') {
+                        trialDatalistHtml += `<option value="${item.device_id}">`;
+                    }
                 });
-                selectDropdown.innerHTML = dropdownHtml;
+                datalist.innerHTML = trialDatalistHtml;
 
                 let html = `<div class="space-y-3">`;
                 let now = new Date();
@@ -1248,7 +1251,7 @@
             let passwordVal = document.getElementById('new-admin-pass').value.trim();
 
             if (!targetDev || !usernameVal || !passwordVal) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກ ID ເຄື່ອງ, ປ້ອນ Username ແລະ Password ໃຫ້ຄົບຖ້ວນ!", "⚠️");
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກ ຫຼື ພິມ ID ເຄື່ອງ, ພ້ອມປ້ອນ Username ແລະ Password ໃຫ້ຄົບຖ້ວນ!", "⚠️");
                 return;
             }
 
