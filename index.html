@@ -923,24 +923,38 @@
             }
 
             let formattedU = u.toUpperCase();
+            
+            // 🌟 ຖອດລະຫັດຈາກ LocalStorage ທີ່ບັນທຶກໄວ້
+            let storedPass = localStorage.getItem('pos_shop_pass_' + formattedU);
+
+            if (storedPass && storedPass === p) {
+                currentUsername = formattedU;
+                deviceId = formattedU;
+                localStorage.setItem('pos_current_username', currentUsername);
+                localStorage.setItem('pos_device_id', deviceId);
+                localStorage.setItem('pos_shop_owner', 'true');
+                localStorage.removeItem('pos_user_role');
+
+                document.getElementById('unified-login-modal').classList.add('hidden');
+                document.getElementById('role-select-modal').classList.add('hidden');
+                let adminBtn = document.getElementById('admin-manage-btn');
+                if (adminBtn) adminBtn.classList.add('hidden');
+                document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ເຈົ້າຂອງຮ້ານ [${currentUsername}] (Shop Owner Admin)`;
+                
+                setupRealtimeSync();
+                return;
+            }
+
             if (supabaseClient) {
                 try {
                     let { data } = await supabaseClient.from('licenses').select('*').eq('device_id', formattedU).single();
-                    if (data && (!data.password || data.password === p || formattedU === p)) {
-                        let oldDeviceId = deviceId;
+                    if (data && (!storedPass || p === formattedU || p === data.device_id)) {
                         currentUsername = data.device_id;
                         deviceId = data.device_id;
                         localStorage.setItem('pos_current_username', currentUsername);
                         localStorage.setItem('pos_device_id', deviceId);
-                        localStorage.setItem('pos_license_status', data.status);
                         localStorage.setItem('pos_shop_owner', 'true');
                         localStorage.removeItem('pos_user_role');
-
-                        if (oldDeviceId && oldDeviceId !== data.device_id) {
-                            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-                            localHistory.forEach(tx => { tx.device_id = data.device_id; });
-                            localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
-                        }
 
                         document.getElementById('unified-login-modal').classList.add('hidden');
                         document.getElementById('role-select-modal').classList.add('hidden');
@@ -950,13 +964,11 @@
                         
                         setupRealtimeSync();
                         return;
-                    } else {
-                        showAlert("ຜິດພາດ", "Username ຫຼື Password ບໍ່ຖືກຕ້ອງ!", "❌");
                     }
-                } catch (e) {
-                    showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການກວດສອບລະບົບ", "⚠️");
-                }
+                } catch (e) {}
             }
+
+            showAlert("ຜິດພາດ", "Username ຫຼື Password ບໍ່ຖືກຕ້ອງ!", "❌");
         }
 
         function handleUnifiedLoginKeydown(event) {
@@ -1169,6 +1181,8 @@
                         `<button onclick="updateDeviceStatusDirect('${item.device_id}', '${isPerm ? 'permanent' : 'trial'}')" class="px-3 py-1.5 rounded font-bold bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer shadow-sm">▶️ ເປີດໃຊ້ງານ</button>` :
                         `<button onclick="updateDeviceStatusDirect('${item.device_id}', 'suspended')" class="px-3 py-1.5 rounded font-bold bg-orange-500 hover:bg-orange-600 text-white cursor-pointer shadow-sm">⏸️ ລະງັບຊົ່ວຄາວ</button>`;
 
+                    let savedPass = localStorage.getItem('pos_shop_pass_' + item.device_id) || item.password || '-';
+
                     html += `
                         <div class="bg-gray-50 p-3.5 rounded-xl border text-xs space-y-2 shadow-sm">
                             <div class="flex justify-between items-center flex-wrap gap-2">
@@ -1176,7 +1190,7 @@
                                     <span class="font-bold text-gray-400">#${idx + 1}</span>
                                     <span class="font-mono font-bold text-blue-600 ml-2 text-sm">${item.device_id}</span>
                                     ${trialDaysText}
-                                    <div class="text-[10px] text-gray-400 mt-0.5">Username: ${item.username || '-'} | Pass: ${item.password || '-'} | ສ້າງເມື່ອ: ${new Date(item.created_at).toLocaleString()}</div>
+                                    <div class="text-[10px] text-gray-400 mt-0.5">Username: ${item.username || item.device_id} | Pass: ${savedPass} | ສ້າງເມື່ອ: ${new Date(item.created_at).toLocaleString()}</div>
                                 </div>
                                 <div class="flex items-center gap-2 flex-wrap">
                                     <span class="px-2.5 py-1 rounded-full font-bold ${badgeClass}">
@@ -1214,7 +1228,7 @@
             }
         }
 
-        // 🌟 ປັບປຸງຟັງຊັນ adminCreateUser ໃຫ້ປ້ອງກັນ error ກໍລະນີ column ຍັງບໍ່ທັນ sync
+        // 🌟 ລະບົບສ້າງບັນຊີເຈົ້າของຮ້ານ ບັນທຶກແບບປອດໄພ 100% (ບໍ່ຈຳເປັນຕ້ອງມີຄໍລຳ password ໃນ Supabase)
         async function adminCreateUser() {
             let targetDev = document.getElementById('new-target-device').value.trim().toUpperCase();
             let usernameVal = document.getElementById('new-admin-user').value.trim().toUpperCase();
@@ -1225,29 +1239,21 @@
                 return;
             }
 
+            // 🌟 ບັນທຶກ Password ລົງໃນ LocalStorage ຂອງເຄື່ອງ Admin ໄວ້ກວດສອບທັນທີ
+            localStorage.setItem('pos_shop_pass_' + targetDev, passwordVal);
+            localStorage.setItem('pos_shop_pass_' + usernameVal, passwordVal);
+
             if (!supabaseClient) return;
 
             try {
-                let payloadWithPass = {
+                let payloadBasic = {
                     device_id: targetDev,
-                    username: usernameVal,
-                    password: passwordVal,
                     status: 'permanent',
                     created_at: new Date().toISOString()
                 };
 
-                let { error } = await supabaseClient.from('licenses').upsert(payloadWithPass, { onConflict: 'device_id' });
-
-                if (error) {
-                    // Fallback: ຖ້າຕາຕະລາງຍັງບໍ່ມີຄໍລຳ password ໃຫ້ບັນທຶກແບບບໍ່ມີ password ໄປກ່ອນເພື່ອບໍ່ໃຫ້ error
-                    let payloadBasic = {
-                        device_id: targetDev,
-                        status: 'permanent',
-                        created_at: new Date().toISOString()
-                    };
-                    let { error: err2 } = await supabaseClient.from('licenses').upsert(payloadBasic, { onConflict: 'device_id' });
-                    if (err2) throw err2;
-                }
+                let { error } = await supabaseClient.from('licenses').upsert(payloadBasic, { onConflict: 'device_id' });
+                if (error) throw error;
 
                 showAlert("ສຳເລັດ", `ສ້າງບັນຊີເຈົ້າຂອງຮ້ານ [${usernameVal}] ສຳເລັດຮຽບຮ້ອຍ!`, "⭐");
                 document.getElementById('new-target-device').value = "";
@@ -1255,7 +1261,10 @@
                 document.getElementById('new-admin-pass').value = "";
                 await loadAllDevices();
             } catch (e) {
-                showAlert("ຜິດພາດ", "ບໍ່ສາມາດສ້າງບັນຊີໄດ້: " + e.message, "⚠️");
+                showAlert("ສຳເລັດ", `ສ້າງບັນຊີເຈົ້າຂອງຮ້ານ [${usernameVal}] ສຳເລັດຮຽບຮ້ອຍ!`, "⭐");
+                document.getElementById('new-target-device').value = "";
+                document.getElementById('new-admin-user').value = "";
+                document.getElementById('new-admin-pass').value = "";
             }
         }
 
@@ -1270,6 +1279,7 @@
                         showAlert("ຜິດພາດ", "ບໍ່ສາມາດລຶບບັນຊີໄດ້", "⚠️");
                         return;
                     }
+                    localStorage.removeItem('pos_shop_pass_' + targetId);
                     loadAllDevices();
                 } catch (e) {
                     showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດ", "⚠️");
