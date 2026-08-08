@@ -107,7 +107,7 @@
         <div class="bg-white rounded-xl shadow overflow-hidden mb-6">
             <div class="bg-[#1e3a8a] text-white px-4 py-3 font-semibold flex items-center justify-between">
                 <span>📄 ລາຍການສິນຄ້າໃນກະຕ່າ</span>
-                <button onclick="addDemoItem()" class="bg-yellow-500 hover:bg-yellow-600 text-blue-900 px-3 py-1 rounded text-xs font-bold shadow">
+                <button onclick="addDemoItem()" class="bg-yellow-500 hover:bg-yellow-600 text-blue-900 px-3 py-1 rounded text-xs font-bold cursor-pointer shadow">
                     + ເພີ່ມສິນຄ້າທົດລອງຂາຍ
                 </button>
             </div>
@@ -191,6 +191,355 @@
                     <span>ລວມຍອດຂາຍຕົວຈິງທັງໝົດ:</span>
                     <span id="sum-total-price" class="text-green-600">0 ກີບ</span>
                 </div>
-                <div class="flex justify-between text-sm font-boldຂອບໃຈຫຼາຍໆ ສຳລັບກຳລັງໃຈ! 💪 
+                <div class="flex justify-between text-sm font-bold text-gray-900 border-t pt-1">
+                    <span>ລວມກຳໄລເບື້ອງຕົ້ນ:</span>
+                    <span id="sum-total-profit" class="text-emerald-700">0 ກີບ</span>
+                </div>
+            </div>
+            <button onclick="closeHistory()" class="mt-4 bg-gray-500 hover:bg-gray-600 text-white font-bold px-4 py-2 rounded-xl w-full cursor-pointer">ປິດ</button>
+        </div>
+    </div>
 
-ລອງບອກຈຸດທີ່ຍັງບໍ່ທັນຖືກຕ້ອງ ຫຼື ສິ່ງທີ່ທ່ານຕ້ອງການໃຫ້ປັບປຸງ/แก้ไขຕື່ມໄດ້ເລີຍ ເພື່ອໃຫ້ເຮົາປັບໃຫ້ຖືກກັບຄວາມຕ້ອງການຂອງທ່ານຫຼາຍທີ່ສຸດ!
+    <!-- JavaScript Logic -->
+    <script>
+        const SUPABASE_URL = "https://omvrghcnswikqxixgcza.supabase.co"; 
+        const SUPABASE_ANON_KEY = "sb_publishable_3E0MYF88KNsZ1PaQED-Ihg_Y11UQ4RD";
+        
+        let supabaseClient = null;
+        try {
+            if (window.supabase && typeof window.supabase.createClient === 'function') {
+                supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            }
+        } catch (e) { console.error("Supabase init Error:", e); }
+
+        function formatNumberWithCommas(num) {
+            if (num === "" || num === null || isNaN(num)) return "0";
+            return Number(num).toLocaleString('en-US');
+        }
+
+        function formatInputMoney(input) {
+            let val = input.value.replace(/,/g, '');
+            if (val === "" || isNaN(val)) { input.value = ""; return; }
+            input.value = Number(val).toLocaleString('en-US');
+        }
+
+        function cleanDevId(id) {
+            return id ? String(id).trim().toUpperCase() : '';
+        }
+
+        let deviceId = cleanDevId(localStorage.getItem('pos_device_id')) || 'POS-A0001';
+        let currentUsername = cleanDevId(localStorage.getItem('pos_current_username')) || null;
+
+        function checkRoleAndLicense() {
+            let userRole = localStorage.getItem('pos_user_role');
+            let badge = document.getElementById('license-status-badge');
+
+            if (userRole === 'admin') {
+                if (badge) badge.innerText = "🛡️ ສະຖານະ: ເຂົ້າລະບົບ Admin (Full Access)";
+            } else if (currentUsername) {
+                if (badge) badge.innerText = `⭐ ສະຖານະ: ສະມາຊິກ [${currentUsername}] (Shared Sync)`;
+            } else {
+                if (badge) badge.innerText = "⏳ ສະຖານະ: ທົດລອງໃຊ້ 15 ວັນ";
+            }
+        }
+
+        function selectRole(role) {
+            document.getElementById('role-select-modal').classList.add('hidden');
+            document.getElementById('unified-login-modal').classList.add('hidden');
+            checkRoleAndLicense();
+        }
+
+        function showUnifiedLoginModal() {
+            document.getElementById('role-select-modal').classList.add('hidden');
+            document.getElementById('unified-login-modal').classList.remove('hidden');
+        }
+
+        function backToRoleSelectFromUnified() {
+            document.getElementById('unified-login-modal').classList.add('hidden');
+            document.getElementById('role-select-modal').classList.remove('hidden');
+        }
+
+        async function verifyUnifiedLogin() {
+            let u = document.getElementById('unified-login-username').value.trim();
+            let p = document.getElementById('unified-login-password').value.trim();
+
+            if (!u || !p) { alert("ກະລຸນາປ້ອນ Username ແລະ Password!"); return; }
+
+            let formattedU = cleanDevId(u);
+            currentUsername = formattedU;
+            deviceId = formattedU;
+            localStorage.setItem('pos_current_username', currentUsername);
+            localStorage.setItem('pos_device_id', deviceId);
+
+            document.getElementById('unified-login-modal').classList.add('hidden');
+            document.getElementById('role-select-modal').classList.add('hidden');
+            
+            checkRoleAndLicense();
+        }
+
+        function handleUnifiedLoginKeydown(e) {
+            if (e.key === 'Enter') verifyUnifiedLogin();
+        }
+
+        function adminLogout() {
+            localStorage.clear();
+            location.reload();
+        }
+
+        // Cart & Checkout Logic
+        let cart = [];
+        let globalHistoryList = [];
+
+        function addDemoItem() {
+            let sampleItems = [
+                { code: 'P001', name: 'ກາເຟແປບຊີ (Coffee)', cost: 12000, price: 15000 },
+                { code: 'P002', name: 'ນ້ຳດື່ມ ຫົວເສືອ 1.5L', cost: 4000, price: 6000 },
+                { code: 'P003', name: 'ເຂົ້າໜົມ ເລย์ (Lays)', cost: 8000, price: 10000 }
+            ];
+            let item = sampleItems[Math.floor(Math.random() * sampleItems.length)];
+            let existing = cart.find(i => i.code === item.code);
+            if (existing) { existing.qty += 1; }
+            else { cart.push({ ...item, qty: 1 }); }
+            renderCart();
+        }
+
+        function updateQty(index, delta) {
+            cart[index].qty += delta;
+            if (cart[index].qty <= 0) cart.splice(index, 1);
+            renderCart();
+        }
+
+        function removeItem(index) {
+            cart.splice(index, 1);
+            renderCart();
+        }
+
+        function renderCart() {
+            let tbody = document.getElementById('cart-items');
+            if (cart.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ (ກົດ "+ ເພີ່ມສິນຄ້າທົດລອງຂາຍ" ເພື່ອທົດສອບ)</td></tr>`;
+                document.getElementById('grand-total-cost').innerText = "0 ກີບ";
+                document.getElementById('grand-total').innerText = "0 ກີບ";
+                document.getElementById('final-total').innerText = "0 ກີບ";
+                document.getElementById('grand-total-profit').innerText = "0 ກີບ";
+                document.getElementById('change-amount').innerText = "0 ກີບ";
+                return;
+            }
+            let html = '', grandTotal = 0, grandTotalCost = 0;
+            cart.forEach((item, index) => {
+                let total = item.price * item.qty, totalCost = item.cost * item.qty;
+                grandTotal += total; grandTotalCost += totalCost;
+                html += `
+                    <tr class="hover:bg-gray-50 border-b">
+                        <td class="p-3 font-medium text-gray-800">${item.name}</td>
+                        <td class="p-3 text-right text-gray-600">${formatNumberWithCommas(item.cost)}</td>
+                        <td class="p-3 text-right text-blue-600 font-semibold">${formatNumberWithCommas(item.price)}</td>
+                        <td class="p-3 text-center">
+                            <button onclick="updateQty(${index}, -1)" class="px-2 bg-gray-200 rounded font-bold cursor-pointer">-</button>
+                            <span class="mx-2 font-bold">${item.qty}</span>
+                            <button onclick="updateQty(${index}, 1)" class="px-2 bg-gray-200 rounded font-bold cursor-pointer">+</button>
+                        </td>
+                        <td class="p-3 text-right font-bold text-gray-800">${formatNumberWithCommas(total)}</td>
+                        <td class="p-3 text-center"><button onclick="removeItem(${index})" class="text-red-500 font-bold cursor-pointer">ລຶບ</button></td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+            document.getElementById('grand-total-cost').innerText = formatNumberWithCommas(grandTotalCost) + " ກີບ";
+            document.getElementById('grand-total').innerText = formatNumberWithCommas(grandTotal) + " ກີບ";
+            calculateChange();
+        }
+
+        function calculateChange() {
+            let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            let grandTotalCost = cart.reduce((sum, item) => sum + ((item.cost || 0) * item.qty), 0);
+            
+            let customPriceVal = document.getElementById('custom-final-price').value.replace(/,/g, '');
+            let finalTotal = customPriceVal !== "" ? (parseFloat(customPriceVal) || 0) : grandTotal;
+            if (finalTotal < 0) finalTotal = 0;
+
+            let grandTotalProfit = finalTotal - grandTotalCost;
+
+            document.getElementById('final-total').innerText = formatNumberWithCommas(finalTotal) + " ກີບ";
+            document.getElementById('grand-total-profit').innerText = formatNumberWithCommas(grandTotalProfit) + " ກີບ";
+
+            let cashInput = document.getElementById('cash-given').value.replace(/,/g, ''), changeElem = document.getElementById('change-amount');
+            if (!cashInput) { changeElem.innerText = "0 ກີບ (ຈ່າຍພໍດີ)"; return; }
+            let cashGiven = parseFloat(cashInput) || 0, change = cashGiven - finalTotal;
+            changeElem.innerText = change >= 0 ? formatNumberWithCommas(change) + " ກີບ" : "ເງິນຍັງບໍ່ພໍ";
+        }
+
+        async function checkout() {
+            if (cart.length === 0) { alert("ກະລຸນາເລືອກ ຫຼື ເພີ່ມສິນຄ້າກ່ອນ!"); return; }
+            let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            let totalCost = cart.reduce((sum, item) => sum + ((item.cost || 0) * item.qty), 0);
+            
+            let customPriceVal = document.getElementById('custom-final-price').value.replace(/,/g, '');
+            let finalTotal = customPriceVal !== "" ? (parseFloat(customPriceVal) || 0) : grandTotal;
+            let cashGivenInput = document.getElementById('cash-given').value.replace(/,/g, '');
+            let cashGiven = cashGivenInput ? (parseFloat(cashGivenInput) || 0) : finalTotal;
+
+            let txData = {
+                id: 'TX-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+                device_id: deviceId,
+                created_at: new Date().toISOString(),
+                items: cart,
+                total_items: cart.reduce((sum, item) => sum + item.qty, 0),
+                total_cost: totalCost,
+                sub_total: grandTotal,
+                discount: grandTotal - finalTotal,
+                total: finalTotal,
+                cash: cashGiven,
+                change: cashGiven - finalTotal
+            };
+
+            // 1. ບັນທຶກລົງ Local Cache ທັນທີ
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            localHistory.unshift(txData);
+            localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
+
+            // 2. ບັນທຶກລົງ Supabase
+            if (supabaseClient) {
+                try {
+                    await supabaseClient.from('sales_history').insert([{
+                        device_id: deviceId,
+                        items: cart,
+                        total_items: txData.total_items,
+                        total_cost: totalCost,
+                        sub_total: grandTotal,
+                        discount: txData.discount,
+                        total: finalTotal,
+                        cash: cashGiven,
+                        change: txData.change,
+                        created_at: txData.created_at
+                    }]);
+                } catch (err) { console.error("Cloud insert warning:", err); }
+            }
+
+            alert("ຊຳລະເງິນ ແລະ ບັນທຶກປະຫວັດສຳເລັດຮຽບຮ້ອຍ!");
+            cart = []; 
+            document.getElementById('cash-given').value = ''; 
+            document.getElementById('custom-final-price').value = '';
+            renderCart();
+            
+            loadCloudHistory();
+        }
+
+        async function loadCloudHistory() {
+            let listDiv = document.getElementById('history-list');
+            if (listDiv) listDiv.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
+            
+            let combinedMap = new Map();
+
+            // Local Memory Fetch
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            localHistory.forEach(tx => {
+                let key = tx.id || tx.created_at;
+                combinedMap.set(key, tx);
+            });
+
+            // Supabase Cloud Fetch
+            if (supabaseClient) {
+                try {
+                    let { data: cloudSales, error } = await supabaseClient
+                        .from('sales_history')
+                        .select('*')
+                        .order('created_at', { ascending: false });
+
+                    if (!error && cloudSales && cloudSales.length > 0) {
+                        cloudSales.forEach(tx => {
+                            let key = tx.id || tx.created_at;
+                            combinedMap.set(key, {
+                                id: tx.id,
+                                source: 'cloud',
+                                device_id: cleanDevId(tx.device_id) || deviceId,
+                                created_at: tx.created_at,
+                                total_items: tx.total_items || 0,
+                                total_cost: parseFloat(tx.total_cost) || 0,
+                                discount: parseFloat(tx.discount) || 0,
+                                total: parseFloat(tx.total) || 0,
+                                cash: parseFloat(tx.cash) || 0,
+                                change: parseFloat(tx.change) || 0,
+                                items: tx.items || []
+                            });
+                        });
+                    }
+                } catch (e) { console.warn("Cloud Fetch warning:", e); }
+            }
+
+            globalHistoryList = Array.from(combinedMap.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+            if (!listDiv) return;
+
+            if (globalHistoryList.length === 0) {
+                listDiv.innerHTML = `<p class="text-gray-500 text-center py-4">ຍັງບໍ່ມີປະຫວັດການຂາຍ.</p>`;
+                document.getElementById('history-summary').classList.add('hidden');
+            } else {
+                let html = '', sumCost = 0, sumPrice = 0;
+                globalHistoryList.forEach((tx, index) => {
+                    let txCost = (parseFloat(tx.total_cost) || 0);
+                    let txPrice = (parseFloat(tx.total) || 0);
+                    let txProfit = txPrice - txCost;
+
+                    sumCost += txCost; 
+                    sumPrice += txPrice;
+
+                    html += `
+                        <div class="border-b pb-3 mb-3 bg-gray-50 p-3 rounded-xl border-l-4 border-blue-600 shadow-sm space-y-1">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-bold text-blue-800 text-xs">📅 ${new Date(tx.created_at).toLocaleString()} [ID: ${tx.device_id || deviceId}]</span>
+                                <button onclick="promptDeleteHistory(${index})" class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded font-bold cursor-pointer">🗑️ ລຶບ</button>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-700 font-semibold">
+                                <span>ລາຄາຊື້ລວມ:</span>
+                                <span class="text-blue-700">${formatNumberWithCommas(txCost)} ກີບ</span>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-800 font-bold">
+                                <span>ຍອດຂາຍຕົວຈິງ:</span>
+                                <span class="text-green-600">${formatNumberWithCommas(txPrice)} ກີບ</span>
+                            </div>
+                            <div class="flex justify-between text-xs font-bold text-emerald-700 border-t pt-1">
+                                <span>ກຳໄລເບື້ອງຕົ້ນ:</span>
+                                <span>${formatNumberWithCommas(txProfit)} ກີບ</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                listDiv.innerHTML = html;
+                document.getElementById('sum-total-cost').innerText = formatNumberWithCommas(sumCost) + " ກີບ";
+                document.getElementById('sum-total-price').innerText = formatNumberWithCommas(sumPrice) + " ກີບ";
+                document.getElementById('sum-total-profit').innerText = formatNumberWithCommas(sumPrice - sumCost) + " ກີບ";
+                document.getElementById('history-summary').classList.remove('hidden');
+            }
+        }
+
+        async function promptDeleteHistory(index) {
+            let targetItem = globalHistoryList[index];
+            if (!targetItem) return;
+
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            localHistory = localHistory.filter(tx => (tx.id !== targetItem.id && tx.created_at !== targetItem.created_at));
+            localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
+
+            if (targetItem.source === 'cloud' && targetItem.id && supabaseClient) {
+                try { await supabaseClient.from('sales_history').delete().eq('id', targetItem.id); } catch (e) {}
+            }
+
+            loadCloudHistory();
+        }
+
+        function openHistory() { 
+            document.getElementById('history-modal').classList.remove('hidden'); 
+            loadCloudHistory(); 
+        }
+        function closeHistory() { 
+            document.getElementById('history-modal').classList.add('hidden'); 
+        }
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            initDeviceId();
+            checkRoleAndLicense();
+        });
+    </script>
+</body>
+</html>
