@@ -114,15 +114,6 @@
                 </button>
             </div>
 
-            <!-- 🌟 ປຸ່ມສ້າງ QR Code ເຊື່ອມຕໍ່ພະນັກງານຂາຍ -->
-            <div class="bg-purple-50 p-4 rounded-xl border border-purple-200 text-center space-y-2">
-                <h4 class="font-bold text-purple-900 text-sm">📱 QR Code ເຊື່ອມຕໍ່ພະນັກງານຂາຍ</h4>
-                <p class="text-xs text-purple-700">ໃຫ້ພະນັກງານຂາຍສະແກນ QR ນີ້ ເພື່ອຜูกຮ้านກັບ Admin ອັດຕະໂນມັດ</p>
-                <div class="flex justify-center my-2">
-                    <div id="admin-connect-qrcode" class="bg-white p-2 rounded-xl border inline-block"></div>
-                </div>
-            </div>
-
             <div class="space-y-2">
                 <h5 class="font-bold text-xs text-gray-700">📋 ລາຍຊື່ບັນຊີທັງໝົດໃນລະບົບ:</h5>
                 <div id="device-list-container" class="space-y-2 text-sm text-gray-700">
@@ -131,6 +122,19 @@
             </div>
 
             <button onclick="closeAdminManager()" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ປິດ</button>
+        </div>
+    </div>
+
+    <!-- Admin Connect QR Code Modal -->
+    <div id="admin-qr-modal" class="hidden fixed inset-0 bg-black/70 z-[350] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
+            <div class="text-3xl">📱</div>
+            <h3 class="text-lg font-bold text-purple-900">QR Code ເຊື່ອມຕໍ່ພະນັກງານຂາຍ</h3>
+            <p class="text-xs text-gray-600">ໃຫ້ພະນັກງານຂາຍໃຊ້ໂທລະສັບສະແກນ QR ນี้ເພື່ອຜູກຮ້ານ</p>
+            <div class="bg-purple-50 p-4 rounded-xl border flex justify-center items-center my-2">
+                <div id="admin-connect-qrcode" class="bg-white p-3 rounded-xl border inline-block min-h-[160px]"></div>
+            </div>
+            <button onclick="closeAdminQrModal()" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer">ປິດໜ້າຈໍ</button>
         </div>
     </div>
 
@@ -458,6 +462,11 @@
                 <!-- ປຸ່ມ: ⚙️ ຈັດການລະບົບ (Admin) -->
                 <button id="admin-manage-btn" onclick="openAdminManager()" class="hidden w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     ⚙️ ຈັດການລະບົບ
+                </button>
+
+                <!-- 🌟 ປຸ່ມ: 📱 QR Code ເຊື່ອມຕໍ່ພະນັກງານ (ຍ้ายມາໄວ້ທາງໜ້າປຸ່ມປ່ຽນໂໝດແລ້ວ) -->
+                <button id="header-connect-qr-btn" onclick="openAdminQrModal()" class="hidden w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
+                    📱 QR Code ເຊື່ອມຕໍ່ພະນັກງານ
                 </button>
 
                 <!-- ປຸ່ມ: ປ່ຽນໂໝດ / ອອກລະບົບ -->
@@ -842,7 +851,6 @@
         let currentUsername = localStorage.getItem('pos_current_username') || null;
 
         async function initDeviceId() {
-            // 🌟 ກວດສອບວ່າຖ້າມີການເຊື່ອມຕໍ່ຮ້ານຜ່ານ QR Code ມາແລ້ວ ໃຫ້ໃຊ້ device_id ຂອງ Admin ຮ້ານນັ້ນ
             let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
             if (linkedAdminId) {
                 deviceId = linkedAdminId;
@@ -902,18 +910,23 @@
             let shopOwner = localStorage.getItem('pos_shop_owner');
             let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
             let adminBtn = document.getElementById('admin-manage-btn');
+            let connectQrBtn = document.getElementById('header-connect-qr-btn');
 
             if (userRole === 'admin') {
                 if (adminBtn) adminBtn.classList.remove('hidden');
+                if (connectQrBtn) connectQrBtn.classList.add('hidden');
                 document.getElementById('license-status-badge').innerText = "🛡️ ສະຖານະ: ເຂົ້າລະບົບ Super Admin (Full Access)";
             } else if (shopOwner === 'true' || currentUsername) {
                 if (adminBtn) adminBtn.classList.add('hidden');
+                if (connectQrBtn) connectQrBtn.classList.remove('hidden'); // 🌟 ສະແດງປຸ່ມ QR ເຊື່ອມຕໍ່ສຳລັບເຈົ້າຂອງຮ້ານ
                 document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ເຈົ້າຂອງຮ້ານ [${currentUsername || deviceId}] (Shop Owner Admin)`;
             } else if (linkedAdminId) {
                 if (adminBtn) adminBtn.classList.add('hidden');
+                if (connectQrBtn) connectQrBtn.classList.add('hidden');
                 document.getElementById('license-status-badge').innerText = `🔗 ສະຖານະ: ພະນັກງານຂາຍ [ເຊື່ອມຕໍ່ຮ້ານ: ${linkedAdminId}] (Cashier)`;
             } else {
                 if (adminBtn) adminBtn.classList.add('hidden');
+                if (connectQrBtn) connectQrBtn.classList.add('hidden');
                 document.getElementById('license-status-badge').innerText = "⏳ ສະຖານະ: ພະນັກງານຂາຍ / Cashier (ທົດລອງ)";
             }
         }
@@ -971,7 +984,7 @@
                 localStorage.setItem('pos_device_id', deviceId);
                 localStorage.setItem('pos_shop_owner', 'true');
                 localStorage.removeItem('pos_user_role');
-                localStorage.removeItem('pos_linked_admin_id'); // ล้างสถานະพนักงานออกเพราะล็อกอินเป็นเจ้าຂອງຮ້ານ
+                localStorage.removeItem('pos_linked_admin_id');
 
                 document.getElementById('unified-login-modal').classList.add('hidden');
                 document.getElementById('role-select-modal').classList.add('hidden');
@@ -1036,7 +1049,24 @@
             navigator.clipboard.writeText(deviceId).then(() => {}).catch(() => {});
         }
 
-        // 🌟 ຟັງຊັນເປີດກ້ອງສະແກນ QR ເຊື່ອມຕໍ່ຮ້ານ Admin (ສຳລັບພະນັກງານຂາຍ)
+        // 🌟 ຟັງຊັນເປີດ QR Code Modal ສຳລັບເຈົ້າຂອງຮ້ານ
+        function openAdminQrModal() {
+            document.getElementById('admin-qr-modal').classList.remove('hidden');
+            let qrContainer = document.getElementById('admin-connect-qrcode');
+            if (qrContainer && window.QRCode) {
+                qrContainer.innerHTML = "";
+                QRCode.toString(deviceId, { type: 'svg', width: 160, margin: 1 }, function (err, svgString) {
+                    if (!err && qrContainer) {
+                        qrContainer.innerHTML = svgString;
+                    }
+                });
+            }
+        }
+
+        function closeAdminQrModal() {
+            document.getElementById('admin-qr-modal').classList.add('hidden');
+        }
+
         let staffScanner = null;
         function openStaffScanner() {
             closeMyDeviceModal();
@@ -1049,16 +1079,15 @@
                 { fps: 10, qrbox: 250 },
                 (decodedText) => {
                     let cleanText = decodedText.trim();
-                    // ຖ້າ QR Code ມີຄຳວ່າ POS- (ເຊັ່ນ: POS-A0010) ຖືວ່າເປັນ Admin ID
                     if (cleanText.startsWith('POS-') || cleanText.length <= 15) {
                         localStorage.setItem('pos_linked_admin_id', cleanText);
                         deviceId = cleanText;
                         localStorage.setItem('pos_device_id', deviceId);
                         closeStaffScanner();
-                        showAlert("ສຳເລັດ", `ເຊື່ອມຕໍ່ກັບຮ້ານ Admin [${cleanText}] ສຳເລັດຮຽບຮ້ອຍ! ຕอนນີ້ທ່ານເປັນພະນັກງານຂາຍຂອງຮ້ານນີ້ແລ້ວ`, "🔗");
+                        showAlert("ສຳເລັດ", `ເຊື່ອມຕໍ່ກັບຮ້ານ Admin [${cleanText}] ສຳເລັດຮຽບຮ້ອຍ!`, "🔗");
                         setTimeout(() => { location.reload(); }, 1500);
                     } else {
-                        showAlert("ແຈ້ງເຕືອນ", "QR Code ນี้ບໍ່ແມ່ນຂອງຮ້ານ Admin POS!", "⚠️");
+                        showAlert("ແຈ້ງເຕືອນ", "QR Code ນີ້ບໍ່ແມ່ນຂອງຮ້ານ Admin POS!", "⚠️");
                     }
                 },
                 (err) => {}
@@ -1204,21 +1233,9 @@
             }
         }
 
-        // 🌟 ຟັງຊັນເປີດໜ້າ Admin Manager ພ້ອມ Generate QR Code ເຊື່ອມຕໍ່ຮ້ານ
         async function openAdminManager() {
             document.getElementById('admin-manager-modal').classList.remove('hidden');
             await loadAllDevices();
-
-            // ສ້າງ QR Code ເຊື່ອມຕໍ່ຈາກ Device ID ປັດຈຸບັນຂອງ Admin
-            let qrContainer = document.getElementById('admin-connect-qrcode');
-            if (qrContainer && window.QRCode) {
-                qrContainer.innerHTML = "";
-                QRCode.toString(deviceId, { type: 'svg', width: 140, margin: 1 }, function (err, svgString) {
-                    if (!err && qrContainer) {
-                        qrContainer.innerHTML = svgString;
-                    }
-                });
-            }
         }
 
         function closeAdminManager() {
@@ -1448,7 +1465,6 @@
             let userRole = localStorage.getItem('pos_user_role');
             let isShopOwner = localStorage.getItem('pos_shop_owner') === 'true';
 
-            // 🌟 ພະນັກງານຂາຍ (Cashier) ທີ່ເຊື່ອມຕໍ່ມາ ຈະບໍ່ມີສິດລຶບເດັດຂາດ (Safety 100%)
             if (userRole !== 'admin' && !isShopOwner) {
                 showAlert("ບໍ່ມີສິດອະນຸຍາດ", "ສະເພາະເຈົ້າຂອງຮ້ານ (Shop Owner) ເທົ່ານັ້ນ ຈຶ່ງມີສິດລຶບປະຫວັດການຂາຍໄດ້!", "⚠️");
                 return;
