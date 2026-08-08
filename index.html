@@ -577,7 +577,7 @@
             </div>
         </div>
 
-        <!-- 🌟 Checkout Buttons (เพิ่มปุ่มสแกน QR BCEL One) -->
+        <!-- Checkout Buttons -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button onclick="openBcelQrModal()" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-base font-bold py-3 rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
                 📱 ສະແກນ QR ຮັບເງິນ (BCEL One)
@@ -594,7 +594,7 @@
         ✨ ສ້າງ ແລະ ພັດທະນາໂດຍ: <span class="text-yellow-400 font-semibold">ອາຈານ ບຸນແຕ່ງ ຊົ່ງຕົງມົວ</span> | 📞 ໂທ: 020 59456999, 020 99444448
     </footer>
 
-    <!-- History Modal -->
+    <!-- History Modal (ປ້ອງກັນພະນັກງານລຶບປະຫວັດ) -->
     <div id="history-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-xl max-w-xl w-full p-5 max-h-[80vh] overflow-y-auto">
             <h3 class="text-lg font-bold mb-3 text-gray-800 flex justify-between items-center">
@@ -900,7 +900,7 @@
 
         function backToRoleSelectFromUnified() {
             document.getElementById('unified-login-modal').classList.add('hidden');
-            document.getElementById('role-select-modal').classList.remove('hidden');
+            document.getElementById('role-select-modal').classList.add('hidden');
         }
 
         async function verifyUnifiedLogin() {
@@ -1006,7 +1006,6 @@
             navigator.clipboard.writeText("1006000000470").then(() => {}).catch(() => {});
         }
 
-        // 🌟 ຟັງຊັນເປີດປ໊ອບອັບ QR Code BCEL One ພ້ອມຝັງຍອດເງິນອັດຕະໂນມັດ
         async function openBcelQrModal() {
             let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
             let customPriceVal = document.getElementById('custom-final-price').value.replace(/,/g, '');
@@ -1023,8 +1022,6 @@
             let container = document.getElementById('bcel-qrcode-container');
             container.innerHTML = "";
 
-            // ມາດຕະຖານການສ້າງ EMV Co / Lao QR String ໂດຍຝັງເລກບັນຊີ ແລະ ຈຳນວນເງິນ
-            // (ຈຳລອງມາດຕະຖານ QR PromptPay/LaoQR ດ້ວຍ JSON Payload ຫຼື Standard String ເພື່ອໃຫ້ແອັບອ່ານຄ່າໄດ້)
             let bcelPayload = `BCELONE|1006000000470|BOUNTENG XIONGTONGMUA|${finalTotal}|LAK`;
 
             if (window.QRCode) {
@@ -1318,19 +1315,30 @@
             document.getElementById('custom-alert-modal').classList.add('hidden');
         }
 
+        // 🌟 ປ້ອງກັນພະນັກງານລຶບປະຫວັດ: ຖ້າບໍ່ແມ່ນ Admin (POSXIONG) ຈະບໍ່ມີສິດລຶບ
         async function promptDeleteHistory(index) {
+            let userRole = localStorage.getItem('pos_user_role');
+            if (userRole !== 'admin') {
+                showAlert("ບໍ່ມີສິດອະນຸຍາດ", "ສະເພາະເຈົ້າຂອງຮ້ານ (Admin) ເທົ່ານັ້ນ ຈຶ່ງມີສິດລຶບປະຫວັດການຂາຍໄດ້!", "⚠️");
+                return;
+            }
+
             let targetItem = globalHistoryList[index];
             if (!targetItem) return;
 
-            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-            localHistory = localHistory.filter(tx => (tx.id !== targetItem.id && tx.created_at !== targetItem.createdAt));
-            localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
+            showCustomConfirm("ຢືນຢັນການລຶບ", "ທ່ານຕ້ອງການລຶບປະຫວັດການຂາຍນີ້ແທ້ບໍ?", async (confirmed) => {
+                if (!confirmed) return;
 
-            if (targetItem.source === 'cloud' && targetItem.id && supabaseClient) {
-                try { await supabaseClient.from('sales_history').delete().eq('id', targetItem.id); } catch (e) {}
-            }
+                let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+                localHistory = localHistory.filter(tx => (tx.id !== targetItem.id && tx.created_at !== targetItem.createdAt));
+                localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
 
-            loadCloudHistory();
+                if (targetItem.source === 'cloud' && targetItem.id && supabaseClient) {
+                    try { await supabaseClient.from('sales_history').delete().eq('id', targetItem.id); } catch (e) {}
+                }
+
+                loadCloudHistory();
+            });
         }
 
         function toggleCustomDropdown(menuId, event) {
@@ -1807,6 +1815,9 @@
                 listDiv.innerHTML = `<p class="text-gray-500 text-center py-4">ຍັງບໍ່ມີປະຫວັດການຂາຍ.</p>`;
             } else {
                 let html = '', sumCost = 0, sumPrice = 0;
+                let userRole = localStorage.getItem('pos_user_role');
+                let isOwnerAdmin = (userRole === 'admin');
+
                 globalHistoryList.forEach((tx, index) => {
                     let txCost = (tx.total_cost || 0);
                     let txPrice = (tx.total || 0);
@@ -1815,11 +1826,16 @@
                     sumCost += txCost; 
                     sumPrice += txPrice;
 
+                    // 🌟 ຖ້າບໍ່ແມ່ນ Admin ຈະບໍ່ສະແດງປຸ່ມລຶບ (Safety 100%)
+                    let deleteBtnHtml = isOwnerAdmin ? 
+                        `<button onclick="promptDeleteHistory(${index})" class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded font-bold cursor-pointer">🗑️ ລຶບ</button>` : 
+                        ``;
+
                     html += `
                         <div class="border-b pb-3 mb-3 bg-gray-50 p-3 rounded-xl border-l-4 border-blue-600 shadow-sm space-y-1">
                             <div class="flex justify-between items-center mb-1">
                                 <span class="font-bold text-blue-800 text-xs">📅 ${new Date(tx.created_at).toLocaleString()} [ID: ${tx.device_id}]</span>
-                                <button onclick="promptDeleteHistory(${index})" class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded font-bold cursor-pointer">🗑️ ລຶບ</button>
+                                ${deleteBtnHtml}
                             </div>
                             <div class="flex justify-between text-xs text-gray-700 font-semibold">
                                 <span>ລາຄາຊື້ລວມ:</span>
