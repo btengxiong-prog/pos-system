@@ -197,6 +197,28 @@
         </div>
     </div>
 
+    <!-- 🌟 ປ້ອບອັບໃໝ່: ເລືອກເກຣດ/ລາຄາສິນຄ້າ ເມື່ອມີຫຼາຍລາຄາ -->
+    <div id="select-price-modal" class="hidden fixed inset-0 bg-black/70 z-[320] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 text-left">
+            <div class="text-center">
+                <div class="text-4xl mb-1">🏷️</div>
+                <h3 class="text-lg font-bold text-gray-800">ພົບສິນຄ້າມີຫຼາຍລາຄາ</h3>
+                <p class="text-xs text-gray-500">ລະຫັດ: <span id="multi-price-code" class="font-mono font-bold text-blue-600"></span></p>
+            </div>
+            
+            <p class="text-xs font-semibold text-gray-700">ກະລຸນາເລືອກເກຣດ/ລາຄາສິນຄ້າ ທີ່ຕ້ອງການນຳອອກ:</p>
+            
+            <div id="multi-price-list" class="space-y-2 max-h-60 overflow-y-auto p-1">
+                <!-- ລາຍການລາຄາຈະຖືກສ້າງຢູ່ບ່ອນນີ້ -->
+            </div>
+
+            <div class="flex gap-2 pt-2 border-t">
+                <button onclick="closeSelectPriceModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer text-sm">ຍົກເລີກ</button>
+                <button onclick="confirmSelectedPriceOption()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">ຕົກລົງ (ເລືອກລາຄານີ້)</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Date Selection Modal for Printing -->
     <div id="print-date-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[350]">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4">
@@ -1151,6 +1173,8 @@
         let excelRows = []; 
         let duplicateRemovedList = []; 
         let currentCodeType = 'qrcode'; 
+        let pendingMultiPriceItems = [];
+        let selectedPriceItem = null;
 
         function showAlert(title, message, icon = "✅") {
             document.getElementById('alert-title').innerText = title;
@@ -1209,7 +1233,7 @@
             }
         });
 
-        // 🌟 ປັບປຸງ: ແກ້ໄຂຟັງຊັນສະແກນນຳອອກສິນຄ້າ ໃຫ້ດຶງລາຄາຈາກບາໂຄດ 12-13 ຕົວເລກໄດ້ຖືກຕ້ອງ 100%
+        // 🌟 ປັບປຸງ: ຟັງຊັນສະແກນນຳອອກສິນຄ້າ + ລະບົບປ້ອບອັບເລືອກລາຄາສິນຄ້າເມື່ອມີຫຼາຍເກຣດ/ຫຼາຍລາຄາ ⚡
         async function openScanner() {
             document.getElementById('scanner-container').classList.remove('hidden');
             await fetchProductsForGenerator();
@@ -1245,32 +1269,106 @@
                         }
                     } catch (e) {}
 
-                    // 2) ຖ້າເປັນຕົວເລກບາໂຄດດ່ຽວໆ (12-13 ຕົວເລກ) ຫຼື ຂໍ້ຄວາມ, ໃຫ້ຄົ້ນຫາໃນ excelRows
-                    let foundItem = excelRows.find(r => {
+                    // 2) ຄົ້ນຫາສິນຄ້າທັງໝົດໃນ excelRows ທີ່ກົງກັບບາໂຄດນີ້ (ອາດມີຫຼາຍເກຣດ/ຫຼາຍລາຄາ)
+                    let matches = excelRows.filter(r => {
                         let itemCode = String(r.code || '').trim();
                         return itemCode.toLowerCase() === cleanDecoded.toLowerCase();
                     });
 
-                    // ຖ້າຊອກບໍ່ເຫັນແບບກົງໆ ໃຫ້ລອງທຽບແບບລຶບຕົວອັກສອນອື່ນ
-                    if (!foundItem) {
+                    if (matches.length === 0) {
                         let cleanDecodedDigits = cleanDecoded.replace(/\D/g, '');
-                        foundItem = excelRows.find(r => {
+                        matches = excelRows.filter(r => {
                             let itemCodeDigits = String(r.code || '').replace(/\D/g, '');
                             return itemCodeDigits !== '' && cleanDecodedDigits !== '' && itemCodeDigits === cleanDecodedDigits;
                         });
                     }
 
-                    if (foundItem) {
+                    // 3) ຖ້າພົບຫຼາຍກວ່າ 1 ລາຄາ -> ເປີດ ປ້ອບອັບ ໃຫ້ເລືອກລາຄາ
+                    if (matches.length > 1) {
+                        openSelectPriceModal(cleanDecoded, matches);
+                    } 
+                    // ຖ້າພົບ 1 ລາຄາ -> ດຶງລາຄານັ້ນມາເລີຍ
+                    else if (matches.length === 1) {
+                        let foundItem = matches[0];
                         scannedCode = foundItem.code;
                         scannedCost = parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0;
                         scannedPrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
                         scannedName = foundItem.code;
+                        showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
+                    } 
+                    // ຖ້າຊອກບໍ່ເຫັນ -> ສະແດງລະຫັດພ້ອມລາຄາ 0
+                    else {
+                        showConfirmModalParsed(scannedCode, scannedName, 0, 0);
                     }
-
-                    showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
                 },
                 (errorMessage) => {}
             ).catch(err => {});
+        }
+
+        // 🌟 ຟັງຊັນ: ເປີດປ້ອບອັບເລືອກເກຣດ/ລາຄາສິນຄ້າ
+        function openSelectPriceModal(code, items) {
+            pendingMultiPriceItems = items;
+            selectedPriceItem = items[0]; // ຕັ້ງຄ່າເລີ່ມຕົ້ນເປັນໂຕທຳອິດ
+            
+            document.getElementById('multi-price-code').innerText = code;
+            let listContainer = document.getElementById('multi-price-list');
+            
+            let html = '';
+            items.forEach((item, idx) => {
+                let costNum = parseFloat(String(item.cost).replace(/,/g, '')) || 0;
+                let priceNum = parseFloat(String(item.price).replace(/,/g, '')) || 0;
+                let profitPct = item.profitPct || 20;
+                let dateStr = item.dateAdded || '-';
+
+                html += `
+                    <label class="flex items-center justify-between p-3 border-2 rounded-xl cursor-pointer hover:bg-blue-50 transition ${idx === 0 ? 'border-blue-600 bg-blue-50/50' : 'border-gray-200'}" onclick="selectPriceOption(${idx}, this)">
+                        <div class="flex items-center gap-3">
+                            <input type="radio" name="price_option" value="${idx}" ${idx === 0 ? 'checked' : ''} class="w-4 h-4 text-blue-600">
+                            <div>
+                                <div class="text-xs font-bold text-gray-800">ເກຣດ/ຕົວເລືອກທີ #${idx + 1} <span class="text-[10px] text-gray-400">(${dateStr})</span></div>
+                                <div class="text-xs font-semibold text-blue-700">ລາຄາຊື້: ${formatNumberWithCommas(costNum)} ກີບ</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-sm font-extrabold text-green-600">ຂາຍ: ${formatNumberWithCommas(priceNum)} ກີບ</div>
+                            <div class="text-[10px] font-bold text-amber-600">ກຳໄລ: +${profitPct}%</div>
+                        </div>
+                    </label>
+                `;
+            });
+
+            listContainer.innerHTML = html;
+            document.getElementById('select-price-modal').classList.remove('hidden');
+        }
+
+        function selectPriceOption(index, labelElem) {
+            selectedPriceItem = pendingMultiPriceItems[index];
+            let labels = document.querySelectorAll('#multi-price-list label');
+            labels.forEach(l => {
+                l.classList.remove('border-blue-600', 'bg-blue-50/50');
+                l.classList.add('border-gray-200');
+            });
+            labelElem.classList.remove('border-gray-200');
+            labelElem.classList.add('border-blue-600', 'bg-blue-50/50');
+            
+            let radio = labelElem.querySelector('input[type="radio"]');
+            if (radio) radio.checked = true;
+        }
+
+        function closeSelectPriceModal() {
+            document.getElementById('select-price-modal').classList.add('hidden');
+        }
+
+        function confirmSelectedPriceOption() {
+            if (!selectedPriceItem) return;
+            
+            let scannedCode = selectedPriceItem.code;
+            let scannedName = selectedPriceItem.code;
+            let scannedCost = parseFloat(String(selectedPriceItem.cost).replace(/,/g, '')) || 0;
+            let scannedPrice = parseFloat(String(selectedPriceItem.price).replace(/,/g, '')) || 0;
+
+            closeSelectPriceModal();
+            showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
         }
 
         async function openStockInScanner() {
@@ -1402,7 +1500,7 @@
 
             if (!nameInput) { showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຊື່ສິນຄ້າ!", "⚠️"); return; }
 
-            let existing = cart.find(item => item.code === tempScannedCode);
+            let existing = cart.find(item => item.code === tempScannedCode && item.cost === costInput && item.price === priceInput);
             if (existing) { existing.qty += 1; } 
             else { cart.push({ code: tempScannedCode, name: nameInput, cost: costInput, price: priceInput, qty: 1 }); }
             renderCart();
