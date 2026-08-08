@@ -120,7 +120,7 @@
                 </div>
             </div>
 
-            <button onclick="closeAdminManager()" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ປິດ</button>
+            <button onclick="closeAdminManager()" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ປิด</button>
         </div>
     </div>
 
@@ -209,7 +209,6 @@
             <p class="text-xs font-semibold text-gray-700">ກະລຸນາເລືອກເກຣດ/ລາຄາສິນຄ້າ ທີ່ຕ້ອງການນຳອອກ:</p>
             
             <div id="multi-price-list" class="space-y-2 max-h-60 overflow-y-auto p-1">
-                <!-- ລາຍການລາຄາຈະຖືກສ້າງຢູ່ບ່ອນນີ້ -->
             </div>
 
             <div class="flex gap-2 pt-2 border-t">
@@ -1047,6 +1046,7 @@
             document.getElementById('admin-manager-modal').classList.add('hidden');
         }
 
+        // 🌟 ຟັງຊັນໂຫຼດລາຍຊື່ບັນຊີທັງໝົດໃນ Admin Manager ພ້ອມປຸ່ມຈັດການ (ຖາວອນ, ທົດລອງ, ລຶບ, ກູ້ຄືນ)
         async function loadAllDevices() {
             let container = document.getElementById('device-list-container');
             container.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງດຶງຂໍ້ມູນ...</p>`;
@@ -1059,26 +1059,37 @@
                 let html = `<div class="space-y-3">`;
 
                 data.forEach((item, idx) => {
-                    let isPerm = item.status === 'permanent';
+                    let status = item.status || 'trial';
+                    let isPerm = status === 'permanent';
+                    let isDeleted = status === 'deleted';
+
+                    let statusBadge = isPerm ? '⭐ ຖາວອນ' : (isDeleted ? '❌ ຖືກລຶບ/ລະງັບ' : '⏳ ທົດລອງ');
+                    let badgeClass = isPerm ? 'bg-green-100 text-green-700' : (isDeleted ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700');
+
                     html += `
                         <div class="bg-gray-50 p-3 rounded-xl border text-xs space-y-2">
-                            <div class="flex justify-between items-center">
+                            <div class="flex justify-between items-center flex-wrap gap-2">
                                 <div>
                                     <span class="font-bold text-gray-400">#${idx + 1}</span>
                                     <span class="font-mono font-bold text-blue-600 ml-2 text-sm">${item.device_id}</span>
-                                    <div class="text-[10px] text-gray-400">ສ້າງເມື່ອ: ${new Date(item.created_at).toLocaleString()}</div>
+                                    <div class="text-[10px] text-gray-400">Username: ${item.username || '-'} | ສ້າງເມື່ອ: ${new Date(item.created_at).toLocaleString()}</div>
                                 </div>
-                                <div class="flex items-center gap-2">
-                                    <span class="px-2.5 py-1 rounded-full font-bold ${isPerm ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}">
-                                        ${isPerm ? '⭐ ຖາວອນ' : '⏳ ທົດລອງ / ລະງັບ'}
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="px-2.5 py-1 rounded-full font-bold ${badgeClass}">
+                                        ${statusBadge}
                                     </span>
-                                    ${isPerm ? 
-                                        `<button onclick="toggleDeviceStatus('${item.device_id}', 'trial')" class="px-3 py-1.5 rounded font-bold bg-amber-500 text-white cursor-pointer shadow-sm">ປ່ຽນເປັນທົດລອງ</button>` :
-                                        `<button disabled class="px-3 py-1.5 rounded font-bold bg-gray-300 text-gray-600 cursor-not-allowed">ສະຖານະລໍຖ້າ</button>`
+                                    
+                                    <!-- ປຸ່ມປ່ຽນສະຖານະ -->
+                                    ${!isPerm ? 
+                                        `<button onclick="updateDeviceStatusDirect('${item.device_id}', 'permanent')" class="px-2.5 py-1.5 rounded font-bold bg-green-600 text-white cursor-pointer shadow-sm">⭐ ໃຫ້ເປັນຖາວອນ</button>` :
+                                        `<button onclick="updateDeviceStatusDirect('${item.device_id}', 'trial')" class="px-2.5 py-1.5 rounded font-bold bg-amber-500 text-white cursor-pointer shadow-sm">⏳ ປົດເປັນທົດລອງ</button>`
                                     }
-                                    <button onclick="adminDeleteAccount('${item.device_id}')" class="px-2.5 py-1.5 rounded font-bold bg-red-100 text-red-600 hover:bg-red-200 cursor-pointer">
-                                        🗑️ ລຶບ
-                                    </button>
+
+                                    <!-- ປຸ່ມລຶບ ຫຼື ກູ້ຄືນ -->
+                                    ${!isDeleted ?
+                                        `<button onclick="adminDeleteAccount('${item.device_id}')" class="px-2.5 py-1.5 rounded font-bold bg-red-100 text-red-600 hover:bg-red-200 cursor-pointer">🗑️ ລຶບ</button>` :
+                                        `<button onclick="updateDeviceStatusDirect('${item.device_id}', 'permanent')" class="px-2.5 py-1.5 rounded font-bold bg-blue-600 text-white cursor-pointer">🔄 ກู้ຄືນບັນຊີ</button>`
+                                    }
                                 </div>
                             </div>
                         </div>
@@ -1086,26 +1097,31 @@
                 });
                 html += `</div>`;
                 container.innerHTML = html;
-            } catch (e) {}
+            } catch (e) {
+                container.innerHTML = `<p class="text-center py-4 text-red-500">ບໍ່ສາມາດໂຫຼດຂໍ້ມູນໄດ້</p>`;
+            }
         }
 
+        // 🌟 ຟັງຊັນສ້າງ Username ແລະ Password ໃຫ້ສະມາຊິກຖາວອນ
         async function adminCreateUser() {
             let targetDev = document.getElementById('new-target-device').value.trim().toUpperCase();
+            let usernameVal = document.getElementById('new-admin-user').value.trim().toUpperCase();
+            let passwordVal = document.getElementById('new-admin-pass').value.trim();
 
-            if (!targetDev) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ ID ເຄື່ອງໃຫ້ຄົບຖ້ວນ!", "⚠️");
+            if (!targetDev || !usernameVal || !passwordVal) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ ID ເຄື່ອງ, Username ແລະ Password ให้ครบຖ້ວນ!", "⚠️");
                 return;
             }
 
             if (!supabaseClient) return;
 
             try {
-                let { data: existingDev } = await supabaseClient.from('licenses').select('*').eq('device_id', targetDev).single();
-
                 let payload = {
                     device_id: targetDev,
+                    username: usernameVal,
+                    password: passwordVal,
                     status: 'permanent',
-                    created_at: existingDev ? existingDev.created_at : new Date().toISOString()
+                    created_at: new Date().toISOString()
                 };
 
                 let { error } = await supabaseClient.from('licenses').upsert(payload, { onConflict: 'device_id' });
@@ -1115,7 +1131,7 @@
                     return;
                 }
 
-                showAlert("ສຳເລັດ", `ເປີດໃຊ້ງານຖາວອນໃຫ້ ID: ${targetDev} ສຳເລັດຮຽບຮ້ອຍ!`, "⭐");
+                showAlert("ສຳເລັດ", `ສ້າງບັນຊີສະມາຊິກ [${usernameVal}] ສຳເລັດຮຽບຮ້ອຍ!`, "⭐");
                 document.getElementById('new-target-device').value = "";
                 document.getElementById('new-admin-user').value = "";
                 document.getElementById('new-admin-pass').value = "";
@@ -1125,15 +1141,16 @@
             }
         }
 
+        // 🌟 ຟັງຊັນລຶບ/ລະງັບບັນຊີ
         async function adminDeleteAccount(targetId) {
-            showCustomConfirm("ຢືນຢັນການລຶບ", `ທ່ານຕ້ອງການລຶບບັນຊີ [${targetId}] ນີ້ອອກຈາກລະບົບແທ້ບໍ? ເຄື່ອງນີ້ຈະບໍ່ສາມາດນຳໃຊ້ໄດ້ອີກຕໍ່ໄປ!`, async (confirmed) => {
+            showCustomConfirm("ຢືນຢັນການລຶບ", `ທ່ານຕ້ອງການລຶບ/ລະງັບ [${targetId}] ນີ້ບໍ? ຜູ້ໃຊ້จะไม่ສາມາດເຂົ້າລະບົບໄດ້!`, async (confirmed) => {
                 if (!confirmed) return;
                 if (!supabaseClient) return;
 
                 try {
-                    let { error } = await supabaseClient.from('licenses').delete().eq('device_id', targetId);
+                    let { error } = await supabaseClient.from('licenses').update({ status: 'deleted' }).eq('device_id', targetId);
                     if (error) {
-                        showAlert("ຜິດພາດ", "ບໍ່ສາມາດລຶບບັນຊີໄດ້", "⚠️");
+                        showAlert("ຜິດພາດ", "ບໍ່สามารถລຶບບັນຊີໄດ້", "⚠️");
                         return;
                     }
                     loadAllDevices();
@@ -1143,7 +1160,8 @@
             });
         }
 
-        async function toggleDeviceStatus(targetId, newStatus) {
+        // 🌟 ຟັງຊັນປ່ຽນສະຖານະໂດຍົງ (ໃຫ້ເປັນຖາວອນ, ທົດລອງ, ຫຼື ກູ້ຄືນ)
+        async function updateDeviceStatusDirect(targetId, newStatus) {
             if (!supabaseClient) return;
             try {
                 let { error } = await supabaseClient.from('licenses').update({ status: newStatus }).eq('device_id', targetId);
@@ -1151,7 +1169,6 @@
                     showAlert("ຜິດພາດ", "ບໍ່ສາມາດປ່ຽນສະຖານະໄດ້: " + error.message, "⚠️");
                     return;
                 }
-                showAlert("ສຳເລັດ", `ອັບເດດສະຖານະ [${targetId}] ຮຽບຮ້ອຍ!`, "✅");
                 loadAllDevices();
             } catch (e) {
                 showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການເຊື່ອມຕໍ່", "⚠️");
@@ -1233,7 +1250,6 @@
             }
         });
 
-        // 🌟 ປັບປຸງ: ຟັງຊັນສະແກນນຳອອກສິນຄ້າ + ລະບົບປ້ອບອັບເລືອກລາຄາສິນຄ້າເມື່ອມີຫຼາຍເກຣດ/ຫຼາຍລາຄາ ⚡
         async function openScanner() {
             document.getElementById('scanner-container').classList.remove('hidden');
             await fetchProductsForGenerator();
@@ -1256,7 +1272,6 @@
                     let scannedPrice = 0;
                     let scannedName = cleanDecoded;
 
-                    // 1) ກວດສອບວ່າເປັນ JSON ບໍ
                     try {
                         let parsedJson = JSON.parse(cleanDecoded);
                         if (parsedJson && parsedJson.code) {
@@ -1269,7 +1284,6 @@
                         }
                     } catch (e) {}
 
-                    // 2) ຄົ້ນຫາສິນຄ້າທັງໝົດໃນ excelRows ທີ່ກົງກັບບາໂຄດນີ້ (ອາດມີຫຼາຍເກຣດ/ຫຼາຍລາຄາ)
                     let matches = excelRows.filter(r => {
                         let itemCode = String(r.code || '').trim();
                         return itemCode.toLowerCase() === cleanDecoded.toLowerCase();
@@ -1283,21 +1297,16 @@
                         });
                     }
 
-                    // 3) ຖ້າພົບຫຼາຍກວ່າ 1 ລາຄາ -> ເປີດ ປ້ອບອັບ ໃຫ້ເລືອກລາຄາ
                     if (matches.length > 1) {
                         openSelectPriceModal(cleanDecoded, matches);
-                    } 
-                    // ຖ້າພົບ 1 ລາຄາ -> ດຶງລາຄານັ້ນມາເລີຍ
-                    else if (matches.length === 1) {
+                    } else if (matches.length === 1) {
                         let foundItem = matches[0];
                         scannedCode = foundItem.code;
                         scannedCost = parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0;
                         scannedPrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
                         scannedName = foundItem.code;
                         showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
-                    } 
-                    // ຖ້າຊອກບໍ່ເຫັນ -> ສະແດງລະຫັດພ້ອມລາຄາ 0
-                    else {
+                    } else {
                         showConfirmModalParsed(scannedCode, scannedName, 0, 0);
                     }
                 },
@@ -1305,10 +1314,9 @@
             ).catch(err => {});
         }
 
-        // 🌟 ຟັງຊັນ: ເປີດປ້ອບອັບເລືອກເກຣດ/ລາຄາສິນຄ້າ
         function openSelectPriceModal(code, items) {
             pendingMultiPriceItems = items;
-            selectedPriceItem = items[0]; // ຕັ້ງຄ່າເລີ່ມຕົ້ນເປັນໂຕທຳອິດ
+            selectedPriceItem = items[0];
             
             document.getElementById('multi-price-code').innerText = code;
             let listContainer = document.getElementById('multi-price-list');
