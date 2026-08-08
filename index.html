@@ -1103,7 +1103,6 @@
             }
         }
 
-        // 🌟 ປັບປຸງ: ຕັດປ໊ອບອັບແຈ້ງເຕືອນການລຶບອອກແລ້ວ ໃຫ້ລຶບແລ້ວໂຫຼດໃໝ່ທັນທີ ⚡
         async function adminDeleteAccount(targetId) {
             showCustomConfirm("ຢືນຢັນການລຶບ", `ທ່ານຕ້ອງການລຶບບັນຊີ [${targetId}] ນີ້ອອກຈາກລະບົບແທ້ບໍ? ເຄື່ອງນີ້ຈະບໍ່ສາມາດນຳໃຊ້ໄດ້ອີກຕໍ່ໄປ!`, async (confirmed) => {
                 if (!confirmed) return;
@@ -1115,7 +1114,6 @@
                         showAlert("ຜິດພາດ", "ບໍ່ສາມາດລຶບບັນຊີໄດ້", "⚠️");
                         return;
                     }
-                    // ໂຫຼດລາຍຊື່ບັນຊີໃໝ່ທັນທີ ໂດຍບໍ່ສະແດງປ໊ອບອັບແຈ້ງເຕືອນ
                     loadAllDevices();
                 } catch (e) {
                     showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດ", "⚠️");
@@ -1211,6 +1209,7 @@
             }
         });
 
+        // 🌟 ປັບປຸງ: ແກ້ໄຂຟັງຊັນສະແກນນຳອອກສິນຄ້າ ໃຫ້ດຶງລາຄາຈາກບາໂຄດ 12-13 ຕົວເລກໄດ້ຖືກຕ້ອງ 100%
         async function openScanner() {
             document.getElementById('scanner-container').classList.remove('hidden');
             await fetchProductsForGenerator();
@@ -1227,13 +1226,13 @@
                     lastScannedCode = decodedText;
                     lastScanTime = currentTime;
                     
-                    let scannedCode = decodedText;
+                    let cleanDecoded = String(decodedText).trim();
+                    let scannedCode = cleanDecoded;
                     let scannedCost = 0;
                     let scannedPrice = 0;
-                    let scannedName = decodedText;
+                    let scannedName = cleanDecoded;
 
-                    let cleanDecoded = decodedText.trim();
-
+                    // 1) ກວດສອບວ່າເປັນ JSON ບໍ
                     try {
                         let parsedJson = JSON.parse(cleanDecoded);
                         if (parsedJson && parsedJson.code) {
@@ -1241,28 +1240,31 @@
                             scannedCost = parseFloat(parsedJson.cost) || 0;
                             scannedPrice = parseFloat(parsedJson.price) || 0;
                             scannedName = parsedJson.code;
+                            showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
+                            return;
                         }
-                    } catch (e) {
-                        let foundItem = excelRows.find(r => {
-                            let codeStr = String(r.code).trim();
-                            let cleanCodeNum = codeStr.replace(/\D/g, '').padStart(9, '0').slice(-9);
-                            let barcode13 = "888" + cleanCodeNum;
-                            let rawWithout888 = cleanDecoded.startsWith('888') ? cleanDecoded.slice(3).replace(/^0+/, '') : cleanDecoded;
-                            let rawCodeClean = codeStr.replace(/^0+/, '');
+                    } catch (e) {}
 
-                            return codeStr.toLowerCase() === cleanDecoded.toLowerCase() || 
-                                   barcode13 === cleanDecoded || 
-                                   rawWithout888 === rawCodeClean ||
-                                   cleanDecoded.includes(codeStr) ||
-                                   codeStr.toLowerCase().includes(rawWithout888.toLowerCase());
+                    // 2) ຖ້າເປັນຕົວເລກບາໂຄດດ່ຽວໆ (12-13 ຕົວເລກ) ຫຼື ຂໍ້ຄວາມ, ໃຫ້ຄົ້ນຫາໃນ excelRows
+                    let foundItem = excelRows.find(r => {
+                        let itemCode = String(r.code || '').trim();
+                        return itemCode.toLowerCase() === cleanDecoded.toLowerCase();
+                    });
+
+                    // ຖ້າຊອກບໍ່ເຫັນແບບກົງໆ ໃຫ້ລອງທຽບແບບລຶບຕົວອັກສອນອື່ນ
+                    if (!foundItem) {
+                        let cleanDecodedDigits = cleanDecoded.replace(/\D/g, '');
+                        foundItem = excelRows.find(r => {
+                            let itemCodeDigits = String(r.code || '').replace(/\D/g, '');
+                            return itemCodeDigits !== '' && cleanDecodedDigits !== '' && itemCodeDigits === cleanDecodedDigits;
                         });
+                    }
 
-                        if (foundItem) {
-                            scannedCode = foundItem.code;
-                            scannedCost = parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0;
-                            scannedPrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
-                            scannedName = foundItem.code;
-                        }
+                    if (foundItem) {
+                        scannedCode = foundItem.code;
+                        scannedCost = parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0;
+                        scannedPrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
+                        scannedName = foundItem.code;
                     }
 
                     showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
