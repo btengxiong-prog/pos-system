@@ -135,7 +135,7 @@
             </div>
             <div class="space-y-2">
                 <button onclick="copyMyDeviceId()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">📋 ກ໋ອບປີ ID</button>
-                <button onclick="closeMyDeviceModal()" class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl text-sm transition cursor-pointer">ປິດ</button>
+                <button onclick="closeMyDeviceModal()" class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ປິດ</button>
             </div>
         </div>
     </div>
@@ -915,12 +915,10 @@
                     localStorage.setItem('pos_license_status', validData.status);
                     localStorage.removeItem('pos_user_role');
 
-                    // 🌟 Migrate ຂໍ້ມູນເກົ່າໃນ Local
                     let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
                     localHistory.forEach(tx => { tx.device_id = deviceId; });
                     localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
 
-                    // 🌟 Migrate ຂໍ້ມູນເກົ່າໃນ Cloud ໃຫ້ເປັນ Username ໃຫມ່
                     if (oldDeviceId && oldDeviceId !== deviceId) {
                         try {
                             await supabaseClient.from('sales_history').update({ device_id: deviceId }).eq('device_id', oldDeviceId);
@@ -1567,9 +1565,12 @@
             document.getElementById('cash-given').value = ''; 
             document.getElementById('custom-final-price').value = '';
             renderCart();
+            
+            // 🌟 ອັບເດດປະຫວັດການຂາຍທັນທີ
+            loadCloudHistory();
         }
 
-        // 🌟 ຟັງຊັນໂຫຼດປະຫວັດທີ່ຖືກແກ້ໄຂແບບຕົງຈຸດ 100%
+        // 🌟 ຟັງຊັນໂຫຼດປະຫວັດທີ່ຖືກປັບປຸງໃໝ່ແບບ Fail-safe 100%
         async function loadCloudHistory() {
             let listDiv = document.getElementById('history-list');
             listDiv.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
@@ -1579,31 +1580,38 @@
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
             let combinedMap = new Map();
 
+            // 1) ດຶງ Local History ເຂົ້າມາກ່ອນ
             localHistory.forEach(tx => { 
-                if (cleanDevId(tx.device_id) === deviceId) {
+                let txDev = cleanDevId(tx.device_id);
+                if (txDev === deviceId || (currentUsername && txDev.startsWith('POS-'))) {
                     combinedMap.set(tx.id || tx.created_at, tx); 
                 }
             });
 
+            // 2) ດຶງ Cloud History ຈາກ Supabase ໂດຍດຶງລວມມາແລ້ວ Filter ຢູ່ JS ( Fail-Safe )
             if (supabaseClient) {
                 try {
-                    // 🌟 ດຶງຂໍ້ມູນ Supabase ແບບ Direct Match (ປ້ອງກັນ Case Sensitive)
-                    let query = supabaseClient.from('sales_history').select('*');
-                    
-                    if (currentUsername) {
-                        query = query.or(`device_id.ilike.${deviceId},device_id.ilike.POS-%`);
-                    } else {
-                        query = query.ilike('device_id', deviceId);
-                    }
+                    let { data: cloudSales, error } = await supabaseClient
+                        .from('sales_history')
+                        .select('*')
+                        .order('created_at', { ascending: false });
 
-                    let { data: cloudSales, error } = await query.order('created_at', { ascending: false });
-
-                    if (!error && cloudSales) {
+                    if (!error && cloudSales && cloudSales.length > 0) {
                         cloudSales.forEach(tx => {
-                            let key = tx.id || tx.created_at;
-                            if (!combinedMap.has(key)) {
+                            let cleanTxDev = cleanDevId(tx.device_id);
+                            
+                            // 🌟 Filter Conditions
+                            let isMatch = false;
+                            if (cleanTxDev === deviceId) {
+                                isMatch = true;
+                            } else if (currentUsername && (cleanTxDev === currentUsername || cleanTxDev.startsWith('POS-'))) {
+                                isMatch = true;
+                            }
+
+                            if (isMatch) {
+                                let key = tx.id || tx.created_at;
                                 combinedMap.set(key, {
-                                    id: tx.id, source: 'cloud', device_id: cleanDevId(tx.device_id), created_at: tx.created_at,
+                                    id: tx.id, source: 'cloud', device_id: cleanTxDev, created_at: tx.created_at,
                                     total_items: tx.total_items || 0, total_cost: tx.total_cost || 0,
                                     discount: tx.discount || 0, total: tx.total, cash: tx.cash, change: tx.change, items: tx.items || []
                                 });
@@ -1611,7 +1619,7 @@
                         });
                     }
                 } catch (err) {
-                    console.error("Cloud history error:", err);
+                    console.error("Cloud history fetch warning:", err);
                 }
             }
 
@@ -1685,7 +1693,10 @@
             let totalPrice = 0;
 
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-            let allSales = localHistory.filter(tx => cleanDevId(tx.device_id) === deviceId);
+            let allSales = localHistory.filter(tx => {
+                let cleanTxDev = cleanDevId(tx.device_id);
+                return cleanTxDev === deviceId || (currentUsername && cleanTxDev.startsWith('POS-'));
+            });
 
             if (supabaseClient) {
                 try {
