@@ -104,7 +104,10 @@
             <div class="bg-blue-50 p-4 rounded-xl border border-blue-200 space-y-3">
                 <h4 class="font-bold text-blue-900 text-sm">➕ ສ້າງ Username ແລະ Password ໃຫ້ເຈົ້າຂອງຮ້ານ</h4>
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <input type="text" id="new-target-device" placeholder="ID ເຄື່ອງ (ເຊັ່ນ: POS-A0001)" class="border rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none bg-white">
+                    <!-- 🌟 ປ່ຽນຊ່ອງ ID ເຄື່ອງ ໃຫ້ເປັນ Dropdown ໃຫ້ເລືອກ -->
+                    <select id="new-target-device" class="border rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none bg-white">
+                        <option value="" disabled selected>-- ເລືອກ ID ເຄື່ອງ / ບັນຊີ --</option>
+                    </select>
                     <input type="text" id="new-admin-user" placeholder="USERNAME (ເຊັ່ນ: SHOP001)" class="border rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none bg-white">
                     <input type="text" id="new-admin-pass" placeholder="Password" class="border rounded-lg px-3 py-2 text-xs font-semibold outline-none bg-white">
                 </div>
@@ -899,7 +902,7 @@
 
         function backToRoleSelectFromUnified() {
             document.getElementById('unified-login-modal').classList.add('hidden');
-            document.getElementById('role-select-modal').classList.remove('hidden');
+            document.getElementById('role-select-modal').classList.add('hidden');
         }
 
         async function verifyUnifiedLogin() {
@@ -923,8 +926,6 @@
             }
 
             let formattedU = u.toUpperCase();
-            
-            // 🌟 ຖອດລະຫັດຈາກ LocalStorage ທີ່ບັນທຶກໄວ້
             let storedPass = localStorage.getItem('pos_shop_pass_' + formattedU);
 
             if (storedPass && storedPass === p) {
@@ -1129,11 +1130,15 @@
             document.getElementById('admin-manager-modal').classList.add('hidden');
         }
 
+        // 🌟 ໂຫຼດລາຍຊື່ບັນຊີທັງໝົດ ມາໃສ່ຕາຕະລາງ ແລະ ໃສ່ Dropdown
         async function loadAllDevices() {
             let container = document.getElementById('device-list-container');
+            let selectDropdown = document.getElementById('new-target-device');
+            
             container.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງດຶງຂໍ້ມູນ...</p>`;
+            
             if (!supabaseClient) {
-                container.innerHTML = `<p class="text-center py-4 text-red-500">ຍັງບໍ່ໄດ້ເຊື່ອມຕໍ່ Supabase</p>`;
+                container.innerHTML = `<p class="text-center py-4 text-red-500">ຍັງບໍ່ໄດ້ເຊື່ອມຕໍ່ Supabase</p>";
                 return;
             }
 
@@ -1143,8 +1148,17 @@
 
                 if (!data || data.length === 0) {
                     container.innerHTML = `<p class="text-center py-4 text-gray-400">ຍັງບໍ່ມີບັນຊີເຈົ້າຂອງຮ້ານໃນລະບົບ</p>`;
+                    selectDropdown.innerHTML = `<option value="" disabled selected>-- ບໍ່ມີ ID ເຄື່ອງໃນລະບົບ --</option>`;
                     return;
                 }
+
+                // Populate Dropdown Options
+                let dropdownHtml = `<option value="" disabled selected>-- ເລືອກ ID ເຄື່ອງ / ບັນຊີ --</option>`;
+                data.forEach(item => {
+                    let labelStatus = item.status === 'permanent' ? '⭐ ຖາວອນ' : '⏳ ທົດລອງ';
+                    dropdownHtml += `<option value="${item.device_id}">[${labelStatus}] ${item.device_id}</option>`;
+                });
+                selectDropdown.innerHTML = dropdownHtml;
 
                 let html = `<div class="space-y-3">`;
                 let now = new Date();
@@ -1228,18 +1242,16 @@
             }
         }
 
-        // 🌟 ລະບົບສ້າງບັນຊີເຈົ້າของຮ້ານ ບັນທຶກແບບປອດໄພ 100% (ບໍ່ຈຳເປັນຕ້ອງມີຄໍລຳ password ໃນ Supabase)
         async function adminCreateUser() {
             let targetDev = document.getElementById('new-target-device').value.trim().toUpperCase();
             let usernameVal = document.getElementById('new-admin-user').value.trim().toUpperCase();
             let passwordVal = document.getElementById('new-admin-pass').value.trim();
 
             if (!targetDev || !usernameVal || !passwordVal) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ ID ເຄື່ອງ, Username ແລະ Password ໃຫ້ຄົບຖ້ວນ!", "⚠️");
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກ ID ເຄື່ອງ, ປ້ອນ Username ແລະ Password ໃຫ້ຄົບຖ້ວນ!", "⚠️");
                 return;
             }
 
-            // 🌟 ບັນທຶກ Password ລົງໃນ LocalStorage ຂອງເຄື່ອງ Admin ໄວ້ກວດສອບທັນທີ
             localStorage.setItem('pos_shop_pass_' + targetDev, passwordVal);
             localStorage.setItem('pos_shop_pass_' + usernameVal, passwordVal);
 
@@ -2338,7 +2350,7 @@
                             <input type="text" data-field="price" value="${priceFormatted}" oninput="handleInputLive(${index}, 'price', this.value)" onkeydown="handleExcelCellKeydown(event, ${index}, 'price')" placeholder="0" class="w-full border rounded px-2.5 py-1.5 text-right text-xs outline-none focus:ring-1 focus:ring-blue-500 font-bold text-green-600">
                         </td>
                         <td class="p-2.5 border-r align-middle w-20">
-                            <input type="text" data-field="qty" value="${row.qty !== undefined && row.qty !== null ? row.qty : 1}" oninput="handleInputLive(${index}, 'qty', this.value)" onkeydown="handleExcelCellKeydown(event, ${index}, 'qty')" placeholder="1" class="w-full border rounded px-2 py-1.5 text-center text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-gray-700">
+                            <input type="text" data-field="qty" value="${row.qty !== undefined && row.qty !== null ? row.qty : 1}" oninput="handleInputLive(${index}, 'qty', this.value)" onkeydown="handleExcelCellKeydown(event, ${index}, 'qty')" placeholder="1" class="w-full border rounded px-2.5 py-1.5 text-center text-xs outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-gray-700">
                         </td>
                         <td class="p-2.5 border-r text-right align-middle font-bold text-gray-800 text-xs min-w-[120px]">
                             ${totalFormatted}
