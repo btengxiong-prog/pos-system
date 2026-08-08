@@ -821,11 +821,14 @@
             // Auto-Register Trial Device
             if (supabaseClient && deviceId) {
                 try {
-                    await supabaseClient.from('licenses').upsert({
-                        device_id: deviceId,
-                        status: 'trial',
-                        created_at: new Date().toISOString()
-                    }, { onConflict: 'device_id' });
+                    let { data: existing } = await supabaseClient.from('licenses').select('*').eq('device_id', deviceId).single();
+                    if (!existing) {
+                        await supabaseClient.from('licenses').insert({
+                            device_id: deviceId,
+                            status: 'trial',
+                            created_at: new Date().toISOString()
+                        });
+                    }
                 } catch(e) {}
             }
         }
@@ -1057,7 +1060,7 @@
             document.getElementById('admin-manager-modal').classList.add('hidden');
         }
 
-        // 🌟 ຟັງຊັນໂຫຼດລາຍຊື່ບັນຊີທັງໝົດໃນ Admin Manager ພ້ອມປຸ່ມລະງັບ/ເປີດໃຊ້ງານຕາມເງື່ອນໄຂ
+        // 🌟 ຟັງຊັນໂຫຼດລາຍຊື່ບັນຊີໃນ Admin Manager ພ້ອມເງື່ອນໄຂປຸ່ມເປີດ/ລະງັບຕາມທີ່ອາຈານຕ້ອງການ
         async function loadAllDevices() {
             let container = document.getElementById('device-list-container');
             container.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງດຶງຂໍ້ມູນ...</p>`;
@@ -1076,15 +1079,38 @@
                 }
 
                 let html = `<div class="space-y-3">`;
+                let now = new Date();
 
                 data.forEach((item, idx) => {
                     let status = item.status || 'trial';
                     let isPerm = status === 'permanent';
                     let isSuspended = status === 'suspended'; // ລະງັບຊົ່ວຄາວ
-                    let isDeleted = status === 'deleted';
 
-                    let statusBadge = isPerm ? '⭐ ຖາວອນ' : (isSuspended ? '⏸️ ລະງັບຊົ່ວຄາວ' : (isDeleted ? '❌ ຖືກລຶບ' : '⏳ ທົດລອງ'));
-                    let badgeClass = isPerm ? 'bg-green-100 text-green-700' : (isSuspended ? 'bg-orange-100 text-orange-700' : (isDeleted ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'));
+                    // ຄຳນວນວັນເວລາທົດລອງ 15 ວັນ
+                    let createdDate = new Date(item.created_at);
+                    let diffDays = (now - createdDate) / (1000 * 60 * 60 * 24);
+                    let isTrialExpired = diffDays > 15; // ຄົບ 15 ວັນແລ້ວ (ວັນທີ 16 ຂຶ້ນໄປ)
+
+                    let statusBadge = isPerm ? '⭐ ຖາວອນ' : (isSuspended ? '⏸️ ລະງັບຊົ່ວຄາວ' : (isTrialExpired ? '⚠️ ໝົດອາຍຸ 15 ວັນ' : '⏳ ທົດລອງ'));
+                    let badgeClass = isPerm ? 'bg-green-100 text-green-700' : (isSuspended ? 'bg-orange-100 text-orange-700' : (isTrialExpired ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'));
+
+                    // ເງື່ອນໄຂປຸ່ມຕາມໂຈດ:
+                    // 1) ຖ້າເປັນທົດລອງ: ປຸ່ມຊື່ "ເປີດທົດລອງ" (ກົດໄດ້ສະເພາະຕອນຄົບ 15 ວັນແລ້ວ ຄື isTrialExpired == true, ຖ້າບໍ່ທັນຮອດ ໃຫ້ disable)
+                    // 2) ຖ້າເປັນຖາວອນ: ປຸ່ມຊື່ "ເປີດຖາວອນ" (ກົດໄດ້ຕະຫຼອດເວລາ)
+                    let toggleBtnHtml = '';
+                    if (!isPerm) {
+                        let canActivateTrial = isTrialExpired || isSuspended;
+                        let trialBtnClass = canActivateTrial ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-sm' : 'bg-gray-300 text-gray-500 cursor-not-allowed';
+                        let trialTooltip = canActivateTrial ? '' : 'title="ຍังບໍ່ຄົບ 15 ວັນ ບໍ່ສາມາດເປີດຕໍ່ໄດ້"';
+                        toggleBtnHtml = `<button ${canActivateTrial ? `onclick="activateTrialDevice('${item.device_id}')"` : 'disabled'} ${trialTooltip} class="px-3 py-1.5 rounded font-bold ${trialBtnClass}">⏳ ເປີດທົດລອງ (+5 ວັນ)</button>`;
+                    } else {
+                        toggleBtnHtml = `<button onclick="updateDeviceStatusDirect('${item.device_id}', 'permanent')" class="px-3 py-1.5 rounded font-bold bg-green-600 hover:bg-green-700 text-white cursor-pointer shadow-sm">⭐ ເປີດຖາວອນ</button>`;
+                    }
+
+                    // ປຸ່ມລະງັບຊົ່ວຄາວ / ເປີດໃຊ້ງານຄືນ
+                    let suspendBtnHtml = isSuspended ? 
+                        `<button onclick="updateDeviceStatusDirect('${item.device_id}', '${isPerm ? 'permanent' : 'trial'}')" class="px-3 py-1.5 rounded font-bold bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer shadow-sm">▶️ ເປີດໃຊ້ງານ</button>` :
+                        `<button onclick="updateDeviceStatusDirect('${item.device_id}', 'suspended')" class="px-3 py-1.5 rounded font-bold bg-orange-500 hover:bg-orange-600 text-white cursor-pointer shadow-sm">⏸️ ລະງັບ</button>`;
 
                     html += `
                         <div class="bg-gray-50 p-3.5 rounded-xl border text-xs space-y-2 shadow-sm">
@@ -1099,16 +1125,8 @@
                                         ${statusBadge}
                                     </span>
                                     
-                                    <!-- 🌟 ເງື່ອນໄຂປຸ່ມ: ລະງັບ / ເປີດໃຊ້ງານ / ໃຫ້ເປັນຖາວອນ -->
-                                    ${isSuspended ? 
-                                        `<button onclick="toggleSuspendDevice('${item.device_id}', '${isPerm ? 'permanent' : 'trial'}')" class="px-3 py-1.5 rounded font-bold bg-green-600 hover:bg-green-700 text-white cursor-pointer shadow-sm">▶️ ເປີດໃຊ້ງານຄືນ</button>` :
-                                        `<button onclick="toggleSuspendDevice('${item.device_id}', 'suspended')" class="px-3 py-1.5 rounded font-bold bg-orange-500 hover:bg-orange-600 text-white cursor-pointer shadow-sm">⏸️ ລະງັບຊົ່ວຄາວ</button>`
-                                    }
-
-                                    ${!isPerm ? 
-                                        `<button onclick="updateDeviceStatusDirect('${item.device_id}', 'permanent')" class="px-3 py-1.5 rounded font-bold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-sm">⭐ ໃຫ້ເປັນຖາວອນ</button>` :
-                                        `<button onclick="updateDeviceStatusDirect('${item.device_id}', 'trial')" class="px-3 py-1.5 rounded font-bold bg-amber-500 hover:bg-amber-600 text-white cursor-pointer shadow-sm">⏳ ປົດເປັນທົດລອງ</button>`
-                                    }
+                                    ${suspendBtnHtml}
+                                    ${toggleBtnHtml}
 
                                     <button onclick="adminDeleteAccount('${item.device_id}')" class="px-2.5 py-1.5 rounded font-bold bg-red-100 text-red-600 hover:bg-red-200 cursor-pointer">🗑️ ລຶບ</button>
                                 </div>
@@ -1123,23 +1141,19 @@
             }
         }
 
-        // 🌟 ຟັງຊັນລະງັບຊົ່ວຄາວ / ເປີດໃຊ້ງານຄືນ (ຖ້າເປັນທົດລອງ ເປີດຄືນໄດ້ອີກ 5 ວັນ)
-        async function toggleSuspendDevice(targetId, targetStatus) {
+        // 🌟 ຟັງຊັນເປີດທົດລອງຕໍ່ 5 ວັນ (ສຳລັບບັນຊີທົດລອງທີ່ໝົດອາຍຸ 15 ວັນແລ້ວ)
+        async function activateTrialDevice(targetId) {
             if (!supabaseClient) return;
             try {
-                let updateData = { status: targetStatus };
-                if (targetStatus === 'trial') {
-                    // ຖ້າເປີດບັນຊີທົດລອງຄືນ ໃຫ້ບວກເວລາເພີ່ມອີກ 5 ວັນຈາກມື້ນີ້
-                    let newTrialEnd = new Date();
-                    newTrialEnd.setDate(newTrialEnd.getDate() + 5);
-                    updateData.created_at = new Date().toISOString(); // รีเซ็ตວັນທີເລີ່ມຕົ້ນ ຫຼື ຕໍ່ອາຍຸ
-                }
-
-                let { error } = await supabaseClient.from('licenses').update(updateData).eq('device_id', targetId);
+                let { error } = await supabaseClient.from('licenses').update({ 
+                    status: 'trial', 
+                    created_at: new Date().toISOString() // ຣີເຊັດວັນທີເລີ່ມຕົ້ນ ເພື່ອບວກເວລາທົດລອງເພີ່ມ
+                }).eq('device_id', targetId);
                 if (error) throw error;
+                showAlert("ສຳເລັດ", "ຕໍ່ອາຍຸທົດລອງເພີ່ມ 5 ວັນສຳເລັດ!", "⏳");
                 loadAllDevices();
             } catch (e) {
-                showAlert("ຜິດພາດ", "ບໍ່ສາມາດປ່ຽນສະຖານະໄດ້: " + e.message, "⚠️");
+                showAlert("ຜິດພາດ", "ບໍ່ສາມາດຕໍ່ອາຍຸໄດ້: " + e.message, "⚠️");
             }
         }
 
@@ -1786,7 +1800,7 @@
             } else if (reportType === 'quarterly') {
                 document.getElementById('filter-quarterly').classList.remove('hidden');
             } else if (reportType === 'duration') {
-                document.getElementById('filter-duration').classList.remove('hidden'); // 🌟 ສະແດງຫ້ອງເລືອກ 3, 6, 9, 12 ເດືອນ
+                document.getElementById('filter-duration').classList.remove('hidden');
             }
             calculateReport();
         }
