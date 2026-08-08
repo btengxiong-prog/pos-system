@@ -651,7 +651,6 @@
                     </select>
                 </div>
 
-                <!-- 🌟 ຫ້ອງເລືອກຍ່ອຍ: 3, 6, 9, 12 ເດືອນ (ສະແດງຕາມກອບສີແດງໃນຮູບ) -->
                 <div id="filter-duration" class="report-filter-group space-y-1.5 hidden">
                     <label class="block text-xs font-bold text-gray-700">ເລືອກຊ່ວງໄລຍະເວລາ (ເດືອນ):</label>
                     <select id="report-duration-months" onchange="calculateReport()" class="w-full border rounded-lg px-3 py-2 bg-white outline-none font-semibold text-blue-700">
@@ -1058,6 +1057,7 @@
             document.getElementById('admin-manager-modal').classList.add('hidden');
         }
 
+        // 🌟 ຟັງຊັນໂຫຼດລາຍຊື່ບັນຊີທັງໝົດໃນ Admin Manager ພ້ອມປຸ່ມລະງັບ/ເປີດໃຊ້ງານຕາມເງື່ອນໄຂ
         async function loadAllDevices() {
             let container = document.getElementById('device-list-container');
             container.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງດຶງຂໍ້ມູນ...</p>`;
@@ -1080,33 +1080,37 @@
                 data.forEach((item, idx) => {
                     let status = item.status || 'trial';
                     let isPerm = status === 'permanent';
+                    let isSuspended = status === 'suspended'; // ລະງັບຊົ່ວຄາວ
                     let isDeleted = status === 'deleted';
 
-                    let statusBadge = isPerm ? '⭐ ຖາວອນ' : (isDeleted ? '❌ ລະງັບ' : '⏳ ທົດລອງ');
-                    let badgeClass = isPerm ? 'bg-green-100 text-green-700' : (isDeleted ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700');
+                    let statusBadge = isPerm ? '⭐ ຖາວອນ' : (isSuspended ? '⏸️ ລະງັບຊົ່ວຄາວ' : (isDeleted ? '❌ ຖືກລຶບ' : '⏳ ທົດລອງ'));
+                    let badgeClass = isPerm ? 'bg-green-100 text-green-700' : (isSuspended ? 'bg-orange-100 text-orange-700' : (isDeleted ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'));
 
                     html += `
-                        <div class="bg-gray-50 p-3 rounded-xl border text-xs space-y-2">
+                        <div class="bg-gray-50 p-3.5 rounded-xl border text-xs space-y-2 shadow-sm">
                             <div class="flex justify-between items-center flex-wrap gap-2">
                                 <div>
                                     <span class="font-bold text-gray-400">#${idx + 1}</span>
                                     <span class="font-mono font-bold text-blue-600 ml-2 text-sm">${item.device_id}</span>
-                                    <div class="text-[10px] text-gray-400">Username: ${item.username || '-'} | ສ້າງເມື່ອ: ${new Date(item.created_at).toLocaleString()}</div>
+                                    <div class="text-[10px] text-gray-400 mt-0.5">Username: ${item.username || '-'} | ສ້າງເມື່ອ: ${new Date(item.created_at).toLocaleString()}</div>
                                 </div>
                                 <div class="flex items-center gap-2 flex-wrap">
                                     <span class="px-2.5 py-1 rounded-full font-bold ${badgeClass}">
                                         ${statusBadge}
                                     </span>
                                     
-                                    ${!isPerm ? 
-                                        `<button onclick="updateDeviceStatusDirect('${item.device_id}', 'permanent')" class="px-2.5 py-1.5 rounded font-bold bg-green-600 hover:bg-green-700 text-white cursor-pointer shadow-sm">⭐ ໃຫ້ເປັນຖາວອນ</button>` :
-                                        `<button onclick="updateDeviceStatusDirect('${item.device_id}', 'trial')" class="px-2.5 py-1.5 rounded font-bold bg-amber-500 hover:bg-amber-600 text-white cursor-pointer shadow-sm">⏳ ປົດເປັນທົດລອງ</button>`
+                                    <!-- 🌟 ເງື່ອນໄຂປຸ່ມ: ລະງັບ / ເປີດໃຊ້ງານ / ໃຫ້ເປັນຖາວອນ -->
+                                    ${isSuspended ? 
+                                        `<button onclick="toggleSuspendDevice('${item.device_id}', '${isPerm ? 'permanent' : 'trial'}')" class="px-3 py-1.5 rounded font-bold bg-green-600 hover:bg-green-700 text-white cursor-pointer shadow-sm">▶️ ເປີດໃຊ້ງານຄືນ</button>` :
+                                        `<button onclick="toggleSuspendDevice('${item.device_id}', 'suspended')" class="px-3 py-1.5 rounded font-bold bg-orange-500 hover:bg-orange-600 text-white cursor-pointer shadow-sm">⏸️ ລະງັບຊົ່ວຄາວ</button>`
                                     }
 
-                                    ${!isDeleted ?
-                                        `<button onclick="adminDeleteAccount('${item.device_id}')" class="px-2.5 py-1.5 rounded font-bold bg-red-100 text-red-600 hover:bg-red-200 cursor-pointer">🗑️ ລຶບ</button>` :
-                                        `<button onclick="updateDeviceStatusDirect('${item.device_id}', 'permanent')" class="px-2.5 py-1.5 rounded font-bold bg-blue-600 hover:bg-blue-700 text-white cursor-pointer">🔄 ກູ້ຄືນບັນຊີ</button>`
+                                    ${!isPerm ? 
+                                        `<button onclick="updateDeviceStatusDirect('${item.device_id}', 'permanent')" class="px-3 py-1.5 rounded font-bold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-sm">⭐ ໃຫ້ເປັນຖາວອນ</button>` :
+                                        `<button onclick="updateDeviceStatusDirect('${item.device_id}', 'trial')" class="px-3 py-1.5 rounded font-bold bg-amber-500 hover:bg-amber-600 text-white cursor-pointer shadow-sm">⏳ ປົດເປັນທົດລອງ</button>`
                                     }
+
+                                    <button onclick="adminDeleteAccount('${item.device_id}')" class="px-2.5 py-1.5 rounded font-bold bg-red-100 text-red-600 hover:bg-red-200 cursor-pointer">🗑️ ລຶບ</button>
                                 </div>
                             </div>
                         </div>
@@ -1116,6 +1120,26 @@
                 container.innerHTML = html;
             } catch (e) {
                 container.innerHTML = `<p class="text-center py-4 text-red-500">ຜິດພາດ: ${e.message}</p>`;
+            }
+        }
+
+        // 🌟 ຟັງຊັນລະງັບຊົ່ວຄາວ / ເປີດໃຊ້ງານຄືນ (ຖ້າເປັນທົດລອງ ເປີດຄືນໄດ້ອີກ 5 ວັນ)
+        async function toggleSuspendDevice(targetId, targetStatus) {
+            if (!supabaseClient) return;
+            try {
+                let updateData = { status: targetStatus };
+                if (targetStatus === 'trial') {
+                    // ຖ້າເປີດບັນຊີທົດລອງຄືນ ໃຫ້ບວກເວລາເພີ່ມອີກ 5 ວັນຈາກມື້ນີ້
+                    let newTrialEnd = new Date();
+                    newTrialEnd.setDate(newTrialEnd.getDate() + 5);
+                    updateData.created_at = new Date().toISOString(); // รีเซ็ตວັນທີເລີ່ມຕົ້ນ ຫຼື ຕໍ່ອາຍຸ
+                }
+
+                let { error } = await supabaseClient.from('licenses').update(updateData).eq('device_id', targetId);
+                if (error) throw error;
+                loadAllDevices();
+            } catch (e) {
+                showAlert("ຜິດພາດ", "ບໍ່ສາມາດປ່ຽນສະຖານະໄດ້: " + e.message, "⚠️");
             }
         }
 
@@ -1158,12 +1182,12 @@
         }
 
         async function adminDeleteAccount(targetId) {
-            showCustomConfirm("ຢືນຢັນການລຶບ", `ທ່ານຕ້ອງການລຶບ/ລະງັບ [${targetId}] ນີ້ບໍ? ຜູ້ໃຊ້ຈະບໍ່ສາມາດເຂົ້າລະບົບໄດ້!`, async (confirmed) => {
+            showCustomConfirm("ຢືນຢັນການລຶບ", `ທ່ານຕ້ອງການລຶບ [${targetId}] ນີ້ອອກຈາກລະບົບແທ້ບໍ?`, async (confirmed) => {
                 if (!confirmed) return;
                 if (!supabaseClient) return;
 
                 try {
-                    let { error } = await supabaseClient.from('licenses').update({ status: 'deleted' }).eq('device_id', targetId);
+                    let { error } = await supabaseClient.from('licenses').delete().eq('device_id', targetId);
                     if (error) {
                         showAlert("ຜິດພາດ", "ບໍ່ສາມາດລຶບບັນຊີໄດ້", "⚠️");
                         return;
