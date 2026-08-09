@@ -656,7 +656,7 @@
                         <label class="block font-semibold text-gray-700 mb-1">ລາຄາຊື້ (ກີບ):</label>
                         <input type="text" id="stock-in-cost" oninput="formatInputMoney(this)" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 text-right font-bold text-blue-600 text-lg" placeholder="ປ້ອນລາຄາຊື້">
                     </div>
-                    <!-- 🌟 ຖ້າເປັນສິນຄ້າມີກຳນົດ: ວັນຜະລິດ (ຮອງຮັບທັງພິມມື ແລະ ຖ່າຍຮູບ OCR) & ຈຳນວນເດືອນ -->
+                    <!-- 🌟 ຖ້າເປັນສິນຄ້າມີກຳນົດ: ວັນຜະລິດ (ພ້ອມປຸ່ມຖ່າຍຮູບ OCR ພິມມືໄດ້) & ຈຳນວນເດືອນ -->
                     <div id="expiry-input-group" class="hidden space-y-3">
                         <div>
                             <div class="flex justify-between items-center mb-1">
@@ -666,7 +666,7 @@
                                     <input type="file" accept="image/*" capture="environment" class="hidden" onchange="handleOcrFileSelect(event)">
                                 </label>
                             </div>
-                            <!-- 🌟 ປ່ຽນເປັນ text ເພື່ອໃຫ້ພິມມືໄດ້ ຫຼື ເລືອກຈາກ OCR ກໍ່ໄດ້ -->
+                            <!-- 🌟 ປ່ຽນເປັນ type="text" ພ້ອມໃຫ້ພິມມື ຫຼື ຮັບຄ່າຈາກ OCR ໄດ້ຢ່າງອິດສະຫຼະ -->
                             <input type="text" id="stock-in-mfg-date" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 font-semibold text-purple-700 bg-white" placeholder="ຕົວຢ່າງ: 22/05/2025 ຫຼື 2025-05-22">
                         </div>
                         <div>
@@ -1416,17 +1416,10 @@
             openStockInScanner();
         }
 
-        // 🌟 4) ຟັງຊັນ OCR Ultra-Fast 0.1s (ຮອງຮັບຮູບແບບ DD/MM/YYYY ເຊັ່ນ 22/05/2025 ຢ່າງແມ່ນຍຳ 100%)
+        // 🌟 4) ຟັງຊັນ OCR Ultra-Fast 0.1s (ກວາດຫາຕົວເລກທັງໝົດໃນຮູບ ບໍ່ມີປຸ່ມຕົກລົງຄ້າງ)
         async function handleOcrFileSelect(event) {
             let file = event.target.files[0];
             if (!file) return;
-
-            // ສະແດງ Popup ກຳລັງປະມວນຜົນແບບໄວ 0.1s ໂດຍບໍ່ມີປຸ່ມຕົກລົງ
-            document.getElementById('alert-title').innerText = "ກຳລັງປະມວນຜົນ";
-            document.getElementById('alert-message').innerText = "⏳ ກຳລັງອ່ານວັນທີຈາກຮູບ... 0.1 ວິນາທີ";
-            document.getElementById('alert-icon').innerText = "⏳";
-            document.getElementById('alert-ok-btn').classList.add('hidden');
-            document.getElementById('custom-alert-modal').classList.remove('hidden');
 
             try {
                 let { data: { text } } = await Tesseract.recognize(file, 'eng', {
@@ -1434,8 +1427,6 @@
                 });
                 parseExtractedDate(text);
             } catch (err) {
-                document.getElementById('custom-alert-modal').classList.add('hidden');
-                document.getElementById('alert-ok-btn').classList.remove('hidden');
                 showAlert("ແຈ້ງເຕືອນ", "ບໍ່ພົບຮູບແບບວັນທີໃນຮູບ ທ່ານສາມາດພິມໃສ່ເອງໄດ້ເລີຍ", "⚠️");
             }
 
@@ -1443,28 +1434,49 @@
         }
 
         function parseExtractedDate(text) {
-            document.getElementById('custom-alert-modal').classList.add('hidden');
-            document.getElementById('alert-ok-btn').classList.remove('hidden');
-
-            // 🌟 ຮອງຮັບການຈັບຄູ່ທັງຮູບແບບ DD/MM/YYYY (ເຊັ່ນ 22/05/2025) ແລະ YYYY/MM/DD
-            let dateRegex = /(\d{1,2})[\\/\-](\d{1,2})[\\/\-](\d{4})|(\d{4})[\\/\-](\d{1,2})[\\/\-](\d{1,2})/g;
-            let matches = text.match(dateRegex);
-
-            if (matches && matches.length > 0) {
-                let rawDate = matches[0].replace(/\\/g, '-').replace(/\//g, '-');
-                let parts = rawDate.split('-');
-                let formattedDate = "";
-
-                if (parts[0].length === 4) {
-                    // YYYY-MM-DD
-                    formattedDate = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
-                } else {
-                    // DD-MM-YYYY -> แปลงជា YYYY-MM-DD ສຳລັບ HTML Date/Text Input
-                    formattedDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+            // 🌟 ປັບປຸງ Regex ໃຫ້ກວາດຈັບທຸກຮູບແບບຕົວເລກວັນທີ (ເຊັ່ນ 22/05/2025 ຫຼື 2025-05-22 ຫຼື 22 05 2025)
+            let cleanText = text.replace(/[^\d]/g, ' ');
+            let words = cleanText.trim().split(/\s+/);
+            
+            let foundDate = "";
+            for (let i = 0; i < words.length; i++) {
+                // ຊອກຫາຮູບແບບ DD MM YYYY ຫຼື YYYY MM DD
+                if (words[i].length === 4 && (parseInt(words[i]) >= 2020 && parseInt(words[i]) <= 2040)) {
+                    // YYYY อยู่หน้า
+                    let y = words[i];
+                    let m = words[i+1] ? words[i+1].padStart(2, '0') : '01';
+                    let d = words[i+2] ? words[i+2].padStart(2, '0') : '01';
+                    if (parseInt(m) >= 1 && parseInt(m) <= 12 && parseInt(d) >= 1 && parseInt(d) <= 31) {
+                        foundDate = `${y}-${m}-${d}`;
+                        break;
+                    }
+                } else if (words[i+2] && words[i+2].length === 4 && (parseInt(words[i+2]) >= 2020 && parseInt(words[i+2]) <= 2040)) {
+                    // YYYY อยู่หลัง (DD/MM/YYYY)
+                    let d = words[i].padStart(2, '0');
+                    let m = words[i+1].padStart(2, '0');
+                    let y = words[i+2];
+                    if (parseInt(m) >= 1 && parseInt(m) <= 12 && parseInt(d) >= 1 && parseInt(d) <= 31) {
+                        foundDate = `${y}-${m}-${d}`;
+                        break;
+                    }
                 }
+            }
 
-                document.getElementById('stock-in-mfg-date').value = formattedDate;
+            if (foundDate) {
+                document.getElementById('stock-in-mfg-date').value = foundDate;
             } else {
+                // Fallback: ຖ້າ Regex ຫຍຸ້ງຍາກ ໃຫ້ດຶງກຸ່ມຕົວເລກ 8 ຕົວແລ້ວແປງເປັນວັນທີອັດຕະໂນມັດ
+                let allDigits = text.replace(/\D/g, '');
+                if (allDigits.length >= 8) {
+                    // ສົມມຸດວ່າເປັນ DDMMYYYY
+                    let d = allDigits.substring(0, 2);
+                    let m = allDigits.substring(2, 4);
+                    let y = allDigits.substring(4, 8);
+                    if (parseInt(y) >= 2020 && parseInt(y) <= 2040 && parseInt(m) >= 1 && parseInt(m) <= 12) {
+                        document.getElementById('stock-in-mfg-date').value = `${y}-${m}-${d}`;
+                        return;
+                    }
+                }
                 showAlert("ແຈ້ງເຕືອນ", "ບໍ່ພົບຮູບແບບວັນທີໃນຮູບ ທ່ານສາມາດພິມໃສ່ເອງໄດ້ເລີຍ", "⚠️");
             }
         }
