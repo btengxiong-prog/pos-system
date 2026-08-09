@@ -452,7 +452,6 @@
 
             <div class="flex gap-2 pt-2">
                 <button onclick="closeRateInputModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer text-sm">ຍົກເລີກ</button>
-                <!-- 🌟 ປຸ່ມ "ບັນທຶກ Rate" ທີ່ເຊື່ອມຕໍ່ຟັງຊັນ applyCustomRateToTable ຢ່າງສົມບູນ -->
                 <button type="button" onclick="applyCustomRateToTable()" class="flex-1 bg-orange-600 hover:bg-orange-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">💾 ບັນທຶກ Rate</button>
             </div>
         </div>
@@ -1427,7 +1426,7 @@
             document.getElementById('rate-input-modal').classList.add('hidden');
         }
 
-        // 🌟 ຟັງຊັນບັນທຶກ Rate ສີສົ້ມ (ທີ່ແກ້ໄຂໃຫ້ບັນທຶກຂໍ້ມູນ Excel/Rate ແລະ ເປີດຕາຕະລາງ QR Code ຂຶ້ນມາສະແດງຜົນທັນທີ 100%)
+        // 🌟 ຟັງຊັນບັນທຶກ Rate ທີ່ຖືກຕ້ອງ 100% (ແກ້ໄຂບໍ່ໃຫ້ທັບຂໍ້ມູນເກົ່າ ແລະ ດຶງລາຄາຕົ້ນທາງຖືກຕ້ອງ)
         async function applyCustomRateToTable() {
             let rateVal = parseFloat(document.getElementById('input-custom-rate').value.replace(/,/g, '')) || 0;
             let dateVal = document.getElementById('input-custom-rate-date').value.trim();
@@ -1440,78 +1439,15 @@
             localStorage.setItem('pos_custom_manual_rate', rateVal);
             localStorage.setItem('pos_custom_manual_rate_date', dateVal);
 
-            // ດຶງຂໍ້ມູນສິນຄ້າຈາກ Excel ທີ່ອັບໂຫລດໄວ້ (ຖ້າມີ) ມາອັບເດດ Rate ແລະ ບັນທຶກລົງ localStorage
-            let fileInput = document.getElementById('modal-excel-file-input');
-            if (fileInput && fileInput.files && fileInput.files[0]) {
-                let file = fileInput.files[0];
-                let data = await file.arrayBuffer();
-                let workbook = XLSX.read(data);
-                let firstSheetName = workbook.SheetNames[0];
-                let worksheet = workbook.Sheets[firstSheetName];
-                let jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-
-                let newRows = [];
-                let today = new Date().toISOString().split('T')[0];
-                let parsedDateAdded = dateVal ? parseDDMMYYYYToISO(dateVal) : today;
-
-                for (let i = 1; i < jsonData.length; i++) {
-                    let row = jsonData[i];
-                    if (row && row.length > 0) {
-                        let code = String(row[0] || '').trim();
-                        let costUSD = parseFloat(String(row[1] || 0).replace(/,/g, '')) || 0;
-                        let qty = parseInt(String(row[2] || 1).replace(/,/g, '')) || 1;
-                        if (code) {
-                            let costLAK = costUSD * rateVal;
-                            let rawPrice = costLAK * 1.20; // ກຳໄລ 20%
-                            let priceLAK = Math.ceil(rawPrice / 1000) * 1000;
-                            
-                            newRows.push({
-                                id: 'ROW-' + Date.now() + '-' + i,
-                                code: code,
-                                cost: costLAK,
-                                originalCost: costLAK,
-                                profitPct: 20,
-                                price: priceLAK,
-                                qty: qty,
-                                dateAdded: parsedDateAdded,
-                                mfgDate: parsedDateAdded,
-                                expiryDate: ''
-                            });
-                        }
-                    }
-                }
-
-                if (newRows.length > 0) {
-                    excelRows = newRows;
-                    localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
-                }
-            } else if (excelRows && excelRows.length > 0) {
-                excelRows.forEach(row => {
-                    let baseCost = parseFloat(String(row.originalCost || row.cost).replace(/,/g, '')) || 0;
-                    if (baseCost > 0) {
-                        let newCost = baseCost * rateVal;
-                        row.cost = newCost;
-                        let pct = parseFloat(String(row.profitPct).replace(/,/g, '')) || 20;
-                        let rawPrice = newCost * (1 + pct / 100);
-                        row.price = Math.ceil(rawPrice / 1000) * 1000;
-                    }
-                    if (dateVal) {
-                        row.dateAdded = parseDDMMYYYYToISO(dateVal);
-                    }
-                });
-                localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
-            }
-
             closeRateInputModal();
-            showAlert("ສຳເລັດ", "ບັນທຶກຄ່າ Rate ແລະ ຂໍ້ມູນສິນຄ້າສຳເລັດຮຽບຮ້ອຍ!", "💱");
-
-            // ເປີດໜ້າຕາຕະລາງ QR Code (ຮູບ 1) ຂຶ້ນມາສະແດງຜົນທັນທີ
+            showAlert("ສຳເລັດ", "ບັນທຶກຄ່າ Rate ສຳເລັດຮຽບຮ້ອຍ!", "💱");
+            
             setTimeout(() => {
                 openExcelGenerator();
             }, 300);
         }
 
-        // 🌟 ຟັງຊັນອັບໂຫລດ Excel ຈາກປ໋ອບອັບ Rate
+        // 🌟 ຟັງຊັນອັບໂຫລດໄຟລ໌ Excel ຈາກປ໋ອບອັບ Rate (ແກ້ໄຂບໍ່ໃຫ້ທັບຂໍ້ມູນເກົ່າ ແລະ ອ່ານລາຄາຕົ້ນທາງຖືກຕ້ອງ)
         function handleExcelUploadFromModal(event) {
             let file = event.target.files[0];
             if (!file) return;
@@ -1528,23 +1464,30 @@
                     let today = new Date().toISOString().split('T')[0];
                     let parsedDate = dateVal ? parseDDMMYYYYToISO(dateVal) : today;
 
-                    excelRows = [];
+                    // ດຶງຂໍ້ມູນເກົ່າທີ່ມີຢູ່ແລ້ວຂຶ້ນມາ (ປ້ອງກັນບໍ່ໃຫ້ຂໍ້ມູນເກົ່າຫາຍ)
+                    let savedRows = localStorage.getItem('pos_saved_excel_rows');
+                    let existingRows = savedRows ? JSON.parse(savedRows) : [];
+
+                    let newRows = [];
                     for (let i = 1; i < jsonData.length; i++) {
                         let r = jsonData[i];
                         if (r && r.length > 0 && r[0]) {
                             let code = String(r[0]).trim();
-                            let costUSD = parseFloat(String(r[1] || 0).replace(/,/g, '')) || 0;
-                            let qty = parseInt(String(r[2] || 1).replace(/,/g, '')) || 1;
-                            let costLAK = costUSD * rateVal;
-                            let rawPrice = costLAK * 1.20;
-                            let priceLAK = Math.ceil(rawPrice / 1000) * 1000;
+                            let costInput = parseFloat(String(r[1] || 0).replace(/,/g, '')) || 0;
+                            let pctInput = parseFloat(String(r[2] || 20).replace(/,/g, '')) || 20;
+                            let priceInput = parseFloat(String(r[3] || 0).replace(/,/g, '')) || 0;
+                            let qty = parseInt(String(r[4] || 1).replace(/,/g, '')) || 1;
 
-                            excelRows.push({
-                                id: 'ROW-' + Date.now() + '-' + i,
+                            // ຖ້າต้นທາງເປັນເງິນຕ່າງປະເທດ ໃຫ້ຄູນ Rate, ຖ້າເປັນກີບຢູ່ແລ້ວ (ສັງເກດຈາກຈຳນວນ) ໃຊ້ຕາມຕົ້ນທາງເລີຍ
+                            let costLAK = costInput > 1000 ? costInput : costInput * rateVal;
+                            let priceLAK = priceInput > 1000 ? priceInput : Math.ceil((costLAK * (1 + pctInput / 100)) / 1000) * 1000;
+
+                            newRows.push({
+                                id: 'ROW-' + Date.now() + '-' + i + '-' + Math.random().toString(36).substring(2, 4),
                                 code: code,
                                 cost: costLAK,
                                 originalCost: costLAK,
-                                profitPct: 20,
+                                profitPct: pctInput,
                                 price: priceLAK,
                                 qty: qty,
                                 dateAdded: parsedDate,
@@ -1554,10 +1497,14 @@
                         }
                     }
 
+                    // ປະສານຂໍ້ມູນເກົ່າ ແລະ ຂໍ້ມູນໃໝ່ເຂົ້າກຳ (Append/Merge ບໍ່ໃຫ້ທັບຂອງເກົ່າ)
+                    excelRows = [...existingRows, ...newRows];
                     localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
-                    showAlert("ສຳເລັດ", `ອັບໂຫລດໄຟລ໌ Excel ສຳເລັດ ${excelRows.length} ລາຍການ! ກະລຸນາກົດ "ບັນທຶກ Rate" ເພື່ອເບິ່ງຜົນ.`, "📁");
+                    
+                    showAlert("ສຳເລັດ", `ນຳເຂົ້າຂໍ້ມູນ Excel ສຳເລັດ ${newRows.length} ລາຍການ!`, "📁");
+                    openExcelGenerator();
                 } catch (err) {
-                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດອ่านໄຟລ໌ Excel ນີ້ໄດ້!", "❌");
+                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດອ່ານໄຟລ໌ Excel ນี้ໄດ້!", "❌");
                 }
             };
             reader.readAsArrayBuffer(file);
