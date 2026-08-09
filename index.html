@@ -628,6 +628,15 @@
                 <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold">ກຳລັງເປີດກ້ອງ...</span>
             </div>
             <div id="reader" class="w-full max-w-md mx-auto"></div>
+            
+            <div class="mt-4 p-3 bg-blue-50 rounded-xl border border-blue-200 text-left space-y-2">
+                <label class="block text-xs font-bold text-blue-900">⌨️ ຫຼື ພິມ/ຍິງບາໂຄດດ້ວຍມື ແລ້ວກົດ Enter:</label>
+                <div class="flex gap-2">
+                    <input type="text" id="scan-barcode-input" onkeydown="handleScanBarcodeInput(event)" placeholder="ປ້ອນລະຫັດ Barcode..." class="flex-1 border rounded-lg px-3 py-2 text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                    <button onclick="submitScanBarcode()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold cursor-pointer shadow">ຕົກລົງ</button>
+                </div>
+            </div>
+
             <button onclick="closeScanner()" class="mt-3 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded w-full font-bold cursor-pointer">ປິດກ້ອງ</button>
         </div>
 
@@ -670,7 +679,7 @@
                         <input type="text" id="modal-price" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-right font-bold text-green-600 text-lg" placeholder="ຕົວຢ່າງ: 0">
                     </div>
 
-                    <!-- 🌟 1 & 2) ແບ່ງເປັນ 2 ຫ້ອງລຽງກັນ: ສາງຄົງເຫຼືອ & ຈຳນວນຂາຍ -->
+                    <!-- 🌟 2 ຫ້ອງລຽງກັນ: 1) ສາງຄົງເเหลือ  2) ຈຳນວນທີ່ຕ້ອງການຂາຍ -->
                     <div>
                         <label class="block font-semibold text-gray-700 mb-1">ຈຳນວນສິນຄ້າຄ້າງສາງ & ຕ້ອງການຂາຍ:</label>
                         <div class="grid grid-cols-2 gap-2">
@@ -726,7 +735,7 @@
             </div>
         </div>
 
-        <!-- Cart Section (🌟 1) ຮູບ 1: ບໍ່ມີຫ້ອງຈຳນວນໃນຕາຕະລາງຂາຍ) -->
+        <!-- Cart Section (🌟 1) ບໍ່ມີຫ້ອງຈຳນວນໃນຕາຕະລາງຂາຍ) -->
         <div class="bg-white rounded-xl shadow overflow-hidden mb-6">
             <div class="bg-[#1e3a8a] text-white px-4 py-3 font-semibold flex items-center gap-2">
                 📄 ລາຍການສິນຄ້າທີ່ເລືອກ (ລຽງລົງໄປ)
@@ -2119,7 +2128,7 @@
             }
         });
 
-        // 🌟 ໂຄດຫຼັກເດີມ: ສະແກນຂາຍສິນຄ້າ (ແມນຍຳ 100%)
+        // 🌟 ໂຄດຫຼັກເດີມ: ສະແກນຂາຍສິນຄ້າ (ແມນຍຳ 100% ພ້ອມຊ່ອງປ້ອນດ້ວຍມື)
         async function openScanner() {
             document.getElementById('scanner-container').classList.remove('hidden');
             await fetchProductsForGenerator();
@@ -2168,7 +2177,6 @@
                     }
 
                     if (matches.length > 1) {
-                        // 🌟 3) ຖ້າສິນຄ້າຊະນິດດຽວກັນ ມີລາຄາຂາຍ ແລະ ລາຄາຊື້ "ຄືກັນ" ບໍ່ໃຫ້ສະແດງເລືອກລາຄາ (ຮູບ 3)
                         let firstPrice = parseFloat(String(matches[0].price).replace(/,/g, '')) || 0;
                         let firstCost = parseFloat(String(matches[0].cost).replace(/,/g, '')) || 0;
                         let allSame = matches.every(m => {
@@ -2195,6 +2203,48 @@
                 },
                 (errorMessage) => {}
             ).catch(err => {});
+        }
+
+        function handleScanBarcodeInput(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                submitScanBarcode();
+            }
+        }
+
+        async function submitScanBarcode() {
+            let inputElem = document.getElementById('scan-barcode-input');
+            let cleanDecoded = inputElem.value.trim();
+            if (!cleanDecoded) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນລະຫັດ Barcode!", "⚠️");
+                return;
+            }
+            inputElem.value = "";
+            closeScanner();
+
+            await fetchProductsForGenerator();
+            let scannedCode = cleanDecoded;
+            let scannedCost = 0;
+            let scannedPrice = 0;
+            let scannedName = cleanDecoded;
+
+            let matches = excelRows.filter(r => {
+                let itemCode = String(r.code || '').trim();
+                return itemCode.toLowerCase() === cleanDecoded.toLowerCase();
+            });
+
+            if (matches.length > 1) {
+                openSelectPriceModal(cleanDecoded, matches);
+            } else if (matches.length === 1) {
+                let foundItem = matches[0];
+                scannedCode = foundItem.code;
+                scannedCost = parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0;
+                scannedPrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
+                scannedName = foundItem.code;
+                showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
+            } else {
+                showConfirmModalParsed(scannedCode, scannedName, 0, 0);
+            }
         }
 
         function openSelectPriceModal(code, items) {
@@ -2332,7 +2382,7 @@
             document.getElementById('stock-in-modal').classList.add('hidden');
         }
 
-        // 🌟 1 & 2) ຟັງຊັນສະແດງປ໋ອບອັບກຳນົດຂໍ້ມູນສິນຄ້າ ພ້ອມຄຳນວນຈຳນວນສິນຄ້າຄ້າງສາງມາສະແດງໃນຫ້ອງທີ 1 ໃຫ້ອັດຕະໂນມັດ
+        // 🌟 ຫ້ອງປ້ອນຈຳນວນ 2 ຫ້ອງລຽງກັນ: 1) ສາງຄົງເຫຼືອ  2) ຈຳນວນຂາຍ
         async function showConfirmModalParsed(code, name, cost, price) {
             tempScannedCode = code;
             document.getElementById('modal-code').innerText = code;
@@ -2340,7 +2390,6 @@
             document.getElementById('modal-cost').value = (cost !== "" && cost > 0) ? formatNumberWithCommas(cost) : "";
             document.getElementById('modal-price').value = (price !== "" && price > 0) ? formatNumberWithCommas(price) : "";
             
-            // ຄຳນວນຫາຈຳນວນສິນຄ້າຄ້າງສາງ (ສິນຄ້າຄົງເຫຼືອ) ຕົວຈິງ
             await fetchProductsForGenerator();
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
             let soldQtyMap = {};
@@ -2365,22 +2414,22 @@
             let remainingStock = totalStock - totalSold;
             if (remainingStock < 0) remainingStock = 0;
 
-            // ຫັກລົບສິນຄ້າທີ່ຢູ່ໃນກະຕ່າແລ້ວ (ຖ້າມີ)
             let inCart = cart.find(it => String(it.code || '').trim().toLowerCase() === cKey && it.cost === cost && it.price === price);
             let inCartQty = inCart ? inCart.qty : 0;
             let finalAvailable = remainingStock - inCartQty;
             if (finalAvailable < 0) finalAvailable = 0;
 
-            // ຫ້ອງທີ 1: ສະແດງສິນຄ້າຄ້າງສາງ (ສິນຄ້າຄົງເຫຼືອ)
+            // ຫ້ອງທີ 1: ສະແດງສິນຄ້າຄ້າງສາງ (ຄົງເຫຼືອ)
             document.getElementById('modal-stock-remaining').value = finalAvailable;
 
-            // ຫ້ອງທີ 2: ປ້ອນຈຳນວນ (Quantity)
+            // ຫ້ອງທີ 2: ຈຳນວນຂາຍ
             let qtyElem = document.getElementById('modal-qty');
             if (qtyElem) {
                 qtyElem.value = "1";
                 qtyElem.max = finalAvailable;
             }
 
+            document.getElementById('confirm-modal').classList.add('hidden');
             document.getElementById('confirm-modal').classList.remove('hidden');
         }
 
@@ -2398,7 +2447,6 @@
                 return;
             }
 
-            // 🌟 2) ກວດສອບເງື່ອນໄຂ: ຕ້ອງນ້ອຍກວ່າ ຫຼື ເທົ່າກັບຈຳນວນສິນຄ້າໃນສາງ
             if (qtyInput > stockRemaining) {
                 showAlert("ສິນຄ້າໃນສາງບໍ່ພໍ", `ສິນຄ້າ [${nameInput}] ໃນສາງເຫຼືອພຽງ ${stockRemaining} ອັນເທົ່ານັ້ນ! ບໍ່ສາມາດຂາຍເກີນຈຳນວນສາງໄດ້.`, "❌");
                 return;
@@ -2427,7 +2475,6 @@
             } else { document.getElementById('scanner-container').classList.add('hidden'); }
         }
 
-        // 🌟 1) ຫ້ອງປ້ອນຈຳນວນໃນຕາຕະລາງຂາຍ (ຮູບ 1): ບໍ່ມີປຸ່ມ +/- ແຕ່ກວດສອບສະຕັອກສາງ
         async function updateCartQtyDirect(index, inputElem) {
             let val = parseInt(inputElem.value);
             if (isNaN(val) || val <= 0) {
@@ -2500,7 +2547,6 @@
                         <td class="p-3 text-right text-gray-600">${formatNumberWithCommas(item.cost)}</td>
                         <td class="p-3 text-right text-blue-600 font-semibold">${formatNumberWithCommas(item.price)}</td>
                         <td class="p-3 text-center">
-                            <!-- 🌟 1) ຮູບ 1: ຫ້ອງປ້ອນຈຳນວນແບບອິດສະຫຼະ ບໍ່ມີປຸ່ມ +/- -->
                             <input type="number" min="1" value="${item.qty}" onchange="updateCartQtyDirect(${index}, this)" class="w-16 border rounded text-center px-2 py-1 font-bold text-gray-800 bg-white shadow-inner outline-none focus:ring-1 focus:ring-blue-500">
                         </td>
                         <td class="p-3 text-right font-bold text-gray-800">${formatNumberWithCommas(total)}</td>
