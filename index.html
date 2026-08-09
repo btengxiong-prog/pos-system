@@ -2113,7 +2113,7 @@
             }
         });
 
-        // 🌟 ຟັງຊັນເປີດກ້ອງສະແກນນຳອອກ (ຂາຍສິນຄ້າ) ພ້ອມໂຄດຫຼັກທີ່ຈັບ Barcode ໄດ້ວ່ອງໄວ 100%
+        // 🌟 ຟັງຊັນສະແກນນຳອອກ (ໃຊ້ໂຄດຫຼັກເດີມທີ່ຈັບ Barcode ໄດ້ວ່ອງໄວ ແລະ ແມນຍຳ 100%)
         async function openScanner() {
             document.getElementById('scanner-container').classList.remove('hidden');
             await fetchProductsForGenerator();
@@ -2129,7 +2129,50 @@
                     if (decodedText === lastScannedCode && (currentTime - lastScanTime < 3000)) return;
                     lastScannedCode = decodedText;
                     lastScanTime = currentTime;
-                    processScannedCode(decodedText);
+                    
+                    let cleanDecoded = String(decodedText).trim();
+                    let scannedCode = cleanDecoded;
+                    let scannedCost = 0;
+                    let scannedPrice = 0;
+                    let scannedName = cleanDecoded;
+
+                    try {
+                        let parsedJson = JSON.parse(cleanDecoded);
+                        if (parsedJson && parsedJson.code) {
+                            scannedCode = parsedJson.code;
+                            scannedCost = parseFloat(parsedJson.cost) || 0;
+                            scannedPrice = parseFloat(parsedJson.price) || 0;
+                            scannedName = parsedJson.code;
+                            showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
+                            return;
+                        }
+                    } catch (e) {}
+
+                    let matches = excelRows.filter(r => {
+                        let itemCode = String(r.code || '').trim();
+                        return itemCode.toLowerCase() === cleanDecoded.toLowerCase();
+                    });
+
+                    if (matches.length === 0) {
+                        let cleanDecodedDigits = cleanDecoded.replace(/\D/g, '');
+                        matches = excelRows.filter(r => {
+                            let itemCodeDigits = String(r.code || '').replace(/\D/g, '');
+                            return itemCodeDigits !== '' && cleanDecodedDigits !== '' && itemCodeDigits === cleanDecodedDigits;
+                        });
+                    }
+
+                    if (matches.length > 1) {
+                        openSelectPriceModal(cleanDecoded, matches);
+                    } else if (matches.length === 1) {
+                        let foundItem = matches[0];
+                        scannedCode = foundItem.code;
+                        scannedCost = parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0;
+                        scannedPrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
+                        scannedName = foundItem.code;
+                        showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
+                    } else {
+                        showConfirmModalParsed(scannedCode, scannedName, 0, 0);
+                    }
                 },
                 (errorMessage) => {}
             ).catch(err => {});
@@ -2142,85 +2185,39 @@
             }
         }
 
-        function submitScanBarcode() {
+        async function submitScanBarcode() {
             let inputElem = document.getElementById('scan-barcode-input');
-            let code = inputElem.value.trim();
-            if (!code) {
+            let cleanDecoded = inputElem.value.trim();
+            if (!cleanDecoded) {
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນລະຫັດ Barcode!", "⚠️");
                 return;
             }
             inputElem.value = "";
-            processScannedCode(code);
-        }
+            closeScanner();
 
-        async function processScannedCode(decodedText) {
-            let cleanDecoded = String(decodedText).trim();
+            await fetchProductsForGenerator();
             let scannedCode = cleanDecoded;
             let scannedCost = 0;
             let scannedPrice = 0;
             let scannedName = cleanDecoded;
-
-            try {
-                let parsedJson = JSON.parse(cleanDecoded);
-                if (parsedJson && parsedJson.code) {
-                    scannedCode = parsedJson.code;
-                    scannedCost = parseFloat(parsedJson.cost) || 0;
-                    scannedPrice = parseFloat(parsedJson.price) || 0;
-                    scannedName = parsedJson.code;
-                    addDirectToCart(scannedCode, scannedName, scannedCost, scannedPrice, 1);
-                    return;
-                }
-            } catch (e) {}
 
             let matches = excelRows.filter(r => {
                 let itemCode = String(r.code || '').trim();
                 return itemCode.toLowerCase() === cleanDecoded.toLowerCase();
             });
 
-            if (matches.length === 0) {
-                let cleanDecodedDigits = cleanDecoded.replace(/\D/g, '');
-                matches = excelRows.filter(r => {
-                    let itemCodeDigits = String(r.code || '').replace(/\D/g, '');
-                    return itemCodeDigits !== '' && cleanDecodedDigits !== '' && itemCodeDigits === cleanDecodedDigits;
-                });
-            }
-
             if (matches.length > 1) {
-                let firstPrice = parseFloat(String(matches[0].price).replace(/,/g, '')) || 0;
-                let firstCost = parseFloat(String(matches[0].cost).replace(/,/g, '')) || 0;
-                let allSame = matches.every(m => {
-                    let p = parseFloat(String(m.price).replace(/,/g, '')) || 0;
-                    let c = parseFloat(String(m.cost).replace(/,/g, '')) || 0;
-                    return p === firstPrice && c === firstCost;
-                });
-
-                if (allSame) {
-                    let totalQty = matches.reduce((sum, m) => sum + (parseInt(m.qty) || 1), 0);
-                    addDirectToCart(matches[0].code, matches[0].code, firstCost, firstPrice, totalQty);
-                } else {
-                    openSelectPriceModal(cleanDecoded, matches);
-                }
+                openSelectPriceModal(cleanDecoded, matches);
             } else if (matches.length === 1) {
                 let foundItem = matches[0];
                 scannedCode = foundItem.code;
                 scannedCost = parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0;
                 scannedPrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
                 scannedName = foundItem.code;
-                let q = parseInt(foundItem.qty) || 1;
-                addDirectToCart(scannedCode, scannedName, scannedCost, scannedPrice, q);
+                showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
             } else {
                 showConfirmModalParsed(scannedCode, scannedName, 0, 0);
             }
-        }
-
-        function addDirectToCart(code, name, cost, price, qty = 1) {
-            let existing = cart.find(item => item.code === code && item.cost === cost && item.price === price);
-            if (existing) {
-                existing.qty += qty;
-            } else {
-                cart.push({ code: code, name: name, cost: cost, price: price, qty: qty });
-            }
-            renderCart();
         }
 
         function openSelectPriceModal(code, items) {
@@ -2283,10 +2280,9 @@
             let scannedName = selectedPriceItem.code;
             let scannedCost = parseFloat(String(selectedPriceItem.cost).replace(/,/g, '')) || 0;
             let scannedPrice = parseFloat(String(selectedPriceItem.price).replace(/,/g, '')) || 0;
-            let q = parseInt(selectedPriceItem.qty) || 1;
 
             closeSelectPriceModal();
-            addDirectToCart(scannedCode, scannedName, scannedCost, scannedPrice, q);
+            showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
         }
 
         async function openStockInScanner() {
@@ -2375,7 +2371,10 @@
 
             if (!nameInput) { showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຊື່ສິນຄ້າ!", "⚠️"); return; }
 
-            addDirectToCart(tempScannedCode, nameInput, costInput, priceInput, 1);
+            let existing = cart.find(item => item.code === tempScannedCode && item.cost === costInput && item.price === priceInput);
+            if (existing) { existing.qty += 1; } 
+            else { cart.push({ code: tempScannedCode, name: nameInput, cost: costInput, price: priceInput, qty: 1 }); }
+            renderCart();
             document.getElementById('confirm-modal').classList.add('hidden');
         }
 
@@ -2386,12 +2385,48 @@
             } else { document.getElementById('scanner-container').classList.add('hidden'); }
         }
 
-        function updateCartQtyDirect(index, inputElem) {
+        // 🌟 ຟັງຊັນກວດສອບ ແລະ ປັບປຸງຈຳນວນສິນຄ້າໃນກະຕ່າ ໃຫ້ທຽບກັບສາງຕົວຈິງທັນທີ
+        async function updateCartQtyDirect(index, inputElem) {
             let val = parseInt(inputElem.value);
             if (isNaN(val) || val <= 0) {
                 val = 1;
             }
-            cart[index].qty = val;
+
+            // ດึงຂໍ້ມູນສິນຄ້າໃນສາງມາທຽບ
+            await fetchProductsForGenerator();
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            let soldQtyMap = {};
+            localHistory.forEach((tx, txIdx) => {
+                // ບໍ່ນັບລາຍການປັດຈຸບັນ
+                if (tx.items) {
+                    tx.items.forEach(it => {
+                        let cKey = String(it.code || '').trim().toLowerCase();
+                        soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
+                    });
+                }
+            });
+
+            let targetItem = cart[index];
+            let cKey = String(targetItem.code || '').trim().toLowerCase();
+            let totalStock = 0;
+            excelRows.forEach(row => {
+                if (String(row.code || '').trim().toLowerCase() === cKey) {
+                    totalStock += parseInt(String(row.qty || 1).replace(/,/g, '')) || 1;
+                }
+            });
+
+            // ຫັກລົບຍອດຂາຍເກົ່າ
+            let totalSold = soldQtyMap[cKey] || 0;
+            let remainingStock = totalStock - totalSold;
+            if (remainingStock < 0) remainingStock = 0;
+
+            if (val > remainingStock) {
+                showAlert("ສິນຄ້າໃນສາງບໍ່ພໍ", `ສິນຄ້າ [${targetItem.name}] ໃນສາງເຫຼືອພຽງ ${remainingStock} ອັນເທົ່ານັ້ນ!`, "⚠️");
+                inputElem.value = remainingStock;
+                cart[index].qty = remainingStock;
+            } else {
+                cart[index].qty = val;
+            }
             renderCart();
         }
 
@@ -2419,7 +2454,7 @@
                         <td class="p-3 text-right text-gray-600">${formatNumberWithCommas(item.cost)}</td>
                         <td class="p-3 text-right text-blue-600 font-semibold">${formatNumberWithCommas(item.price)}</td>
                         <td class="p-3 text-center">
-                            <input type="number" min="1" value="${item.qty}" oninput="updateCartQtyDirect(${index}, this)" class="w-16 border rounded text-center px-2 py-1 font-bold text-gray-800 bg-white shadow-inner outline-none focus:ring-1 focus:ring-blue-500">
+                            <input type="number" min="1" value="${item.qty}" onchange="updateCartQtyDirect(${index}, this)" class="w-16 border rounded text-center px-2 py-1 font-bold text-gray-800 bg-white shadow-inner outline-none focus:ring-1 focus:ring-blue-500">
                         </td>
                         <td class="p-3 text-right font-bold text-gray-800">${formatNumberWithCommas(total)}</td>
                         <td class="p-3 text-center"><button onclick="removeItem(${index})" class="text-red-500 font-bold cursor-pointer">ລຶບ</button></td>
@@ -2466,6 +2501,7 @@
             }
         }
 
+        // 🌟 ລະບົບກວດສອບສະຕັອກສິນຄ້າໃນສາງ ກ່ອນຊຳລະເງິນ (ຖ້າບໍ່ພໍ ຟ້ອງເຕືອນພ້ອມລາຍງານຈຳນວນໃນສາງ)
         async function checkStockAvailability() {
             await fetchProductsForGenerator();
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
@@ -3048,7 +3084,7 @@
                 });
                 container.innerHTML = html;
             }
-            document.getElementById('select-import-date-modal').classList.remove('hidden');
+            document.getElementById('select-import-date-modal').classList.add('hidden');
         }
 
         function closeSelectImportDateModal() {
