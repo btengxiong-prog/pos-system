@@ -282,7 +282,7 @@
         </div>
     </div>
 
-    <!-- 🌟 Registration & Payment Modal (ແກ້ໄຂ ID ໃຫ້ກົງກັບຟັງຊັນເດີມ) -->
+    <!-- Registration & Payment Modal (ID: register-payment-modal) -->
     <div id="register-payment-modal" class="hidden fixed inset-0 bg-black/70 z-[1050] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
             <div class="text-4xl">💳</div>
@@ -311,7 +311,7 @@
         </div>
     </div>
 
-    <!-- 🌟 User Manual Modal (ແກ້ໄຂ ID ໃຫ້ກົງກັບຟັງຊັນເດີມ) -->
+    <!-- User Manual Modal (ID: user-manual-modal) -->
     <div id="user-manual-modal" class="hidden fixed inset-0 bg-black/70 z-[1050] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-2xl w-full p-6 max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl text-left">
             <div class="flex justify-between items-center border-b pb-3">
@@ -574,7 +574,7 @@
                         <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); openReport();" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-emerald-700 flex items-center gap-2 text-left cursor-pointer transition">
                             📈 ລາຍງານ
                         </button>
-                        <!-- 🌟 2 ຄຳສັ່ງທີ່ເຊື່ອມຕໍ່ຟັງຊັນ openRegisterModal() ແລະ openUserManual() ໃຫ້ຖືກຕ້ອງ -->
+                        <!-- 🌟 2 ຄຳສັ່ງທີ່ກົງກັບ ID ເດີມ 100% -->
                         <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); openRegisterModal();" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-emerald-700 flex items-center gap-2 text-left cursor-pointer transition">
                             📝 ລົງທະບຽນ
                         </button>
@@ -987,33 +987,6 @@
 
     <!-- JavaScript Logic -->
     <script>
-        // 🌟 ຟັງຊັນສຳລັບເປີດ/ປິດ Modal "ລົງທະບຽນ" ແລະ "ຄູ່ມືການໃຊ້ງານ" ໃຫ້ກົງກັບ ID ເດີມ 100%
-        function openRegisterModal() {
-            let m = document.getElementById('register-payment-modal');
-            if (m) {
-                m.classList.remove('hidden');
-                m.style.zIndex = '99999';
-            }
-        }
-
-        function closeRegisterModal() {
-            let m = document.getElementById('register-payment-modal');
-            if (m) m.classList.add('hidden');
-        }
-
-        function openUserManual() {
-            let m = document.getElementById('user-manual-modal');
-            if (m) {
-                m.classList.remove('hidden');
-                m.style.zIndex = '99999';
-            }
-        }
-
-        function closeUserManual() {
-            let m = document.getElementById('user-manual-modal');
-            if (m) m.classList.add('hidden');
-        }
-
         const SUPABASE_URL = "https://omvrghcnswikqxixgcza.supabase.co"; 
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9tdnJnaGNuc3dpa3F4aXhnY3phIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3ODgyNDEsImV4cCI6MjEwMTM2NDI0MX0.JpYhfe_c_AWPAcuMjQ2rXIZTc1KKbimPyupzV0fYelE";
         
@@ -1025,6 +998,24 @@
         } catch (e) {
             console.error("Supabase initialization warning:", e);
         }
+
+        // Global Variables
+        let cart = [];
+        let html5QrCode = null;
+        let stockInQrCode = null;
+        let tempScannedCode = "";
+        let lastScannedCode = "";
+        let lastScanTime = 0;
+        let globalHistoryList = []; 
+        let excelRows = []; 
+        let duplicateRemovedList = []; 
+        let currentCodeType = 'qrcode'; 
+        let pendingMultiPriceItems = [];
+        let selectedPriceItem = null;
+        let isExpiryMode = false;
+        let currentStockInCode = "";
+        let customConfirmCallback = null;
+        let editingDeviceId = null;
 
         function formatNumberWithCommas(num) {
             if (num === "" || num === null || isNaN(num)) return "";
@@ -1361,7 +1352,6 @@
             document.getElementById('admin-qr-modal').classList.add('hidden');
         }
 
-        let staffScanner = null;
         function openStaffScanner() {
             closeMyDeviceModal();
             document.getElementById('staff-scanner-modal').classList.remove('hidden');
@@ -1398,7 +1388,7 @@
             }
         }
 
-        // 🌟 ຟັງຊັນ Dropdown
+        // 🌟 ຟັງຊັນ Dropdown ທີ່ສະຖຽນ
         function toggleCustomDropdown(menuId, event) {
             if (event) event.stopPropagation();
             let menus = ['import-export-menu', 'history-id-menu', 'create-code-menu', 'report-menu'];
@@ -1428,35 +1418,28 @@
             }
         });
 
+        // 🌟 ຟັງຊັນສຳລັບເປີດ/ປິດ Modal "ລົງທະບຽນ" ແລະ "ຄູ່ມືການໃຊ້ງານ" (ເຊື່ອມຕໍ່ ID ໃຫ້ຖືກຕ້ອງ 100%)
+        function openRegisterModal() {
+            let m = document.getElementById('register-payment-modal');
+            if (m) m.classList.remove('hidden');
+        }
+
+        function closeRegisterModal() {
+            let m = document.getElementById('register-payment-modal');
+            if (m) m.classList.add('hidden');
+        }
+
+        function openUserManual() {
+            let m = document.getElementById('user-manual-modal');
+            if (m) m.classList.remove('hidden');
+        }
+
+        function closeUserManual() {
+            let m = document.getElementById('user-manual-modal');
+            if (m) m.classList.add('hidden');
+        }
+
         // --- CORE POS LOGIC ---
-        let cart = [];
-        let html5QrCode = null;
-        let stockInQrCode = null;
-        let tempScannedCode = "";
-        let lastScannedCode = "";
-        let lastScanTime = 0;
-        let globalHistoryList = []; 
-        let excelRows = []; 
-        let duplicateRemovedList = []; 
-        let currentCodeType = 'qrcode'; 
-        let pendingMultiPriceItems = [];
-        let selectedPriceItem = null;
-        let isExpiryMode = false;
-        let currentStockInCode = "";
-        let customConfirmCallback = null;
-        let editingDeviceId = null;
-
-        function showAlert(title, message, icon = "✅") {
-            document.getElementById('alert-title').innerText = title;
-            document.getElementById('alert-message').innerText = message;
-            document.getElementById('alert-icon').innerText = icon;
-            document.getElementById('custom-alert-modal').classList.remove('hidden');
-        }
-
-        function closeCustomAlert() {
-            document.getElementById('custom-alert-modal').classList.add('hidden');
-        }
-
         async function openInventoryModal() {
             document.getElementById('inventory-modal').classList.remove('hidden');
             await loadInventory();
@@ -2707,7 +2690,7 @@
             });
 
             selectElem.innerHTML = html;
-            document.getElementById('print-date-modal').classList.remove('hidden');
+            document.getElementById('print-date-modal').classList.add('hidden');
         }
 
         function closePrintDateModal() {
@@ -2807,6 +2790,17 @@
             await Promise.all(promises);
         }
 
+        window.addEventListener('DOMContentLoaded', async () => {
+            await initDeviceId();
+            let userRole = localStorage.getItem('pos_user_role');
+            let shopOwner = localStorage.getItem('pos_shop_owner');
+            let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
+            if (userRole === 'admin' || shopOwner === 'true' || linkedAdminId) {
+                let roleModal = document.getElementById('role-select-modal');
+                if (roleModal) roleModal.classList.add('hidden');
+            }
+            checkRoleAndLicense();
+        });
     </script>
 </body>
 </html>
