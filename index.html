@@ -455,7 +455,13 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs font-bold text-gray-700 mb-1">Rate ວັນສົ່ງສິນຄ້າ:</label>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="block text-xs font-bold text-gray-700">Rate ວັນສົ່ງສິນຄ້າ:</label>
+                        <!-- 🌟 ປຸ່ມດຶງ Rate ປະຈຳວັນອັດຕະໂນມັດ (ຮອງຮັບວັນເສົາ-ອາທິດ ດຶງວັນສຸກມາໃສ່) -->
+                        <button onclick="fetchBcelExchangeRate()" class="bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded-lg text-[11px] font-bold shadow transition flex items-center gap-1 cursor-pointer">
+                            🌐 ດຶງ Rate ປະຈຳວັນ (BCEL)
+                        </button>
+                    </div>
                     <div class="grid grid-cols-2 gap-2">
                         <input type="date" id="date-ship" class="w-full border rounded-lg px-2 py-2 text-xs font-semibold outline-none bg-white text-purple-700">
                         <input type="text" id="rate-ship" oninput="formatInputMoney(this); calculateCurrencyIndexResult();" placeholder="Rate ມື້ສົ່ງ" class="w-full border rounded-lg px-2 py-2 text-right text-xs font-semibold outline-none bg-white">
@@ -679,7 +685,7 @@
                         <input type="text" id="modal-price" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-right font-bold text-green-600 text-lg" placeholder="ຕົວຢ່າງ: 0">
                     </div>
 
-                    <!-- 🌟 2 ຫ້ອງລຽງກັນ: 1) ສາງຄົງເเหลือ  2) ຈຳນວນທີ່ຕ້ອງການຂາຍ -->
+                    <!-- 2 ຫ້ອງລຽງກັນ: ສາງຄົງເຫຼືອ & ຈຳນວນຂາຍ -->
                     <div>
                         <label class="block font-semibold text-gray-700 mb-1">ຈຳນວນສິນຄ້າຄ້າງສາງ & ຕ້ອງການຂາຍ:</label>
                         <div class="grid grid-cols-2 gap-2">
@@ -735,7 +741,7 @@
             </div>
         </div>
 
-        <!-- Cart Section (🌟 1) ບໍ່ມີຫ້ອງຈຳນວນໃນຕາຕະລາງຂາຍ) -->
+        <!-- Cart Section -->
         <div class="bg-white rounded-xl shadow overflow-hidden mb-6">
             <div class="bg-[#1e3a8a] text-white px-4 py-3 font-semibold flex items-center gap-2">
                 📄 ລາຍການສິນຄ້າທີ່ເລືອກ (ລຽງລົງໄປ)
@@ -1726,6 +1732,48 @@
             document.getElementById('bcel-qr-modal').classList.add('hidden');
         }
 
+        // 🌟 ຟັງຊັນດຶງ Rate ປະຈຳວັນອັດຕະໂນມັດ (ຖ້າເປັນເສົາ-ອາທິດ ດຶງວັນສຸກມາໃສ່)
+        async function fetchBcelExchangeRate() {
+            try {
+                let targetDate = new Date();
+                let dayOfWeek = targetDate.getDay(); // 0=Sunday, 6=Saturday
+                
+                // ຖ້າເປັນວັນເສົາ(6) ຫຼື ວັນອາທິດ(0) ໃຫ້ດຶງ Rate ຂອງວັນສຸກຜ່ານມາ
+                if (dayOfWeek === 6) {
+                    targetDate.setDate(targetDate.getDate() - 1);
+                } else if (dayOfWeek === 0) {
+                    targetDate.setDate(targetDate.getDate() - 2);
+                }
+
+                let response = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent('https://www.bcel.com.la/bcel/home.html'));
+                let data = await response.json();
+                if (data && data.contents) {
+                    let parser = new DOMParser();
+                    let doc = parser.parseFromString(data.contents, 'text/html');
+                    let rows = doc.querySelectorAll('table tr');
+                    for (let row of rows) {
+                        if (row.innerText.includes('THB')) {
+                            let cols = row.querySelectorAll('td');
+                            if (cols.length >= 3) {
+                                let sellRate = cols[2].innerText.replace(/,/g, '').trim();
+                                if (!isNaN(sellRate) && parseFloat(sellRate) > 0) {
+                                    document.getElementById('rate-ship').value = formatNumberWithCommas(parseFloat(sellRate));
+                                    calculateCurrencyIndexResult();
+                                    
+                                    let dayName = (dayOfWeek === 6 || dayOfWeek === 0) ? " (เรດວັນສຸກທ້າຍອາທິດ)" : " (ເລດປະຈຳວັນ)";
+                                    showAlert("ສຳເລັດ", `ດຶງ Rate ຈາກ BCEL ສຳເລັດ: ${sellRate} ກີບ/ບາດ${dayName}`, "🌐");
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
+                throw new Error("Parse failed");
+            } catch (e) {
+                showAlert("ແຈ້ງເຕືອນ", "ບໍ່ສາມາດດຶງ Rate ອັດຕະໂນມັດໄດ້ (ອາດຕິດ CORS/Network), ກະລຸນາປ້ອນ Rate ດ້ວຍມືຈາກຮູບຕาราง BCEL!", "⚠️");
+            }
+        }
+
         async function checkTrialLicense() {
             let badge = document.getElementById('license-status-badge');
             let trialStart = localStorage.getItem('pos_trial_start');
@@ -2128,7 +2176,7 @@
             }
         });
 
-        // 🌟 ໂຄດຫຼັກເດີມ: ສະແກນຂາຍສິນຄ້າ (ແມນຍຳ 100% ພ້ອມຊ່ອງປ້ອນດ້ວຍມື)
+        // ໂຄດຫຼັກເດີມ: ສະແກນຂາຍສິນຄ້າ (ແມນຍຳ 100%)
         async function openScanner() {
             document.getElementById('scanner-container').classList.remove('hidden');
             await fetchProductsForGenerator();
@@ -2382,7 +2430,6 @@
             document.getElementById('stock-in-modal').classList.add('hidden');
         }
 
-        // 🌟 ຫ້ອງປ້ອນຈຳນວນ 2 ຫ້ອງລຽງກັນ: 1) ສາງຄົງເຫຼືອ  2) ຈຳນວນຂາຍ
         async function showConfirmModalParsed(code, name, cost, price) {
             tempScannedCode = code;
             document.getElementById('modal-code').innerText = code;
@@ -2419,10 +2466,8 @@
             let finalAvailable = remainingStock - inCartQty;
             if (finalAvailable < 0) finalAvailable = 0;
 
-            // ຫ້ອງທີ 1: ສະແດງສິນຄ້າຄ້າງສາງ (ຄົງເຫຼືອ)
             document.getElementById('modal-stock-remaining').value = finalAvailable;
 
-            // ຫ້ອງທີ 2: ຈຳນວນຂາຍ
             let qtyElem = document.getElementById('modal-qty');
             if (qtyElem) {
                 qtyElem.value = "1";
