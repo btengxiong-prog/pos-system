@@ -457,10 +457,7 @@
                 <div>
                     <div class="flex justify-between items-center mb-1">
                         <label class="block text-xs font-bold text-gray-700">Rate ວັນສົ່ງສິນຄ້າ:</label>
-                        <!-- 🌟 ປຸ່ມດຶງ Rate ປະຈຳວັນອັດຕະໂນມັດ (ຮອງຮັບວັນເສົາ-ອາທິດ ດຶງວັນສຸກມາໃສ່) -->
-                        <button onclick="fetchBcelExchangeRate()" class="bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded-lg text-[11px] font-bold shadow transition flex items-center gap-1 cursor-pointer">
-                            🌐 ດຶງ Rate ປະຈຳວັນ (BCEL)
-                        </button>
+                        <span class="text-[10px] text-gray-500 font-semibold">(ປ້ອນ Rate ປະຈຳວັນຕາມຕາຕະລາງ BCEL)</span>
                     </div>
                     <div class="grid grid-cols-2 gap-2">
                         <input type="date" id="date-ship" class="w-full border rounded-lg px-2 py-2 text-xs font-semibold outline-none bg-white text-purple-700">
@@ -1334,6 +1331,7 @@
 
         function openMyDeviceModal() {
             document.getElementById('my-device-id-text').innerText = deviceId;
+            document.getElementById('my-device-modal').classList.add('hidden'); // fix
             document.getElementById('my-device-modal').classList.remove('hidden');
         }
 
@@ -1730,48 +1728,6 @@
 
         function closeBcelQrModal() {
             document.getElementById('bcel-qr-modal').classList.add('hidden');
-        }
-
-        // 🌟 ຟັງຊັນດຶງ Rate ປະຈຳວັນອັດຕະໂນມັດ (ຖ້າເປັນເສົາ-ອາທິດ ດຶງວັນສຸກມາໃສ່)
-        async function fetchBcelExchangeRate() {
-            try {
-                let targetDate = new Date();
-                let dayOfWeek = targetDate.getDay(); // 0=Sunday, 6=Saturday
-                
-                // ຖ້າເປັນວັນເສົາ(6) ຫຼື ວັນອາທິດ(0) ໃຫ້ດຶງ Rate ຂອງວັນສຸກຜ່ານມາ
-                if (dayOfWeek === 6) {
-                    targetDate.setDate(targetDate.getDate() - 1);
-                } else if (dayOfWeek === 0) {
-                    targetDate.setDate(targetDate.getDate() - 2);
-                }
-
-                let response = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent('https://www.bcel.com.la/bcel/home.html'));
-                let data = await response.json();
-                if (data && data.contents) {
-                    let parser = new DOMParser();
-                    let doc = parser.parseFromString(data.contents, 'text/html');
-                    let rows = doc.querySelectorAll('table tr');
-                    for (let row of rows) {
-                        if (row.innerText.includes('THB')) {
-                            let cols = row.querySelectorAll('td');
-                            if (cols.length >= 3) {
-                                let sellRate = cols[2].innerText.replace(/,/g, '').trim();
-                                if (!isNaN(sellRate) && parseFloat(sellRate) > 0) {
-                                    document.getElementById('rate-ship').value = formatNumberWithCommas(parseFloat(sellRate));
-                                    calculateCurrencyIndexResult();
-                                    
-                                    let dayName = (dayOfWeek === 6 || dayOfWeek === 0) ? " (เรດວັນສຸກທ້າຍອາທິດ)" : " (ເລດປະຈຳວັນ)";
-                                    showAlert("ສຳເລັດ", `ດຶງ Rate ຈາກ BCEL ສຳເລັດ: ${sellRate} ກີບ/ບາດ${dayName}`, "🌐");
-                                    return;
-                                }
-                            }
-                        }
-                    }
-                }
-                throw new Error("Parse failed");
-            } catch (e) {
-                showAlert("ແຈ້ງເຕືອນ", "ບໍ່ສາມາດດຶງ Rate ອັດຕະໂນມັດໄດ້ (ອາດຕິດ CORS/Network), ກະລຸນາປ້ອນ Rate ດ້ວຍມືຈາກຮູບຕาราง BCEL!", "⚠️");
-            }
         }
 
         async function checkTrialLicense() {
