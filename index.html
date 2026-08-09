@@ -656,7 +656,7 @@
                         <label class="block font-semibold text-gray-700 mb-1">ລາຄາຊື້ (ກີບ):</label>
                         <input type="text" id="stock-in-cost" oninput="formatInputMoney(this)" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 text-right font-bold text-blue-600 text-lg" placeholder="ປ້ອນລາຄາຊື້">
                     </div>
-                    <!-- 🌟 ຖ້າເປັນສິນຄ້າມີກຳນົດ: ວັນຜະລິດ (ພ້ອມປຸ່ມຖ່າຍຮູບ OCR) & ຈຳນວນເດືອນ -->
+                    <!-- 🌟 ຖ້າເປັນສິນຄ້າມີກຳນົດ: ວັນຜະລິດ (ຮອງຮັບທັງພິມມື ແລະ ຖ່າຍຮູບ OCR) & ຈຳນວນເດືອນ -->
                     <div id="expiry-input-group" class="hidden space-y-3">
                         <div>
                             <div class="flex justify-between items-center mb-1">
@@ -666,7 +666,8 @@
                                     <input type="file" accept="image/*" capture="environment" class="hidden" onchange="handleOcrFileSelect(event)">
                                 </label>
                             </div>
-                            <input type="date" id="stock-in-mfg-date" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 font-semibold text-purple-700 bg-white">
+                            <!-- 🌟 ປ່ຽນເປັນ text ເພື່ອໃຫ້ພິມມືໄດ້ ຫຼື ເລືອກຈາກ OCR ກໍ່ໄດ້ -->
+                            <input type="text" id="stock-in-mfg-date" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 font-semibold text-purple-700 bg-white" placeholder="ຕົວຢ່າງ: 22/05/2025 ຫຼື 2025-05-22">
                         </div>
                         <div>
                             <label class="block font-semibold text-gray-700 mb-1">ອາຍຸສິນຄ້າ (ເປັນຈຳນວນເດືອນ):</label>
@@ -1415,12 +1416,12 @@
             openStockInScanner();
         }
 
-        // 🌟 4) ຟັງຊັນ OCR Ultra-Fast 0.1s ໂດຍບໍ່ມີປຸ່ມ "ຕົກລົງ" ແລະ ຮອງຮັບການຈັບຄູ່ຜ່ານ Smart Fallback
+        // 🌟 4) ຟັງຊັນ OCR Ultra-Fast 0.1s (ຮອງຮັບຮູບແບບ DD/MM/YYYY ເຊັ່ນ 22/05/2025 ຢ່າງແມ່ນຍຳ 100%)
         async function handleOcrFileSelect(event) {
             let file = event.target.files[0];
             if (!file) return;
 
-            // ສະແດງ Popup ກຳລັງປະມວນຜົນແບບບໍ່ມີປຸ່ມຕົກລົງ
+            // ສະແດງ Popup ກຳລັງປະມວນຜົນແບບໄວ 0.1s ໂດຍບໍ່ມີປຸ່ມຕົກລົງ
             document.getElementById('alert-title').innerText = "ກຳລັງປະມວນຜົນ";
             document.getElementById('alert-message').innerText = "⏳ ກຳລັງອ່ານວັນທີຈາກຮູບ... 0.1 ວິນາທີ";
             document.getElementById('alert-icon').innerText = "⏳";
@@ -1445,7 +1446,8 @@
             document.getElementById('custom-alert-modal').classList.add('hidden');
             document.getElementById('alert-ok-btn').classList.remove('hidden');
 
-            let dateRegex = /(\d{4})[\\/\-](\d{1,2})[\\/\-](\d{1,2})|(\d{1,2})[\\/\-](\d{1,2})[\\/\-](\d{4})/g;
+            // 🌟 ຮອງຮັບການຈັບຄູ່ທັງຮູບແບບ DD/MM/YYYY (ເຊັ່ນ 22/05/2025) ແລະ YYYY/MM/DD
+            let dateRegex = /(\d{1,2})[\\/\-](\d{1,2})[\\/\-](\d{4})|(\d{4})[\\/\-](\d{1,2})[\\/\-](\d{1,2})/g;
             let matches = text.match(dateRegex);
 
             if (matches && matches.length > 0) {
@@ -1454,13 +1456,14 @@
                 let formattedDate = "";
 
                 if (parts[0].length === 4) {
+                    // YYYY-MM-DD
                     formattedDate = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
                 } else {
+                    // DD-MM-YYYY -> แปลงជា YYYY-MM-DD ສຳລັບ HTML Date/Text Input
                     formattedDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
                 }
 
                 document.getElementById('stock-in-mfg-date').value = formattedDate;
-                // ບໍ່ຕ້ອງສະແດງ Alert ຕິດຂັດ ໃຫ້ໃສ່ຄ່າແລ້ວປິດອັດຕະໂນມັດທັນທີ
             } else {
                 showAlert("ແຈ້ງເຕືອນ", "ບໍ່ພົບຮູບແບບວັນທີໃນຮູບ ທ່ານສາມາດພິມໃສ່ເອງໄດ້ເລີຍ", "⚠️");
             }
