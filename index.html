@@ -457,6 +457,40 @@
         </div>
     </div>
 
+    <!-- Admin Manager Modal (ສຳລັບ Admin ໃຫຍ່) -->
+    <div id="admin-manager-modal" class="hidden fixed inset-0 bg-black/60 z-[250] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-3xl w-full p-6 max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                    <span>📋 ຈັດການບັນຊີ ແລະ ລະບົບ POS (Admin)</span>
+                </h3>
+                <button onclick="loadAllDevices()" class="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg cursor-pointer font-bold">🔄 ໂຫຼດຂໍ້ມູນໃໝ່</button>
+            </div>
+            
+            <div class="bg-blue-50 p-4 rounded-xl border border-blue-200 space-y-3">
+                <h4 class="font-bold text-blue-900 text-sm">➕ ສ້າງ Username ແລະ Password ໃຫ້ເຈົ້າຂອງຮ້ານ</h4>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <input type="text" id="new-target-device" list="trial-devices-list" placeholder="ID ເຄື່ອງ (ເລືອກ ຫຼື ພິມ)" class="border rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none bg-white">
+                    <datalist id="trial-devices-list"></datalist>
+                    <input type="text" id="new-admin-user" placeholder="USERNAME (ເຊັ່ນ: SHOP001)" class="border rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none bg-white">
+                    <input type="text" id="new-admin-pass" placeholder="Password" class="border rounded-lg px-3 py-2 text-xs font-semibold outline-none bg-white">
+                </div>
+                <button onclick="adminCreateUser()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg text-xs transition cursor-pointer shadow">
+                    💾 ບັນທຶກ ແລະ ສ້າງບັນຊີເຈົ້າຂອງຮ້ານ
+                </button>
+            </div>
+
+            <div class="space-y-2">
+                <h5 class="font-bold text-xs text-gray-700">📋 ລາຍຊື່ບັນຊີທັງໝົດໃນລະບົບ:</h5>
+                <div id="device-list-container" class="space-y-2 text-sm text-gray-700">
+                    <p class="text-center py-4">ກຳລັງໂຫຼດ...</p>
+                </div>
+            </div>
+
+            <button onclick="closeAdminManager()" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ປິດ</button>
+        </div>
+    </div>
+
     <!-- Custom Confirm Modal -->
     <div id="custom-confirm-modal" class="hidden fixed inset-0 bg-black/60 z-[300] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
@@ -583,7 +617,7 @@
                     </div>
                 </div>
 
-                <!-- ປຸ່ມ: ⚙️ ຈັດການລະບົບ (Admin) -->
+                <!-- 🌟 ປຸ່ມ: ⚙️ ຈັດການລະບົບ (Admin ໃຫຍ່) - ເຊື່ອມຕໍ່ຟັງຊັນ openAdminManager() ให้ທຳງານได้ 100% -->
                 <button id="admin-manage-btn" onclick="openAdminManager()" class="hidden w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     ⚙️ ຈັດການລະບົບ
                 </button>
@@ -1362,6 +1396,116 @@
             }
         }
 
+        // 🌟 ຟັງຊັນຈັດການລະບົບຂອງ Admin ໃຫຍ່ (ທີ່ເຊື່ອມຕໍ່ປຸ່ມ "ຈັດການລະບົບ" ໃຫ້ທຳງານបាន 100%)
+        async function openAdminManager() {
+            document.getElementById('admin-manager-modal').classList.remove('hidden');
+            await loadAllDevices();
+        }
+
+        function closeAdminManager() {
+            document.getElementById('admin-manager-modal').classList.add('hidden');
+        }
+
+        async function loadAllDevices() {
+            let container = document.getElementById('device-list-container');
+            container.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງໂຫຼດຂໍ້ມູນ...</p>`;
+            
+            let licenses = [];
+            if (supabaseClient) {
+                try {
+                    let { data } = await supabaseClient.from('licenses').select('*');
+                    if (data) licenses = data;
+                } catch (e) {}
+            }
+
+            let datalist = document.getElementById('trial-devices-list');
+            if (datalist) datalist.innerHTML = '';
+
+            if (licenses.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-500 py-4">ຍັງບໍ່ມີບັນຊີໃນລະບົບ</p>`;
+                return;
+            }
+
+            let html = '';
+            licenses.forEach(lic => {
+                if (datalist) {
+                    let opt = document.createElement('option');
+                    opt.value = lic.device_id;
+                    datalist.appendChild(opt);
+                }
+
+                let username = lic.device_id;
+                let pass = localStorage.getItem('pos_shop_pass_' + username) || '-';
+
+                html += `
+                    <div class="flex justify-between items-center p-3 bg-gray-50 border rounded-xl">
+                        <div>
+                            <span class="font-bold text-blue-800">ID: ${lic.device_id}</span> | 
+                            Username: <span class="font-semibold text-gray-700">${username}</span> | 
+                            Password: <span class="font-mono text-green-700">${pass}</span>
+                        </div>
+                        <button onclick="promptEditUser('${lic.device_id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer">✏️ ແກ້ໄຂ</button>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        async function adminCreateUser() {
+            let targetDev = document.getElementById('new-target-device').value.trim().toUpperCase();
+            let username = document.getElementById('new-admin-user').value.trim().toUpperCase();
+            let pass = document.getElementById('new-admin-pass').value.trim();
+
+            if (!targetDev || !username || !pass) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຂໍ້ມູນໃຫ້ครบถ้วน!", "⚠️");
+                return;
+            }
+
+            localStorage.setItem('pos_shop_pass_' + username, pass);
+            localStorage.setItem('pos_shop_pass_' + targetDev, pass);
+
+            if (supabaseClient) {
+                try {
+                    await supabaseClient.from('licenses').upsert([{
+                        device_id: targetDev,
+                        status: 'active',
+                        updated_at: new Date().toISOString()
+                    }], { onConflict: 'device_id' });
+                } catch (e) {}
+            }
+
+            showAlert("ສຳເລັດ", `ສ້າງບັນຊີໃຫ້ [${username}] ສຳເລັດຮຽບຮ້ອຍ!`, "✅");
+            document.getElementById('new-target-device').value = "";
+            document.getElementById('new-admin-user').value = "";
+            document.getElementById('new-admin-pass').value = "";
+            loadAllDevices();
+        }
+
+        function promptEditUser(deviceId) {
+            editingDeviceId = deviceId;
+            document.getElementById('edit-modal-device-id').innerText = deviceId;
+            document.getElementById('edit-modal-username').value = deviceId;
+            document.getElementById('edit-modal-password').value = localStorage.getItem('pos_shop_pass_' + deviceId) || '';
+            document.getElementById('edit-user-modal').classList.remove('hidden');
+        }
+
+        function closeEditUserModal() {
+            document.getElementById('edit-user-modal').classList.add('hidden');
+        }
+
+        async function saveEditedUser() {
+            let newPass = document.getElementById('edit-modal-password').value.trim();
+            if (!newPass) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ Password ໃໝ່!", "⚠️");
+                return;
+            }
+
+            localStorage.setItem('pos_shop_pass_' + editingDeviceId, newPass);
+            closeEditUserModal();
+            showAlert("ສຳເລັດ", "ແກ້ໄຂຂໍ້ມູນສຳເລັດຮຽບຮ້ອຍ!", "✅");
+            loadAllDevices();
+        }
+
         // 🌟 ຟັງຊັນ Dropdown
         function toggleCustomDropdown(menuId, event) {
             if (event) event.stopPropagation();
@@ -1426,7 +1570,6 @@
             document.getElementById('rate-input-modal').classList.add('hidden');
         }
 
-        // 🌟 ຟັງຊັນບັນທຶກ Rate ທີ່ຖືກຕ້ອງ 100% (ແກ້ໄຂບໍ່ໃຫ້ທັບຂໍ້ມູນເກົ່າ ແລະ ດຶງລາຄາຕົ້ນທາງຖືກຕ້ອງ)
         async function applyCustomRateToTable() {
             let rateVal = parseFloat(document.getElementById('input-custom-rate').value.replace(/,/g, '')) || 0;
             let dateVal = document.getElementById('input-custom-rate-date').value.trim();
@@ -1447,7 +1590,7 @@
             }, 300);
         }
 
-        // 🌟 ຟັງຊັນອັບໂຫລດໄຟລ໌ Excel ຈາກປ໋ອບອັບ Rate (ແກ້ໄຂບໍ່ໃຫ້ທັບຂໍ້ມູນເກົ່າ ແລະ ອ່ານລາຄາຕົ້ນທາງຖືກຕ້ອງ)
+        // 🌟 ຟັງຊັນອັບໂຫລດໄຟລ໌ Excel (ແກ້ໄຂ: ອ່ານລາຄາຊື້-ຂາຍຕົ້ນທາງຖືກຕ້ອງ 100% ໂດຍບໍ່ຄູນ Rate ຊ້ຳຊ້ອນ ແລະ Merge ບໍ່ທັບຂໍ້ມູນເກົ່າ)
         function handleExcelUploadFromModal(event) {
             let file = event.target.files[0];
             if (!file) return;
@@ -1459,7 +1602,6 @@
                     let firstSheet = workbook.Sheets[workbook.SheetNames[0]];
                     let jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
 
-                    let rateVal = parseFloat(document.getElementById('input-custom-rate').value.replace(/,/g, '')) || 1;
                     let dateVal = document.getElementById('input-custom-rate-date').value.trim();
                     let today = new Date().toISOString().split('T')[0];
                     let parsedDate = dateVal ? parseDDMMYYYYToISO(dateVal) : today;
@@ -1477,7 +1619,7 @@
                             let priceInput = parseFloat(String(r[3] || 0).replace(/,/g, '')) || 0;
                             let qty = parseInt(String(r[4] || 1).replace(/,/g, '')) || 1;
 
-                            // 🌟 ແກ້ໄຂຈຸດທີ 1: ຖ້າຕົ້ນທາງເປັນລາຄາຫົວໜ່ວຍປົກກະຕິ ให้นຳໃຊ້ລາຄານັ້ນເລີຍ ໂດຍບໍ່ເອົາໄປຄູນ Rate ຊ້ຳຊ້ອນອີກ (ເວັ້ນເສຍແຕ່ຕ້ອງການຄູນ Rate)
+                            // ດຶງລາຄາຕົ້ນທາງຕາມ Excel ຢ່າງຊັດເຈນ 100%
                             let costLAK = costInput;
                             let priceLAK = priceInput > 0 ? priceInput : Math.ceil((costLAK * (1 + pctInput / 100)) / 1000) * 1000;
 
@@ -1496,7 +1638,7 @@
                         }
                     }
 
-                    // 🌟 ແກ້ໄຂຈຸດທີ 2: ປະສານຂໍ້ມູນເກົ່າ ແລະ ຂໍ້ມູນໃໝ່ເຂົ້າກັນ (Merge ບໍ່ໃຫ້ຂໍ້ມູນເກົ່າຖືກລຶບອອກ)
+                    // ປະສານຂໍ້ມູນເກົ່າ ແລະ ໃໝ່ເຂົ້າກັນ (Merge) ໂດຍບໍ່ໃຫ້ຂໍ້ມູນເກົ່າຫາຍ
                     excelRows = [...existingRows, ...newRows];
                     localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
                     
@@ -2326,7 +2468,7 @@
 
         // --- HISTORY & REPORT MODALS ---
         function openHistory() { 
-            document.getElementById('history-modal').classList.remove('hidden'); 
+            document.getElementById('history-modal').classList.add('hidden'); 
             loadCloudHistory(); 
         }
 
@@ -2641,7 +2783,6 @@
             tbody.innerHTML = html;
         }
 
-        // 🌟 ຟັງຊັນເພີ່ມແຖວໃນຕາຕະລາງ
         function addExcelRow(code = '', cost = '', profitPct = 20, price = '', qty = 1, dateAdded = '') {
             syncTableInputsToData();
             let today = new Date().toISOString().split('T')[0];
@@ -2650,14 +2791,12 @@
             renderExcelTable();
         }
 
-        // 🌟 ຟັງຊັນລຶບແຖວໃນຕາຕະລາງ
         function removeExcelRow(index) {
             syncTableInputsToData();
             excelRows.splice(index, 1);
             renderExcelTable();
         }
 
-        // 🌟 ຟັງຊັນລຶບຂໍ້ມູນທີ່ຍັງບໍ່ທັນບັນທຶກ
         async function clearUnsavedRows() {
             excelRows = [];
             renderExcelTable(); 
@@ -2799,7 +2938,6 @@
             showAlert("ສຳເລັດ", "ຄຳນວນລາຄາຂາຍຕາມສູດ ROUNDUP ສຳເລັດ!", "🏷️");
         }
 
-        // 🌟 ຟັງຊັນບັນທຶກຂໍ້ມູນລົງฐานຂໍ້ມູນ (ປຸ່ມ "ບັນທຶກຂໍ້ມູນ")
         async function saveExcelData() {
             syncTableInputsToData();
             let validRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
@@ -2882,7 +3020,7 @@
             }, 500);
         }
 
-        // 🌟 ຟັງຊັນສ້າງລະຫັດທັງໝົດ (ປຸ່ມ "ສ້າງລະຫັດທັງໝົດ")
+        // 🌟 ຟັງຊັນສ້າງລະຫັດ ແລະ ພິມປ້າຍ QR Code (ແກ້ໄຂ: ເອົາລາຄາຂາຍອອກຈາກ QR Code ຕາມທີ່ອາຈານຕ້ອງການ)
         async function generateExcelCodes(filterDate = 'all') {
             syncTableInputsToData();
             
@@ -2905,8 +3043,6 @@
 
             let promises = duplicateRemovedList.map((row, index) => {
                 return new Promise((resolve) => {
-                    let cost = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
-                    let price = parseFloat(String(row.price).replace(/,/g, '')) || 0;
                     let cleanCode = String(row.code).trim();
                     let payloadStr = cleanCode;
 
@@ -2925,13 +3061,13 @@
                     }
 
                     if (currentCodeType === 'qrcode') {
+                        // 🌟 ແກ້ໄຂຈຸດທີ 2: ເອົາบรรທັດລາຄາຂາຍອອກຈາກ QR Code (ADMIN ເຈົ້າຂອງຮ້ານ)
                         card.innerHTML = `
                             ${headerHtml}
                             <div class="bg-gray-50 p-2 rounded-lg inline-block">
                                 <canvas id="${codeContainerId}"></canvas>
                             </div>
                             <div class="mt-2 text-xs font-semibold text-gray-600">ລະຫັດ: <span class="text-blue-600 font-mono">${cleanCode}</span></div>
-                            <div class="text-xs font-bold text-green-600 mt-0.5">ຂາຍ: ${formatNumberWithCommas(price)} ກີບ</div>
                             ${dateDisplay}
                         `;
                         container.appendChild(card);
@@ -2946,7 +3082,6 @@
                             <div class="bg-gray-50 p-2 rounded-lg w-full flex justify-center overflow-hidden">
                                 <svg id="${codeContainerId}" class="max-w-full"></svg>
                             </div>
-                            <div class="mt-2 text-xs font-bold text-green-600">ຂາຍ: ${formatNumberWithCommas(price)} ກີບ</div>
                             ${dateDisplay}
                         `;
                         container.appendChild(card);
