@@ -1045,12 +1045,10 @@
                     year = v.substring(3);
                 }
             } else if (v.length === 4) {
-                // ເຊັ່ນ 2525 (d=2, m=5, y=25) ຫຼື 1528 (d=1, m=5, y=28)
                 day = '0' + v.substring(0, 1);
                 month = '0' + v.substring(1, 2);
                 year = v.substring(2);
             } else if (v.length === 3) {
-                // ເຊັ່ນ 152 (d=1, m=5, y=2)
                 day = '0' + v.substring(0, 1);
                 month = '0' + v.substring(1, 2);
                 year = v.substring(2);
@@ -2106,6 +2104,7 @@
             }
         });
 
+        // 🌟 ລະບົບສະແກນນຳອອກສິນຄ້າ (ພ້ອມຊ່ອງປ້ອນ Barcode ດ້ວຍມື ແລະ Auto-Focus)
         async function openScanner() {
             document.getElementById('scanner-container').classList.remove('hidden');
             await fetchProductsForGenerator();
@@ -2121,67 +2120,88 @@
                     if (decodedText === lastScannedCode && (currentTime - lastScanTime < 3000)) return;
                     lastScannedCode = decodedText;
                     lastScanTime = currentTime;
-                    
-                    let cleanDecoded = String(decodedText).trim();
-                    let scannedCode = cleanDecoded;
-                    let scannedCost = 0;
-                    let scannedPrice = 0;
-                    let scannedName = cleanDecoded;
-
-                    try {
-                        let parsedJson = JSON.parse(cleanDecoded);
-                        if (parsedJson && parsedJson.code) {
-                            scannedCode = parsedJson.code;
-                            scannedCost = parseFloat(parsedJson.cost) || 0;
-                            scannedPrice = parseFloat(parsedJson.price) || 0;
-                            scannedName = parsedJson.code;
-                            addDirectToCart(scannedCode, scannedName, scannedCost, scannedPrice, 1);
-                            return;
-                        }
-                    } catch (e) {}
-
-                    let matches = excelRows.filter(r => {
-                        let itemCode = String(r.code || '').trim();
-                        return itemCode.toLowerCase() === cleanDecoded.toLowerCase();
-                    });
-
-                    if (matches.length === 0) {
-                        let cleanDecodedDigits = cleanDecoded.replace(/\D/g, '');
-                        matches = excelRows.filter(r => {
-                            let itemCodeDigits = String(r.code || '').replace(/\D/g, '');
-                            return itemCodeDigits !== '' && cleanDecodedDigits !== '' && itemCodeDigits === cleanDecodedDigits;
-                        });
-                    }
-
-                    if (matches.length > 1) {
-                        let firstPrice = parseFloat(String(matches[0].price).replace(/,/g, '')) || 0;
-                        let firstCost = parseFloat(String(matches[0].cost).replace(/,/g, '')) || 0;
-                        let allSame = matches.every(m => {
-                            let p = parseFloat(String(m.price).replace(/,/g, '')) || 0;
-                            let c = parseFloat(String(m.cost).replace(/,/g, '')) || 0;
-                            return p === firstPrice && c === firstCost;
-                        });
-
-                        if (allSame) {
-                            let totalQty = matches.reduce((sum, m) => sum + (parseInt(m.qty) || 1), 0);
-                            addDirectToCart(matches[0].code, matches[0].code, firstCost, firstPrice, totalQty);
-                        } else {
-                            openSelectPriceModal(cleanDecoded, matches);
-                        }
-                    } else if (matches.length === 1) {
-                        let foundItem = matches[0];
-                        scannedCode = foundItem.code;
-                        scannedCost = parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0;
-                        scannedPrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
-                        scannedName = foundItem.code;
-                        let q = parseInt(foundItem.qty) || 1;
-                        addDirectToCart(scannedCode, scannedName, scannedCost, scannedPrice, q);
-                    } else {
-                        showConfirmModalParsed(scannedCode, scannedName, 0, 0);
-                    }
+                    processScannedCode(decodedText);
                 },
                 (errorMessage) => {}
             ).catch(err => {});
+        }
+
+        function handleScanBarcodeInput(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                submitScanBarcode();
+            }
+        }
+
+        function submitScanBarcode() {
+            let inputElem = document.getElementById('scan-barcode-input');
+            let code = inputElem.value.trim();
+            if (!code) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນລະຫັດ Barcode!", "⚠️");
+                return;
+            }
+            inputElem.value = "";
+            processScannedCode(code);
+        }
+
+        async function processScannedCode(decodedText) {
+            let cleanDecoded = String(decodedText).trim();
+            let scannedCode = cleanDecoded;
+            let scannedCost = 0;
+            let scannedPrice = 0;
+            let scannedName = cleanDecoded;
+
+            try {
+                let parsedJson = JSON.parse(cleanDecoded);
+                if (parsedJson && parsedJson.code) {
+                    scannedCode = parsedJson.code;
+                    scannedCost = parseFloat(parsedJson.cost) || 0;
+                    scannedPrice = parseFloat(parsedJson.price) || 0;
+                    scannedName = parsedJson.code;
+                    addDirectToCart(scannedCode, scannedName, scannedCost, scannedPrice, 1);
+                    return;
+                }
+            } catch (e) {}
+
+            let matches = excelRows.filter(r => {
+                let itemCode = String(r.code || '').trim();
+                return itemCode.toLowerCase() === cleanDecoded.toLowerCase();
+            });
+
+            if (matches.length === 0) {
+                let cleanDecodedDigits = cleanDecoded.replace(/\D/g, '');
+                matches = excelRows.filter(r => {
+                    let itemCodeDigits = String(r.code || '').replace(/\D/g, '');
+                    return itemCodeDigits !== '' && cleanDecodedDigits !== '' && itemCodeDigits === cleanDecodedDigits;
+                });
+            }
+
+            if (matches.length > 1) {
+                let firstPrice = parseFloat(String(matches[0].price).replace(/,/g, '')) || 0;
+                let firstCost = parseFloat(String(matches[0].cost).replace(/,/g, '')) || 0;
+                let allSame = matches.every(m => {
+                    let p = parseFloat(String(m.price).replace(/,/g, '')) || 0;
+                    let c = parseFloat(String(m.cost).replace(/,/g, '')) || 0;
+                    return p === firstPrice && c === firstCost;
+                });
+
+                if (allSame) {
+                    let totalQty = matches.reduce((sum, m) => sum + (parseInt(m.qty) || 1), 0);
+                    addDirectToCart(matches[0].code, matches[0].code, firstCost, firstPrice, totalQty);
+                } else {
+                    openSelectPriceModal(cleanDecoded, matches);
+                }
+            } else if (matches.length === 1) {
+                let foundItem = matches[0];
+                scannedCode = foundItem.code;
+                scannedCost = parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0;
+                scannedPrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
+                scannedName = foundItem.code;
+                let q = parseInt(foundItem.qty) || 1;
+                addDirectToCart(scannedCode, scannedName, scannedCost, scannedPrice, q);
+            } else {
+                showConfirmModalParsed(scannedCode, scannedName, 0, 0);
+            }
         }
 
         function addDirectToCart(code, name, cost, price, qty = 1) {
@@ -2437,7 +2457,7 @@
             }
         }
 
-        // 🌟 ລະບົບກວດສອບສະຕັອກສິນຄ້າໃນສາງ ກ່ອນຊຳລະເງິນ (Checkout Validation)
+        // 🌟 ລະບົບກວດສອບສະຕັອກສິນຄ້າໃນສາງ ກ່ອນຊຳລະເງິນ (ຖ້າບໍ່ພໍ ຟ້ອງເຕືອນທັນທີ)
         async function checkStockAvailability() {
             await fetchProductsForGenerator();
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
@@ -2475,7 +2495,6 @@
         async function checkout() {
             if (cart.length === 0) { showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າ!", "⚠️"); return; }
             
-            // 🌟 ກວດສອບສິນຄ້າໃນສາງກ່ອນ
             let stockCheck = await checkStockAvailability();
             if (!stockCheck.ok) {
                 showAlert("ສິນຄ້າໃນສາງບໍ່ພໍ", `ສິນຄ້າ [${stockCheck.name}] ໃນສາງເຫຼືອພຽງ ${stockCheck.available} ອັນ ແຕ່ທ່ານຕ້ອງການຂາຍ ${stockCheck.requested} ອັນ! ບໍ່ສາມາດຊຳລະເງິນໄດ້.`, "❌");
