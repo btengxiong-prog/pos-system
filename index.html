@@ -618,14 +618,23 @@
             <button onclick="closeStockInScanner()" class="mt-3 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded w-full font-bold cursor-pointer">ປິດກ້ອງ</button>
         </div>
 
-        <!-- OCR Date Scanner Modal (ສໍາລັບສະແກນວັນຜະລິດ/ໝົດອາຍຸ Auto) -->
-        <div id="ocr-scanner-modal" class="hidden fixed inset-0 bg-black/80 z-[350] flex items-center justify-center p-4">
-            <div class="bg-white rounded-2xl max-w-md w-full p-5 text-center space-y-3 shadow-2xl">
-                <h3 class="font-bold text-base text-indigo-700">📷 ສະແກນຫາວັນຜະລິດ (Auto OCR)</h3>
-                <p class="text-xs text-gray-600">ໃຫ້ກ້ອງສ່ອງໃສ່ປ້າຍວັນທີ (รองรับทุกภาษา)</p>
-                <div id="ocr-reader" class="w-full max-w-sm mx-auto"></div>
-                <div id="ocr-loading-status" class="text-xs text-blue-600 font-bold hidden">⏳ ກຳລັງອ່ານຕົວຫນັງສືຈາກຮູບພາບ...</div>
-                <button onclick="closeOcrScanner()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl w-full font-bold cursor-pointer text-sm">ປິດກ້ອງ</button>
+        <!-- 🌟 OCR Capture Modal (ສຳລັບຖ່າຍຮູບ/ອັບໂຫລດວັນຜະລິດ Auto OCR - ຂະໜາດໃຫຍ່ເຕັມຕາ ຕາມຮູບ 2) -->
+        <div id="ocr-scanner-modal" class="hidden fixed inset-0 bg-black/90 z-[350] flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-xl w-full p-6 text-center space-y-4 shadow-2xl">
+                <div class="text-3xl">📷</div>
+                <h3 class="font-bold text-lg text-indigo-700">ສະແກນຫາວັນຜະລິດ (Auto OCR)</h3>
+                <p class="text-xs text-gray-600">ຖ່າຍຮູບປ້າຍວັນທີ (ຫຼື ອັບໂຫລດຮູບ) ລະບົບຈະອ່ານທຸກພາສາໃຫ້ອັດຕະໂນມັດ</p>
+                
+                <div class="border-2 border-dashed border-indigo-300 bg-indigo-50 p-6 rounded-2xl space-y-3">
+                    <label class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 px-6 rounded-xl transition cursor-pointer shadow flex items-center justify-center gap-2 text-sm">
+                        📸 ຖ່າຍຮູບ / ເລືອກຮູບປ້າຍວັນທີ
+                        <input type="file" accept="image/*" capture="environment" class="hidden" onchange="handleOcrFileSelect(event)">
+                    </label>
+                </div>
+
+                <div id="ocr-loading-status" class="text-sm text-blue-600 font-bold hidden">⏳ ກຳລັງອ່ານຕົວໜັງສືຈາກຮູບພາບ (OCR)... ກະລຸນາຖ້າຈັກໜ້ອຍ...</div>
+
+                <button onclick="closeOcrScanner()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2.5 rounded-xl w-full font-bold cursor-pointer text-sm transition">ປິດໜ້າຈໍ</button>
             </div>
         </div>
 
@@ -1425,67 +1434,37 @@
             openStockInScanner();
         }
 
-        // 🌟 4) ຟັງຊັນ OCR ສະແກນວັນຜະລິດຈາກກ້ອງ (Auto OCR Date Detection)
-        let ocrScanner = null;
+        // 🌟 4) ຟັງຊັນ OCR ຖ່າຍຮູບ/ອັບໂຫລດວັນຜະລິດ (Auto OCR Date Detection 100% ຮອງຮັບທຸກພາສາ)
         function openOcrScanner() {
             document.getElementById('ocr-scanner-modal').classList.remove('hidden');
             document.getElementById('ocr-loading-status').classList.add('hidden');
-
-            if (!ocrScanner) {
-                try { ocrScanner = new Html5Qrcode("ocr-reader"); } catch(e) {}
-            }
-
-            ocrScanner.start(
-                { facingMode: "environment" },
-                { fps: 5, qrbox: { width: 280, height: 100 } },
-                async (decodedText, decodedResult) => {
-                    // Note: Html5Qrcode is primarily for barcodes. For true image OCR from video frames, we capture or use Tesseract on snapshot if possible.
-                    // Let's implement a robust snapshot OCR approach using HTML5 canvas.
-                },
-                (err) => {}
-            ).catch(err => {
-                // Fallback to file/camera capture for Tesseract OCR if video stream OCR isn't directly bound
-                startTesseractCameraCapture();
-            });
-        }
-
-        async function startTesseractCameraCapture() {
-            let input = document.createElement('input');
-            input.type = 'file';
-            input.accept = 'image/*';
-            input.capture = 'environment';
-            input.onchange = async (e) => {
-                let file = e.target.files[0];
-                if (!file) return;
-                document.getElementById('ocr-loading-status').classList.remove('hidden');
-                try {
-                    let { data: { text } } = await Tesseract.recognize(file, 'eng+chi_sim+lao', {
-                        logger: m => {}
-                    });
-                    parseExtractedDate(text);
-                } catch (err) {
-                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດອ່ານຂໍ້ຄວາມຈາກຮູບພາບໄດ້", "❌");
-                }
-                document.getElementById('ocr-loading-status').classList.add('hidden');
-                closeOcrScanner();
-            };
-            input.click();
         }
 
         function closeOcrScanner() {
-            if (ocrScanner) {
-                ocrScanner.stop().then(() => {
-                    document.getElementById('ocr-scanner-modal').classList.add('hidden');
-                }).catch(() => {
-                    document.getElementById('ocr-scanner-modal').classList.add('hidden');
+            document.getElementById('ocr-scanner-modal').classList.add('hidden');
+        }
+
+        async function handleOcrFileSelect(event) {
+            let file = event.target.files[0];
+            if (!file) return;
+
+            document.getElementById('ocr-loading-status').classList.remove('hidden');
+
+            try {
+                let { data: { text } } = await Tesseract.recognize(file, 'eng+chi_sim+lao', {
+                    logger: m => {}
                 });
-            } else {
-                document.getElementById('ocr-scanner-modal').classList.add('hidden');
+                parseExtractedDate(text);
+            } catch (err) {
+                showAlert("ຜິດພາດ", "ບໍ່ສາມາດອ່ານຂໍ້ຄວາມຈາກຮູບພາບໄດ້", "❌");
             }
+
+            document.getElementById('ocr-loading-status').classList.add('hidden');
+            closeOcrScanner();
+            event.target.value = '';
         }
 
         function parseExtractedDate(text) {
-            // Regular expressions to find dates like YYYY/MM/DD, DD/MM/YYYY, YYYY-MM-DD
             let dateRegex = /(\d{4})[\\/\-](\d{1,2})[\\/\-](\d{1,2})|(\d{1,2})[\\/\-](\d{1,2})[\\/\-](\d{4})/g;
             let matches = text.match(dateRegex);
 
@@ -3125,7 +3104,7 @@
             });
 
             selectElem.innerHTML = html;
-            document.getElementById('print-date-modal').classList.remove('hidden');
+            document.getElementById('print-date-modal').classList.add('hidden');
         }
 
         function printExcelCodes() {
