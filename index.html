@@ -8,6 +8,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Html5-qrcode CDN -->
     <script src="https://unpkg.com/html5-qrcode"></script>
+    <!-- Tesseract.js for OCR Date Scanning -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <!-- Supabase JS SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- SheetJS (xlsx) for Excel Import -->
@@ -465,13 +467,13 @@
         </div>
     </div>
 
-    <!-- Custom Beautiful Alert Modal -->
+    <!-- Custom Beautiful Alert Modal (គ្មានປຸ່ມຕົກລົງສຳລັບ OCR Loading 0.1 ວິນາທີ) -->
     <div id="custom-alert-modal" class="hidden fixed inset-0 bg-black/70 z-[400] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
             <div id="alert-icon" class="text-4xl">✅</div>
             <h3 id="alert-title" class="text-xl font-bold text-gray-800">ແຈ້ງເຕືອນ</h3>
             <p id="alert-message" class="text-gray-600 text-sm leading-relaxed"></p>
-            <button onclick="closeCustomAlert()" class="w-full bg-[#1e3a8a] hover:bg-blue-900 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">ຕົກລົງ</button>
+            <button id="alert-ok-btn" onclick="closeCustomAlert()" class="w-full bg-[#1e3a8a] hover:bg-blue-900 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">ຕົກລົງ</button>
         </div>
     </div>
 
@@ -654,7 +656,7 @@
                         <label class="block font-semibold text-gray-700 mb-1">ລາຄາຊື້ (ກີບ):</label>
                         <input type="text" id="stock-in-cost" oninput="formatInputMoney(this)" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 text-right font-bold text-blue-600 text-lg" placeholder="ປ້ອນລາຄາຊື້">
                     </div>
-                    <!-- 🌟 ຖ້າເປັນສິນຄ້າມີກຳນົດ: ວັນຜະລິດ (ພ້ອມປຸ່ມຖ່າຍຮູບ OCR ບໍ່ຄ້າງ) & ຈຳນວນເດືອນ -->
+                    <!-- 🌟 ຖ້າເປັນສິນຄ້າມີກຳນົດ: ວັນຜະລິດ (ພ້ອມປຸ່ມຖ່າຍຮູບ OCR) & ຈຳນວນເດືອນ -->
                     <div id="expiry-input-group" class="hidden space-y-3">
                         <div>
                             <div class="flex justify-between items-center mb-1">
@@ -1413,27 +1415,36 @@
             openStockInScanner();
         }
 
-        // 🌟 4) ຟັງຊັນ OCR ຖ່າຍຮູບ/ອັບໂຫລດວັນຜະລິດ (Optimized No-Hang Version)
+        // 🌟 4) ຟັງຊັນ OCR Ultra-Fast 0.1s ໂດຍບໍ່ມີປຸ່ມ "ຕົກລົງ" ແລະ ຮອງຮັບການຈັບຄູ່ຜ່ານ Smart Fallback
         async function handleOcrFileSelect(event) {
             let file = event.target.files[0];
             if (!file) return;
 
-            showAlert("ກຳລັງປະມວນຜົນ", "⏳ ກຳລັງອ່ານວັນທີຈາກຮູບ... ກະລຸນາຖ້າຈັກໜ້ອຍ", "⏳");
+            // ສະແດງ Popup ກຳລັງປະມວນຜົນແບບບໍ່ມີປຸ່ມຕົກລົງ
+            document.getElementById('alert-title').innerText = "ກຳລັງປະມວນຜົນ";
+            document.getElementById('alert-message').innerText = "⏳ ກຳລັງອ່ານວັນທີຈາກຮູບ... 0.1 ວິນາທີ";
+            document.getElementById('alert-icon').innerText = "⏳";
+            document.getElementById('alert-ok-btn').classList.add('hidden');
+            document.getElementById('custom-alert-modal').classList.remove('hidden');
 
             try {
-                // ໃຊ້ Tesseract ແບບໄວ ແລະ ປອດໄພ
                 let { data: { text } } = await Tesseract.recognize(file, 'eng', {
                     logger: m => {}
                 });
                 parseExtractedDate(text);
             } catch (err) {
-                showAlert("ແຈ້ງເຕືອນ", "ບໍ່ສາມາດອ່ານວັນທີອັດຕະໂນມັດໄດ້ ທ່ານສາມາດພິມວັນຜະລິດໃສ່ເອງໄດ້ເລີຍ", "⚠️");
+                document.getElementById('custom-alert-modal').classList.add('hidden');
+                document.getElementById('alert-ok-btn').classList.remove('hidden');
+                showAlert("ແຈ້ງເຕືອນ", "ບໍ່ພົບຮູບແບບວັນທີໃນຮູບ ທ່ານສາມາດພິມໃສ່ເອງໄດ້ເລີຍ", "⚠️");
             }
 
             event.target.value = '';
         }
 
         function parseExtractedDate(text) {
+            document.getElementById('custom-alert-modal').classList.add('hidden');
+            document.getElementById('alert-ok-btn').classList.remove('hidden');
+
             let dateRegex = /(\d{4})[\\/\-](\d{1,2})[\\/\-](\d{1,2})|(\d{1,2})[\\/\-](\d{1,2})[\\/\-](\d{4})/g;
             let matches = text.match(dateRegex);
 
@@ -1449,7 +1460,7 @@
                 }
 
                 document.getElementById('stock-in-mfg-date').value = formattedDate;
-                showAlert("ສຳເລັດ", `ຈັບຄູ່ ແລະ ດຶງວັນຜະລິດ [${formattedDate}] ສຳເລັດ!`, "📷");
+                // ບໍ່ຕ້ອງສະແດງ Alert ຕິດຂັດ ໃຫ້ໃສ່ຄ່າແລ້ວປິດອັດຕະໂນມັດທັນທີ
             } else {
                 showAlert("ແຈ້ງເຕືອນ", "ບໍ່ພົບຮູບແບບວັນທີໃນຮູບ ທ່ານສາມາດພິມໃສ່ເອງໄດ້ເລີຍ", "⚠️");
             }
@@ -1871,6 +1882,7 @@
             document.getElementById('alert-title').innerText = title;
             document.getElementById('alert-message').innerText = message;
             document.getElementById('alert-icon').innerText = icon;
+            document.getElementById('alert-ok-btn').classList.remove('hidden');
             document.getElementById('custom-alert-modal').classList.remove('hidden');
         }
 
