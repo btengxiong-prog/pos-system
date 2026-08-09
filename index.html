@@ -621,22 +621,13 @@
     <!-- Main Content -->
     <main class="container mx-auto px-4 mt-6 max-w-4xl">
         
-        <!-- Scanner Modal (ມີຊ່ອງປ້ອນ Barcode ດ້ວຍມື ເພື່ອໃຫ້ສະແກນຜ່ານງ່າຍ 100%) -->
+        <!-- Scanner Modal -->
         <div id="scanner-container" class="hidden mb-6 bg-white p-4 rounded-xl shadow border">
             <div class="flex justify-between items-center mb-2">
                 <h3 class="font-bold text-lg text-gray-700">📷 ກຳລັງສະແກນ QR / ບາໂຄດ (ຂາຍສິນຄ້າ)</h3>
                 <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold">ກຳລັງເປີດກ້ອງ...</span>
             </div>
             <div id="reader" class="w-full max-w-md mx-auto"></div>
-            
-            <div class="mt-4 p-3 bg-blue-50 rounded-xl border border-blue-200 text-left space-y-2">
-                <label class="block text-xs font-bold text-blue-900">⌨️ ຫຼື ພິມ/ຍິງບາໂຄດດ້ວຍມື ແລ້ວກົດ Enter:</label>
-                <div class="flex gap-2">
-                    <input type="text" id="scan-barcode-input" onkeydown="handleScanBarcodeInput(event)" placeholder="ປ້ອນລະຫັດ Barcode..." class="flex-1 border rounded-lg px-3 py-2 text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                    <button onclick="submitScanBarcode()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold cursor-pointer shadow">ຕົກລົງ</button>
-                </div>
-            </div>
-
             <button onclick="closeScanner()" class="mt-3 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded w-full font-bold cursor-pointer">ປິດກ້ອງ</button>
         </div>
 
@@ -2113,7 +2104,7 @@
             }
         });
 
-        // 🌟 ຟັງຊັນສະແກນນຳອອກ (ໃຊ້ໂຄດຫຼັກເດີມທີ່ຈັບ Barcode ໄດ້ວ່ອງໄວ ແລະ ແມນຍຳ 100%)
+        // 🌟 ໂຄດຫຼັກເດີມ: ສະແກນຂາຍສິນຄ້າ (ແມນຍຳ 100%)
         async function openScanner() {
             document.getElementById('scanner-container').classList.remove('hidden');
             await fetchProductsForGenerator();
@@ -2162,7 +2153,20 @@
                     }
 
                     if (matches.length > 1) {
-                        openSelectPriceModal(cleanDecoded, matches);
+                        // 🌟 3) ຖ້າສິນຄ້າຊະນິດດຽວກັນ (ລະຫັດດຽວກັນ) ແຕ່ລາຄາຂາຍ ແລະ ລາຄາຊື້ "ຄືກັນ" ບໍ່ໃຫ້ສະແດງເລືອກລາຄາ (ຮູບ 3)
+                        let firstPrice = parseFloat(String(matches[0].price).replace(/,/g, '')) || 0;
+                        let firstCost = parseFloat(String(matches[0].cost).replace(/,/g, '')) || 0;
+                        let allSame = matches.every(m => {
+                            let p = parseFloat(String(m.price).replace(/,/g, '')) || 0;
+                            let c = parseFloat(String(m.cost).replace(/,/g, '')) || 0;
+                            return p === firstPrice && c === firstCost;
+                        });
+
+                        if (allSame) {
+                            showConfirmModalParsed(matches[0].code, matches[0].code, firstCost, firstPrice);
+                        } else {
+                            openSelectPriceModal(cleanDecoded, matches);
+                        }
                     } else if (matches.length === 1) {
                         let foundItem = matches[0];
                         scannedCode = foundItem.code;
@@ -2176,48 +2180,6 @@
                 },
                 (errorMessage) => {}
             ).catch(err => {});
-        }
-
-        function handleScanBarcodeInput(event) {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                submitScanBarcode();
-            }
-        }
-
-        async function submitScanBarcode() {
-            let inputElem = document.getElementById('scan-barcode-input');
-            let cleanDecoded = inputElem.value.trim();
-            if (!cleanDecoded) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນລະຫັດ Barcode!", "⚠️");
-                return;
-            }
-            inputElem.value = "";
-            closeScanner();
-
-            await fetchProductsForGenerator();
-            let scannedCode = cleanDecoded;
-            let scannedCost = 0;
-            let scannedPrice = 0;
-            let scannedName = cleanDecoded;
-
-            let matches = excelRows.filter(r => {
-                let itemCode = String(r.code || '').trim();
-                return itemCode.toLowerCase() === cleanDecoded.toLowerCase();
-            });
-
-            if (matches.length > 1) {
-                openSelectPriceModal(cleanDecoded, matches);
-            } else if (matches.length === 1) {
-                let foundItem = matches[0];
-                scannedCode = foundItem.code;
-                scannedCost = parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0;
-                scannedPrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
-                scannedName = foundItem.code;
-                showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
-            } else {
-                showConfirmModalParsed(scannedCode, scannedName, 0, 0);
-            }
         }
 
         function openSelectPriceModal(code, items) {
@@ -2355,25 +2317,69 @@
             document.getElementById('stock-in-modal').classList.add('hidden');
         }
 
+        // 🌟 2) ຮູບ 2: ປ໋ອບອັບກຳນົດຂໍ້ມູນສິນຄ້າ (ມີຊ່ອງປ້ອນຈຳນວນ Qty ພ້ອມທຽບກັບສາງຕົວຈິງ)
         function showConfirmModalParsed(code, name, cost, price) {
             tempScannedCode = code;
             document.getElementById('modal-code').innerText = code;
             document.getElementById('modal-name').value = name;
             document.getElementById('modal-cost').value = (cost !== "" && cost > 0) ? formatNumberWithCommas(cost) : "";
             document.getElementById('modal-price').value = (price !== "" && price > 0) ? formatNumberWithCommas(price) : "";
+            
+            // ຖ້າມີ input qty ຢູ່ modal ແລ້ວ ໃຫ້ reset ເປັນ 1
+            let qtyElem = document.getElementById('modal-qty');
+            if (qtyElem) qtyElem.value = "1";
+
             document.getElementById('confirm-modal').classList.remove('hidden');
         }
 
-        function confirmScannedItem() {
+        async function confirmScannedItem() {
             let nameInput = document.getElementById('modal-name').value.trim();
             let costInput = parseFloat(String(document.getElementById('modal-cost').value).replace(/,/g, '')) || 0;
             let priceInput = parseFloat(String(document.getElementById('modal-price').value).replace(/,/g, '')) || 0;
+            let qtyInput = parseInt(document.getElementById('modal-qty') ? document.getElementById('modal-qty').value : 1) || 1;
 
             if (!nameInput) { showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຊື່ສິນຄ້າ!", "⚠️"); return; }
 
-            let existing = cart.find(item => item.code === tempScannedCode && item.cost === costInput && item.price === priceInput);
-            if (existing) { existing.qty += 1; } 
-            else { cart.push({ code: tempScannedCode, name: nameInput, cost: costInput, price: priceInput, qty: 1 }); }
+            // 🌟 2) ກວດສອບສິນຄ້າໃນສາງ (Inventory Check) ກ່ອນເພີ່ມລົງກະຕ່າ
+            await fetchProductsForGenerator();
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            let soldQtyMap = {};
+            localHistory.forEach(tx => {
+                if (tx.items) {
+                    tx.items.forEach(it => {
+                        let cKey = String(it.code || '').trim().toLowerCase();
+                        soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
+                    });
+                }
+            });
+
+            let cKey = String(tempScannedCode || '').trim().toLowerCase();
+            let totalStock = 0;
+            excelRows.forEach(row => {
+                if (String(row.code || '').trim().toLowerCase() === cKey) {
+                    totalStock += parseInt(String(row.qty || 1).replace(/,/g, '')) || 1;
+                }
+            });
+
+            let totalSold = soldQtyMap[cKey] || 0;
+            let remainingStock = totalStock - totalSold;
+            if (remainingStock < 0) remainingStock = 0;
+
+            // ກວດສອບວ่ายອດໃນກະຕ່າປັດຈຸບັນມີຢູ່ແລ້ວຈັກອັນ
+            let existingInCart = cart.find(item => item.code === tempScannedCode && item.cost === costInput && item.price === priceInput);
+            let currentCartQty = existingInCart ? existingInCart.qty : 0;
+
+            if ((currentCartQty + qtyInput) > remainingStock) {
+                showAlert("ສິນຄ້າໃນສາງບໍ່ພໍ", `ສິນຄ້າ [${nameInput}] ໃນສາງເຫຼືອພຽງ ${remainingStock} ອັນເທົ່ານັ້ນ! (ໃນກະຕ່າລວມແລ້ວ ${currentCartQty} ອັນ)`, "❌");
+                return;
+            }
+
+            if (existingInCart) {
+                existingInCart.qty += qtyInput;
+            } else {
+                cart.push({ code: tempScannedCode, name: nameInput, cost: costInput, price: priceInput, qty: qtyInput });
+            }
+
             renderCart();
             document.getElementById('confirm-modal').classList.add('hidden');
         }
@@ -2385,19 +2391,17 @@
             } else { document.getElementById('scanner-container').classList.add('hidden'); }
         }
 
-        // 🌟 ຟັງຊັນກວດສອບ ແລະ ປັບປຸງຈຳນວນສິນຄ້າໃນກະຕ່າ ໃຫ້ທຽບກັບສາງຕົວຈິງທັນທີ
+        // 🌟 1) ຮູບ 1: ເອົາປຸ່ມ +/- ອອກ, ໃຫ້ເປັນຫ້ອງປ້ອນຈຳນວນແບບອິດສະຫຼະ
         async function updateCartQtyDirect(index, inputElem) {
             let val = parseInt(inputElem.value);
             if (isNaN(val) || val <= 0) {
                 val = 1;
             }
 
-            // ດึงຂໍ້ມູນສິນຄ້າໃນສາງມາທຽບ
             await fetchProductsForGenerator();
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
             let soldQtyMap = {};
-            localHistory.forEach((tx, txIdx) => {
-                // ບໍ່ນັບລາຍການປັດຈຸບັນ
+            localHistory.forEach(tx => {
                 if (tx.items) {
                     tx.items.forEach(it => {
                         let cKey = String(it.code || '').trim().toLowerCase();
@@ -2415,9 +2419,16 @@
                 }
             });
 
-            // ຫັກລົບຍອດຂາຍເກົ່າ
             let totalSold = soldQtyMap[cKey] || 0;
-            let remainingStock = totalStock - totalSold;
+            // ຫັກລົບຍອດຂາຍຂອງລາຍການອື່ນໆ (ຍົກເວັ້ນລາຍການນີ້)
+            let otherCartQty = 0;
+            cart.forEach((it, idx) => {
+                if (idx !== index && String(it.code || '').trim().toLowerCase() === cKey) {
+                    otherCartQty += it.qty;
+                }
+            });
+
+            let remainingStock = totalStock - totalSold - otherCartQty;
             if (remainingStock < 0) remainingStock = 0;
 
             if (val > remainingStock) {
@@ -2454,6 +2465,7 @@
                         <td class="p-3 text-right text-gray-600">${formatNumberWithCommas(item.cost)}</td>
                         <td class="p-3 text-right text-blue-600 font-semibold">${formatNumberWithCommas(item.price)}</td>
                         <td class="p-3 text-center">
+                            <!-- 🌟 1) ຮູບ 1: ຫ້ອງປ້ອນຈຳນວນແບບອິດສະຫຼະ ບໍ່ມີປຸ່ມ +/- -->
                             <input type="number" min="1" value="${item.qty}" onchange="updateCartQtyDirect(${index}, this)" class="w-16 border rounded text-center px-2 py-1 font-bold text-gray-800 bg-white shadow-inner outline-none focus:ring-1 focus:ring-blue-500">
                         </td>
                         <td class="p-3 text-right font-bold text-gray-800">${formatNumberWithCommas(total)}</td>
@@ -2501,7 +2513,6 @@
             }
         }
 
-        // 🌟 ລະບົບກວດສອບສະຕັອກສິນຄ້າໃນສາງ ກ່ອນຊຳລະເງິນ (ຖ້າບໍ່ພໍ ຟ້ອງເຕືອນພ້ອມລາຍງານຈຳນວນໃນສາງ)
         async function checkStockAvailability() {
             await fetchProductsForGenerator();
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
