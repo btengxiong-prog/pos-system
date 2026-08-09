@@ -143,6 +143,31 @@
         </div>
     </div>
 
+    <!-- Modal ແກ້ໄຂ Username / Password -->
+    <div id="edit-user-modal" class="hidden fixed inset-0 bg-black/60 z-[350] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4">
+            <div class="text-3xl text-center">✏️</div>
+            <h3 class="text-lg font-bold text-blue-900 text-center">ແກ້ໄຂ Username / Password</h3>
+            <p class="text-xs text-gray-600 text-center">ID ເຄື່ອງ: <span id="edit-modal-device-id" class="font-mono font-bold text-blue-600"></span></p>
+            
+            <div class="space-y-3 text-left">
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">Username ໃໝ່:</label>
+                    <input type="text" id="edit-modal-username" class="w-full border rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none bg-white" placeholder="ປ້ອນ Username">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">Password ໃໝ່:</label>
+                    <input type="text" id="edit-modal-password" class="w-full border rounded-lg px-3 py-2 text-xs font-semibold outline-none bg-white" placeholder="ປ້ອນ Password">
+                </div>
+            </div>
+
+            <div class="flex gap-2 pt-2">
+                <button onclick="closeEditUserModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer text-sm">ຍົກເລີກ</button>
+                <button onclick="saveEditedUser()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">💾 ບັນທຶກ</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Admin Connect QR Code Modal -->
     <div id="admin-qr-modal" class="hidden fixed inset-0 bg-black/70 z-[350] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
@@ -613,6 +638,16 @@
                 <span class="text-xs bg-pink-100 text-pink-700 px-2 py-1 rounded font-semibold">ກຳລັງເປີດກ້ອງ...</span>
             </div>
             <div id="stock-in-reader" class="w-full max-w-md mx-auto"></div>
+            
+            <!-- 🌟 ເພີ່ມຊ່ອງປ້ອນລະຫັດ Barcode ດ້ວຍມື -->
+            <div class="mt-4 p-3 bg-pink-50 rounded-xl border border-pink-200 text-left space-y-2">
+                <label class="block text-xs font-bold text-pink-900">⌨️ ຫຼື ພິມ/ຍິງບາໂຄດດ້ວຍມື ແລ້ວກົດ Enter:</label>
+                <div class="flex gap-2">
+                    <input type="text" id="manual-barcode-input" onkeydown="handleManualBarcodeInput(event)" placeholder="ປ້ອນລະຫັດ Barcode..." class="flex-1 border rounded-lg px-3 py-2 text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-pink-500 bg-white">
+                    <button onclick="submitManualBarcode()" class="bg-pink-600 hover:bg-pink-700 text-white px-4 py-2 rounded-lg text-xs font-bold cursor-pointer shadow">ຕົກລົງ</button>
+                </div>
+            </div>
+
             <button onclick="closeStockInScanner()" class="mt-3 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded w-full font-bold cursor-pointer">ປິດກ້ອງ</button>
         </div>
 
@@ -1425,7 +1460,7 @@
             }
         }
 
-        // 🌟 3) ຟັງຊັນເປີດສະແກນນຳເຂົ້າສິນຄ້າ (ປ່ຽນຊ່ອງປ້ອນເປັນ ວັນຜະລິດ ແລະ ວັນໝົດອາຍຸ ພິມລ້ວນໆມີ Auto-Slash)
+        // 🌟 3) ຟັງຊັນເປີດສະແກນນຳເຂົ້າສິນຄ້າ
         let isExpiryMode = false;
         function openStockInScannerWithExpiry(hasExpiry) {
             isExpiryMode = hasExpiry;
@@ -1460,7 +1495,32 @@
             submenu.classList.toggle('hidden');
         }
 
-        // 🌟 4) ບັນທຶກສິນຄ້ານຳເຂົ້າ (ຮອງຮັບທັງວັນຜະລິດ ແລະ ວັນໝົດອາຍຸແບບ Auto-Slash ທີ່ພິມລ້ວນໆ)
+        // 🌟 ຟັງຊັນຊ່ວຍຮັບຄ່າ Barcode ທີ່ພິມຜ່ານຊ່ອງປ້ອນດ້ວຍມື
+        function handleManualBarcodeInput(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                submitManualBarcode();
+            }
+        }
+
+        async function submitManualBarcode() {
+            let inputElem = document.getElementById('manual-barcode-input');
+            let code = inputElem.value.trim();
+            if (!code) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນລະຫັດ Barcode!", "⚠️");
+                return;
+            }
+            inputElem.value = "";
+            closeStockInScanner();
+            
+            await fetchProductsForGenerator();
+            let found = excelRows.find(r => String(r.code).trim().toLowerCase() === code.toLowerCase());
+            let defaultCost = found ? (parseFloat(String(found.cost).replace(/,/g, '')) || 0) : 0;
+            
+            openStockInModal(code, defaultCost);
+        }
+
+        // 🌟 4) ບັນທຶກສິນຄ້ານຳເຂົ້າ
         async function confirmStockIn() {
             let costVal = parseFloat(String(document.getElementById('stock-in-cost').value).replace(/,/g, '')) || 0;
             let mfgDateInput = document.getElementById('stock-in-mfg-date') ? document.getElementById('stock-in-mfg-date').value.trim() : "";
@@ -1677,6 +1737,45 @@
             document.getElementById('admin-manager-modal').classList.add('hidden');
         }
 
+        // 🌟 ຟັງຊັນເປີດ Modal ແກ້ໄຂ Username / Password
+        let editingDeviceId = null;
+        function openEditUserModal(devId, currentUsr) {
+            editingDeviceId = devId;
+            document.getElementById('edit-modal-device-id').innerText = devId;
+            document.getElementById('edit-modal-username').value = currentUsr !== '-' ? currentUsr : devId;
+            document.getElementById('edit-modal-password').value = localStorage.getItem('pos_shop_pass_' + devId) || '';
+            document.getElementById('edit-user-modal').classList.remove('hidden');
+        }
+
+        function closeEditUserModal() {
+            document.getElementById('edit-user-modal').classList.add('hidden');
+            editingDeviceId = null;
+        }
+
+        async function saveEditedUser() {
+            if (!editingDeviceId) return;
+            let newUsr = document.getElementById('edit-modal-username').value.trim().toUpperCase();
+            let newPass = document.getElementById('edit-modal-password').value.trim();
+
+            if (!newUsr || !newPass) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ Username ແລະ Password ໃຫ້ຄົບຖ້ວນ!", "⚠️");
+                return;
+            }
+
+            localStorage.setItem('pos_shop_pass_' + editingDeviceId, newPass);
+            localStorage.setItem('pos_shop_pass_' + newUsr, newPass);
+
+            if (supabaseClient) {
+                try {
+                    await supabaseClient.from('licenses').update({ username: newUsr, password: newPass }).eq('device_id', editingDeviceId);
+                } catch (e) {}
+            }
+
+            closeEditUserModal();
+            showAlert("ສຳເລັດ", `ອັບເດດ Username / Password ຂອງ [${editingDeviceId}] ຮຽບຮ້ອຍແລ້ວ!`, "⭐");
+            loadAllDevices();
+        }
+
         async function loadAllDevices() {
             let container = document.getElementById('device-list-container');
             let datalist = document.getElementById('trial-devices-list');
@@ -1743,6 +1842,7 @@
                         `<button onclick="updateDeviceStatusDirect('${item.device_id}', 'suspended')" class="px-3 py-1.5 rounded font-bold bg-orange-500 hover:bg-orange-600 text-white cursor-pointer shadow-sm">⏸️ ລະງັບຊົ່ວຄາວ</button>`;
 
                     let savedPass = localStorage.getItem('pos_shop_pass_' + item.device_id) || item.password || '-';
+                    let displayUsr = item.username || item.device_id;
 
                     html += `
                         <div class="bg-gray-50 p-3.5 rounded-xl border text-xs space-y-2 shadow-sm">
@@ -1751,13 +1851,16 @@
                                     <span class="font-bold text-gray-400">#${idx + 1}</span>
                                     <span class="font-mono font-bold text-blue-600 ml-2 text-sm">${item.device_id}</span>
                                     ${trialDaysText}
-                                    <div class="text-[10px] text-gray-400 mt-0.5">Username: ${item.username || item.device_id} | Pass: ${savedPass} | ສ້າງເມື່ອ: ${new Date(item.created_at).toLocaleString()}</div>
+                                    <div class="text-[10px] text-gray-400 mt-0.5">Username: ${displayUsr} | Pass: ${savedPass} | ສ້າງເມື່ອ: ${new Date(item.created_at).toLocaleString()}</div>
                                 </div>
                                 <div class="flex items-center gap-2 flex-wrap">
                                     <span class="px-2.5 py-1 rounded-full font-bold ${badgeClass}">
                                         ${statusBadge}
                                     </span>
                                     
+                                    <!-- 🌟 ເພີ່ມປຸ່ມແກ້ໄຂ Username / Password -->
+                                    <button onclick="openEditUserModal('${item.device_id}', '${displayUsr}')" class="px-3 py-1.5 rounded font-bold bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-sm">✏️ ແກ້ໄຂ</button>
+
                                     ${suspendBtnHtml}
                                     ${toggleBtnHtml}
 
@@ -1807,6 +1910,8 @@
             try {
                 let payloadBasic = {
                     device_id: targetDev,
+                    username: usernameVal,
+                    password: passwordVal,
                     status: 'permanent',
                     created_at: new Date().toISOString()
                 };
@@ -2798,7 +2903,7 @@
                 });
                 container.innerHTML = html;
             }
-            document.getElementById('select-import-date-modal').classList.remove('hidden');
+            document.getElementById('select-import-date-modal').classList.add('hidden');
         }
 
         function closeSelectImportDateModal() {
