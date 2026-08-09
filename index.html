@@ -639,7 +639,6 @@
             </div>
             <div id="stock-in-reader" class="w-full max-w-md mx-auto"></div>
             
-            <!-- 🌟 ເພີ່ມຊ່ອງປ້ອນລະຫັດ Barcode ດ້ວຍມື -->
             <div class="mt-4 p-3 bg-pink-50 rounded-xl border border-pink-200 text-left space-y-2">
                 <label class="block text-xs font-bold text-pink-900">⌨️ ຫຼື ພິມ/ຍິງບາໂຄດດ້ວຍມື ແລ້ວກົດ Enter:</label>
                 <div class="flex gap-2">
@@ -689,7 +688,12 @@
                         <label class="block font-semibold text-gray-700 mb-1">ລາຄາຊື້ (ກີບ):</label>
                         <input type="text" id="stock-in-cost" oninput="formatInputMoney(this)" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 text-right font-bold text-blue-600 text-lg" placeholder="ປ້ອນລາຄາຊື້">
                     </div>
-                    <!-- 🌟 ຖ້າເປັນສິນຄ້າມີກຳນົດ: ວັນຜະລິດ ແລະ ວັນໝົດອາຍຸ (Auto-Slash ພິມເລກລ້ວນໆ ໂອໂຕໃສ່ / ໃຫ້ທັງສອງຫ້ອງ) -->
+                    <!-- 🌟 1) ເພີ່ມຊ່ອງປ້ອນຈຳນວນສິນຄ້ານຳເຂົ້າໃນຮູບ 1 -->
+                    <div>
+                        <label class="block font-semibold text-gray-700 mb-1">ຈຳນວນສິນຄ້ານຳເຂົ້າ (Quantity):</label>
+                        <input type="number" id="stock-in-qty" value="1" min="1" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 font-bold text-gray-800 text-lg bg-white" placeholder="ປ້ອນຈຳນວນ">
+                    </div>
+
                     <div id="expiry-input-group" class="hidden space-y-3">
                         <div>
                             <label class="block font-semibold text-gray-700 mb-1">ວັນຜະລິດ (MFG Date):</label>
@@ -1495,7 +1499,6 @@
             submenu.classList.toggle('hidden');
         }
 
-        // 🌟 ຟັງຊັນຊ່ວຍຮັບຄ່າ Barcode ທີ່ພິມຜ່ານຊ່ອງປ້ອນດ້ວຍມື
         function handleManualBarcodeInput(event) {
             if (event.key === 'Enter') {
                 event.preventDefault();
@@ -1520,14 +1523,15 @@
             openStockInModal(code, defaultCost);
         }
 
-        // 🌟 4) ບັນທຶກສິນຄ້ານຳເຂົ້າ
+        // 🌟 4) ບັນທຶກສິນຄ້ານຳເຂົ້າ (ຮອງຮັບການປ້ອນຈຳນວນ Qty ຕາມຮູບ 1)
         async function confirmStockIn() {
             let costVal = parseFloat(String(document.getElementById('stock-in-cost').value).replace(/,/g, '')) || 0;
+            let qtyVal = parseInt(document.getElementById('stock-in-qty').value) || 1;
             let mfgDateInput = document.getElementById('stock-in-mfg-date') ? document.getElementById('stock-in-mfg-date').value.trim() : "";
             let expDateInput = document.getElementById('stock-in-exp-date') ? document.getElementById('stock-in-exp-date').value.trim() : "";
 
-            if (costVal <= 0) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນລາຄາຊື້ໃຫ້ຖືກຕ້ອງ!", "⚠️");
+            if (costVal <= 0 || qtyVal <= 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນລາຄາຊື້ ແລະ ຈຳນວນໃຫ້ຖືກຕ້ອງ!", "⚠️");
                 return;
             }
 
@@ -1566,7 +1570,7 @@
                 originalCost: costVal,
                 profitPct: 20,
                 price: priceVal,
-                qty: 1,
+                qty: qtyVal, // 🌟 ບັນທຶກຈຳນວນຕາມທີ່ປ້ອນ
                 dateAdded: today,
                 mfgDate: isExpiryMode ? isoMfgDate : today,
                 expiryDate: calculatedExpiryDate
@@ -1584,7 +1588,7 @@
                         original_cost: costVal,
                         profit_pct: 20,
                         price: priceVal,
-                        qty: 1,
+                        qty: qtyVal,
                         date_added: today,
                         mfg_date: isExpiryMode ? isoMfgDate : today,
                         expiry_date: calculatedExpiryDate || null,
@@ -1594,7 +1598,7 @@
             }
 
             closeStockInModal();
-            showAlert("ສຳເລັດ", `ນຳເຂົ້າສິນຄ້າສຳເລັດຮຽບຮ້ອຍ!`, "✅");
+            showAlert("ສຳເລັດ", `ນຳເຂົ້າສິນຄ້າ [ຈຳນວນ: ${qtyVal}] ສຳເລັດຮຽບຮ້ອຍ!`, "✅");
         }
 
         function openRegisterModal() {
@@ -1737,7 +1741,6 @@
             document.getElementById('admin-manager-modal').classList.add('hidden');
         }
 
-        // 🌟 ຟັງຊັນເປີດ Modal ແກ້ໄຂ Username / Password
         let editingDeviceId = null;
         function openEditUserModal(devId, currentUsr) {
             editingDeviceId = devId;
@@ -1858,7 +1861,6 @@
                                         ${statusBadge}
                                     </span>
                                     
-                                    <!-- 🌟 ເພີ່ມປຸ່ມແກ້ໄຂ Username / Password -->
                                     <button onclick="openEditUserModal('${item.device_id}', '${displayUsr}')" class="px-3 py-1.5 rounded font-bold bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-sm">✏️ ແກ້ໄຂ</button>
 
                                     ${suspendBtnHtml}
@@ -2055,6 +2057,7 @@
             }
         });
 
+        // 🌟 2) ປັບປຸງລະບົບສະແກນນຳອອກ (ຮູບ 2): ຖ້າລາຄາຄືກັນ ບໍ່ໃຫ້ເປີດ Modal ເລືອກລາຄາ, ໃຫ້ເພີ່ມລົງກະຕ່າເລີຍ
         async function openScanner() {
             document.getElementById('scanner-container').classList.remove('hidden');
             await fetchProductsForGenerator();
@@ -2084,7 +2087,7 @@
                             scannedCost = parseFloat(parsedJson.cost) || 0;
                             scannedPrice = parseFloat(parsedJson.price) || 0;
                             scannedName = parsedJson.code;
-                            showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
+                            addDirectToCart(scannedCode, scannedName, scannedCost, scannedPrice, 1);
                             return;
                         }
                     } catch (e) {}
@@ -2103,20 +2106,49 @@
                     }
 
                     if (matches.length > 1) {
-                        openSelectPriceModal(cleanDecoded, matches);
+                        // ກວດສອບວ່າທຸກລາຍການມີລາຄາຂາຍ ແລະ ລາຄາຊື້ "ຄືກັນທັງໝົດ" ຫຼືບໍ່?
+                        let firstPrice = parseFloat(String(matches[0].price).replace(/,/g, '')) || 0;
+                        let firstCost = parseFloat(String(matches[0].cost).replace(/,/g, '')) || 0;
+                        let allSame = matches.every(m => {
+                            let p = parseFloat(String(m.price).replace(/,/g, '')) || 0;
+                            let c = parseFloat(String(m.cost).replace(/,/g, '')) || 0;
+                            return p === firstPrice && c === firstCost;
+                        });
+
+                        if (allSame) {
+                            // ຖ້າລາຄາຄືກັນໝົດ ບໍ່ຕ້ອງສະແດງ Modal ເລືອກ, ໃຫ້ບວກຈຳນວນລວມແລ້ວເພີ່ມລົງກະຕ່າເລີຍ
+                            let totalQty = matches.reduce((sum, m) => sum + (parseInt(m.qty) || 1), 0);
+                            addDirectToCart(matches[0].code, matches[0].code, firstCost, firstPrice, totalQty);
+                        } else {
+                            // ຖ້າລາຄາຕ່າງກັນ ຈຶ່ງເອົາມາສະແດງໃຫ້ເລືອກ (ຕາມຮູບ 2)
+                            openSelectPriceModal(cleanDecoded, matches);
+                        }
                     } else if (matches.length === 1) {
                         let foundItem = matches[0];
                         scannedCode = foundItem.code;
                         scannedCost = parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0;
                         scannedPrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
                         scannedName = foundItem.code;
-                        showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
+                        let q = parseInt(foundItem.qty) || 1;
+                        addDirectToCart(scannedCode, scannedName, scannedCost, scannedPrice, q);
                     } else {
                         showConfirmModalParsed(scannedCode, scannedName, 0, 0);
                     }
                 },
                 (errorMessage) => {}
             ).catch(err => {});
+        }
+
+        // 🌟 ຟັງຊັນເພີ່ມສິນຄ້າລົງກະຕ່າໂດຍກົງ
+        function addDirectToCart(code, name, cost, price, qty = 1) {
+            let existing = cart.find(item => item.code === code && item.cost === cost && item.price === price);
+            if (existing) {
+                existing.qty += qty;
+            } else {
+                cart.push({ code: code, name: name, cost: cost, price: price, qty: qty });
+            }
+            renderCart();
+            showAlert("ສຳເລັດ", `ເພີ່ມ [${name}] ລົງກະຕ່າແລ້ວ (${qty} ອັນ)`, "🛒");
         }
 
         function openSelectPriceModal(code, items) {
@@ -2179,9 +2211,10 @@
             let scannedName = selectedPriceItem.code;
             let scannedCost = parseFloat(String(selectedPriceItem.cost).replace(/,/g, '')) || 0;
             let scannedPrice = parseFloat(String(selectedPriceItem.price).replace(/,/g, '')) || 0;
+            let q = parseInt(selectedPriceItem.qty) || 1;
 
             closeSelectPriceModal();
-            showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
+            addDirectToCart(scannedCode, scannedName, scannedCost, scannedPrice, q);
         }
 
         async function openStockInScanner() {
@@ -2244,6 +2277,7 @@
             }
 
             document.getElementById('stock-in-modal').classList.add('hidden');
+            document.getElementById('stock-in-qty').value = "1";
             document.getElementById('stock-in-mfg-date').value = "";
             document.getElementById('stock-in-exp-date').value = "";
             document.getElementById('stock-in-modal').classList.remove('hidden');
@@ -2269,10 +2303,7 @@
 
             if (!nameInput) { showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຊື່ສິນຄ້າ!", "⚠️"); return; }
 
-            let existing = cart.find(item => item.code === tempScannedCode && item.cost === costInput && item.price === priceInput);
-            if (existing) { existing.qty += 1; } 
-            else { cart.push({ code: tempScannedCode, name: nameInput, cost: costInput, price: priceInput, qty: 1 }); }
-            renderCart();
+            addDirectToCart(tempScannedCode, nameInput, costInput, priceInput, 1);
             document.getElementById('confirm-modal').classList.add('hidden');
         }
 
@@ -2903,7 +2934,7 @@
                 });
                 container.innerHTML = html;
             }
-            document.getElementById('select-import-date-modal').classList.add('hidden');
+            document.getElementById('select-import-date-modal').classList.remove('hidden');
         }
 
         function closeSelectImportDateModal() {
