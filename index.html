@@ -1427,8 +1427,8 @@
             document.getElementById('rate-input-modal').classList.add('hidden');
         }
 
-        // 🌟 ຟັງຊັນບັນທຶກ Rate (ທີ່ແກ້ໄຂໃຫ້ອັບເດດລາຄາຊື້-ຂາຍໃນຕາຕະລາງຕາມ Rate ໃໝ່ ແລະ ບັນທຶກສຳເລັດ 100%)
-        function applyCustomRateToTable() {
+        // 🌟 ຟັງຊັນບັນທຶກ Rate ສີສົ້ມ (ທີ່ແກ້ໄຂໃຫ້ບັນທຶກຂໍ້ມູນ Excel/Rate ແລະ ເປີດຕາຕະລາງ QR Code ຂຶ້ນມາສະແດງຜົນທັນທີ 100%)
+        async function applyCustomRateToTable() {
             let rateVal = parseFloat(document.getElementById('input-custom-rate').value.replace(/,/g, '')) || 0;
             let dateVal = document.getElementById('input-custom-rate-date').value.trim();
 
@@ -1440,8 +1440,52 @@
             localStorage.setItem('pos_custom_manual_rate', rateVal);
             localStorage.setItem('pos_custom_manual_rate_date', dateVal);
 
-            // ຖ້າມີຂໍ້ມູນຢູ່ໃນ excelRows ໃຫ້ອັບເດດຄຳນວນລາຄາໃໝ່ທັນທີ
-            if (excelRows && excelRows.length > 0) {
+            // ດຶງຂໍ້ມູນສິນຄ້າຈາກ Excel ທີ່ອັບໂຫລດໄວ້ (ຖ້າມີ) ມາອັບເດດ Rate ແລະ ບັນທຶກລົງ localStorage
+            let fileInput = document.getElementById('modal-excel-file-input');
+            if (fileInput && fileInput.files && fileInput.files[0]) {
+                let file = fileInput.files[0];
+                let data = await file.arrayBuffer();
+                let workbook = XLSX.read(data);
+                let firstSheetName = workbook.SheetNames[0];
+                let worksheet = workbook.Sheets[firstSheetName];
+                let jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                let newRows = [];
+                let today = new Date().toISOString().split('T')[0];
+                let parsedDateAdded = dateVal ? parseDDMMYYYYToISO(dateVal) : today;
+
+                for (let i = 1; i < jsonData.length; i++) {
+                    let row = jsonData[i];
+                    if (row && row.length > 0) {
+                        let code = String(row[0] || '').trim();
+                        let costUSD = parseFloat(String(row[1] || 0).replace(/,/g, '')) || 0;
+                        let qty = parseInt(String(row[2] || 1).replace(/,/g, '')) || 1;
+                        if (code) {
+                            let costLAK = costUSD * rateVal;
+                            let rawPrice = costLAK * 1.20; // ກຳໄລ 20%
+                            let priceLAK = Math.ceil(rawPrice / 1000) * 1000;
+                            
+                            newRows.push({
+                                id: 'ROW-' + Date.now() + '-' + i,
+                                code: code,
+                                cost: costLAK,
+                                originalCost: costLAK,
+                                profitPct: 20,
+                                price: priceLAK,
+                                qty: qty,
+                                dateAdded: parsedDateAdded,
+                                mfgDate: parsedDateAdded,
+                                expiryDate: ''
+                            });
+                        }
+                    }
+                }
+
+                if (newRows.length > 0) {
+                    excelRows = newRows;
+                    localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
+                }
+            } else if (excelRows && excelRows.length > 0) {
                 excelRows.forEach(row => {
                     let baseCost = parseFloat(String(row.originalCost || row.cost).replace(/,/g, '')) || 0;
                     if (baseCost > 0) {
@@ -1459,7 +1503,64 @@
             }
 
             closeRateInputModal();
-            showAlert("ສຳເລັດ", "ບັນທຶກຄ່າ Rate ແລະ ອັບເດດລາຄາສິນຄ້າສຳເລັດຮຽບຮ້ອຍ!", "💱");
+            showAlert("ສຳເລັດ", "ບັນທຶກຄ່າ Rate ແລະ ຂໍ້ມູນສິນຄ້າສຳເລັດຮຽບຮ້ອຍ!", "💱");
+
+            // ເປີດໜ້າຕາຕະລາງ QR Code (ຮູບ 1) ຂຶ້ນມາສະແດງຜົນທັນທີ
+            setTimeout(() => {
+                openExcelGenerator();
+            }, 300);
+        }
+
+        // 🌟 ຟັງຊັນອັບໂຫລດ Excel ຈາກປ໋ອບອັບ Rate
+        function handleExcelUploadFromModal(event) {
+            let file = event.target.files[0];
+            if (!file) return;
+            let reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    let data = new Uint8Array(e.target.result);
+                    let workbook = XLSX.read(data, { type: 'array' });
+                    let firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    let jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+
+                    let rateVal = parseFloat(document.getElementById('input-custom-rate').value.replace(/,/g, '')) || 1;
+                    let dateVal = document.getElementById('input-custom-rate-date').value.trim();
+                    let today = new Date().toISOString().split('T')[0];
+                    let parsedDate = dateVal ? parseDDMMYYYYToISO(dateVal) : today;
+
+                    excelRows = [];
+                    for (let i = 1; i < jsonData.length; i++) {
+                        let r = jsonData[i];
+                        if (r && r.length > 0 && r[0]) {
+                            let code = String(r[0]).trim();
+                            let costUSD = parseFloat(String(r[1] || 0).replace(/,/g, '')) || 0;
+                            let qty = parseInt(String(r[2] || 1).replace(/,/g, '')) || 1;
+                            let costLAK = costUSD * rateVal;
+                            let rawPrice = costLAK * 1.20;
+                            let priceLAK = Math.ceil(rawPrice / 1000) * 1000;
+
+                            excelRows.push({
+                                id: 'ROW-' + Date.now() + '-' + i,
+                                code: code,
+                                cost: costLAK,
+                                originalCost: costLAK,
+                                profitPct: 20,
+                                price: priceLAK,
+                                qty: qty,
+                                dateAdded: parsedDate,
+                                mfgDate: parsedDate,
+                                expiryDate: ''
+                            });
+                        }
+                    }
+
+                    localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
+                    showAlert("ສຳເລັດ", `ອັບໂຫລດໄຟລ໌ Excel ສຳເລັດ ${excelRows.length} ລາຍການ! ກະລຸນາກົດ "ບັນທຶກ Rate" ເພື່ອເບິ່ງຜົນ.`, "📁");
+                } catch (err) {
+                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດອ่านໄຟລ໌ Excel ນີ້ໄດ້!", "❌");
+                }
+            };
+            reader.readAsArrayBuffer(file);
         }
 
         // --- CORE POS LOGIC ---
@@ -1694,7 +1795,7 @@
             
             await fetchProductsForGenerator();
             let found = excelRows.find(r => String(r.code).trim().toLowerCase() === code.toLowerCase());
-            let defaultCost = found ? (parseFloat(String(found.cost).replace(/,/g, '')) || 0) : 0;
+            let defaultCost = found ? (parseFloat(String(r.cost).replace(/,/g, '')) || 0) : 0;
             
             openStockInModal(code, defaultCost);
         }
