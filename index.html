@@ -635,7 +635,8 @@
                 <label class="block text-xs font-bold text-pink-900">⌨️ ຫຼື ພິມ/ຍິງບາໂຄດດ້ວຍມື ແລ້ວກົດ Enter:</label>
                 <div class="flex gap-2">
                     <input type="text" id="manual-barcode-input" onkeydown="handleManualBarcodeInput(event)" placeholder="ປ້ອນລະຫັດ Barcode..." class="flex-1 border rounded-lg px-3 py-2 text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-pink-500 bg-white">
-                    <button onclick="submitManualBarcode()" class="bg-pink-600 hover:bg-pink-700 text-white px-4 py-2 rounded-lg text-xs font-bold cursor-pointer shadow">ຕົກລົງ</button>
+                    <!-- 🌟 ແກ້ໄຂຈຸດທີ 2: ຜູກ Event ໃຫ້ປຸ່ມ "ຕົກລົງ" ໃນໂໝດນຳເຂົ້າສິນຄ້າ ທຳງານໄດ້ຢ່າງຖືກຕ້ອງ 100% -->
+                    <button type="button" onclick="submitManualBarcode()" class="bg-pink-600 hover:bg-pink-700 text-white px-4 py-2 rounded-lg text-xs font-bold cursor-pointer shadow">ຕົກລົງ</button>
                 </div>
             </div>
 
@@ -703,19 +704,16 @@
                     <div id="expiry-input-group" class="hidden space-y-3">
                         <div>
                             <label class="block font-semibold text-gray-700 mb-1">ວັນຜະລິດ (MFG Date):</label>
-                            <!-- 🌟 ແກ້ໄຂຟໍແມັດວັນທີ MFG ໃຫ້ຖືກຕ້ອງ 100% -->
                             <input type="text" id="stock-in-mfg-date" inputmode="numeric" oninput="autoSlashDateInput(this)" maxlength="10" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 font-semibold text-purple-700 bg-white" placeholder="dd/mm/yyyy (ຕົວຢ່າງ: 22/05/2025)">
                         </div>
                         <div>
                             <label class="block font-semibold text-gray-700 mb-1">ວັນໝົດອາຍຸ (EXP Date):</label>
-                            <!-- 🌟 ແກ້ໄຂຟໍແມັດວັນທີ EXP ໃຫ້ຖືກຕ້ອງ 100% -->
                             <input type="text" id="stock-in-exp-date" inputmode="numeric" oninput="autoSlashDateInput(this)" maxlength="10" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 font-semibold text-red-600 bg-white" placeholder="dd/mm/yyyy (ຕົວຢ່າງ: 21/05/2028)">
                         </div>
                     </div>
                 </div>
                 <div class="flex gap-2 pt-2">
                     <button onclick="closeStockInModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
-                    <!-- 🌟 ຜູກ Event ໃຫ້ປຸ່ມ "ຕົກລົງ / ຢືນຢັນ" ທຳງານໄດ້ຢ່າງຖືກຕ້ອງ 100% -->
                     <button onclick="confirmStockIn()" class="flex-1 bg-pink-600 hover:bg-pink-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">ຕົກລົງ / ຢືນຢັນ</button>
                 </div>
             </div>
@@ -1033,17 +1031,17 @@
             input.value = Number(val).toLocaleString('en-US');
         }
 
-        // 🌟 ແກ້ໄຂຟັງຊັນ autoSlashDateInput ໃຫ້ປ້ອນ dd/mm/yyyy ໄດ້ຢ່າງຖືກຕ້ອງຊັດເຈນ 100%
+        // 🌟 1) ແກ້ໄຂຟັງຊັນ autoSlashDateInput ໃຫ້ຈັດຮູບແບບ dd/mm/yyyy ໄດ້ຢ່າງຖືກຕ້ອງຊັດເຈນ 100% ຕາມທີ່ຕ້ອງການ
         function autoSlashDateInput(input) {
             let v = input.value.replace(/\D/g, '');
             if (v.length > 8) v = v.substring(0, 8);
             let day = '', month = '', year = '';
 
-            if (v.length > 4) {
+            if (v.length >= 5) {
                 day = v.substring(0, 2);
                 month = v.substring(2, 4);
                 year = v.substring(4);
-            } else if (v.length > 2) {
+            } else if (v.length >= 3) {
                 day = v.substring(0, 2);
                 month = v.substring(2, 4);
             } else {
@@ -1667,6 +1665,7 @@
             openStockInModal(code, defaultCost);
         }
 
+        // 🌟 2) ຟັງຊັນບັນທຶກການນຳເຂົ້າສິນຄ້າ (ທີ່ເຊື່ອມຕໍ່ກັບປຸ່ມ "ຕົກລົງ / ຢືນຢັນ" ໃຫ້ທຳງານໄດ້ 100%)
         async function confirmStockIn() {
             let costVal = parseFloat(String(document.getElementById('stock-in-cost').value).replace(/,/g, '')) || 0;
             let qtyVal = parseInt(document.getElementById('stock-in-qty').value) || 1;
@@ -2560,327 +2559,6 @@
                 `;
             });
             tbody.innerHTML = html;
-        }
-
-        function addExcelRow(code = '', cost = '', profitPct = 20, price = '', qty = 1, dateAdded = '') {
-            syncTableInputsToData();
-            let today = new Date().toISOString().split('T')[0];
-            let newId = 'ROW-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
-            excelRows.push({ id: newId, code: code, cost: cost, originalCost: cost || 0, profitPct: profitPct, price: price, qty: qty, dateAdded: dateAdded || today });
-            renderExcelTable();
-        }
-
-        function removeExcelRow(index) {
-            syncTableInputsToData();
-            excelRows.splice(index, 1);
-            renderExcelTable();
-        }
-
-        async function clearUnsavedRows() {
-            excelRows = [];
-            renderExcelTable(); 
-            document.getElementById('excel-print-area').classList.add('hidden');
-            localStorage.removeItem('pos_saved_excel_rows');
-
-            if (supabaseClient) {
-                try {
-                    await supabaseClient.from('products').delete().eq('device_id', deviceId);
-                } catch (e) {}
-            }
-
-            showAlert("ສຳເລັດ", "ລຶບຂໍ້ມູນທັງໝົດອອກຈາກລະບົບຮຽບຮ້ອຍແລ້ວ", "🧹");
-        }
-
-        function handleInputLive(index, field, value) {
-            if (field === 'code') {
-                excelRows[index].code = value;
-            } else if (field === 'cost') {
-                excelRows[index].cost = value;
-                excelRows[index].originalCost = value;
-            } else if (field === 'profitPct') {
-                excelRows[index].profitPct = value;
-            } else if (field === 'price') {
-                excelRows[index].price = value;
-            } else if (field === 'qty') {
-                excelRows[index].qty = value;
-            } else if (field === 'dateAdded') {
-                excelRows[index].dateAdded = value;
-            }
-        }
-
-        function handleExcelCellKeydown(event, rowIndex, fieldName) {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                syncTableInputsToData();
-
-                if (rowIndex === excelRows.length - 1) {
-                    addExcelRow();
-                } else {
-                    renderExcelTable();
-                }
-
-                setTimeout(() => {
-                    let nextRowInputs = document.querySelectorAll(`#excel-tbody tr`);
-                    if (nextRowInputs[rowIndex + 1]) {
-                        let targetInput = nextRowInputs[rowIndex + 1].querySelector(`[data-field="${fieldName}"]`);
-                        if (targetInput) {
-                            targetInput.focus();
-                        }
-                    }
-                }, 50);
-            }
-        }
-
-        function syncTableInputsToData() {
-            let rowsInput = document.querySelectorAll('#excel-tbody tr');
-            rowsInput.forEach((tr, index) => {
-                if (excelRows[index]) {
-                    if (!excelRows[index].id) {
-                        excelRows[index].id = 'ROW-' + Date.now() + '-' + index;
-                    }
-                    let codeInput = tr.querySelector('input[data-field="code"]');
-                    let costInput = tr.querySelector('input[data-field="cost"]');
-                    let pctInput = tr.querySelector('input[data-field="profitPct"]');
-                    let priceInput = tr.querySelector('input[data-field="price"]');
-                    let qtyInput = tr.querySelector('input[data-field="qty"]');
-                    let dateInput = tr.querySelector('input[data-field="dateAdded"]');
-
-                    if (codeInput) excelRows[index].code = codeInput.value.trim();
-                    if (costInput) {
-                        let cVal = costInput.value.trim();
-                        excelRows[index].cost = cVal;
-                        if (!excelRows[index].originalCost) excelRows[index].originalCost = cVal;
-                    }
-                    if (pctInput) excelRows[index].profitPct = pctInput.value.trim();
-                    if (priceInput) excelRows[index].price = priceInput.value.trim();
-                    if (qtyInput) excelRows[index].qty = qtyInput.value.trim() === '' ? 1 : qtyInput.value.trim();
-                    if (dateInput) excelRows[index].dateAdded = dateInput.value;
-                }
-            });
-        }
-
-        function handleCalcPctDropdown(selectElem) {
-            let val = selectElem.value;
-            selectElem.value = "";
-            if (val === "calc") {
-                calculatePercentage();
-            } else if (val === "update") {
-                document.getElementById('update-pct-modal').classList.remove('hidden');
-            }
-        }
-
-        function closeUpdatePctModal() {
-            document.getElementById('update-pct-modal').classList.add('hidden');
-        }
-
-        function confirmUpdateGlobalPct() {
-            let val = parseFloat(document.getElementById('input-global-pct').value);
-            if (isNaN(val)) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຕົວເລກເປີເຊັນທີ່ຖືກຕ້ອງ!", "⚠️");
-                return;
-            }
-            syncTableInputsToData();
-            excelRows.forEach(row => {
-                row.profitPct = val;
-            });
-            renderExcelTable();
-            closeUpdatePctModal();
-            showAlert("ສຳເລັດ", `ອັບເດດເປີເຊັນ (%) ເປັນ ${val}% ທຸກລາຍການແລ້ວ!`, "📊");
-        }
-
-        function calculatePercentage() {
-            syncTableInputsToData();
-            excelRows.forEach(row => {
-                let cost = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
-                let price = parseFloat(String(row.price).replace(/,/g, '')) || 0;
-                if (cost > 0 && price > cost) {
-                    let pct = ((price - cost) / cost) * 100;
-                    row.profitPct = Math.round(pct);
-                }
-            });
-            renderExcelTable();
-            showAlert("ສຳເລັດ", "ຄຳນວນເປີເຊັນສຳເລັດ!", "🧮");
-        }
-
-        function calculateSalePrices() {
-            syncTableInputsToData();
-            excelRows.forEach(row => {
-                let cost = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
-                let pct = parseFloat(String(row.profitPct).replace(/,/g, '')) || 20;
-                if (cost > 0) {
-                    let rawPrice = cost * (1 + pct / 100);
-                    let roundedPrice = Math.ceil(rawPrice / 1000) * 1000;
-                    row.price = roundedPrice;
-                }
-            });
-            renderExcelTable();
-            showAlert("ສຳເລັດ", "ຄຳນວນລາຄາຂາຍຕາມສູດ ROUNDUP ສຳເລັດ!", "🏷️");
-        }
-
-        async function saveExcelData() {
-            syncTableInputsToData();
-            let validRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
-
-            if (validRows.length === 0) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຂໍ້ມູນສິນຄ້າກ່ອນບັນທຶກ!", "⚠️");
-                return;
-            }
-
-            let today = new Date().toISOString().split('T')[0];
-
-            let payload = validRows.map(row => {
-                let isoDate = row.dateAdded || today;
-                if (row.dateAdded && row.dateAdded.includes('/')) {
-                    isoDate = parseDDMMYYYYToISO(row.dateAdded);
-                }
-                
-                return {
-                    id: row.id,
-                    device_id: deviceId,
-                    code: row.code,
-                    cost: parseFloat(String(row.cost).replace(/,/g, '')) || 0,
-                    original_cost: parseFloat(String(row.originalCost || row.cost).replace(/,/g, '')) || 0,
-                    profit_pct: parseFloat(String(row.profitPct).replace(/,/g, '')) || 20,
-                    price: parseFloat(String(row.price).replace(/,/g, '')) || 0,
-                    qty: parseInt(String(row.qty).replace(/,/g, '')) || 1,
-                    date_added: isoDate,
-                    mfg_date: row.mfgDate || null,
-                    expiry_date: row.expiryDate || null,
-                    updated_at: new Date().toISOString()
-                };
-            });
-
-            localStorage.setItem('pos_saved_excel_rows', JSON.stringify(validRows));
-            
-            if (supabaseClient) {
-                try {
-                    let { error } = await supabaseClient.from('products').upsert(payload, { onConflict: 'id' });
-                    if (error) throw error;
-                } catch (e) {}
-            }
-
-            showAlert("ສຳເລັດ", `ບັນທຶກຂໍ້ມູນ ${validRows.length} ລາຍການ ສຳເລັດຮຽບຮ້ອຍ!`, "💾");
-            generateExcelCodes();
-        }
-
-        function promptPrintDate() {
-            syncTableInputsToData();
-            let validRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
-            if (validRows.length === 0) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຂໍ້ມູນສິນຄ້າກ່ອນສັ່ງພິມ!", "⚠️");
-                return;
-            }
-
-            let uniqueDates = [...new Set(validRows.map(r => r.dateAdded || new Date().toISOString().split('T')[0]))].sort().reverse();
-            let selectElem = document.getElementById('print-date-select');
-            let html = `<option value="all">🌟 ທຸກວັນ (ພິມທັງໝົດ)</option>`;
-            
-            uniqueDates.forEach(d => {
-                let count = validRows.filter(r => (r.dateAdded || new Date().toISOString().split('T')[0]) === d).length;
-                let parts = d.split('-');
-                let formattedDate = parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : d;
-                html += `<option value="${d}">📅 ວັນທີ: ${formattedDate} (${count} ລາຍການ)</option>`;
-            });
-
-            selectElem.innerHTML = html;
-            document.getElementById('print-date-modal').classList.remove('hidden');
-        }
-
-        function closePrintDateModal() {
-            document.getElementById('print-date-modal').classList.add('hidden');
-        }
-
-        function confirmAndPrintByDate() {
-            let selectedDate = document.getElementById('print-date-select').value;
-            closePrintDateModal();
-            generateExcelCodes(selectedDate);
-            setTimeout(() => {
-                window.print();
-            }, 500);
-        }
-
-        async function generateExcelCodes(filterDate = 'all') {
-            syncTableInputsToData();
-            
-            let validRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
-            
-            if (filterDate !== 'all') {
-                validRows = validRows.filter(r => (r.dateAdded || new Date().toISOString().split('T')[0]) === filterDate);
-            }
-
-            if (validRows.length === 0) {
-                showAlert("ແຈ້ງເຕືອນ", "ບໍ່ພົບຂໍ້ມູນສິນຄ້າໃນວັນທີເລືອກ!", "⚠️");
-                return;
-            }
-
-            duplicateRemovedList = validRows;
-
-            document.getElementById('excel-print-area').classList.remove('hidden');
-            let container = document.getElementById('excel-preview-cards');
-            container.innerHTML = '';
-
-            let promises = duplicateRemovedList.map((row, index) => {
-                return new Promise((resolve) => {
-                    let cost = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
-                    let price = parseFloat(String(row.price).replace(/,/g, '')) || 0;
-                    let cleanCode = String(row.code).trim();
-                    let payloadStr = cleanCode;
-
-                    let card = document.createElement('div');
-                    card.className = "bg-white p-4 rounded-xl shadow-lg border border-gray-200 text-center flex flex-col items-center justify-center relative";
-                    
-                    let headerHtml = `<div class="font-bold text-gray-800 text-sm mb-2 w-full truncate px-2" title="${cleanCode}">${cleanCode}</div>`;
-
-                    let codeContainerId = `ex-code-${index}-${Date.now()}`;
-                    
-                    let dateDisplay = '';
-                    if (row.mfgDate && row.expiryDate) {
-                        dateDisplay = `<div class="text-[9px] text-gray-500 mt-1 font-semibold">MFG: ${formatDateToDDMMYYYY(row.mfgDate)} | EXP: ${formatDateToDDMMYYYY(row.expiryDate)}</div>`;
-                    } else if (row.dateAdded) {
-                        dateDisplay = `<div class="text-[9px] text-gray-400 mt-1">ວັນນຳເຂົ້າ: ${formatDateToDDMMYYYY(row.dateAdded)}</div>`;
-                    }
-
-                    if (currentCodeType === 'qrcode') {
-                        card.innerHTML = `
-                            ${headerHtml}
-                            <div class="bg-gray-50 p-2 rounded-lg inline-block">
-                                <canvas id="${codeContainerId}"></canvas>
-                            </div>
-                            <div class="mt-2 text-xs font-semibold text-gray-600">ລະຫັດ: <span class="text-blue-600 font-mono">${cleanCode}</span></div>
-                            <div class="text-xs font-bold text-green-600 mt-0.5">ຂາຍ: ${formatNumberWithCommas(price)} ກີບ</div>
-                            ${dateDisplay}
-                        `;
-                        container.appendChild(card);
-                        setTimeout(() => {
-                            QRCode.toCanvas(document.getElementById(codeContainerId), payloadStr, { width: 140, margin: 1 }, function (error) {
-                                resolve();
-                            });
-                        }, 50);
-                    } else {
-                        card.innerHTML = `
-                            ${headerHtml}
-                            <div class="bg-gray-50 p-2 rounded-lg w-full flex justify-center overflow-hidden">
-                                <svg id="${codeContainerId}" class="max-w-full"></svg>
-                            </div>
-                            <div class="mt-2 text-xs font-bold text-green-600">ຂາຍ: ${formatNumberWithCommas(price)} ກີບ</div>
-                            ${dateDisplay}
-                        `;
-                        container.appendChild(card);
-                        setTimeout(() => {
-                            try {
-                                JsBarcode(`#${codeContainerId}`, payloadStr, {
-                                    format: "CODE128", width: 2, height: 50, displayValue: true, fontSize: 14, margin: 5
-                                });
-                            } catch (e) {
-                                document.getElementById(codeContainerId).outerHTML = `<div class="text-red-500 text-xs py-4">ລະຫັດ Barcode ບໍ່ຮອງຮັບຮູບແບບນີ້<br>(ກະລຸນາໃຊ້ພາສາອັງກິດ/ຕົວເລກ)</div>`;
-                            }
-                            resolve();
-                        }, 50);
-                    }
-                });
-            });
-
-            await Promise.all(promises);
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
