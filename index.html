@@ -618,26 +618,6 @@
             <button onclick="closeStockInScanner()" class="mt-3 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded w-full font-bold cursor-pointer">ປິດກ້ອງ</button>
         </div>
 
-        <!-- 🌟 OCR Capture Modal (ສຳລັບຖ່າຍຮູບ/ອັບໂຫລດວັນຜະລິດ Auto OCR - ຂະໜາດໃຫຍ່ເຕັມຕາ ຕາມຮູບ 2) -->
-        <div id="ocr-scanner-modal" class="hidden fixed inset-0 bg-black/90 z-[350] flex items-center justify-center p-4">
-            <div class="bg-white rounded-2xl max-w-xl w-full p-6 text-center space-y-4 shadow-2xl">
-                <div class="text-3xl">📷</div>
-                <h3 class="font-bold text-lg text-indigo-700">ສະແກນຫາວັນຜະລິດ (Auto OCR)</h3>
-                <p class="text-xs text-gray-600">ຖ່າຍຮູບປ້າຍວັນທີ (ຫຼື ອັບໂຫລດຮູບ) ລະບົບຈະອ່ານທຸກພາສາໃຫ້ອັດຕະໂນມັດ</p>
-                
-                <div class="border-2 border-dashed border-indigo-300 bg-indigo-50 p-6 rounded-2xl space-y-3">
-                    <label class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 px-6 rounded-xl transition cursor-pointer shadow flex items-center justify-center gap-2 text-sm">
-                        📸 ຖ່າຍຮູບ / ເລືອກຮູບປ້າຍວັນທີ
-                        <input type="file" accept="image/*" capture="environment" class="hidden" onchange="handleOcrFileSelect(event)">
-                    </label>
-                </div>
-
-                <div id="ocr-loading-status" class="text-sm text-blue-600 font-bold hidden">⏳ ກຳລັງອ່ານຕົວໜັງສືຈາກຮູບພາບ (OCR)... ກະລຸນາຖ້າຈັກໜ້ອຍ...</div>
-
-                <button onclick="closeOcrScanner()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2.5 rounded-xl w-full font-bold cursor-pointer text-sm transition">ປິດໜ້າຈໍ</button>
-            </div>
-        </div>
-
         <!-- Confirmation & Price Input Popup -->
         <div id="confirm-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
@@ -676,14 +656,15 @@
                         <label class="block font-semibold text-gray-700 mb-1">ລາຄາຊື້ (ກີບ):</label>
                         <input type="text" id="stock-in-cost" oninput="formatInputMoney(this)" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 text-right font-bold text-blue-600 text-lg" placeholder="ປ້ອນລາຄາຊື້">
                     </div>
-                    <!-- 🌟 ຖ້າເປັນສິນຄ້າມີກຳນົດ: ວັນຜະລິດ (ພ້ອມປຸ່ມສະແກນ OCR) & ຈຳນວນເດືອນ -->
+                    <!-- 🌟 ຖ້າເປັນສິນຄ້າມີກຳນົດ: ວັນຜະລິດ (ພ້ອມປຸ່ມຖ່າຍຮູບ OCR) & ຈຳນວນເດືອນ -->
                     <div id="expiry-input-group" class="hidden space-y-3">
                         <div>
                             <div class="flex justify-between items-center mb-1">
                                 <label class="block font-semibold text-gray-700">ວັນຜະລິດ (MFG Date):</label>
-                                <button type="button" onclick="openOcrScanner()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-lg text-[11px] font-bold shadow transition flex items-center gap-1 cursor-pointer">
-                                    📷 ສະແກນວັນທີ (OCR)
-                                </button>
+                                <label class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow transition flex items-center gap-1 cursor-pointer">
+                                    📷 ຖ່າຍຮູບວັນທີ (OCR)
+                                    <input type="file" accept="image/*" capture="environment" class="hidden" onchange="handleOcrFileSelect(event)">
+                                </label>
                             </div>
                             <input type="date" id="stock-in-mfg-date" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 font-semibold text-purple-700 bg-white">
                         </div>
@@ -1434,21 +1415,12 @@
             openStockInScanner();
         }
 
-        // 🌟 4) ຟັງຊັນ OCR ຖ່າຍຮູບ/ອັບໂຫລດວັນຜະລິດ (Auto OCR Date Detection 100% ຮອງຮັບທຸກພາສາ)
-        function openOcrScanner() {
-            document.getElementById('ocr-scanner-modal').classList.remove('hidden');
-            document.getElementById('ocr-loading-status').classList.add('hidden');
-        }
-
-        function closeOcrScanner() {
-            document.getElementById('ocr-scanner-modal').classList.add('hidden');
-        }
-
+        // 🌟 4) ຟັງຊັນ OCR ຖ່າຍຮູບ/ອັບໂຫລດວັນຜະລິດ (Auto-Cleanup: ອ່ານແລ້ວລຶບຮູບທັນີ, ບໍ່ເກັບໃນເຄື່ອງ)
         async function handleOcrFileSelect(event) {
             let file = event.target.files[0];
             if (!file) return;
 
-            document.getElementById('ocr-loading-status').classList.remove('hidden');
+            showAlert("ກຳລັງປະມວນຜົນ", "⏳ ກຳລັງອ່ານວັນທີຈາກຮູບ... ກະລຸນາຖ້າຈັກໜ້ອຍ", "⏳");
 
             try {
                 let { data: { text } } = await Tesseract.recognize(file, 'eng+chi_sim+lao', {
@@ -1459,8 +1431,7 @@
                 showAlert("ຜິດພາດ", "ບໍ່ສາມາດອ່ານຂໍ້ຄວາມຈາກຮູບພາບໄດ້", "❌");
             }
 
-            document.getElementById('ocr-loading-status').classList.add('hidden');
-            closeOcrScanner();
+            // ລຶບ Object URL ຫຼື ຣີເຊັດໄຟລ໌ທັນທີເພື່ອບໍ່ໃຫ້ເກັບໃນໜ່ວຍຄວາມຈຳເຄື່ອງ
             event.target.value = '';
         }
 
@@ -1480,7 +1451,7 @@
                 }
 
                 document.getElementById('stock-in-mfg-date').value = formattedDate;
-                showAlert("ສຳເລັດ", `ຈັບຄູ່ ແລະ ດຶງວັນຜະລິດ [${formattedDate}] ສຳເລັດ!`, "📷");
+                showAlert("ສຳເລັດ", `ຈັບຄູ່ ແລະ ດຶງວັນຜະລິດ [${formattedDate}] ສຳເລັດ! (ຮູບຖືກລຶບອອກແລ້ວ)`, "📷");
             } else {
                 showAlert("ແຈ້ງເຕືອນ", "ບໍ່ພົບຮູບແບບວັນທີໃນຮູບ ທ່ານສາມາດພິມໃສ່ເອງໄດ້ເລີຍ", "⚠️");
             }
