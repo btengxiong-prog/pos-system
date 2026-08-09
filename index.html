@@ -452,7 +452,7 @@
 
             <div class="flex gap-2 pt-2">
                 <button onclick="closeRateInputModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer text-sm">ຍົກເລີກ</button>
-                <!-- 🌟 ປຸ່ມ "ບັນທຶກ Rate" ສີສົ້ມທີ່ແກ້ໄຂໃຫ້ທຳງານໄດ້ 100% -->
+                <!-- 🌟 ປຸ່ມ "ບັນທຶກ Rate" ທີ່ເຊື່ອມຕໍ່ຟັງຊັນ applyCustomRateToTable ຢ່າງສົມບູນ -->
                 <button type="button" onclick="applyCustomRateToTable()" class="flex-1 bg-orange-600 hover:bg-orange-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">💾 ບັນທຶກ Rate</button>
             </div>
         </div>
@@ -1031,7 +1031,6 @@
             input.value = Number(val).toLocaleString('en-US');
         }
 
-        // 🌟 1) ແກ້ໄຂຟັງຊັນ autoSlashDateInput ໃຫ້ປ້ອນ dd/mm/yyyy ໄດ້ຢ່າງຖືກຕ້ອງຊັດເຈນ 100% ຕາມທີ່ຕ້ອງການ
         function autoSlashDateInput(input) {
             let v = input.value.replace(/\D/g, '');
             if (v.length > 8) v = v.substring(0, 8);
@@ -1428,21 +1427,39 @@
             document.getElementById('rate-input-modal').classList.add('hidden');
         }
 
-        // 🌟 ຟັງຊັນບັນທຶກ Rate ສີສົ້ມ (ທີ່ເພີ່ມໃຫ້ທຳງານໄດ້ສົມບູນ 100%)
+        // 🌟 ຟັງຊັນບັນທຶກ Rate (ທີ່ແກ້ໄຂໃຫ້ອັບເດດລາຄາຊື້-ຂາຍໃນຕາຕະລາງຕາມ Rate ໃໝ່ ແລະ ບັນທຶກສຳເລັດ 100%)
         function applyCustomRateToTable() {
-            let rateVal = document.getElementById('input-custom-rate').value.trim();
+            let rateVal = parseFloat(document.getElementById('input-custom-rate').value.replace(/,/g, '')) || 0;
             let dateVal = document.getElementById('input-custom-rate-date').value.trim();
 
-            if (!rateVal) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຄ່າ Rate!", "⚠️");
+            if (rateVal <= 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຄ່າ Rate ໃຫ້ຖືກຕ້ອງ!", "⚠️");
                 return;
             }
 
             localStorage.setItem('pos_custom_manual_rate', rateVal);
             localStorage.setItem('pos_custom_manual_rate_date', dateVal);
 
+            // ຖ້າມີຂໍ້ມູນຢູ່ໃນ excelRows ໃຫ້ອັບເດດຄຳນວນລາຄາໃໝ່ທັນທີ
+            if (excelRows && excelRows.length > 0) {
+                excelRows.forEach(row => {
+                    let baseCost = parseFloat(String(row.originalCost || row.cost).replace(/,/g, '')) || 0;
+                    if (baseCost > 0) {
+                        let newCost = baseCost * rateVal;
+                        row.cost = newCost;
+                        let pct = parseFloat(String(row.profitPct).replace(/,/g, '')) || 20;
+                        let rawPrice = newCost * (1 + pct / 100);
+                        row.price = Math.ceil(rawPrice / 1000) * 1000;
+                    }
+                    if (dateVal) {
+                        row.dateAdded = parseDDMMYYYYToISO(dateVal);
+                    }
+                });
+                localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
+            }
+
             closeRateInputModal();
-            showAlert("ສຳເລັດ", "ບັນທຶກຄ່າ Rate ປະຈຳວັນສຳເລັດຮຽບຮ້ອຍ!", "💱");
+            showAlert("ສຳເລັດ", "ບັນທຶກຄ່າ Rate ແລະ ອັບເດດລາຄາສິນຄ້າສຳເລັດຮຽບຮ້ອຍ!", "💱");
         }
 
         // --- CORE POS LOGIC ---
@@ -1677,7 +1694,7 @@
             
             await fetchProductsForGenerator();
             let found = excelRows.find(r => String(r.code).trim().toLowerCase() === code.toLowerCase());
-            let defaultCost = found ? (parseFloat(String(r.cost).replace(/,/g, '')) || 0) : 0;
+            let defaultCost = found ? (parseFloat(String(found.cost).replace(/,/g, '')) || 0) : 0;
             
             openStockInModal(code, defaultCost);
         }
