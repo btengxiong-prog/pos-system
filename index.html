@@ -1397,18 +1397,19 @@
             let licenses = [];
             if (supabaseClient) {
                 try {
-                    let { data } = await supabaseClient.from('licenses').select('*');
-                    if (data) licenses = data;
+                    let { data, error } = await supabaseClient.from('licenses').select('*');
+                    if (!error && data) licenses = data;
                 } catch (e) {}
+            }
+
+            // Fallback ຖ້າ Supabase ບໍ່ມີຂໍ້ມູນ ໃຫ້ດຶງຈາກ localStorage ຂອງເຄື່ອງ
+            if (licenses.length === 0) {
+                let localDevId = localStorage.getItem('pos_device_id') || deviceId;
+                licenses = [{ device_id: localDevId, status: 'trial' }];
             }
 
             let datalist = document.getElementById('trial-devices-list');
             if (datalist) datalist.innerHTML = '';
-
-            if (licenses.length === 0) {
-                container.innerHTML = `<p class="text-center text-gray-500 py-4">ຍັງບໍ່ມີບັນຊີໃນລະບົບ</p>`;
-                return;
-            }
 
             let html = '';
             licenses.forEach(lic => {
@@ -1421,7 +1422,7 @@
                 let username = lic.device_id;
                 let pass = localStorage.getItem('pos_shop_pass_' + username) || '-';
                 
-                // 🌟 ດຶງ ID ທີ່ລະບົບສ້າງຂຶ້ນມາໃໝ່ (ເຊັ່ນ POS-Mxxxxx ຫຼື ID ທີ່ຖືກອັບເດດຫຼ້າສຸດ) ມາສະແດງຜົນໃນກອບສີແດງ
+                // 🌟 ສະແດງ ID ຕົວຈິງທີ່ລະບົບສ້າງຂຶ້ນ (ເຊັ່ນ POS-T69ISZM) ໃຫ້ກົງກັນທັງສອງໜ້າຈໍ 100%
                 let displayId = lic.device_id; 
                 let statusBadge = lic.status === 'deleted' ? `<span class="text-red-600 font-bold">[ລຶບຖາວອນ]</span>` : (lic.status === 'trial' ? `<span class="text-amber-600 font-bold">[ທົດລອງ]</span>` : `<span class="text-green-600 font-bold">[ຖາວອນ/Active]</span>`);
 
