@@ -354,22 +354,39 @@
         </div>
     </div>
 
-    <!-- Modal ສະແກນ QR ຮັບເງິນ BCEL One -->
-    <div id="bcel-qr-modal" class="hidden fixed inset-0 bg-black/70 z-[330] flex items-center justify-center p-4">
+    <!-- 🌟 Popup (ປ໋ອບອັບ) ເລືອກວິທີຊຳລະເງິນ (ເງິນສົດ / ເງິນໂອນ) -->
+    <div id="checkout-method-modal" class="hidden fixed inset-0 bg-black/70 z-[340] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
-            <div class="text-3xl">📱</div>
-            <h3 class="text-lg font-bold text-blue-900">ສະແກນຈ່າຍຜ່ານ BCEL One</h3>
-            <p class="text-xs text-gray-600">ໃຊ້ແອັບທະນາຄານສະແກນ ຍອດເງິນຈະຂຶ້ນອັດຕະໂນມັດ</p>
-              
-            <div class="bg-blue-50 p-4 rounded-xl border space-y-2">
-                <div class="text-xs font-bold text-gray-700">ເລກບັນຊີ: <span class="font-mono text-blue-600">1006000000470</span></div>
-                <div class="text-base font-extrabold text-green-600" id="bcel-qr-amount-text">0 ກີບ</div>
-                  
-                <div id="bcel-qrcode-container" class="bg-white p-3 rounded-xl border flex justify-center items-center my-2 min-h-[160px]"></div>
+            <div class="text-4xl">💰</div>
+            <h3 class="text-lg font-bold text-blue-900">ເລືອກວິທີຊຳລະເງິນ</h3>
+            
+            <div class="bg-blue-50 p-3 rounded-xl border text-center space-y-1">
+                <div class="text-xs text-gray-600 font-semibold">ຍອດເງິນລວມທັງໝົດ:</div>
+                <div class="text-xl font-extrabold text-green-600" id="popup-total-amount-text">0 ກີບ</div>
             </div>
 
-            <div class="space-y-2">
-                <button onclick="closeBcelQrModal()" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer">ປິດໜ້າຈໍ</button>
+            <div class="space-y-3 text-left">
+                <label class="flex items-center gap-3 p-3 border-2 rounded-xl cursor-pointer hover:bg-gray-50 border-blue-600 bg-blue-50/50" onclick="selectPaymentMode('cash', this)">
+                    <input type="radio" name="pay_mode" value="cash" checked class="w-4 h-4 text-blue-600">
+                    <span class="font-bold text-gray-800 text-sm">💵 ຈ່າຍເງິນສົດ</span>
+                </label>
+
+                <label class="flex items-center gap-3 p-3 border-2 rounded-xl cursor-pointer hover:bg-gray-50 border-gray-200" onclick="selectPaymentMode('transfer', this)">
+                    <input type="radio" name="pay_mode" value="transfer" class="w-4 h-4 text-blue-600">
+                    <span class="font-bold text-gray-800 text-sm">📱 ຈ່າຍເງິນໂອນ (ສະແກນ QR)</span>
+                </label>
+            </div>
+
+            <div id="transfer-qr-section" class="hidden space-y-3 pt-2 border-t">
+                <button type="button" onclick="openTransferQrInsideModal()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-xs transition cursor-pointer shadow">
+                    📱 ສະແກນ QR ຮັບເງິນ
+                </button>
+                <div id="modal-bcel-qrcode-container" class="bg-white p-2 rounded-xl border flex justify-center items-center my-2 min-h-[140px]"></div>
+            </div>
+
+            <div class="flex gap-2 pt-2 border-t">
+                <button onclick="closeCheckoutMethodModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer text-sm">ຍົກເລີກ</button>
+                <button onclick="confirmCheckoutPayment()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">ຕົກລົງ</button>
             </div>
         </div>
     </div>
@@ -545,7 +562,7 @@
                     ⏳ ວັນໝົດອາຍຸສິນຄ້າ
                 </button>
 
-                <!-- 4) ປຸ່ມ Rate (🌟 ໃຫ້ສະແດງຜົນຕະຫຼອດສຳລັບ Admin / Shop Owner ປ້ອງກັນການຫາຍເວລາດີເລย์) -->
+                <!-- 4) ປຸ່ມ Rate -->
                 <button id="header-rate-btn" onclick="openRateInputModal()" class="w-full sm:w-auto bg-orange-600 hover:bg-orange-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     💱 ເຂົ້າຂໍ້ມູນ (Ex/Rate)
                 </button>
@@ -791,12 +808,9 @@
             </div>
         </div>
 
-        <!-- Checkout Buttons -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <button onclick="openBcelQrModal()" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-base font-bold py-3 rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
-                📱 ສະແກນ QR ຮັບເງິນ (BCEL One)
-            </button>
-            <button onclick="checkout()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-base font-bold py-3 rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
+        <!-- Checkout Buttons (🌟 ປັບປຸງໃຫ້ເຫຼືອປຸ່ມຊຳລະເງິນປຸ່ມດຽວເຕັມຕາຕະລາງ) -->
+        <div class="w-full">
+            <button onclick="openCheckoutMethodModal()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-base font-bold py-3.5 rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
                 💰 ຊຳລະເງິນ / ພິມບິນ
             </button>
         </div>
@@ -1674,7 +1688,7 @@
                     showAlert("ສຳເລັດ", `ນຳເຂົ້າຂໍ້ມູນ Excel ສຳເລັດ ${newRows.length} ລາຍການ!`, "📁");
                     openExcelGenerator();
                 } catch (err) {
-                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດອ່ານໄຟລ໌ Excel ນີ້ໄດ້!", "❌");
+                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດອ່ານໄຟລ໌ Excel ນี้ໄດ້!", "❌");
                 }
             };
             reader.readAsArrayBuffer(file);
@@ -2470,7 +2484,7 @@
         function handleCashKeydown(event) {
             if (event.key === 'Enter') {
                 event.preventDefault();
-                checkout();
+                openCheckoutMethodModal();
             }
         }
 
@@ -2508,24 +2522,54 @@
             return { ok: true };
         }
 
-        // --- BCEL QR CODE PAYMENT MODAL ---
-        function openBcelQrModal() {
+        // --- 🌟 ຟັງຊັນຈັດການ Popup ເລືອກວິທີຊຳລະເງິນ (ເງິນສົດ / ເງິນໂອນ) ---
+        function openCheckoutMethodModal() {
             if (cart.length === 0) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າກ່ອນສະແກນ QR ຮັບເງິນ!", "⚠️");
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າກ່ອນຊຳລະເງິນ!", "⚠️");
                 return;
             }
             let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
             let customPriceVal = document.getElementById('custom-final-price').value.replace(/,/g, '');
             let finalTotal = customPriceVal !== "" ? (parseFloat(customPriceVal) || 0) : grandTotal;
 
-            document.getElementById('bcel-qr-amount-text').innerText = formatNumberWithCommas(finalTotal) + " ກີບ";
-            document.getElementById('bcel-qr-modal').classList.remove('hidden');
+            document.getElementById('popup-total-amount-text').innerText = formatNumberWithCommas(finalTotal) + " ກີບ";
+            document.getElementById('transfer-qr-section').classList.add('hidden');
+            document.getElementById('checkout-method-modal').classList.remove('hidden');
+        }
 
-            let qrContainer = document.getElementById('bcel-qrcode-container');
+        function closeCheckoutMethodModal() {
+            document.getElementById('checkout-method-modal').classList.add('hidden');
+        }
+
+        function selectPaymentMode(mode, labelElem) {
+            let labels = document.querySelectorAll('#checkout-method-modal .space-y-3 label');
+            labels.forEach(l => {
+                l.classList.remove('border-blue-600', 'bg-blue-50/50');
+                l.classList.add('border-gray-200');
+            });
+            labelElem.classList.remove('border-gray-200');
+            labelElem.classList.add('border-blue-600', 'bg-blue-50/50');
+            let radio = labelElem.querySelector('input[type="radio"]');
+            if (radio) radio.checked = true;
+
+            let transferSection = document.getElementById('transfer-qr-section');
+            if (mode === 'transfer') {
+                transferSection.classList.remove('hidden');
+            } else {
+                transferSection.classList.add('hidden');
+            }
+        }
+
+        function openTransferQrInsideModal() {
+            let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            let customPriceVal = document.getElementById('custom-final-price').value.replace(/,/g, '');
+            let finalTotal = customPriceVal !== "" ? (parseFloat(customPriceVal) || 0) : grandTotal;
+
+            let qrContainer = document.getElementById('modal-bcel-qrcode-container');
             if (qrContainer && window.QRCode) {
                 qrContainer.innerHTML = "";
                 let bcelPayload = `BCEL:1006000000470:AMOUNT=${finalTotal}`;
-                QRCode.toString(bcelPayload, { type: 'svg', width: 160, margin: 1 }, function (err, svgString) {
+                QRCode.toString(bcelPayload, { type: 'svg', width: 140, margin: 1 }, function (err, svgString) {
                     if (!err && qrContainer) {
                         qrContainer.innerHTML = svgString;
                     }
@@ -2533,13 +2577,10 @@
             }
         }
 
-        function closeBcelQrModal() {
-            document.getElementById('bcel-qr-modal').classList.add('hidden');
-        }
+        async function confirmCheckoutPayment() {
+            let selectedRadio = document.querySelector('input[name="pay_mode"]:checked');
+            let payMode = selectedRadio ? selectedRadio.value : 'cash';
 
-        async function checkout() {
-            if (cart.length === 0) { showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າ!", "⚠️"); return; }
-            
             let stockCheck = await checkStockAvailability();
             if (!stockCheck.ok) {
                 showAlert("ສິນຄ້າໃນສາງບໍ່ພໍ", `ສິນຄ້າ [${stockCheck.name}] ໃນສາງເຫຼືອພຽງ ${stockCheck.available} ອັນ ແຕ່ທ່ານຕ້ອງການຂາຍ ${stockCheck.requested} ອັນ! ບໍ່ສາມາດຂາຍເກີນຈຳນວນສາງໄດ້.`, "❌");
@@ -2568,7 +2609,8 @@
                 discount: discount,
                 total: finalTotal,
                 cash: cashGiven,
-                change: cashGiven - finalTotal
+                change: cashGiven - finalTotal,
+                payment_method: payMode
             };
 
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
@@ -2592,8 +2634,10 @@
                 } catch (err) {}
             }
 
-            showAlert("ສຳເລັດ", "ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ!", "✅");
+            closeCheckoutMethodModal();
+            showAlert("ສຳເລັດ", `ຊຳລະເງິນ (${payMode === 'cash' ? 'ເງິນສົດ' : 'ເງິນໂອນ'}) ສຳເລັດຮຽບຮ້ອຍ!`, "✅");
             
+            // 🌟 ຣີເຊັດລ້າງຂໍ້ມູນທັງໝົດໃນກະຕ່າ ແລະ ຍອດສະຫຼຸບທັງໝົດໃຫ້ຫາຍໄປ/ເປັນ 0 ທັນທີ
             cart = []; 
             document.getElementById('cash-given').value = ''; 
             document.getElementById('custom-final-price').value = '';
@@ -3258,6 +3302,8 @@
                 if (roleModal) roleModal.classList.add('hidden');
                 let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
                 if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
+                let rateBtn = document.getElementById('header-rate-btn');
+                if (rateBtn) rateBtn.classList.remove('hidden');
             }
             checkRoleAndLicense();
         });
