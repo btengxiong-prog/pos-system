@@ -560,7 +560,8 @@
     <!-- Header -->
     <header class="bg-[#1e3a8a] text-white py-5 shadow-lg">
         <div class="container mx-auto px-4 text-center">
-            <h1 class="text-2xl md:text-3xl font-bold flex items-center justify-center gap-2">
+            <!-- 🌟 ປັບປຸງ Header ໃຫ້ສະແດງຊື່ຮ້ານຕາມທີ່ບັນທຶກໄວ້ (ຖ້າເປັນ Super Admin ໃຫ້ສະແດງແບບເດີມ) -->
+            <h1 id="main-header-title" class="text-2xl md:text-3xl font-bold flex items-center justify-center gap-2">
                 🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Smart Realtime Sync)
             </h1>
             <div class="mt-1.5 text-xs md:text-sm text-yellow-300 font-semibold">
@@ -1114,6 +1115,7 @@
         let currentStockInCode = "";
         let customConfirmCallback = null;
         let editingDeviceId = null;
+        let editingShopId = null;
 
         function formatNumberWithCommas(num) {
             if (num === "" || num === null || isNaN(num)) return "";
@@ -1324,6 +1326,7 @@
                 let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
                 if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
                 document.getElementById('license-status-badge').innerText = "🛡️ ສະຖານະ: ເຂົ້າລະບົບ Super Admin (Full Access)";
+                updateHeaderTitle();
                 return;
             }
 
@@ -1348,6 +1351,7 @@
                 let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
                 if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
                 document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ເຈົ້າຂອງຮ້ານ [${currentUsername}] (Shop Owner Admin)`;
+                updateHeaderTitle();
                 return;
             }
 
@@ -1372,12 +1376,33 @@
                         let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
                         if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
                         document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ເຈົ້າຂອງຮ້ານ [${currentUsername}] (Shop Owner Admin)`;
+                        updateHeaderTitle();
                         return;
                     }
                 } catch (e) {}
             }
 
             showAlert("ຜິດພາດ", "Username ຫຼື Password ບໍ່ຖືກຕ້ອງ!", "❌");
+        }
+
+        // 🌟 ຟັງຊັນອັບເດດຊື່ຮ້ານທີ່ Header (ຖ້າເປັນ Super Admin ໃຫ້ຄົງເດີມ, ຖ້າເປັນຮ້ານຄ້າໃຫ້ສະແດງຊື່ຮ້ານ)
+        function updateHeaderTitle() {
+            let headerTitle = document.getElementById('main-header-title');
+            if (!headerTitle) return;
+            
+            let userRole = localStorage.getItem('pos_user_role');
+            if (userRole === 'admin') {
+                headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Smart Realtime Sync)`;
+                return;
+            }
+
+            let currentDev = localStorage.getItem('pos_device_id') || deviceId;
+            let shopName = localStorage.getItem('pos_shop_name_' + currentDev);
+            if (shopName && shopName.trim() !== '') {
+                headerTitle.innerHTML = `🛒 ${shopName}`;
+            } else {
+                headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (${currentDev})`;
+            }
         }
 
         function handleUnifiedLoginKeydown(event) {
@@ -1528,7 +1553,6 @@
         }
 
         // --- 🌟 ຟັງຊັນຈັດການຂໍ້ມູນຮ້ານ (ຊື່ຮ້ານ, ເລກບັນຊີກີບ, ເລກບັນຊີບາດ) ---
-        let editingShopId = null;
         function openShopInfoModal(targetId) {
             editingShopId = targetId;
             document.getElementById('shop-modal-device-id').innerText = targetId;
@@ -1553,6 +1577,7 @@
             localStorage.setItem('pos_shop_thb_' + editingShopId, thbAcc);
 
             closeShopInfoModal();
+            updateHeaderTitle();
             showAlert("ສຳເລັດ", "ບັນທຶກຂໍ້ມູນຮ້ານສຳເລັດຮຽບຮ້ອຍ!", "🏪");
         }
 
@@ -2638,6 +2663,7 @@
                 let rateBtn = document.getElementById('header-rate-btn');
                 if (rateBtn) rateBtn.classList.remove('hidden');
             }
+            updateHeaderTitle();
             checkRoleAndLicense();
         });
     </script>
