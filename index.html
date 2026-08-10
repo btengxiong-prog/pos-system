@@ -243,11 +243,12 @@
                             <th class="p-3 border-r text-center">ວັນໝົດອາຍຸ (dd/mm/yyyy)</th>
                             <th class="p-3 border-r text-right">ລາຄາຊື້ (ກີບ)</th>
                             <th class="p-3 border-r text-right">ລາຄາຂາຍ (ກີບ)</th>
-                            <th class="p-3 text-center">ໝາຍເຫດ</th>
+                            <th class="p-3 border-r text-center">ໝາຍເຫດ</th>
+                            <th class="p-3 text-center">ຈັດການ</th>
                         </tr>
                     </thead>
                     <tbody id="inventory-tbody" class="divide-y divide-gray-200 text-sm">
-                        <tr><td colspan="8" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>
+                        <tr><td colspan="9" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -602,7 +603,7 @@
                     ⚙️ ຈັດການລະບົບ
                 </button>
 
-                <!-- 📱 QR Code ເຊື່ອມຕໍ່ພະນັກງານ (🌟 ເອົາມາຕື່ມໃສ່ຄືນແລ້ວ) -->
+                <!-- 📱 QR Code ເຊື່ອມຕໍ່ພະນັກງານ -->
                 <button id="header-connect-qr-btn" onclick="openAdminQrModal()" class="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     📱 QR Code ເຊື່ອມຕໍ່ພະນັກງານ
                 </button>
@@ -1235,6 +1236,8 @@
                 if (adminBtn) adminBtn.classList.remove('hidden');
                 let rateBtn = document.getElementById('header-rate-btn');
                 if (rateBtn) rateBtn.classList.remove('hidden');
+                let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
+                if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
                 document.getElementById('license-status-badge').innerText = "🛡️ ສະຖານະ: ເຂົ້າລະບົບ Super Admin (Full Access)";
                 return;
             }
@@ -1257,6 +1260,8 @@
                 if (adminBtn) adminBtn.classList.add('hidden');
                 let rateBtn = document.getElementById('header-rate-btn');
                 if (rateBtn) rateBtn.classList.remove('hidden');
+                let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
+                if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
                 document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ເຈົ້າຂອງຮ້ານ [${currentUsername}] (Shop Owner Admin)`;
                 return;
             }
@@ -1279,6 +1284,8 @@
                         if (adminBtn) adminBtn.classList.add('hidden');
                         let rateBtn = document.getElementById('header-rate-btn');
                         if (rateBtn) rateBtn.classList.remove('hidden');
+                        let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
+                        if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
                         document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ເຈົ້າຂອງຮ້ານ [${currentUsername}] (Shop Owner Admin)`;
                         return;
                     }
@@ -1685,7 +1692,7 @@
 
         async function loadInventory() {
             let tbody = document.getElementById('inventory-tbody');
-            tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
 
             await fetchProductsForGenerator();
 
@@ -1701,14 +1708,17 @@
             });
 
             if (excelRows.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ</td></tr>`;
                 return;
             }
 
             let html = '';
             let countIndex = 1;
+            let userRole = localStorage.getItem('pos_user_role');
+            let isShopOwner = localStorage.getItem('pos_shop_owner') === 'true';
+            let canDelete = (userRole === 'admin' || isShopOwner);
 
-            excelRows.forEach((row) => {
+            excelRows.forEach((row, index) => {
                 let codeKey = String(row.code || '').trim().toLowerCase();
                 let initialQty = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1;
                 let soldQty = soldQtyMap[codeKey] || 0;
@@ -1721,6 +1731,10 @@
                 let formattedMfg = formatDateToDDMMYYYY(row.mfgDate || row.dateAdded);
                 let expDateStr = row.expiryDate ? formatDateToDDMMYYYY(row.expiryDate) : '-';
 
+                let deleteBtnHtml = canDelete ? 
+                    `<button onclick="promptDeleteInventoryRow(${index})" class="text-xs bg-red-100 text-red-600 px-2 py-1 rounded font-bold cursor-pointer">🗑️ ລຶບ</button>` : 
+                    `<span class="text-gray-400 text-xs">-</span>`;
+
                 html += `
                     <tr class="hover:bg-gray-50 border-b">
                         <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
@@ -1730,12 +1744,35 @@
                         <td class="p-3 border-r text-center font-bold text-red-600">${expDateStr}</td>
                         <td class="p-3 border-r text-right text-blue-600 font-semibold">${formatNumberWithCommas(cost)}</td>
                         <td class="p-3 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(price)}</td>
-                        <td class="p-3 text-center text-xs font-bold text-indigo-700">ຍັງເຫຼືອ: ${remainingQty} ອັນ</td>
+                        <td class="p-3 border-r text-center text-xs font-bold text-indigo-700">ຍັງເຫຼືອ: ${remainingQty} ອັນ</td>
+                        <td class="p-3 text-center">${deleteBtnHtml}</td>
                     </tr>
                 `;
             });
 
             tbody.innerHTML = html;
+        }
+
+        async function promptDeleteInventoryRow(index) {
+            let targetRow = excelRows[index];
+            if (!targetRow) return;
+
+            showCustomConfirm("ຢືນຢັນການລຶບ", `ທ່ານຕ້ອງການລຶບສິນຄ້າ [${targetRow.code}] ນີ້ອອກຈາກສາງແທ້ບໍ?`, async (confirmed) => {
+                if (!confirmed) return;
+
+                let rowId = targetRow.id;
+                excelRows.splice(index, 1);
+                localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
+
+                if (supabaseClient && rowId) {
+                    try {
+                        await supabaseClient.from('products').delete().eq('id', rowId);
+                    } catch (e) {}
+                }
+
+                loadInventory();
+                showAlert("ສຳເລັດ", "ລຶບສິນຄ້າອອກຈາກສາງສຳເລັດຮຽບຮ້ອຍ!", "🗑️");
+            });
         }
 
         async function openExpiryModal() {
@@ -2107,7 +2144,7 @@
             }
             html5QrCode.start(
                 { facingMode: "environment" },
-                { fps: 10, qrbox: 250 },
+                { fps: 10, qrbox: { width: 300, height: 150 } },
                 (decodedText) => {
                     let currentTime = new Date().getTime();
                     if (decodedText === lastScannedCode && (currentTime - lastScanTime < 3000)) return;
@@ -3104,7 +3141,6 @@
                     let costVal = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
                     let priceVal = parseFloat(String(row.price).replace(/,/g, '')) || 0;
 
-                    // 🌟 ຝັງ JSON ທີ່ມີທັງ code, cost ແລະ price ໄວ້ໃນ QR Code ຢ່າງສົມບູນ
                     let payloadObj = {
                         code: cleanCode,
                         cost: costVal,
@@ -3175,6 +3211,8 @@
             if (userRole === 'admin' || shopOwner === 'true' || linkedAdminId) {
                 let roleModal = document.getElementById('role-select-modal');
                 if (roleModal) roleModal.classList.add('hidden');
+                let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
+                if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
             }
             checkRoleAndLicense();
         });
