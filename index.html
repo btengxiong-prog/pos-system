@@ -1732,7 +1732,7 @@
                 let expDateStr = row.expiryDate ? formatDateToDDMMYYYY(row.expiryDate) : '-';
 
                 let deleteBtnHtml = canDelete ? 
-                    `<button onclick="promptDeleteInventoryRow(${index})" class="text-xs bg-red-100 text-red-600 px-2 py-1 rounded font-bold cursor-pointer">🗑️ ລຶບ</button>` : 
+                    `<button onclick="promptDeleteInventoryRow(${index})" class="text-xs bg-red-100 text-red-600 px-2 py-1 rounded font-bold cursor-pointer hover:bg-red-200 transition">🗑️ ລຶບ</button>` : 
                     `<span class="text-gray-400 text-xs">-</span>`;
 
                 html += `
@@ -1753,11 +1753,20 @@
             tbody.innerHTML = html;
         }
 
-        async function promptDeleteInventoryRow(index) {
+        // 🌟 ຟັງຊັນ Modal ຢືນຢັນ ແລະ ດຳເນີນການລຶບສິນຄ້າອອກຈາກສາງ (Inventory)
+        function promptDeleteInventoryRow(index) {
             let targetRow = excelRows[index];
             if (!targetRow) return;
 
-            showCustomConfirm("ຢືນຢັນການລຶບ", `ທ່ານຕ້ອງການລຶບສິນຄ້າ [${targetRow.code}] ນີ້ອອກຈາກສາງແທ້ບໍ?`, async (confirmed) => {
+            let confirmModal = document.getElementById('custom-confirm-modal');
+            let confirmTitle = document.getElementById('confirm-title');
+            let confirmMsg = document.getElementById('confirm-message');
+
+            if (confirmTitle) confirmTitle.innerText = "ຢືນຢັນການລຶບສິນຄ້າ";
+            if (confirmMsg) confirmMsg.innerText = `ທ່ານຕ້ອງການລຶບສິນຄ້າ [${targetRow.code}] ນີ້ອອກຈາກສາງແທ້ບໍ?`;
+            if (confirmModal) confirmModal.classList.remove('hidden');
+
+            customConfirmCallback = async (confirmed) => {
                 if (!confirmed) return;
 
                 let rowId = targetRow.id;
@@ -1772,7 +1781,45 @@
 
                 loadInventory();
                 showAlert("ສຳເລັດ", "ລຶບສິນຄ້າອອກຈາກສາງສຳເລັດຮຽບຮ້ອຍ!", "🗑️");
-            });
+            };
+        }
+
+        // 🌟 ຟັງຊັນຮັບຄ່າຈາກ Custom Confirm Modal
+        function resolveCustomConfirm(result) {
+            let confirmModal = document.getElementById('custom-confirm-modal');
+            if (confirmModal) confirmModal.classList.add('hidden');
+            if (typeof customConfirmCallback === 'function') {
+                customConfirmCallback(result);
+                customConfirmCallback = null;
+            }
+        }
+
+        function showCustomConfirm(title, message, callback) {
+            let confirmModal = document.getElementById('custom-confirm-modal');
+            let confirmTitle = document.getElementById('confirm-title');
+            let confirmMsg = document.getElementById('confirm-message');
+
+            if (confirmTitle) confirmTitle.innerText = title;
+            if (confirmMsg) confirmMsg.innerText = message;
+            if (confirmModal) confirmModal.classList.remove('hidden');
+            customConfirmCallback = callback;
+        }
+
+        function showAlert(title, message, icon = "✅") {
+            let alertModal = document.getElementById('custom-alert-modal');
+            let alertTitle = document.getElementById('alert-title');
+            let alertMsg = document.getElementById('alert-message');
+            let alertIcon = document.getElementById('alert-icon');
+
+            if (alertTitle) alertTitle.innerText = title;
+            if (alertMsg) alertMsg.innerText = message;
+            if (alertIcon) alertIcon.innerText = icon;
+            if (alertModal) alertModal.classList.remove('hidden');
+        }
+
+        function closeCustomAlert() {
+            let alertModal = document.getElementById('custom-alert-modal');
+            if (alertModal) alertModal.classList.add('hidden');
         }
 
         async function openExpiryModal() {
