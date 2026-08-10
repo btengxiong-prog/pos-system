@@ -2198,93 +2198,81 @@
         function cancelScannedItem() { document.getElementById('confirm-modal').classList.add('hidden'); }
 
         async function openScanner() {
-            let scannerContainer = document.getElementById('scanner-container');
-            if (scannerContainer) scannerContainer.classList.remove('hidden');
-            
+            document.getElementById('scanner-container').classList.remove('hidden');
             await fetchProductsForGenerator();
 
             if (!html5QrCode) {
-                try {
-                    html5QrCode = new Html5Qrcode("reader");
-                } catch(err) {
-                    return;
-                }
+                try { html5QrCode = new Html5Qrcode("reader"); } catch(err) { return; }
             }
+            
+            // 🌟 ປັບຂະໜາດ qrbox ໃຫ້ເປັນແບບຜືນຜ້າ (ກວ້າງ 300, ສູງ 150) ເພື່ອໃຫ້ຈັບ Barcode ແບບເສັ້ນຊື່ໄດ້ຢ່າງງ່າຍດາຍ
+            html5QrCode.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 300, height: 150 } },
+                (decodedText) => {
+                    let currentTime = new Date().getTime();
+                    if (decodedText === lastScannedCode && (currentTime - lastScanTime < 3000)) return;
+                    lastScannedCode = decodedText;
+                    lastScanTime = currentTime;
+                    
+                    let cleanDecoded = String(decodedText).trim();
+                    let scannedCode = cleanDecoded;
+                    let scannedCost = 0;
+                    let scannedPrice = 0;
+                    let scannedName = cleanDecoded;
 
-            try {
-                await html5QrCode.start(
-                    { facingMode: "environment" },
-                    { fps: 10, qrbox: 250 },
-                    (decodedText) => {
-                        let currentTime = new Date().getTime();
-                        if (decodedText === lastScannedCode && (currentTime - lastScanTime < 3000)) return;
-                        lastScannedCode = decodedText;
-                        lastScanTime = currentTime;
-                        
-                        let cleanDecoded = String(decodedText).trim();
-                        let scannedCode = cleanDecoded;
-                        let scannedCost = 0;
-                        let scannedPrice = 0;
-                        let scannedName = cleanDecoded;
+                    try {
+                        let parsedJson = JSON.parse(cleanDecoded);
+                        if (parsedJson && parsedJson.code) {
+                            scannedCode = parsedJson.code;
+                            scannedCost = parseFloat(parsedJson.cost) || 0;
+                            scannedPrice = parseFloat(parsedJson.price) || 0;
+                            scannedName = parsedJson.code;
+                            showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
+                            return;
+                        }
+                    } catch (e) {}
 
-                        try {
-                            let parsedJson = JSON.parse(cleanDecoded);
-                            if (parsedJson && parsedJson.code) {
-                                scannedCode = parsedJson.code;
-                                scannedCost = parseFloat(parsedJson.cost) || 0;
-                                scannedPrice = parseFloat(parsedJson.price) || 0;
-                                scannedName = parsedJson.code;
-                                closeScanner();
-                                showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
-                                return;
-                            }
-                        } catch (e) {}
+                    let matches = excelRows.filter(r => {
+                        let itemCode = String(r.code || '').trim();
+                        return itemCode.toLowerCase() === cleanDecoded.toLowerCase();
+                    });
 
-                        let matches = excelRows.filter(r => {
-                            let itemCode = String(r.code || '').trim();
-                            return itemCode.toLowerCase() === cleanDecoded.toLowerCase();
+                    if (matches.length === 0) {
+                        let cleanDecodedDigits = cleanDecoded.replace(/\D/g, '');
+                        matches = excelRows.filter(r => {
+                            let itemCodeDigits = String(r.code || '').replace(/\D/g, '');
+                            return itemCodeDigits !== '' && cleanDecodedDigits !== '' && itemCodeDigits === cleanDecodedDigits;
+                        });
+                    }
+
+                    if (matches.length > 1) {
+                        let firstPrice = parseFloat(String(matches[0].price).replace(/,/g, '')) || 0;
+                        let firstCost = parseFloat(String(matches[0].cost).replace(/,/g, '')) || 0;
+                        let allSame = matches.every(m => {
+                            let p = parseFloat(String(m.price).replace(/,/g, '')) || 0;
+                            let c = parseFloat(String(m.cost).replace(/,/g, '')) || 0;
+                            return p === firstPrice && c === firstCost;
                         });
 
-                        if (matches.length === 0) {
-                            let cleanDecodedDigits = cleanDecoded.replace(/\D/g, '');
-                            matches = excelRows.filter(r => {
-                                let itemCodeDigits = String(r.code || '').replace(/\D/g, '');
-                                return itemCodeDigits !== '' && cleanDecodedDigits !== '' && itemCodeDigits === cleanDecodedDigits;
-                            });
-                        }
-
-                        closeScanner();
-
-                        if (matches.length > 1) {
-                            let firstPrice = parseFloat(String(matches[0].price).replace(/,/g, '')) || 0;
-                            let firstCost = parseFloat(String(matches[0].cost).replace(/,/g, '')) || 0;
-                            let allSame = matches.every(m => {
-                                let p = parseFloat(String(m.price).replace(/,/g, '')) || 0;
-                                let c = parseFloat(String(m.cost).replace(/,/g, '')) || 0;
-                                return p === firstPrice && c === firstCost;
-                            });
-
-                            if (allSame) {
-                                showConfirmModalParsed(matches[0].code, matches[0].code, firstCost, firstPrice);
-                            } else {
-                                openSelectPriceModal(cleanDecoded, matches);
-                            }
-                        } else if (matches.length === 1) {
-                            let foundItem = matches[0];
-                            scannedCode = foundItem.code;
-                            scannedCost = parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0;
-                            scannedPrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
-                            scannedName = foundItem.code;
-                            showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
+                        if (allSame) {
+                            showConfirmModalParsed(matches[0].code, matches[0].code, firstCost, firstPrice);
                         } else {
-                            showConfirmModalParsed(scannedCode, scannedName, 0, 0);
+                            openSelectPriceModal(cleanDecoded, matches);
                         }
-                    },
-                    (errorMessage) => {}
-                );
-            } catch (err) {
-                console.error("QR Scanner start error:", err);
-            }
+                    } else if (matches.length === 1) {
+                        let foundItem = matches[0];
+                        scannedCode = foundItem.code;
+                        scannedCost = parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0;
+                        scannedPrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
+                        scannedName = foundItem.code;
+                        showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
+                    } else {
+                        showConfirmModalParsed(scannedCode, scannedName, 0, 0);
+                    }
+                },
+                (errorMessage) => {}
+            ).catch(err => {});
         }
 
         function closeScanner() {
