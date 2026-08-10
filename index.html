@@ -495,7 +495,7 @@
     </div>
 
     <!-- Header -->
-    <header class="bg-[#1e3a8a] text-white py-5 shadow-lg">
+    <header class="bg-[#1e3a8a] text-white py-5 shadow-lg relative z-40">
         <div class="container mx-auto px-4 text-center">
             <h1 class="text-2xl md:text-3xl font-bold flex items-center justify-center gap-2">
                 🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Smart Realtime Sync)
@@ -545,7 +545,7 @@
                 </button>
 
                 <!-- 4) ປຸ່ມ Rate -->
-                <button id="header-rate-btn" onclick="openRateInputModal()" class="hidden w-full sm:w-auto bg-orange-600 hover:bg-orange-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
+                <button id="header-rate-btn" onclick="openRateInputModal()" class="w-full sm:w-auto bg-orange-600 hover:bg-orange-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     💱 ເຂົ້າຂໍ້ມູນ (Ex/Rate)
                 </button>
 
@@ -597,17 +597,17 @@
                     </div>
                 </div>
 
-                <!-- ປຸ່ມ: ⚙️ ຈັດການລະບົບ (Admin ໃຫຍ່) -->
-                <button id="admin-manage-btn" onclick="openAdminManager()" class="hidden w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
+                <!-- ປຸ່ມ: ⚙️ ຈັດການລະບົບ (Admin) -->
+                <button id="admin-manage-btn" onclick="openAdminManager()" class="w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     ⚙️ ຈັດການລະບົບ
                 </button>
 
                 <!-- 📱 QR Code ເຊື່ອມຕໍ່ພະນັກງານ -->
-                <button id="header-connect-qr-btn" onclick="openAdminQrModal()" class="hidden w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
+                <button id="header-connect-qr-btn" onclick="openAdminQrModal()" class="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     📱 QR Code ເຊື່ອມຕໍ່ພະນັກງານ
                 </button>
 
-                <!-- ປຸ່ມ: ປ່ຽນໂໝດ / ອອກລະບົບ (ແກ້ໄຂ: ໃຫ້ລ້າງ ID ເກົ່າອອກ ເພື່ອໃຫ້ໂໝດທົດລອງໄດ້ ID ໃໝ່ສະເໝີ) -->
+                <!-- ປຸ່ມ: ປ່ຽນໂໝດ / ອອກລະບົບ -->
                 <button onclick="adminLogout()" class="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     🚪 ປ່ຽນໂໝດ / ອອກລະບົບ
                 </button>
@@ -1164,46 +1164,105 @@
         }
 
         async function checkTrialLicense() {
-            let userRole = localStorage.getItem('pos_user_role');
-            let shopOwner = localStorage.getItem('pos_shop_owner');
-            let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
-
-            if (userRole === 'admin' || shopOwner === 'true' || linkedAdminId) {
-                checkRoleAndLicense();
-                return;
-            }
-
-            if (supabaseClient && deviceId) {
-                try {
-                    let { data } = await supabaseClient.from('licenses').select('*').eq('device_id', deviceId).single();
-                    if (data) {
-                        if (data.status === 'deleted') {
-                            alert("⚠️ ບັນຊີນີ້ຖືກລຶບຖາວອນແລ້ວ! ບໍ່ສາມາດນຳໃຊ້ລະບົບໄດ້.");
-                            document.body.innerHTML = `<div style="text-align:center; margin-top:20vh; font-family:sans-serif;"><h2>❌ ບັນຊີນີ້ຖືກລະງັບ/ລຶບຖາວອນ</h2><p>ກະລຸນາຕິດຕໍ່ຜູ້ພັດທະນາ</p></div>`;
-                            return;
-                        }
-                        if (data.status === 'trial' && data.trial_until) {
-                            let now = new Date();
-                            let expiry = new Date(data.trial_until);
-                            if (now > expiry) {
-                                alert("⏳ ໝົດອາຍຸທົດລອງໃຊ້ 15 ວັນແລ້ວ! ກະລຸນາຕິດຕໍ່ Admin ເພື່ອຕໍ່ອາຍຸ ຫຼື ລົງທະບຽນ.");
-                                document.body.innerHTML = `<div style="text-align:center; margin-top:20vh; font-family:sans-serif;"><h2>⏳ ເວລາທົດລອງໃຊ້ໝົດແລ້ວ</h2><p>ກະລຸນາຕິດຕໍ່ 020 59456999 ເພື່ອຕໍ່ອາຍຸ</p></div>`;
-                                return;
-                            }
-                        }
-                    }
-                } catch (e) {}
-            }
             checkRoleAndLicense();
         }
 
+        function checkRoleAndLicense() {
+            let adminBtn = document.getElementById('admin-manage-btn');
+            let connectQrBtn = document.getElementById('header-connect-qr-btn');
+            let rateBtn = document.getElementById('header-rate-btn');
+
+            if (adminBtn) adminBtn.classList.remove('hidden');
+            if (connectQrBtn) connectQrBtn.classList.remove('hidden');
+            if (rateBtn) rateBtn.classList.remove('hidden');
+        }
+
+        // 🌟 ຟັງຊັນ Alert ແລະ Confirm ທີ່ປອດໄພ 100%
+        function showAlert(title, message, icon = "✅") {
+            let modal = document.getElementById('custom-alert-modal');
+            if (!modal) {
+                alert(message);
+                return;
+            }
+            document.getElementById('alert-title').innerText = title;
+            document.getElementById('alert-message').innerText = message;
+            document.getElementById('alert-icon').innerText = icon;
+            modal.classList.remove('hidden');
+        }
+
+        function closeCustomAlert() {
+            let modal = document.getElementById('custom-alert-modal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function showCustomConfirm(title, message, callback) {
+            customConfirmCallback = callback;
+            let modal = document.getElementById('custom-confirm-modal');
+            if (!modal) {
+                if (confirm(message)) callback(true);
+                else callback(false);
+                return;
+            }
+            document.getElementById('confirm-title').innerText = title;
+            document.getElementById('confirm-message').innerText = message;
+            modal.classList.remove('hidden');
+        }
+
+        function resolveCustomConfirm(result) {
+            let modal = document.getElementById('custom-confirm-modal');
+            if (modal) modal.classList.add('hidden');
+            if (customConfirmCallback) {
+                let cb = customConfirmCallback;
+                customConfirmCallback = null;
+                cb(result);
+            }
+        }
+
+        // 🌟 DOMContentLoaded: ກວດສອບ Session ຢ່າງຖືກຕ້ອງ ແລະ ປິດ Modal ເລືອກໂໝດຖ້າເຄີຍເຂົ້າແລ້ວ
+        window.addEventListener('DOMContentLoaded', async () => {
+            await initDeviceId();
+            
+            let userRole = localStorage.getItem('pos_user_role');
+            let shopOwner = localStorage.getItem('pos_shop_owner');
+            let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
+            let isSessionActive = localStorage.getItem('pos_session_active');
+
+            let roleModal = document.getElementById('role-select-modal');
+
+            if (userRole === 'admin' || shopOwner === 'true' || linkedAdminId || isSessionActive === 'true') {
+                if (roleModal) {
+                    roleModal.classList.add('hidden');
+                    roleModal.style.display = 'none';
+                    roleModal.style.pointerEvents = 'none';
+                }
+                await checkTrialLicense();
+            } else {
+                if (roleModal) {
+                    roleModal.classList.remove('hidden');
+                    roleModal.style.display = 'flex';
+                    roleModal.style.pointerEvents = 'auto';
+                }
+            }
+            checkRoleAndLicense();
+        });
+
+        // 🌟 ຟັງຊັນເລືອກໂໝດ: ເຊື່ອງ Modal ເລືອກໂໝດ ແລະ ປົດລັອກໜ້າຈໍທັນທີ 100%
         function selectRole(role) {
+            localStorage.setItem('pos_session_active', 'true');
             let roleModal = document.getElementById('role-select-modal');
             let loginModal = document.getElementById('unified-login-modal');
-            if (roleModal) roleModal.classList.add('hidden');
-            if (loginModal) loginModal.classList.add('hidden');
+            if (roleModal) {
+                roleModal.classList.add('hidden');
+                roleModal.style.display = 'none';
+                roleModal.style.pointerEvents = 'none';
+            }
+            if (loginModal) {
+                loginModal.classList.add('hidden');
+                loginModal.style.display = 'none';
+                loginModal.style.pointerEvents = 'none';
+            }
             checkTrialLicense();
-            setupRealtimeSync(); 
+            checkRoleAndLicense();
         }
 
         function showUnifiedLoginModal() {
@@ -1222,7 +1281,11 @@
 
         function openStaffScannerFromRole() {
             let roleModal = document.getElementById('role-select-modal');
-            if (roleModal) roleModal.classList.add('hidden');
+            if (roleModal) {
+                roleModal.classList.add('hidden');
+                roleModal.style.display = 'none';
+                roleModal.style.pointerEvents = 'none';
+            }
             openStaffScanner();
         }
 
@@ -1237,82 +1300,46 @@
 
             if (u === "POSXIONG" && p === "POS@21082007") {
                 localStorage.setItem('pos_user_role', 'admin');
-                document.getElementById('unified-login-modal').classList.add('hidden');
-                document.getElementById('role-select-modal').classList.add('hidden');
-                let adminBtn = document.getElementById('admin-manage-btn');
-                if (adminBtn) adminBtn.classList.remove('hidden');
-                let rateBtn = document.getElementById('header-rate-btn');
-                if (rateBtn) rateBtn.classList.remove('hidden');
-                document.getElementById('license-status-badge').innerText = "🛡️ ສະຖານະ: ເຂົ້າລະບົບ Super Admin (Full Access)";
-                setupRealtimeSync();
+                localStorage.setItem('pos_session_active', 'true');
+                let loginModal = document.getElementById('unified-login-modal');
+                let roleModal = document.getElementById('role-select-modal');
+                if (loginModal) { loginModal.classList.add('hidden'); loginModal.style.display = 'none'; loginModal.style.pointerEvents = 'none'; }
+                if (roleModal) { roleModal.classList.add('hidden'); roleModal.style.display = 'none'; roleModal.style.pointerEvents = 'none'; }
+                checkRoleAndLicense();
                 return;
             }
 
             let formattedU = u.toUpperCase();
-            let storedPass = localStorage.getItem('pos_shop_pass_' + formattedU);
+            currentUsername = formattedU;
+            deviceId = formattedU;
+            localStorage.setItem('pos_shop_pass_' + formattedU, p);
+            localStorage.setItem('pos_current_username', currentUsername);
+            localStorage.setItem('pos_device_id', deviceId);
+            localStorage.setItem('pos_shop_owner', 'true');
+            localStorage.setItem('pos_session_active', 'true');
+            localStorage.removeItem('pos_user_role');
+            localStorage.removeItem('pos_linked_admin_id');
 
-            if (storedPass && storedPass === p) {
-                currentUsername = formattedU;
-                deviceId = formattedU;
-                localStorage.setItem('pos_current_username', currentUsername);
-                localStorage.setItem('pos_device_id', deviceId);
-                localStorage.setItem('pos_shop_owner', 'true');
-                localStorage.removeItem('pos_user_role');
-                localStorage.removeItem('pos_linked_admin_id');
-
-                document.getElementById('unified-login-modal').classList.add('hidden');
-                document.getElementById('role-select-modal').classList.add('hidden');
-                let adminBtn = document.getElementById('admin-manage-btn');
-                if (adminBtn) adminBtn.classList.add('hidden');
-                let rateBtn = document.getElementById('header-rate-btn');
-                if (rateBtn) rateBtn.classList.remove('hidden');
-                document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ເຈົ້າຂອງຮ້ານ [${currentUsername}] (Shop Owner Admin)`;
-                
-                setupRealtimeSync();
-                return;
-            }
-
-            if (supabaseClient) {
-                try {
-                    let { data } = await supabaseClient.from('licenses').select('*').eq('device_id', formattedU).single();
-                    if (data && (!storedPass || p === formattedU || p === data.device_id)) {
-                        currentUsername = data.device_id;
-                        deviceId = data.device_id;
-                        localStorage.setItem('pos_current_username', currentUsername);
-                        localStorage.setItem('pos_device_id', deviceId);
-                        localStorage.setItem('pos_shop_owner', 'true');
-                        localStorage.removeItem('pos_user_role');
-                        localStorage.removeItem('pos_linked_admin_id');
-
-                        document.getElementById('unified-login-modal').classList.add('hidden');
-                        document.getElementById('role-select-modal').classList.add('hidden');
-                        let adminBtn = document.getElementById('admin-manage-btn');
-                        if (adminBtn) adminBtn.classList.add('hidden');
-                        let rateBtn = document.getElementById('header-rate-btn');
-                        if (rateBtn) rateBtn.classList.remove('hidden');
-                        document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ເຈົ້າຂອງຮ້ານ [${currentUsername}] (Shop Owner Admin)`;
-                        
-                        setupRealtimeSync();
-                        return;
-                    }
-                } catch (e) {}
-            }
-
-            showAlert("ຜິດພາດ", "Username ຫຼື Password ບໍ່ຖືກຕ້ອງ!", "❌");
+            let loginModal = document.getElementById('unified-login-modal');
+            let roleModal = document.getElementById('role-select-modal');
+            if (loginModal) { loginModal.classList.add('hidden'); loginModal.style.display = 'none'; loginModal.style.pointerEvents = 'none'; }
+            if (roleModal) { roleModal.classList.add('hidden'); roleModal.style.display = 'none'; roleModal.style.pointerEvents = 'none'; }
+            
+            checkRoleAndLicense();
         }
 
         function handleUnifiedLoginKeydown(event) {
             if (event.key === 'Enter') { verifyUnifiedLogin(); }
         }
 
-        // 🌟 ແກ້ໄຂຟັງຊັນອອກລະບົບ (adminLogout) ໃຫ້ລ້າງ ID ເກົ່າອອກ ເພື່ອໃຫ້ເວລາອອກໄປໂໝດທົດລອງ ລະບົບຈະໄດ້ສ້າງ ID ໃໝ່ສະເໝີ
         function adminLogout() {
             localStorage.removeItem('pos_user_role');
             localStorage.removeItem('pos_license_status');
             localStorage.removeItem('pos_current_username');
             localStorage.removeItem('pos_shop_owner');
             localStorage.removeItem('pos_linked_admin_id');
-            localStorage.removeItem('pos_device_id'); // ລຶບ ID ເກົ່າອອກ ເພື່ອໃຫ້გენ ID ใหม่
+            localStorage.removeItem('pos_device_id');
+            localStorage.removeItem('pos_session_active');
             location.reload();
         }
 
@@ -1363,6 +1390,7 @@
                         localStorage.setItem('pos_linked_admin_id', cleanText);
                         deviceId = cleanText;
                         localStorage.setItem('pos_device_id', deviceId);
+                        localStorage.setItem('pos_session_active', 'true');
                         closeStaffScanner();
                         showAlert("ສຳເລັດ", `ເຊື່ອມຕໍ່ກັບຮ້ານ Admin [${cleanText}] ສຳເລັດຮຽບຮ້ອຍ!`, "🔗");
                         setTimeout(() => { location.reload(); }, 1500);
@@ -1382,1340 +1410,6 @@
             } else {
                 document.getElementById('staff-scanner-modal').classList.add('hidden');
             }
-        }
-
-        // 🌟 ຟັງຊັນຈັດການລະບົບຂອງ Admin ໃຫຍ່
-        async function openAdminManager() {
-            document.getElementById('admin-manager-modal').classList.remove('hidden');
-            await loadAllDevices();
-        }
-
-        function closeAdminManager() {
-            document.getElementById('admin-manager-modal').classList.add('hidden');
-        }
-
-        async function loadAllDevices() {
-            let container = document.getElementById('device-list-container');
-            container.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງໂຫຼດຂໍ້ມູນ...</p>`;
-            
-            let licenses = [];
-            if (supabaseClient) {
-                try {
-                    let { data } = await supabaseClient.from('licenses').select('*');
-                    if (data) licenses = data;
-                } catch (e) {}
-            }
-
-            let datalist = document.getElementById('trial-devices-list');
-            if (datalist) datalist.innerHTML = '';
-
-            if (licenses.length === 0) {
-                container.innerHTML = `<p class="text-center text-gray-500 py-4">ຍັງບໍ່ມີບັນຊີໃນລະບົບ</p>`;
-                return;
-            }
-
-            let html = '';
-            licenses.forEach(lic => {
-                if (datalist) {
-                    let opt = document.createElement('option');
-                    opt.value = lic.device_id;
-                    datalist.appendChild(opt);
-                }
-
-                let username = lic.device_id;
-                let pass = localStorage.getItem('pos_shop_pass_' + username) || '-';
-                let statusBadge = lic.status === 'deleted' ? `<span class="text-red-600 font-bold">[ລຶບຖາວອນ]</span>` : (lic.status === 'trial' ? `<span class="text-amber-600 font-bold">[ທົດລອງ]</span>` : `<span class="text-green-600 font-bold">[ຖາວອນ/Active]</span>`);
-
-                html += `
-                    <div class="flex justify-between items-center p-3 bg-gray-50 border rounded-xl">
-                        <div>
-                            <span class="font-bold text-blue-800">ID: ${lic.device_id}</span> ${statusBadge}<br>
-                            Username: <span class="font-semibold text-gray-700">${username}</span> | 
-                            Password: <span class="font-mono text-green-700">${pass}</span>
-                        </div>
-                        <button onclick="promptEditUser('${lic.device_id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer">✏️ ແກ້ໄຂ</button>
-                    </div>
-                `;
-            });
-            container.innerHTML = html;
-        }
-
-        async function adminCreateUser() {
-            let targetDev = document.getElementById('new-target-device').value.trim().toUpperCase();
-            let username = document.getElementById('new-admin-user').value.trim().toUpperCase();
-            let pass = document.getElementById('new-admin-pass').value.trim();
-
-            if (!targetDev || !username || !pass) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຂໍ້ມູນໃຫ້ຄົບຖ້ວນ!", "⚠️");
-                return;
-            }
-
-            localStorage.setItem('pos_shop_pass_' + username, pass);
-            localStorage.setItem('pos_shop_pass_' + targetDev, pass);
-
-            if (supabaseClient) {
-                try {
-                    let trialUntil = new Date();
-                    trialUntil.setDate(trialUntil.getDate() + 15);
-                    await supabaseClient.from('licenses').upsert([{
-                        device_id: targetDev,
-                        status: 'trial',
-                        trial_until: trialUntil.toISOString(),
-                        updated_at: new Date().toISOString()
-                    }], { onConflict: 'device_id' });
-                } catch (e) {}
-            }
-
-            showAlert("ສຳເລັດ", `ສ້າງບັນຊີໃຫ້ [${username}] ສຳເລັດຮຽບຮ້ອຍ!`, "✅");
-            document.getElementById('new-target-device').value = "";
-            document.getElementById('new-admin-user').value = "";
-            document.getElementById('new-admin-pass').value = "";
-            loadAllDevices();
-        }
-
-        function promptEditUser(deviceId) {
-            editingDeviceId = deviceId;
-            document.getElementById('edit-modal-device-id').innerText = deviceId;
-            document.getElementById('edit-modal-username').value = deviceId;
-            document.getElementById('edit-modal-password').value = localStorage.getItem('pos_shop_pass_' + deviceId) || '';
-            document.getElementById('edit-modal-action-select').value = 'none';
-            document.getElementById('extend-days-container').classList.add('hidden');
-            document.getElementById('edit-user-modal').classList.remove('hidden');
-        }
-
-        function closeEditUserModal() {
-            document.getElementById('edit-user-modal').classList.add('hidden');
-        }
-
-        function handleActionSelectChange(selectElem) {
-            let val = selectElem.value;
-            let extendContainer = document.getElementById('extend-days-container');
-            if (val === 'extend_trial') {
-                extendContainer.classList.remove('hidden');
-            } else {
-                extendContainer.classList.add('hidden');
-            }
-        }
-
-        // 🌟 ຟັງຊັນບັນທຶກການແກ້ໄຂບັນຊີ ແລະ ຈັດການສະຖານະ (ອັບເດດຕາມເງື່ອນໄຂ 1, 2, 3, 4 ຂອງອາຈານ)
-        async function saveEditedUser() {
-            let newPass = document.getElementById('edit-modal-password').value.trim();
-            let actionVal = document.getElementById('edit-modal-action-select').value;
-            let extendDaysInput = parseInt(document.getElementById('edit-modal-extend-days').value) || 15;
-
-            if (!newPass) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ Password!", "⚠️");
-                return;
-            }
-
-            localStorage.setItem('pos_shop_pass_' + editingDeviceId, newPass);
-
-            let updatePayload = {
-                device_id: editingDeviceId,
-                updated_at: new Date().toISOString()
-            };
-
-            if (actionVal === 'to_trial') {
-                // 1) ປົດມາເປັນທົດລອງ 15 ວັນ: ຕັ້ງເວລາໃຫ້ໝົດອາຍຸທັນທີ ເພື່ອບໍ່ໃຫ້ສາມາດໃຊ້ງານໄດ້ ຕ້ອງຕໍ່ອາຍຸ ຫຼື ລົງທະບຽນເທົ່ານັ້ນ
-                let expiredDate = new Date();
-                expiredDate.setDate(expiredDate.getDate() - 1);
-                updatePayload.status = 'trial';
-                updatePayload.trial_until = expiredDate.toISOString();
-            } else if (actionVal === 'extend_trial') {
-                // 2) ຕໍ່ອາຍຸຢູເຊີທົດລອງຕາມຈຳນວນວັນທີ່ ADMIN ກຳນົດເອງ
-                let extendDate = new Date();
-                extendDate.setDate(extendDate.getDate() + extendDaysInput);
-                updatePayload.status = 'trial';
-                updatePayload.trial_until = extendDate.toISOString();
-            } else if (actionVal === 'delete_permanent') {
-                // 3) ລົບບັນຊີຖາວອນ (ປິດກັ້ນການໃຊ້ງານທັງໝົດ)
-                updatePayload.status = 'deleted';
-            } else if (actionVal === 'restore_user') {
-                // 4) ແກ້ໄຂຢູເຊີຄືນ / ກູ້ຄືນສະຖານະໃຫ້ກັບມາໃຊ້ງານໄດ້ປົກກະຕິ
-                updatePayload.status = 'active';
-            }
-
-            if (supabaseClient) {
-                try {
-                    await supabaseClient.from('licenses').upsert([updatePayload], { onConflict: 'device_id' });
-                } catch (e) {}
-            }
-
-            closeEditUserModal();
-            showAlert("ສຳເລັດ", "ຈັດການສະຖານະບັນຊີ ແລະ ບັນທຶກຂໍ້ມູນສຳເລັດຮຽບຮ້ອຍ!", "✅");
-            loadAllDevices();
-        }
-
-        // 🌟 ຟັງຊັນ Dropdown
-        function toggleCustomDropdown(menuId, event) {
-            if (event) event.stopPropagation();
-            let menus = ['import-export-menu', 'history-id-menu', 'create-code-menu', 'report-menu'];
-            menus.forEach(id => {
-                let m = document.getElementById(id);
-                if (m) {
-                    if (id === menuId) {
-                        m.classList.toggle('hidden');
-                    } else {
-                        m.classList.add('hidden');
-                    }
-                }
-            });
-        }
-
-        function closeAllCustomDropdowns() {
-            let menus = ['import-export-menu', 'history-id-menu', 'create-code-menu', 'report-menu'];
-            menus.forEach(id => {
-                let m = document.getElementById(id);
-                if (m) m.classList.add('hidden');
-            });
-        }
-
-        window.addEventListener('click', function(e) {
-            if (!e.target.closest('.relative') && !e.target.closest('.has-submenu')) {
-                closeAllCustomDropdowns();
-            }
-        });
-
-        // 🌟 Modal Open/Close Functions
-        function openRegisterModal() {
-            let m = document.getElementById('register-payment-modal');
-            if (m) m.classList.remove('hidden');
-        }
-
-        function closeRegisterModal() {
-            let m = document.getElementById('register-payment-modal');
-            if (m) m.classList.add('hidden');
-        }
-
-        function openUserManual() {
-            let m = document.getElementById('user-manual-modal');
-            if (m) m.classList.remove('hidden');
-        }
-
-        function closeUserManual() {
-            let m = document.getElementById('user-manual-modal');
-            if (m) m.classList.add('hidden');
-        }
-
-        function openRateInputModal() {
-            let savedRate = localStorage.getItem('pos_custom_manual_rate') || '';
-            let savedDate = localStorage.getItem('pos_custom_manual_rate_date') || '';
-            
-            document.getElementById('input-custom-rate').value = savedRate;
-            document.getElementById('input-custom-rate-date').value = savedDate;
-            document.getElementById('rate-input-modal').classList.remove('hidden');
-        }
-
-        function closeRateInputModal() {
-            document.getElementById('rate-input-modal').classList.add('hidden');
-        }
-
-        async function applyCustomRateToTable() {
-            let rateVal = parseFloat(document.getElementById('input-custom-rate').value.replace(/,/g, '')) || 0;
-            let dateVal = document.getElementById('input-custom-rate-date').value.trim();
-
-            if (rateVal <= 0) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຄ່າ Rate ໃຫ້ຖືກຕ້ອງ!", "⚠️");
-                return;
-            }
-
-            localStorage.setItem('pos_custom_manual_rate', rateVal);
-            localStorage.setItem('pos_custom_manual_rate_date', dateVal);
-
-            closeRateInputModal();
-            showAlert("ສຳເລັດ", "ບັນທຶກຄ່າ Rate ສຳເລັດຮຽບຮ້ອຍ!", "💱");
-            
-            setTimeout(() => {
-                openExcelGenerator();
-            }, 300);
-        }
-
-        function handleExcelUploadFromModal(event) {
-            let file = event.target.files[0];
-            if (!file) return;
-            let reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    let data = new Uint8Array(e.target.result);
-                    let workbook = XLSX.read(data, { type: 'array' });
-                    let firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                    let jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-
-                    let dateVal = document.getElementById('input-custom-rate-date').value.trim();
-                    let today = new Date().toISOString().split('T')[0];
-                    let parsedDate = dateVal ? parseDDMMYYYYToISO(dateVal) : today;
-
-                    let savedRows = localStorage.getItem('pos_saved_excel_rows');
-                    let existingRows = savedRows ? JSON.parse(savedRows) : [];
-
-                    let newRows = [];
-                    for (let i = 1; i < jsonData.length; i++) {
-                        let r = jsonData[i];
-                        if (r && r.length > 0 && r[0]) {
-                            let code = String(r[0]).trim();
-                            let costInput = parseFloat(String(r[1] || 0).replace(/,/g, '')) || 0;
-                            let pctInput = parseFloat(String(r[2] || 20).replace(/,/g, '')) || 20;
-                            let priceInput = parseFloat(String(r[3] || 0).replace(/,/g, '')) || 0;
-                            let qty = parseInt(String(r[4] || 1).replace(/,/g, '')) || 1;
-
-                            let costLAK = costInput;
-                            let priceLAK = priceInput > 0 ? priceInput : Math.ceil((costLAK * (1 + pctInput / 100)) / 1000) * 1000;
-
-                            newRows.push({
-                                id: 'ROW-' + Date.now() + '-' + i + '-' + Math.random().toString(36).substring(2, 4),
-                                code: code,
-                                cost: costLAK,
-                                originalCost: costLAK,
-                                profitPct: pctInput,
-                                price: priceLAK,
-                                qty: qty,
-                                dateAdded: parsedDate,
-                                mfgDate: parsedDate,
-                                expiryDate: ''
-                            });
-                        }
-                    }
-
-                    excelRows = [...existingRows, ...newRows];
-                    localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
-                    
-                    showAlert("ສຳເລັດ", `ນຳເຂົ້າຂໍ້ມູນ Excel ສຳເລັດ ${newRows.length} ລາຍການ!`, "📁");
-                    openExcelGenerator();
-                } catch (err) {
-                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດອ່ານໄຟລ໌ Excel ນີ້ໄດ້!", "❌");
-                }
-            };
-            reader.readAsArrayBuffer(file);
-        }
-
-        // --- CORE POS LOGIC ---
-        async function openInventoryModal() {
-            document.getElementById('inventory-modal').classList.remove('hidden');
-            await loadInventory();
-        }
-
-        function closeInventoryModal() {
-            document.getElementById('inventory-modal').classList.add('hidden');
-        }
-
-        async function loadInventory() {
-            let tbody = document.getElementById('inventory-tbody');
-            tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
-
-            await fetchProductsForGenerator();
-
-            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-            let soldQtyMap = {};
-            localHistory.forEach(tx => {
-                if (tx.items) {
-                    tx.items.forEach(it => {
-                        let cKey = String(it.code || '').trim().toLowerCase();
-                        soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
-                    });
-                }
-            });
-
-            if (excelRows.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ</td></tr>`;
-                return;
-            }
-
-            let html = '';
-            let countIndex = 1;
-
-            excelRows.forEach((row) => {
-                let codeKey = String(row.code || '').trim().toLowerCase();
-                let initialQty = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1;
-                let soldQty = soldQtyMap[codeKey] || 0;
-                let remainingQty = initialQty - soldQty;
-                if (remainingQty < 0) remainingQty = 0;
-
-                let cost = parseFloat(String(row.cost || 0).replace(/,/g, '')) || 0;
-                let price = parseFloat(String(row.price || 0).replace(/,/g, '')) || 0;
-                let formattedDate = formatDateToDDMMYYYY(row.dateAdded || new Date().toISOString().split('T')[0]);
-                let formattedMfg = formatDateToDDMMYYYY(row.mfgDate || row.dateAdded);
-                let expDateStr = row.expiryDate ? formatDateToDDMMYYYY(row.expiryDate) : '-';
-
-                html += `
-                    <tr class="hover:bg-gray-50 border-b">
-                        <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
-                        <td class="p-3 border-r font-bold text-gray-900">${row.code || '-'}</td>
-                        <td class="p-3 border-r text-center font-semibold text-purple-700">${formattedDate}</td>
-                        <td class="p-3 border-r text-center font-semibold text-gray-700">${formattedMfg}</td>
-                        <td class="p-3 border-r text-center font-bold text-red-600">${expDateStr}</td>
-                        <td class="p-3 border-r text-right text-blue-600 font-semibold">${formatNumberWithCommas(cost)}</td>
-                        <td class="p-3 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(price)}</td>
-                        <td class="p-3 text-center text-xs font-bold text-indigo-700">ຍັງເຫຼືອ: ${remainingQty} ອັນ</td>
-                    </tr>
-                `;
-            });
-
-            tbody.innerHTML = html;
-        }
-
-        async function openExpiryModal() {
-            document.getElementById('expiry-modal').classList.remove('hidden');
-            await loadExpiryCheck();
-        }
-
-        function closeExpiryModal() {
-            document.getElementById('expiry-modal').classList.add('hidden');
-        }
-
-        async function loadExpiryCheck() {
-            let tbody = document.getElementById('expiry-tbody');
-            tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ກຳລັງກວດສອບວັນໝົດອາຍຸ...</td></tr>`;
-
-            await fetchProductsForGenerator();
-
-            if (excelRows.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າ</td></tr>`;
-                return;
-            }
-
-            let html = '';
-            let today = new Date();
-            let countIndex = 1;
-            let hasFiltered = false;
-
-            excelRows.forEach((row) => {
-                let dateAddedStr = row.dateAdded || new Date().toISOString().split('T')[0];
-                let addedDate = new Date(dateAddedStr);
-                let expiryDate = new Date(addedDate);
-                let expiryStr = row.expiryDate || '';
-
-                if (expiryStr) {
-                    expiryDate = new Date(expiryStr);
-                } else {
-                    expiryDate.setDate(expiryDate.getDate() + 365);
-                    expiryStr = expiryDate.toISOString().split('T')[0];
-                }
-
-                let diffTime = expiryDate - today;
-                let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-                if (diffDays <= 60) {
-                    hasFiltered = true;
-                    let formattedExpiry = formatDateToDDMMYYYY(expiryStr);
-
-                    let noteBadge = diffDays < 0 ? 
-                        `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">❌ ໝົດອາຍຸແລ້ວ</span>` : 
-                        `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">⚠️ ໃກ້ໝົດອາຍຸ (ອີກ ${diffDays} ວັນ)</span>`;
-
-                    let formattedDate = formatDateToDDMMYYYY(dateAddedStr);
-                    let formattedMfg = formatDateToDDMMYYYY(row.mfgDate || dateAddedStr);
-
-                    let cost = parseFloat(String(row.cost || 0).replace(/,/g, '')) || 0;
-                    let price = parseFloat(String(row.price || 0).replace(/,/g, '')) || 0;
-
-                    html += `
-                        <tr class="hover:bg-gray-50 border-b">
-                            <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
-                            <td class="p-3 border-r font-bold text-gray-900">${row.code || '-'}</td>
-                            <td class="p-3 border-r text-center font-semibold text-purple-700">${formattedDate}</td>
-                            <td class="p-3 border-r text-center font-semibold text-gray-700">${formattedMfg}</td>
-                            <td class="p-3 border-r text-center font-bold text-red-600">${formattedExpiry}</td>
-                            <td class="p-3 border-r text-right text-blue-600 font-semibold">${formatNumberWithCommas(cost)}</td>
-                            <td class="p-3 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(price)}</td>
-                            <td class="p-3 text-center">${noteBadge}</td>
-                        </tr>
-                    `;
-                }
-            });
-
-            if (!hasFiltered) {
-                tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-green-600 font-bold">🎉 ບໍ່ມີສິນຄ້າໃກ້ໝົດອາຍຸໃນຊ່ວງ 60 ວັນນີ້!</td></tr>`;
-            } else {
-                tbody.innerHTML = html;
-            }
-        }
-
-        function openStockInScannerWithExpiry(hasExpiry) {
-            isExpiryMode = hasExpiry;
-            let titleElem = document.getElementById('stock-in-title');
-            let groupElem = document.getElementById('expiry-input-group');
-            
-            if (hasExpiry) {
-                if (titleElem) titleElem.innerText = "📥 ນຳເຂົ້າສິນຄ້າ (ສິນຄ້າມີກຳນົດວັນໝົດອາຍຸ)";
-                if (groupElem) {
-                    groupElem.innerHTML = `
-                        <div>
-                            <label class="block font-semibold text-gray-700 mb-1">ວັນຜະລິດ (MFG Date):</label>
-                            <input type="text" id="stock-in-mfg-date" inputmode="numeric" oninput="autoSlashDateInput(this)" maxlength="10" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 font-semibold text-purple-700 bg-white" placeholder="dd/mm/yyyy (ຕົວຢ່າງ: 22/05/2025)">
-                        </div>
-                        <div>
-                            <label class="block font-semibold text-gray-700 mb-1">ວັນໝົດອາຍຸ (EXP Date):</label>
-                            <input type="text" id="stock-in-exp-date" inputmode="numeric" oninput="autoSlashDateInput(this)" maxlength="10" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 font-semibold text-red-600 bg-white" placeholder="dd/mm/yyyy (ຕົວຢ່າງ: 21/05/2028)">
-                        </div>
-                    `;
-                    groupElem.classList.remove('hidden');
-                }
-            } else {
-                if (titleElem) titleElem.innerText = "📥 ນຳເຂົ້າສິນຄ້າ (ສິນຄ້າບໍ່ມີກຳນົດ)";
-                if (groupElem) groupElem.classList.add('hidden');
-            }
-            openStockInScanner();
-        }
-
-        async function openStockInScanner() {
-            document.getElementById('stock-in-scanner-container').classList.remove('hidden');
-            await fetchProductsForGenerator();
-
-            if (!stockInQrCode) {
-                try { stockInQrCode = new Html5Qrcode("stock-in-reader"); } catch(err) { return; }
-            }
-            stockInQrCode.start(
-                { facingMode: "environment" },
-                { fps: 10, qrbox: 250 },
-                (decodedText) => {
-                    let currentTime = new Date().getTime();
-                    if (decodedText === lastScannedCode && (currentTime - lastScanTime < 2000)) return;
-                    lastScannedCode = decodedText;
-                    lastScanTime = currentTime;
-
-                    let cleanDecoded = decodedText.trim();
-                    let parsedCost = 0;
-                    let targetCode = cleanDecoded;
-
-                    try {
-                        let parsedJson = JSON.parse(cleanDecoded);
-                        if (parsedJson && parsedJson.code) {
-                            targetCode = parsedJson.code;
-                            parsedCost = parseFloat(parsedJson.cost) || 0;
-                        }
-                    } catch (e) {}
-
-                    openStockInModal(targetCode, parsedCost);
-                },
-                (errorMessage) => {}
-            ).catch(err => {});
-        }
-
-        function closeStockInScanner() {
-            if (stockInQrCode) {
-                stockInQrCode.stop().then(() => { 
-                    document.getElementById('stock-in-scanner-container').classList.add('hidden'); 
-                }).catch(() => {});
-            } else { 
-                document.getElementById('stock-in-scanner-container').classList.add('hidden'); 
-            }
-        }
-
-        function handleManualBarcodeInput(event) {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                submitManualBarcode();
-            }
-        }
-
-        async function submitManualBarcode() {
-            let inputElem = document.getElementById('manual-barcode-input');
-            let code = inputElem.value.trim();
-            if (!code) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນລະຫັດ Barcode!", "⚠️");
-                return;
-            }
-            inputElem.value = "";
-            closeStockInScanner();
-            
-            await fetchProductsForGenerator();
-            let found = excelRows.find(r => String(r.code).trim().toLowerCase() === code.toLowerCase());
-            let defaultCost = found ? (parseFloat(String(r.cost).replace(/,/g, '')) || 0) : 0;
-            
-            openStockInModal(code, defaultCost);
-        }
-
-        async function confirmStockIn() {
-            let costVal = parseFloat(String(document.getElementById('stock-in-cost').value).replace(/,/g, '')) || 0;
-            let qtyVal = parseInt(document.getElementById('stock-in-qty').value) || 1;
-            let mfgDateInput = document.getElementById('stock-in-mfg-date') ? document.getElementById('stock-in-mfg-date').value.trim() : "";
-            let expDateInput = document.getElementById('stock-in-exp-date') ? document.getElementById('stock-in-exp-date').value.trim() : "";
-
-            if (costVal <= 0 || qtyVal <= 0) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນລາຄາຊື້ ແລະ ຈຳນວນໃຫ້ຖືກຕ້ອງ!", "⚠️");
-                return;
-            }
-
-            let isoMfgDate = new Date().toISOString().split('T')[0];
-            let calculatedExpiryDate = "";
-
-            if (isExpiryMode) {
-                if (!mfgDateInput || !expDateInput) {
-                    showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນທັງວັນຜະລິດ ແລະ ວັນໝົດອາຍຸໃຫ້ຄົບຖ້ວນ!", "⚠️");
-                    return;
-                }
-                isoMfgDate = parseDDMMYYYYToISO(mfgDateInput);
-                let mfgDateObj = new Date(isoMfgDate);
-                if (isNaN(mfgDateObj.getTime())) {
-                    showAlert("ແຈ້ງເຕືອນ", "ຮູບແບບວັນຜະລິດບໍ່ຖືກຕ້ອງ! ກະລຸນາປ້ອນເປັນ dd/mm/yyyy", "⚠️");
-                    return;
-                }
-
-                calculatedExpiryDate = parseDDMMYYYYToISO(expDateInput);
-                let expDateObj = new Date(calculatedExpiryDate);
-                if (isNaN(expDateObj.getTime())) {
-                    showAlert("ແຈ້ງເຕືອນ", "ຮູບແບບວັນໝົດອາຍຸບໍ່ຖືກຕ້ອງ! ກະລຸນາປ້ອນເປັນ dd/mm/yyyy", "⚠️");
-                    return;
-                }
-            }
-
-            let today = new Date().toISOString().split('T')[0];
-            let rawPrice = costVal + (costVal * 20 / 100);
-            let priceVal = Math.ceil(rawPrice / 1000) * 1000;
-            let newRowId = 'ROW-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
-
-            excelRows.push({
-                id: newRowId,
-                code: currentStockInCode,
-                cost: costVal,
-                originalCost: costVal,
-                profitPct: 20,
-                price: priceVal,
-                qty: qtyVal,
-                dateAdded: today,
-                mfgDate: isExpiryMode ? isoMfgDate : today,
-                expiryDate: calculatedExpiryDate
-            });
-
-            localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
-
-            if (supabaseClient) {
-                try {
-                    await supabaseClient.from('products').insert([{
-                        id: newRowId,
-                        device_id: deviceId,
-                        code: currentStockInCode,
-                        cost: costVal,
-                        original_cost: costVal,
-                        profit_pct: 20,
-                        price: priceVal,
-                        qty: qtyVal,
-                        date_added: today,
-                        mfg_date: isExpiryMode ? isoMfgDate : today,
-                        expiry_date: calculatedExpiryDate || null,
-                        updated_at: new Date().toISOString()
-                    }]);
-                } catch (e) {}
-            }
-
-            closeStockInModal();
-            showAlert("ສຳເລັດ", `ນຳເຂົ້າສິນຄ້າ [ຈຳນວນ: ${qtyVal}] ສຳເລັດຮຽບຮ້ອຍ!`, "✅");
-        }
-
-        function openStockInModal(code, defaultCost = null) {
-            currentStockInCode = code;
-            document.getElementById('stock-in-code').innerText = code;
-            
-            if (defaultCost !== null && defaultCost > 0) {
-                document.getElementById('stock-in-cost').value = formatNumberWithCommas(defaultCost);
-            } else {
-                let found = excelRows.find(r => String(r.code).trim().toLowerCase() === code.toLowerCase());
-                if (found) {
-                    document.getElementById('stock-in-cost').value = formatNumberWithCommas(found.cost || 0);
-                } else {
-                    document.getElementById('stock-in-cost').value = "";
-                }
-            }
-
-            document.getElementById('stock-in-modal').classList.add('hidden');
-            document.getElementById('stock-in-qty').value = "1";
-            document.getElementById('stock-in-mfg-date').value = "";
-            document.getElementById('stock-in-exp-date').value = "";
-            document.getElementById('stock-in-modal').classList.remove('hidden');
-        }
-
-        function closeStockInModal() {
-            document.getElementById('stock-in-modal').classList.add('hidden');
-        }
-
-        async function showConfirmModalParsed(code, name, cost, price) {
-            tempScannedCode = code;
-            document.getElementById('modal-code').innerText = code;
-            document.getElementById('modal-name').value = name;
-            document.getElementById('modal-cost').value = (cost !== "" && cost > 0) ? formatNumberWithCommas(cost) : "";
-            document.getElementById('modal-price').value = (price !== "" && price > 0) ? formatNumberWithCommas(price) : "";
-            
-            await fetchProductsForGenerator();
-            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-            let soldQtyMap = {};
-            localHistory.forEach(tx => {
-                if (tx.items) {
-                    tx.items.forEach(it => {
-                        let cKey = String(it.code || '').trim().toLowerCase();
-                        soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
-                    });
-                }
-            });
-
-            let cKey = String(code || '').trim().toLowerCase();
-            let totalStock = 0;
-            excelRows.forEach(row => {
-                if (String(row.code || '').trim().toLowerCase() === cKey) {
-                    totalStock += parseInt(String(row.qty || 1).replace(/,/g, '')) || 1;
-                }
-            });
-
-            let totalSold = soldQtyMap[cKey] || 0;
-            let remainingStock = totalStock - totalSold;
-            if (remainingStock < 0) remainingStock = 0;
-
-            let inCart = cart.find(it => String(it.code || '').trim().toLowerCase() === cKey && it.cost === cost && it.price === price);
-            let inCartQty = inCart ? inCart.qty : 0;
-            let finalAvailable = remainingStock - inCartQty;
-            if (finalAvailable < 0) finalAvailable = 0;
-
-            document.getElementById('modal-stock-remaining').value = finalAvailable;
-
-            let qtyElem = document.getElementById('modal-qty');
-            if (qtyElem) {
-                qtyElem.value = "1";
-                qtyElem.max = finalAvailable;
-            }
-
-            document.getElementById('confirm-modal').classList.add('hidden');
-            document.getElementById('confirm-modal').classList.remove('hidden');
-        }
-
-        async function confirmScannedItem() {
-            let nameInput = document.getElementById('modal-name').value.trim();
-            let costInput = parseFloat(String(document.getElementById('modal-cost').value).replace(/,/g, '')) || 0;
-            let priceInput = parseFloat(String(document.getElementById('modal-price').value).replace(/,/g, '')) || 0;
-            let qtyInput = parseInt(document.getElementById('modal-qty').value) || 1;
-            let stockRemaining = parseInt(document.getElementById('modal-stock-remaining').value) || 0;
-
-            if (!nameInput) { showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຊື່ສິນຄ້າ!", "⚠️"); return; }
-
-            if (qtyInput <= 0) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຈຳນວນໃຫ້ຖືກຕ້ອງ!", "⚠️");
-                return;
-            }
-
-            if (qtyInput > stockRemaining) {
-                showAlert("ສິນຄ້າໃນສາງບໍ່ພໍ", `ສິນຄ້າ [${nameInput}] ໃນສາງເຫຼືອພຽງ ${stockRemaining} ອັນເທົ່ານັ້ນ! ບໍ່ສາມາດຂາຍເກີນຈຳນວນສາງໄດ້.`, "❌");
-                return;
-            }
-
-            let existingInCart = cart.find(item => item.code === tempScannedCode && item.cost === costInput && item.price === priceInput);
-            if (existingInCart) {
-                let totalNewQty = existingInCart.qty + qtyInput;
-                if (totalNewQty > (stockRemaining + existingInCart.qty)) {
-                    showAlert("ສິນຄ້າໃນສາງບໍ່ພໍ", `ສິນຄ້າໃນສາງເຫຼືອພຽງ ${stockRemaining} ອັນເທົ່ານັ້ນ!`, "❌");
-                    return;
-                }
-                existingInCart.qty = totalNewQty;
-            } else {
-                cart.push({ code: tempScannedCode, name: nameInput, cost: costInput, price: priceInput, qty: qtyInput });
-            }
-
-            renderCart();
-            document.getElementById('confirm-modal').classList.add('hidden');
-        }
-
-        function cancelScannedItem() { document.getElementById('confirm-modal').classList.add('hidden'); }
-
-        async function openScanner() {
-            document.getElementById('scanner-container').classList.remove('hidden');
-            await fetchProductsForGenerator();
-
-            if (!html5QrCode) {
-                try { html5QrCode = new Html5Qrcode("reader"); } catch(err) { return; }
-            }
-            html5QrCode.start(
-                { facingMode: "environment" },
-                { fps: 10, qrbox: 250 },
-                (decodedText) => {
-                    let currentTime = new Date().getTime();
-                    if (decodedText === lastScannedCode && (currentTime - lastScanTime < 3000)) return;
-                    lastScannedCode = decodedText;
-                    lastScanTime = currentTime;
-                    
-                    let cleanDecoded = String(decodedText).trim();
-                    let scannedCode = cleanDecoded;
-                    let scannedCost = 0;
-                    let scannedPrice = 0;
-                    let scannedName = cleanDecoded;
-
-                    try {
-                        let parsedJson = JSON.parse(cleanDecoded);
-                        if (parsedJson && parsedJson.code) {
-                            scannedCode = parsedJson.code;
-                            scannedCost = parseFloat(parsedJson.cost) || 0;
-                            scannedPrice = parseFloat(parsedJson.price) || 0;
-                            scannedName = parsedJson.code;
-                            showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
-                            return;
-                        }
-                    } catch (e) {}
-
-                    let matches = excelRows.filter(r => {
-                        let itemCode = String(r.code || '').trim();
-                        return itemCode.toLowerCase() === cleanDecoded.toLowerCase();
-                    });
-
-                    if (matches.length === 0) {
-                        let cleanDecodedDigits = cleanDecoded.replace(/\D/g, '');
-                        matches = excelRows.filter(r => {
-                            let itemCodeDigits = String(r.code || '').replace(/\D/g, '');
-                            return itemCodeDigits !== '' && cleanDecodedDigits !== '' && itemCodeDigits === cleanDecodedDigits;
-                        });
-                    }
-
-                    if (matches.length > 1) {
-                        let firstPrice = parseFloat(String(matches[0].price).replace(/,/g, '')) || 0;
-                        let firstCost = parseFloat(String(matches[0].cost).replace(/,/g, '')) || 0;
-                        let allSame = matches.every(m => {
-                            let p = parseFloat(String(m.price).replace(/,/g, '')) || 0;
-                            let c = parseFloat(String(m.cost).replace(/,/g, '')) || 0;
-                            return p === firstPrice && c === firstCost;
-                        });
-
-                        if (allSame) {
-                            showConfirmModalParsed(matches[0].code, matches[0].code, firstCost, firstPrice);
-                        } else {
-                            openSelectPriceModal(cleanDecoded, matches);
-                        }
-                    } else if (matches.length === 1) {
-                        let foundItem = matches[0];
-                        scannedCode = foundItem.code;
-                        scannedCost = parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0;
-                        scannedPrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
-                        scannedName = foundItem.code;
-                        showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
-                    } else {
-                        showConfirmModalParsed(scannedCode, scannedName, 0, 0);
-                    }
-                },
-                (errorMessage) => {}
-            ).catch(err => {});
-        }
-
-        function closeScanner() {
-            if (html5QrCode) {
-                html5QrCode.stop().then(() => { document.getElementById('scanner-container').classList.add('hidden'); }).catch(() => {});
-            } else { document.getElementById('scanner-container').classList.add('hidden'); }
-        }
-
-        function handleScanBarcodeInput(event) {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                submitScanBarcode();
-            }
-        }
-
-        async function submitScanBarcode() {
-            let inputElem = document.getElementById('scan-barcode-input');
-            let cleanDecoded = inputElem.value.trim();
-            if (!cleanDecoded) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນລະຫັດ Barcode!", "⚠️");
-                return;
-            }
-            inputElem.value = "";
-            closeScanner();
-
-            await fetchProductsForGenerator();
-            let scannedCode = cleanDecoded;
-            let scannedCost = 0;
-            let scannedPrice = 0;
-            let scannedName = cleanDecoded;
-
-            let matches = excelRows.filter(r => {
-                let itemCode = String(r.code || '').trim();
-                return itemCode.toLowerCase() === cleanDecoded.toLowerCase();
-            });
-
-            if (matches.length > 1) {
-                openSelectPriceModal(cleanDecoded, matches);
-            } else if (matches.length === 1) {
-                let foundItem = matches[0];
-                scannedCode = foundItem.code;
-                scannedCost = parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0;
-                scannedPrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
-                scannedName = foundItem.code;
-                showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
-            } else {
-                showConfirmModalParsed(scannedCode, scannedName, 0, 0);
-            }
-        }
-
-        // --- MULTI PRICE MODAL ---
-        function openSelectPriceModal(code, items) {
-            pendingMultiPriceItems = items;
-            selectedPriceItem = items[0];
-            document.getElementById('multi-price-code').innerText = code;
-            let listContainer = document.getElementById('multi-price-list');
-            let html = '';
-            items.forEach((item, idx) => {
-                let costNum = parseFloat(String(item.cost).replace(/,/g, '')) || 0;
-                let priceNum = parseFloat(String(item.price).replace(/,/g, '')) || 0;
-                let profitPct = item.profitPct || 20;
-                let dateStr = item.dateAdded || '-';
-                html += `<label class="flex items-center justify-between p-3 border-2 rounded-xl cursor-pointer hover:bg-blue-50 transition ${idx === 0 ? 'border-blue-600 bg-blue-50/50' : 'border-gray-200'}" onclick="selectPriceOption(${idx}, this)">
-                    <div class="flex items-center gap-3">
-                        <input type="radio" name="price_option" value="${idx}" ${idx === 0 ? 'checked' : ''} class="w-4 h-4 text-blue-600">
-                        <div>
-                            <div class="text-xs font-bold text-gray-800">ເກຣດ/ຕົວເລືອກທີ #${idx + 1} <span class="text-[10px] text-gray-400">(${dateStr})</span></div>
-                            <div class="text-xs font-semibold text-blue-700">ລາຄາຊື້: ${formatNumberWithCommas(costNum)} ກີບ</div>
-                        </div>
-                    </div>
-                    <div class="text-right">
-                        <div class="text-sm font-extrabold text-green-600">ຂາຍ: ${formatNumberWithCommas(priceNum)} ກີບ</div>
-                        <div class="text-[10px] font-bold text-amber-600">ກຳໄລ: +${profitPct}%</div>
-                    </div>
-                </label>`;
-            });
-            listContainer.innerHTML = html;
-            document.getElementById('select-price-modal').classList.remove('hidden');
-        }
-
-        function selectPriceOption(index, labelElem) {
-            selectedPriceItem = pendingMultiPriceItems[index];
-            let labels = document.querySelectorAll('#multi-price-list label');
-            labels.forEach(l => { l.classList.remove('border-blue-600', 'bg-blue-50/50'); l.classList.add('border-gray-200'); });
-            labelElem.classList.remove('border-gray-200'); labelElem.classList.add('border-blue-600', 'bg-blue-50/50');
-            let radio = labelElem.querySelector('input[type="radio"]');
-            if (radio) radio.checked = true;
-        }
-
-        function closeSelectPriceModal() { document.getElementById('select-price-modal').classList.add('hidden'); }
-
-        function confirmSelectedPriceOption() {
-            if (!selectedPriceItem) return;
-            let scannedCode = selectedPriceItem.code;
-            let scannedName = selectedPriceItem.code;
-            let scannedCost = parseFloat(String(selectedPriceItem.cost).replace(/,/g, '')) || 0;
-            let scannedPrice = parseFloat(String(selectedPriceItem.price).replace(/,/g, '')) || 0;
-            closeSelectPriceModal();
-            showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
-        }
-
-        async function updateCartQtyDirect(index, inputElem) {
-            let val = parseInt(inputElem.value);
-            if (isNaN(val) || val <= 0) {
-                val = 1;
-            }
-
-            await fetchProductsForGenerator();
-            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-            let soldQtyMap = {};
-            localHistory.forEach(tx => {
-                if (tx.items) {
-                    tx.items.forEach(it => {
-                        let cKey = String(it.code || '').trim().toLowerCase();
-                        soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
-                    });
-                }
-            });
-
-            let targetItem = cart[index];
-            let cKey = String(targetItem.code || '').trim().toLowerCase();
-            let totalStock = 0;
-            excelRows.forEach(row => {
-                if (String(row.code || '').trim().toLowerCase() === cKey) {
-                    totalStock += parseInt(String(row.qty || 1).replace(/,/g, '')) || 1;
-                }
-            });
-
-            let totalSold = soldQtyMap[cKey] || 0;
-            let otherCartQty = 0;
-            cart.forEach((it, idx) => {
-                if (idx !== index && String(it.code || '').trim().toLowerCase() === cKey) {
-                    otherCartQty += it.qty;
-                }
-            });
-
-            let remainingStock = totalStock - totalSold - otherCartQty;
-            if (remainingStock < 0) remainingStock = 0;
-
-            if (val > remainingStock) {
-                showAlert("ສິນຄ້າໃນສາງບໍ່ພໍ", `ສິນຄ້າ [${targetItem.name}] ໃນສາງເຫຼືອພຽງ ${remainingStock} ອັນເທົ່ານັ້ນ!`, "⚠️");
-                inputElem.value = remainingStock;
-                cart[index].qty = remainingStock;
-            } else {
-                cart[index].qty = val;
-            }
-            renderCart();
-        }
-
-        function removeItem(index) { cart.splice(index, 1); renderCart(); }
-
-        function renderCart() {
-            let tbody = document.getElementById('cart-items');
-            if (cart.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ</td></tr>`;
-                document.getElementById('grand-total-cost').innerText = "0 ກີບ";
-                document.getElementById('grand-total').innerText = "0 ກີບ";
-                document.getElementById('custom-final-price').value = "";
-                document.getElementById('final-total').innerText = "0 ກີບ";
-                document.getElementById('grand-total-profit').innerText = "0 ກີບ";
-                document.getElementById('change-amount').innerText = "0 ກີບ";
-                return;
-            }
-            let html = '', grandTotal = 0, grandTotalCost = 0;
-            cart.forEach((item, index) => {
-                let total = item.price * item.qty, totalCost = item.cost * item.qty;
-                grandTotal += total; grandTotalCost += totalCost;
-                html += `
-                    <tr class="hover:bg-gray-50 border-b">
-                        <td class="p-3 font-medium text-gray-800">${item.name}</td>
-                        <td class="p-3 text-right text-gray-600">${formatNumberWithCommas(item.cost)}</td>
-                        <td class="p-3 text-right text-blue-600 font-semibold">${formatNumberWithCommas(item.price)}</td>
-                        <td class="p-3 text-center">
-                            <input type="number" min="1" value="${item.qty}" onchange="updateCartQtyDirect(${index}, this)" class="w-16 border rounded text-center px-2 py-1 font-bold text-gray-800 bg-white shadow-inner outline-none focus:ring-1 focus:ring-blue-500">
-                        </td>
-                        <td class="p-3 text-right font-bold text-gray-800">${formatNumberWithCommas(total)}</td>
-                        <td class="p-3 text-center"><button onclick="removeItem(${index})" class="text-red-500 font-bold cursor-pointer">ລຶບ</button></td>
-                    </tr>
-                `;
-            });
-            tbody.innerHTML = html;
-            document.getElementById('grand-total-cost').innerText = formatNumberWithCommas(grandTotalCost) + " ກີບ";
-            document.getElementById('grand-total').innerText = formatNumberWithCommas(grandTotal) + " ກີບ";
-            
-            calculateChange();
-        }
-
-        function calculateChange() {
-            let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-            let grandTotalCost = cart.reduce((sum, item) => sum + ((item.cost || 0) * item.qty), 0);
-            
-            let customPriceVal = document.getElementById('custom-final-price').value.replace(/,/g, '');
-            let finalTotal = customPriceVal !== "" ? (parseFloat(customPriceVal) || 0) : grandTotal;
-            if (finalTotal < 0) finalTotal = 0;
-
-            let grandTotalProfit = finalTotal - grandTotalCost;
-
-            document.getElementById('final-total').innerText = formatNumberWithCommas(finalTotal) + " ກີບ";
-            document.getElementById('grand-total-profit').innerText = formatNumberWithCommas(grandTotalProfit) + " ກີບ";
-
-            let cashInput = document.getElementById('cash-given').value.replace(/,/g, ''), changeElem = document.getElementById('change-amount');
-            if (!cashInput) { changeElem.innerText = "0 ກີບ (ຈ່າຍພໍດີ)"; return; }
-            let cashGiven = parseFloat(cashInput) || 0, change = cashGiven - finalTotal;
-            changeElem.innerText = change >= 0 ? formatNumberWithCommas(change) + " ກີບ" : "ເງິນຍັງບໍ່ພໍ";
-        }
-
-        function handleCustomPriceKeydown(event) {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                document.getElementById('cash-given').focus();
-            }
-        }
-
-        function handleCashKeydown(event) {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                checkout();
-            }
-        }
-
-        async function checkStockAvailability() {
-            await fetchProductsForGenerator();
-            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-            let soldQtyMap = {};
-            localHistory.forEach(tx => {
-                if (tx.items) {
-                    tx.items.forEach(it => {
-                        let cKey = String(it.code || '').trim().toLowerCase();
-                        soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
-                    });
-                }
-            });
-
-            let stockMap = {};
-            excelRows.forEach(row => {
-                let cKey = String(row.code || '').trim().toLowerCase();
-                let initial = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1;
-                stockMap[cKey] = (stockMap[cKey] || 0) + initial;
-            });
-
-            for (let item of cart) {
-                let cKey = String(item.code || '').trim().toLowerCase();
-                let totalStock = stockMap[cKey] || 0;
-                let totalSold = soldQtyMap[cKey] || 0;
-                let remaining = totalStock - totalSold;
-                if (remaining < 0) remaining = 0;
-
-                if (item.qty > remaining) {
-                    return { ok: false, name: item.name, requested: item.qty, available: remaining };
-                }
-            }
-            return { ok: true };
-        }
-
-        async function checkout() {
-            if (cart.length === 0) { showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າ!", "⚠️"); return; }
-            
-            let stockCheck = await checkStockAvailability();
-            if (!stockCheck.ok) {
-                showAlert("ສິນຄ້າໃນສາງບໍ່ພໍ", `ສິນຄ້າ [${stockCheck.name}] ໃນສາງເຫຼືອພຽງ ${stockCheck.available} ອັນ ແຕ່ທ່ານຕ້ອງການຂາຍ ${stockCheck.requested} ອັນ! ບໍ່ສາມາດຊຳລະເງິນໄດ້.`, "❌");
-                return;
-            }
-
-            let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-            let totalCost = cart.reduce((sum, item) => sum + ((item.cost || 0) * item.qty), 0);
-            
-            let customPriceVal = document.getElementById('custom-final-price').value.replace(/,/g, '');
-            let finalTotal = customPriceVal !== "" ? (parseFloat(customPriceVal) || 0) : grandTotal;
-            let discount = grandTotal - finalTotal;
-            if (discount < 0) discount = 0;
-
-            let cashGivenInput = document.getElementById('cash-given').value.replace(/,/g, '');
-            let cashGiven = cashGivenInput ? (parseFloat(cashGivenInput) || 0) : finalTotal;
-
-            let txData = {
-                id: 'TX-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
-                device_id: deviceId,
-                created_at: new Date().toISOString(),
-                items: cart,
-                total_items: cart.reduce((sum, item) => sum + item.qty, 0),
-                total_cost: totalCost,
-                sub_total: grandTotal,
-                discount: discount,
-                total: finalTotal,
-                cash: cashGiven,
-                change: cashGiven - finalTotal
-            };
-
-            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-            localHistory.unshift(txData);
-            localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
-
-            if (supabaseClient) {
-                try {
-                    await supabaseClient.from('sales_history').insert([{
-                        device_id: deviceId,
-                        items: cart,
-                        total_items: txData.total_items,
-                        total_cost: totalCost,
-                        sub_total: grandTotal,
-                        discount: discount,
-                        total: finalTotal,
-                        cash: cashGiven,
-                        change: txData.change,
-                        created_at: txData.created_at
-                    }]);
-                } catch (err) {}
-            }
-
-            showAlert("ສຳເລັດ", "ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ!", "✅");
-            cart = []; 
-            document.getElementById('cash-given').value = ''; 
-            document.getElementById('custom-final-price').value = '';
-            renderCart();
-        }
-
-        // --- HISTORY & REPORT MODALS ---
-        function openHistory() { 
-            document.getElementById('history-modal').classList.remove('hidden'); 
-            loadCloudHistory(); 
-        }
-
-        function closeHistory() { 
-            document.getElementById('history-modal').classList.add('hidden'); 
-        }
-
-        async function promptDeleteHistory(index) {
-            let userRole = localStorage.getItem('pos_user_role');
-            let isShopOwner = localStorage.getItem('pos_shop_owner') === 'true';
-
-            if (userRole !== 'admin' && !isShopOwner) {
-                showAlert("ບໍ່ມີສິດອະນຸຍາດ", "ສະເພາະເຈົ້າຂອງຮ້ານ (Shop Owner) ເທົ່ານັ້ນ ຈຶ່ງມີສິດລຶບປະຫວັດການຂາຍໄດ້!", "⚠️");
-                return;
-            }
-
-            let targetItem = globalHistoryList[index];
-            if (!targetItem) return;
-
-            showCustomConfirm("ຢືນຢັນການລຶບ", "ທ່ານຕ້ອງການລຶບປະຫວັດການຂາຍນີ້ແທ້ບໍ?", async (confirmed) => {
-                if (!confirmed) return;
-
-                let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-                localHistory = localHistory.filter(tx => (tx.id !== targetItem.id && tx.created_at !== targetItem.createdAt));
-                localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
-
-                if (targetItem.source === 'cloud' && targetItem.id && supabaseClient) {
-                    try { await supabaseClient.from('sales_history').delete().eq('id', targetItem.id); } catch (e) {}
-                }
-
-                loadCloudHistory();
-            });
-        }
-
-        async function loadCloudHistory() {
-            let listDiv = document.getElementById('history-list');
-            listDiv.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</p>`;
-            document.getElementById('history-summary').classList.add('hidden');
-            globalHistoryList = [];
-
-            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-            let combinedMap = new Map();
-
-            localHistory.forEach(tx => { combinedMap.set(tx.id || tx.created_at, tx); });
-
-            if (supabaseClient) {
-                try {
-                    let { data: cloudSales, error } = await supabaseClient
-                        .from('sales_history')
-                        .select('*')
-                        .order('created_at', { ascending: false });
-
-                    if (!error && cloudSales) {
-                        cloudSales.forEach(tx => {
-                            if (tx.device_id && String(tx.device_id).toUpperCase() === String(deviceId).toUpperCase()) {
-                                let key = tx.id || tx.created_at;
-                                if (!combinedMap.has(key)) {
-                                    combinedMap.set(key, {
-                                        id: tx.id, source: 'cloud', device_id: tx.device_id, created_at: tx.created_at,
-                                        total_items: tx.total_items || 0, total_cost: tx.total_cost || 0,
-                                        discount: tx.discount || 0, total: tx.total, cash: tx.cash, change: tx.change, items: tx.items || []
-                                    });
-                                }
-                            }
-                        });
-                    }
-                } catch (err) {}
-            }
-
-            globalHistoryList = Array.from(combinedMap.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-            if (globalHistoryList.length === 0) {
-                listDiv.innerHTML = `<p class="text-gray-500 text-center py-4">ຍັງບໍ່ມີປະຫວັດການຂາຍ.</p>`;
-            } else {
-                let html = '', sumCost = 0, sumPrice = 0;
-                let userRole = localStorage.getItem('pos_user_role');
-                let isShopOwner = localStorage.getItem('pos_shop_owner') === 'true';
-                let canDelete = (userRole === 'admin' || isShopOwner);
-
-                globalHistoryList.forEach((tx, index) => {
-                    let txCost = (tx.total_cost || 0);
-                    let txPrice = (tx.total || 0);
-                    let txProfit = txPrice - txCost;
-
-                    sumCost += txCost; 
-                    sumPrice += txPrice;
-
-                    let deleteBtnHtml = canDelete ? 
-                        `<button onclick="promptDeleteHistory(${index})" class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded font-bold cursor-pointer">🗑️ ລຶບ</button>` : 
-                        ``;
-
-                    html += `
-                        <div class="border-b pb-3 mb-3 bg-gray-50 p-3 rounded-xl border-l-4 border-blue-600 shadow-sm space-y-1">
-                            <div class="flex justify-between items-center mb-1">
-                                <span class="font-bold text-blue-800 text-xs">📅 ${new Date(tx.created_at).toLocaleString()} [ID: ${tx.device_id}]</span>
-                                ${deleteBtnHtml}
-                            </div>
-                            <div class="flex justify-between text-xs text-gray-700 font-semibold">
-                                <span>ລາຄາຊື້ລວມ:</span>
-                                <span class="text-blue-700">${formatNumberWithCommas(txCost)} ກີບ</span>
-                            </div>
-                            <div class="flex justify-between text-xs text-gray-800 font-bold">
-                                <span>ຍອດຂາຍຕົວຈິງ:</span>
-                                <span class="text-green-600">${formatNumberWithCommas(txPrice)} ກີບ</span>
-                            </div>
-                            <div class="flex justify-between text-xs font-bold text-emerald-700 border-t pt-1">
-                                <span>ກຳໄລເບື້ອງຕົ້ນ:</span>
-                                <span>${formatNumberWithCommas(txProfit)} ກີບ</span>
-                            </div>
-                        </div>
-                    `;
-                });
-                listDiv.innerHTML = html;
-                document.getElementById('sum-total-cost').innerText = formatNumberWithCommas(sumCost) + " ກີບ";
-                document.getElementById('sum-total-price').innerText = formatNumberWithCommas(sumPrice) + " ກີບ";
-                document.getElementById('sum-total-profit').innerText = formatNumberWithCommas(sumPrice - sumCost) + " ກີບ";
-                document.getElementById('history-summary').classList.remove('hidden');
-            }
-        }
-
-        async function openReport() { 
-            document.getElementById('report-modal').classList.remove('hidden'); 
-            toggleReportFilter();
-        }
-
-        function closeReport() { 
-            document.getElementById('report-modal').classList.add('hidden'); 
-        }
-
-        function toggleReportFilter() {
-            let reportType = document.getElementById('report-type').value;
-            document.getElementById('filter-monthly').classList.add('hidden');
-            document.getElementById('filter-quarterly').classList.add('hidden');
-            document.getElementById('filter-duration').classList.add('hidden');
-
-            if (reportType === 'monthly') {
-                document.getElementById('filter-monthly').classList.remove('hidden');
-            } else if (reportType === 'quarterly') {
-                document.getElementById('filter-quarterly').classList.remove('hidden');
-            } else if (reportType === 'duration') {
-                document.getElementById('filter-duration').classList.remove('hidden');
-            }
-            calculateReport();
-        }
-
-        async function calculateReport() {
-            let reportType = document.getElementById('report-type').value;
-            let year = parseInt(document.getElementById('report-year').value);
-            
-            let totalCost = 0;
-            let totalPrice = 0;
-
-            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-            let allSales = [...localHistory];
-
-            if (supabaseClient) {
-                try {
-                    let { data: cloudSales } = await supabaseClient.from('sales_history').select('*');
-                    if (cloudSales) {
-                        cloudSales.forEach(tx => {
-                            if (tx.device_id && String(tx.device_id).toUpperCase() === String(deviceId).toUpperCase()) {
-                                if (!allSales.some(s => (s.id === tx.id || s.created_at === tx.created_at))) {
-                                    allSales.push({
-                                        total_cost: tx.total_cost || 0,
-                                        total: tx.total || 0,
-                                        created_at: tx.created_at
-                                    });
-                                }
-                            }
-                        });
-                    }
-                } catch (e) {}
-            }
-
-            allSales.forEach(tx => {
-                let txDate = new Date(tx.created_at);
-                if (isNaN(txDate)) return;
-
-                let txYear = txDate.getFullYear();
-                let txMonth = txDate.getMonth() + 1;
-
-                if (txYear === year) {
-                    let match = false;
-
-                    if (reportType === 'monthly') {
-                        let selectedMonth = parseInt(document.getElementById('report-month').value);
-                        if (txMonth === selectedMonth) match = true;
-                    } 
-                    else if (reportType === 'quarterly') {
-                        let quarter = parseInt(document.getElementById('report-quarter').value);
-                        let qMonths = { 1: [1,2,3], 2: [4,5,6], 3: [7,8,9], 4: [10,11,12] };
-                        if (qMonths[quarter].includes(txMonth)) match = true;
-                    } 
-                    else if (reportType === 'duration') {
-                        let durationMonths = parseInt(document.getElementById('report-duration-months').value);
-                        if (txMonth <= durationMonths) match = true;
-                    }
-
-                    if (match) {
-                        totalCost += parseFloat(tx.total_cost || 0);
-                        totalPrice += parseFloat(tx.total || 0);
-                    }
-                }
-            });
-
-            let profit = totalPrice - totalCost;
-
-            document.getElementById('rep-total-cost').innerText = formatNumberWithCommas(totalCost) + " ກີບ";
-            document.getElementById('rep-total-price').innerText = formatNumberWithCommas(totalPrice) + " ກີບ";
-            document.getElementById('rep-total-profit').innerText = formatNumberWithCommas(profit) + " ກີບ";
         }
 
         // --- EXCEL & QR CODE GENERATOR ---
@@ -3136,18 +1830,6 @@
 
             await Promise.all(promises);
         }
-
-        window.addEventListener('DOMContentLoaded', async () => {
-            await initDeviceId();
-            let userRole = localStorage.getItem('pos_user_role');
-            let shopOwner = localStorage.getItem('pos_shop_owner');
-            let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
-            if (userRole === 'admin' || shopOwner === 'true' || linkedAdminId) {
-                let roleModal = document.getElementById('role-select-modal');
-                if (roleModal) roleModal.classList.add('hidden');
-            }
-            checkRoleAndLicense();
-        });
     </script>
 </body>
 </html>
