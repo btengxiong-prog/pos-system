@@ -698,7 +698,7 @@
             </div>
         </div>
 
-        <!-- Stock-In Input Modal -->
+    <!-- Stock-In Input Modal -->
         <div id="stock-in-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
                 <div class="text-3xl text-center">📥</div>
@@ -712,6 +712,18 @@
                     <div>
                         <label class="block font-semibold text-gray-700 mb-1">ຈຳນວນສິນຄ້ານຳເຂົ້າ (Quantity):</label>
                         <input type="number" id="stock-in-qty" value="1" min="1" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 font-bold text-gray-800 text-lg bg-white" placeholder="ປ້ອນຈຳນວນ">
+                    </div>
+
+                    <!-- 🌟 ພາກສ່ວນທີ່ເພີ່ມໃໝ່ຕາມກອບສີແດງ: ຈຳນວນຍ່ອຍຕໍ່ລາງ ແລະ ເປີເຊັນຂາຍຍ່ອຍ -->
+                    <div class="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200">
+                        <div>
+                            <label class="block text-[11px] font-bold text-gray-700 mb-1">📦 ຈຳນວນຍ່ອຍ/ລາງ (ເຊັ່ນ 12):</label>
+                            <input type="number" id="stock-in-sub-qty" value="" min="1" class="w-full border rounded-lg px-2.5 py-2 text-center font-bold text-gray-900 text-sm bg-white outline-none focus:ring-2 focus:ring-pink-500" placeholder="ບໍ່ມີ ໃຫ້ຫວ່າງໄວ້">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-gray-700 mb-1">📈 ເປີເຊັນຂາຍຍ່ອຍ (% 5-10):</label>
+                            <input type="number" id="stock-in-retail-pct" value="10" min="0" max="100" class="w-full border rounded-lg px-2.5 py-2 text-center font-bold text-indigo-700 text-sm bg-white outline-none focus:ring-2 focus:ring-pink-500" placeholder="10">
+                        </div>
                     </div>
 
                     <div id="expiry-input-group" class="hidden space-y-3">
@@ -1933,6 +1945,9 @@
         async function confirmStockIn() {
             let costVal = parseFloat(String(document.getElementById('stock-in-cost').value).replace(/,/g, '')) || 0;
             let qtyVal = parseInt(document.getElementById('stock-in-qty').value) || 1;
+            let subQtyVal = parseInt(document.getElementById('stock-in-sub-qty').value) || 0;
+            let retailPctVal = parseFloat(document.getElementById('stock-in-retail-pct').value) || 10;
+            
             let mfgDateInput = document.getElementById('stock-in-mfg-date') ? document.getElementById('stock-in-mfg-date').value.trim() : "";
             let expDateInput = document.getElementById('stock-in-exp-date') ? document.getElementById('stock-in-exp-date').value.trim() : "";
 
@@ -1950,37 +1965,70 @@
                     return;
                 }
                 isoMfgDate = parseDDMMYYYYToISO(mfgDateInput);
-                let mfgDateObj = new Date(isoMfgDate);
-                if (isNaN(mfgDateObj.getTime())) {
-                    showAlert("ແຈ້ງເຕືອນ", "ຮູບແບບວັນຜະລິດບໍ່ຖືກຕ້ອງ! ກະລຸນາປ້ອນເປັນ dd/mm/yyyy", "⚠️");
-                    return;
-                }
-
                 calculatedExpiryDate = parseDDMMYYYYToISO(expDateInput);
-                let expDateObj = new Date(calculatedExpiryDate);
-                if (isNaN(expDateObj.getTime())) {
-                    showAlert("ແຈ້ງເຕືອນ", "ຮູບແບບວັນໝົດອາຍຸບໍ່ຖືກຕ້ອງ! ກະລຸນາປ້ອນເປັນ dd/mm/yyyy", "⚠️");
-                    return;
-                }
             }
 
             let today = new Date().toISOString().split('T')[0];
+            
+            // ຄຳນວນລາຄາຂາຍສົ່ງ (ປົກກະຕິ +20% ກຳໄລ)
             let rawPrice = costVal + (costVal * 20 / 100);
-            let priceVal = Math.ceil(rawPrice / 1000) * 1000;
+            let wholesalePrice = Math.ceil(rawPrice / 1000) * 1000;
+
             let newRowId = 'ROW-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
 
+            // 1) ບັນທຶກລາຄາຂາຍສົ່ງ (ລາງ)
             excelRows.push({
                 id: newRowId,
                 code: currentStockInCode,
                 cost: costVal,
                 originalCost: costVal,
                 profitPct: 20,
-                price: priceVal,
+                price: wholesalePrice,
                 qty: qtyVal,
                 dateAdded: today,
                 mfgDate: isExpiryMode ? isoMfgDate : today,
                 expiryDate: calculatedExpiryDate
             });
+
+            let subRowsPayload = [];
+
+            // 2) ຖ້າມີການປ້ອນຈຳນວນສິນຄ້າຍ່ອຍ (ເຊັ່ນ 12 ແກ້ວ/ລາງ) ໃຫ້ລະບົບສ້າງລາຄາຂາຍຍ່ອຍອັດຕະໂນມັດ
+            if (subQtyVal > 0) {
+                let costPerUnit = costVal / subQtyVal; // ต้นทุนຕໍ່ແກ້ວ
+                let retailRawPrice = costPerUnit + (costPerUnit * retailPctVal / 100);
+                let retailPrice = Math.ceil(retailRawPrice / 500) * 500; // ປັດມົນມາດຕະຖານຂາຍຍ່ອຍ
+                
+                let subRowId = 'ROW-SUB-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
+                let totalSubQty = qtyVal * subQtyVal;
+
+                excelRows.push({
+                    id: subRowId,
+                    code: currentStockInCode + " (ແກ້ວ/ຍ່ອຍ)",
+                    cost: costPerUnit,
+                    originalCost: costPerUnit,
+                    profitPct: retailPctVal,
+                    price: retailPrice,
+                    qty: totalSubQty,
+                    dateAdded: today,
+                    mfgDate: isExpiryMode ? isoMfgDate : today,
+                    expiryDate: calculatedExpiryDate
+                });
+
+                subRowsPayload.push({
+                    id: subRowId,
+                    device_id: deviceId,
+                    code: currentStockInCode + " (ແກ້ວ/ຍ່ອຍ)",
+                    cost: costPerUnit,
+                    original_cost: costPerUnit,
+                    profit_pct: retailPctVal,
+                    price: retailPrice,
+                    qty: totalSubQty,
+                    date_added: today,
+                    mfg_date: isExpiryMode ? isoMfgDate : today,
+                    expiry_date: calculatedExpiryDate || null,
+                    updated_at: new Date().toISOString()
+                });
+            }
 
             localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
 
@@ -1993,18 +2041,18 @@
                         cost: costVal,
                         original_cost: costVal,
                         profit_pct: 20,
-                        price: priceVal,
+                        price: wholesalePrice,
                         qty: qtyVal,
                         date_added: today,
                         mfg_date: isExpiryMode ? isoMfgDate : today,
                         expiry_date: calculatedExpiryDate || null,
                         updated_at: new Date().toISOString()
-                    }]);
+                    }, ...subRowsPayload]);
                 } catch (e) {}
             }
 
             closeStockInModal();
-            showAlert("ສຳເລັດ", `ນຳເຂົ້າສິນຄ້າ [ຈຳນວນ: ${qtyVal}] ສຳເລັດຮຽບຮ້ອຍ!`, "✅");
+            showAlert("ສຳເລັດ", `ນຳເຂົ້າສິນຄ້າ [ຂາຍສົ່ງ ແລະ ຂາຍຍ່ອຍ] ສຳເລັດຮຽບຮ້ອຍ!`, "✅");
         }
 
         function openStockInModal(code, defaultCost = null) {
