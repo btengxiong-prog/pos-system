@@ -597,7 +597,7 @@
                     </div>
                 </div>
 
-                <!-- ປຸ່ມ: ⚙️ ຈັດການລະບົບ (Admin ໃຫຍ່) -->
+                <!-- ປຸ່ມ: ⚙️ ຈັດການລະບົບ (Admin) -->
                 <button id="admin-manage-btn" onclick="openAdminManager()" class="hidden w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     ⚙️ ຈັດການລະບົບ
                 </button>
@@ -607,7 +607,7 @@
                     📱 QR Code ເຊື່ອມຕໍ່ພະນັກງານ
                 </button>
 
-                <!-- ປຸ່ມ: ປ່ຽນໂໝດ / ອອກລະບົບ (ແກ້ໄຂ: ໃຫ້ລ້າງ ID ເກົ່າອອກ ເພື່ອໃຫ້ໂໝດທົດລອງໄດ້ ID ໃໝ່ສະເໝີ) -->
+                <!-- ປຸ່ມ: ປ່ຽນໂໝດ / ອອກລະບົບ -->
                 <button onclick="adminLogout()" class="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     🚪 ປ່ຽນໂໝດ / ອອກລະບົບ
                 </button>
@@ -1197,7 +1197,28 @@
             checkRoleAndLicense();
         }
 
+        window.addEventListener('DOMContentLoaded', async () => {
+            await initDeviceId();
+            
+            // 🌟 ກວດສອບ Session: ຖ້າເຄີຍລັອກອິນໄວ້ແລ້ວ (ມີ role ຫຼື shopOwner ຫຼື ຜ່ານການເລືອກໂหมดແລ້ວ) ໃຫ້ຊ່ອນໜ້າເລືອກໂໝດ (ຮູບ 1) ທັນທີ ໂດຍບໍ່ໃຫ້เด้ງອອກເວລາ Refresh
+            let userRole = localStorage.getItem('pos_user_role');
+            let shopOwner = localStorage.getItem('pos_shop_owner');
+            let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
+            let isSessionActive = localStorage.getItem('pos_session_active');
+
+            if (userRole === 'admin' || shopOwner === 'true' || linkedAdminId || isSessionActive === 'true') {
+                let roleModal = document.getElementById('role-select-modal');
+                if (roleModal) roleModal.classList.add('hidden');
+                await checkTrialLicense();
+            } else {
+                let roleModal = document.getElementById('role-select-modal');
+                if (roleModal) roleModal.classList.remove('hidden');
+            }
+            checkRoleAndLicense();
+        });
+
         function selectRole(role) {
+            localStorage.setItem('pos_session_active', 'true');
             let roleModal = document.getElementById('role-select-modal');
             let loginModal = document.getElementById('unified-login-modal');
             if (roleModal) roleModal.classList.add('hidden');
@@ -1237,6 +1258,7 @@
 
             if (u === "POSXIONG" && p === "POS@21082007") {
                 localStorage.setItem('pos_user_role', 'admin');
+                localStorage.setItem('pos_session_active', 'true');
                 document.getElementById('unified-login-modal').classList.add('hidden');
                 document.getElementById('role-select-modal').classList.add('hidden');
                 let adminBtn = document.getElementById('admin-manage-btn');
@@ -1257,6 +1279,7 @@
                 localStorage.setItem('pos_current_username', currentUsername);
                 localStorage.setItem('pos_device_id', deviceId);
                 localStorage.setItem('pos_shop_owner', 'true');
+                localStorage.setItem('pos_session_active', 'true');
                 localStorage.removeItem('pos_user_role');
                 localStorage.removeItem('pos_linked_admin_id');
 
@@ -1281,6 +1304,7 @@
                         localStorage.setItem('pos_current_username', currentUsername);
                         localStorage.setItem('pos_device_id', deviceId);
                         localStorage.setItem('pos_shop_owner', 'true');
+                        localStorage.setItem('pos_session_active', 'true');
                         localStorage.removeItem('pos_user_role');
                         localStorage.removeItem('pos_linked_admin_id');
 
@@ -1305,14 +1329,15 @@
             if (event.key === 'Enter') { verifyUnifiedLogin(); }
         }
 
-        // 🌟 ແກ້ໄຂຟັງຊັນອອກລະບົບ (adminLogout) ໃຫ້ລ້າງ ID ເກົ່າອອກ ເພື່ອໃຫ້ເວລາອອກໄປໂໝດທົດລອງ ລະບົບຈະໄດ້ສ້າງ ID ໃໝ່ສະເໝີ
+        // 🌟 ຟັງຊັນອອກລະບົບ (ສະເພາະກົດປຸ່ມຮູບ 2 ເທົ່ານັ້ນ ຈຶ່ງຈະລ້າງ Session ແລະ ກັບໄປໜ້າຮູບ 1)
         function adminLogout() {
             localStorage.removeItem('pos_user_role');
             localStorage.removeItem('pos_license_status');
             localStorage.removeItem('pos_current_username');
             localStorage.removeItem('pos_shop_owner');
             localStorage.removeItem('pos_linked_admin_id');
-            localStorage.removeItem('pos_device_id'); // ລຶບ ID ເກົ່າອອກ ເພື່ອໃຫ້გენ ID ใหม่
+            localStorage.removeItem('pos_device_id');
+            localStorage.removeItem('pos_session_active'); // ລ້າງ Session ເພື່ອໃຫ້ກັບໄປໜ້າເລືອກໂໝດ (ຮູບ 1)
             location.reload();
         }
 
@@ -1363,6 +1388,7 @@
                         localStorage.setItem('pos_linked_admin_id', cleanText);
                         deviceId = cleanText;
                         localStorage.setItem('pos_device_id', deviceId);
+                        localStorage.setItem('pos_session_active', 'true');
                         closeStaffScanner();
                         showAlert("ສຳເລັດ", `ເຊື່ອມຕໍ່ກັບຮ້ານ Admin [${cleanText}] ສຳເລັດຮຽບຮ້ອຍ!`, "🔗");
                         setTimeout(() => { location.reload(); }, 1500);
@@ -1497,7 +1523,6 @@
             }
         }
 
-        // 🌟 ຟັງຊັນບັນທຶກການແກ້ໄຂບັນຊີ ແລະ ຈັດການສະຖານະ (ອັບເດດຕາມເງື່ອນໄຂ 1, 2, 3, 4 ຂອງອາຈານ)
         async function saveEditedUser() {
             let newPass = document.getElementById('edit-modal-password').value.trim();
             let actionVal = document.getElementById('edit-modal-action-select').value;
@@ -1516,22 +1541,18 @@
             };
 
             if (actionVal === 'to_trial') {
-                // 1) ປົດມາເປັນທົດລອງ 15 ວັນ: ຕັ້ງເວລາໃຫ້ໝົດອາຍຸທັນທີ ເພື່ອບໍ່ໃຫ້ສາມາດໃຊ້ງານໄດ້ ຕ້ອງຕໍ່ອາຍຸ ຫຼື ລົງທະບຽນເທົ່ານັ້ນ
                 let expiredDate = new Date();
                 expiredDate.setDate(expiredDate.getDate() - 1);
                 updatePayload.status = 'trial';
                 updatePayload.trial_until = expiredDate.toISOString();
             } else if (actionVal === 'extend_trial') {
-                // 2) ຕໍ່ອາຍຸຢູເຊີທົດລອງຕາມຈຳນວນວັນທີ່ ADMIN ກຳນົດເອງ
                 let extendDate = new Date();
                 extendDate.setDate(extendDate.getDate() + extendDaysInput);
                 updatePayload.status = 'trial';
                 updatePayload.trial_until = extendDate.toISOString();
             } else if (actionVal === 'delete_permanent') {
-                // 3) ລົບບັນຊີຖາວອນ (ປິດກັ້ນການໃຊ້ງານທັງໝົດ)
                 updatePayload.status = 'deleted';
             } else if (actionVal === 'restore_user') {
-                // 4) ແກ້ໄຂຢູເຊີຄືນ / ກູ້ຄືນສະຖານະໃຫ້ກັບມາໃຊ້ງານໄດ້ປົກກະຕິ
                 updatePayload.status = 'active';
             }
 
@@ -3136,18 +3157,6 @@
 
             await Promise.all(promises);
         }
-
-        window.addEventListener('DOMContentLoaded', async () => {
-            await initDeviceId();
-            let userRole = localStorage.getItem('pos_user_role');
-            let shopOwner = localStorage.getItem('pos_shop_owner');
-            let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
-            if (userRole === 'admin' || shopOwner === 'true' || linkedAdminId) {
-                let roleModal = document.getElementById('role-select-modal');
-                if (roleModal) roleModal.classList.add('hidden');
-            }
-            checkRoleAndLicense();
-        });
     </script>
 </body>
 </html>
