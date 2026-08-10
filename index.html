@@ -2054,31 +2054,6 @@
             showAlert("ສຳເລັດ", `ນຳເຂົ້າສິນຄ້າ [ຂາຍສົ່ງ ແລະ ຂາຍຍ່ອຍ] ສຳເລັດຮຽບຮ້ອຍ!`, "✅");
         }
 
-        function updateRetailCalculations() {
-            let costVal = parseFloat(String(document.getElementById('stock-in-cost').value).replace(/,/g, '')) || 0;
-            let subQtyVal = parseInt(document.getElementById('stock-in-sub-qty').value) || 0;
-            let retailPctVal = parseFloat(document.getElementById('stock-in-retail-pct').value) || 10;
-
-            let subCostField = document.getElementById('stock-in-sub-cost-display');
-            let retailPriceField = document.getElementById('stock-in-retail-price-display');
-
-            if (subCostField && retailPriceField) {
-                if (costVal > 0 && subQtyVal > 0) {
-                    let unitCost = costVal / subQtyVal;
-                    let roundedUnitCost = Math.ceil(unitCost / 1000) * 1000;
-
-                    let rawRetail = roundedUnitCost * (1 + retailPctVal / 100);
-                    let roundedRetailPrice = Math.ceil(rawRetail / 1000) * 1000;
-
-                    subCostField.value = formatNumberWithCommas(roundedUnitCost) + " ກີບ";
-                    retailPriceField.value = formatNumberWithCommas(roundedRetailPrice) + " ກີບ";
-                } else {
-                    subCostField.value = "0 ກີບ";
-                    retailPriceField.value = "0 ກີບ";
-                }
-            }
-        }
-
         function openStockInModal(code, defaultCost = null) {
             currentStockInCode = code;
             document.getElementById('stock-in-code').innerText = code;
@@ -2093,13 +2068,6 @@
                     document.getElementById('stock-in-cost').value = "";
                 }
             }
-
-            let subQtyElem = document.getElementById('stock-in-sub-qty');
-            let pctElem = document.getElementById('stock-in-retail-pct');
-            if (subQtyElem) subQtyElem.value = "";
-            if (pctElem) pctElem.value = "10";
-
-            updateRetailCalculations();
 
             document.getElementById('stock-in-modal').classList.add('hidden');
             document.getElementById('stock-in-qty').value = "1";
@@ -2204,11 +2172,9 @@
             if (!html5QrCode) {
                 try { html5QrCode = new Html5Qrcode("reader"); } catch(err) { return; }
             }
-            
-            // 🌟 ປັບຂະໜາດ qrbox ໃຫ້ເປັນແບບຜືນຜ້າ (ກວ້າງ 300, ສູງ 150) ເພື່ອໃຫ້ຈັບ Barcode ແບບເສັ້ນຊື່ໄດ້ຢ່າງງ່າຍດາຍ
             html5QrCode.start(
                 { facingMode: "environment" },
-                { fps: 10, qrbox: { width: 300, height: 150 } },
+                { fps: 10, qrbox: 250 },
                 (decodedText) => {
                     let currentTime = new Date().getTime();
                     if (decodedText === lastScannedCode && (currentTime - lastScanTime < 3000)) return;
@@ -2277,17 +2243,8 @@
 
         function closeScanner() {
             if (html5QrCode) {
-                html5QrCode.stop().then(() => {
-                    let scannerContainer = document.getElementById('scanner-container');
-                    if (scannerContainer) scannerContainer.classList.add('hidden');
-                }).catch(() => {
-                    let scannerContainer = document.getElementById('scanner-container');
-                    if (scannerContainer) scannerContainer.classList.add('hidden');
-                });
-            } else {
-                let scannerContainer = document.getElementById('scanner-container');
-                if (scannerContainer) scannerContainer.classList.add('hidden');
-            }
+                html5QrCode.stop().then(() => { document.getElementById('scanner-container').classList.add('hidden'); }).catch(() => {});
+            } else { document.getElementById('scanner-container').classList.add('hidden'); }
         }
 
         function handleScanBarcodeInput(event) {
@@ -3232,14 +3189,16 @@
             await Promise.all(promises);
         }
 
-        window.addEventListener('DOMContentLoaded', () => {
-            let costInput = document.getElementById('stock-in-cost');
-            let subQtyInput = document.getElementById('stock-in-sub-qty');
-            let pctInput = document.getElementById('stock-in-retail-pct');
-
-            if (costInput) costInput.addEventListener('input', updateRetailCalculations);
-            if (subQtyInput) subQtyInput.addEventListener('input', updateRetailCalculations);
-            if (pctInput) pctInput.addEventListener('input', updateRetailCalculations);
+        window.addEventListener('DOMContentLoaded', async () => {
+            await initDeviceId();
+            let userRole = localStorage.getItem('pos_user_role');
+            let shopOwner = localStorage.getItem('pos_shop_owner');
+            let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
+            if (userRole === 'admin' || shopOwner === 'true' || linkedAdminId) {
+                let roleModal = document.getElementById('role-select-modal');
+                if (roleModal) roleModal.classList.add('hidden');
+            }
+            checkRoleAndLicense();
         });
     </script>
 </body>
