@@ -355,7 +355,7 @@
         </div>
     </div>
 
-    <!-- 🌟 Popup ເລືອກວິທີຊຳລະເງິນ (ເງິນສົດ / ເງິນໂອນ) -->
+    <!-- 🌟 Popup ເລືອກວິທີຊຳລະເງິນ (ເງິນສົດ / ເງິນໂອນ ກີບ & ບາດ) -->
     <div id="checkout-method-modal" class="hidden fixed inset-0 bg-black/70 z-[340] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
             <div class="text-4xl">💰</div>
@@ -364,6 +364,7 @@
             <div class="bg-blue-50 p-3 rounded-xl border text-center space-y-1">
                 <div class="text-xs text-gray-600 font-semibold">ຍອດເງິນລວມທັງໝົດ:</div>
                 <div class="text-xl font-extrabold text-green-600" id="popup-total-amount-text">0 ກີບ</div>
+                <div class="text-sm font-bold text-purple-700" id="popup-total-thb-text">0 ບາດ</div>
             </div>
 
             <div class="space-y-3 text-left">
@@ -372,9 +373,14 @@
                     <span class="font-bold text-gray-800 text-sm">💵 ຈ່າຍເງິນສົດ</span>
                 </label>
 
-                <label class="flex items-center gap-3 p-3 border-2 rounded-xl cursor-pointer hover:bg-gray-50 border-gray-200" onclick="selectPaymentMode('transfer', this)">
-                    <input type="radio" name="pay_mode" value="transfer" class="w-4 h-4 text-blue-600">
-                    <span class="font-bold text-gray-800 text-sm">📱 ຈ່າຍເງິນໂອນ (ສະແກນ QR)</span>
+                <label class="flex items-center gap-3 p-3 border-2 rounded-xl cursor-pointer hover:bg-gray-50 border-gray-200" onclick="selectPaymentMode('transfer_lak', this)">
+                    <input type="radio" name="pay_mode" value="transfer_lak" class="w-4 h-4 text-blue-600">
+                    <span class="font-bold text-gray-800 text-sm">📱 ຈ່າຍເງິນໂອນ (QR ບັນຊີກີບ)</span>
+                </label>
+
+                <label class="flex items-center gap-3 p-3 border-2 rounded-xl cursor-pointer hover:bg-gray-50 border-gray-200" onclick="selectPaymentMode('transfer_thb', this)">
+                    <input type="radio" name="pay_mode" value="transfer_thb" class="w-4 h-4 text-blue-600">
+                    <span class="font-bold text-gray-800 text-sm">🇹🇭 ຈ່າຍເງິນໂອນ (QR ບັນຊີບາດ)</span>
                 </label>
             </div>
 
@@ -470,7 +476,7 @@
 
                 <div class="flex items-center justify-between gap-3">
                     <label class="text-sm font-bold text-gray-800 w-24">Rate:</label>
-                    <input type="text" id="input-custom-rate" placeholder="ຕົວຢ່າງ: 688.86" class="flex-1 border rounded-lg px-3 py-2.5 text-right text-base font-bold text-blue-600 outline-none focus:ring-2 focus:ring-orange-500 bg-white">
+                    <input type="text" id="input-custom-rate" placeholder="ຕົວຢ່າງ: 650" class="flex-1 border rounded-lg px-3 py-2.5 text-right text-base font-bold text-blue-600 outline-none focus:ring-2 focus:ring-orange-500 bg-white">
                 </div>
 
                 <!-- ປຸ່ມອັບໂຫຼດຂໍ້ມູນ Excel -->
@@ -1715,7 +1721,7 @@
                     showAlert("ສຳເລັດ", `ນຳເຂົ້າຂໍ້ມູນ Excel ສຳເລັດ ${newRows.length} ລາຍການ!`, "📁");
                     openExcelGenerator();
                 } catch (err) {
-                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດອ່ານໄຟລ໌ Excel ນี้ໄດ້!", "❌");
+                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດອ່ານໄຟລ໌ Excel ນີ້ໄດ້!", "❌");
                 }
             };
             reader.readAsArrayBuffer(file);
@@ -2549,7 +2555,7 @@
             return { ok: true };
         }
 
-        // --- BCEL QR CODE PAYMENT MODAL & CHECKOUT METHOD ---
+        // --- 🌟 ຟັງຊັນຈັດການ Popup ເລືອກວິທີຊຳລະເງິນ (ເງິນສົດ / ເງິນໂອນ ກີບ & ບາດ ພ້ອມຄຳນວນ ROUNDUP -1) ---
         function openCheckoutMethodModal() {
             if (cart.length === 0) {
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າກ່ອນຊຳລະເງິນ!", "⚠️");
@@ -2559,8 +2565,20 @@
             let customPriceVal = document.getElementById('custom-final-price').value.replace(/,/g, '');
             let finalTotal = customPriceVal !== "" ? (parseFloat(customPriceVal) || 0) : grandTotal;
 
+            // ດຶງຄ່າ Rate ປະຈຳວັນທີ່ບັນທຶກໄວ້ (ຖ້າບໍ່ມີ ໃຫ້ defualt ເປັນ 650)
+            let currentRate = parseFloat(localStorage.getItem('pos_custom_manual_rate')) || 650;
+            let thbAmount = 0;
+            if (currentRate > 0) {
+                let rawThb = finalTotal / currentRate;
+                // ຄຳນວນ ROUNDUP(-1): ປັດຂຶ້ນເປັນຫຼັກສິບ
+                thbAmount = Math.ceil(rawThb / 10) * 10;
+            }
+
             document.getElementById('popup-total-amount-text').innerText = formatNumberWithCommas(finalTotal) + " ກີບ";
-            document.getElementById('transfer-qr-section').classList.add('hidden');
+            document.getElementById('popup-total-thb-text').innerText = formatNumberWithCommas(thbAmount) + " ບາດ (Rate: " + currentRate + ")";
+            
+            document.getElementById('transfer-lak-qr-section').classList.add('hidden');
+            document.getElementById('transfer-thb-qr-section').classList.add('hidden');
             document.getElementById('checkout-method-modal').classList.remove('hidden');
         }
 
@@ -2579,15 +2597,20 @@
             let radio = labelElem.querySelector('input[type="radio"]');
             if (radio) radio.checked = true;
 
-            let transferSection = document.getElementById('transfer-qr-section');
-            if (mode === 'transfer') {
-                transferSection.classList.remove('hidden');
-            } else {
-                transferSection.classList.add('hidden');
+            let lakSection = document.getElementById('transfer-lak-qr-section');
+            let thbSection = document.getElementById('transfer-thb-qr-section');
+
+            lakSection.classList.add('hidden');
+            thbSection.classList.add('hidden');
+
+            if (mode === 'transfer_lak') {
+                lakSection.classList.remove('hidden');
+            } else if (mode === 'transfer_thb') {
+                thbSection.classList.remove('hidden');
             }
         }
 
-        function openTransferQrInsideModal() {
+        function openTransferLakQr() {
             let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
             let customPriceVal = document.getElementById('custom-final-price').value.replace(/,/g, '');
             let finalTotal = customPriceVal !== "" ? (parseFloat(customPriceVal) || 0) : grandTotal;
@@ -2597,6 +2620,26 @@
                 qrContainer.innerHTML = "";
                 let bcelPayload = `BCEL:1006000000470:AMOUNT=${finalTotal}`;
                 QRCode.toString(bcelPayload, { type: 'svg', width: 140, margin: 1 }, function (err, svgString) {
+                    if (!err && qrContainer) {
+                        qrContainer.innerHTML = svgString;
+                    }
+                });
+            }
+        }
+
+        function openTransferThbQr() {
+            let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            let customPriceVal = document.getElementById('custom-final-price').value.replace(/,/g, '');
+            let finalTotal = customPriceVal !== "" ? (parseFloat(customPriceVal) || 0) : grandTotal;
+            let currentRate = parseFloat(localStorage.getItem('pos_custom_manual_rate')) || 650;
+            let thbAmount = currentRate > 0 ? Math.ceil((finalTotal / currentRate) / 10) * 10 : 0;
+
+            let qrContainer = document.getElementById('modal-thb-qrcode-container');
+            if (qrContainer && window.QRCode) {
+                qrContainer.innerHTML = "";
+                // ຕົວຢ່າງ QR ບັນຊີເງິນບາດ (ສາມາດປ່ຽນເລກບັນຊີບາດຕາມຈິງໄດ້)
+                let thbPayload = `THB-ACCOUNT:THAIBANK001:AMOUNT=${thbAmount}`;
+                QRCode.toString(thbPayload, { type: 'svg', width: 140, margin: 1 }, function (err, svgString) {
                     if (!err && qrContainer) {
                         qrContainer.innerHTML = svgString;
                     }
@@ -2662,7 +2705,8 @@
             }
 
             closeCheckoutMethodModal();
-            showAlert("ສຳເລັດ", `ຊຳລະເງິນ (${payMode === 'cash' ? 'ເງິນສົດ' : 'ເງິນໂອນ'}) ສຳເລັດຮຽບຮ້ອຍ!`, "✅");
+            let payLabel = payMode === 'cash' ? 'ເງິນສົດ' : (payMode === 'transfer_lak' ? 'ເງິນໂອນ (ກີບ)' : 'ເງິນໂອນ (ບາດ)');
+            showAlert("ສຳເລັດ", `ຊຳລະເງິນ (${payLabel}) ສຳເລັດຮຽບຮ້ອຍ!`, "✅");
             
             cart = []; 
             document.getElementById('cash-given').value = ''; 
