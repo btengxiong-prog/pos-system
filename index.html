@@ -2455,7 +2455,7 @@
             document.getElementById('bcel-qr-modal').classList.add('hidden');
         }
 
-        // --- 🌟 ຟັງຊັນ checkout() ຕົວຈິງຈາກໂຄດຫຼັກ ທີ່ເພີ່ມຄຳສັ່ງຣີເຊັດລ້າງ cart ແລະ ຍອດສະຫຼຸບທັງໝົດ ---
+        // --- 🌟 ຟັງຊັນ checkout() ທີ່ຣີເຊັດລ້າງຂໍ້ມູນທັງໝົດໃນກອບສະຫຼຸບຍອດ 100% ຕາມຄວາມຕ້ອງການຂອງອາຈານ ---
         async function checkout() {
             if (cart.length === 0) { showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າ!", "⚠️"); return; }
             
@@ -2513,7 +2513,7 @@
 
             showAlert("ສຳເລັດ", "ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ!", "✅");
             
-            // 🌟 ຣີເຊັດລ້າງຕາຕະລາງສິນຄ້າ (cart = []) ພ້ອມທັງທຸກຫ້ອງໃນຍອດສະຫຼຸບໃຫ້ກັບມາເປັນ 0 ແລະ ຫວ່າງເປົ່າຢ່າງສົມບູນ
+            // 🌟 ຣີເຊັດລ້າງ cart ແລະ ທຸກຫ້ອງສະຫຼຸບຍອດໃຫ້ກັບມາເປັນ 0 ທັນທີ
             cart = []; 
             document.getElementById('cash-given').value = ''; 
             document.getElementById('custom-final-price').value = '';
@@ -3103,7 +3103,16 @@
             let promises = duplicateRemovedList.map((row, index) => {
                 return new Promise((resolve) => {
                     let cleanCode = String(row.code).trim();
-                    let payloadStr = cleanCode;
+                    let costVal = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
+                    let priceVal = parseFloat(String(row.price).replace(/,/g, '')) || 0;
+                    
+                    // 🌟 ຝັງ JSON ທີ່ມີທັງ code, cost ແລະ price ໄວ້ໃນ QR Code ຢ່າງສົມບູນ
+                    let payloadObj = {
+                        code: cleanCode,
+                        cost: costVal,
+                        price: priceVal
+                    };
+                    let payloadStr = JSON.stringify(payloadObj);
 
                     let card = document.createElement('div');
                     card.className = "bg-white p-4 rounded-xl shadow-lg border border-gray-200 text-center flex flex-col items-center justify-center relative";
@@ -3145,7 +3154,7 @@
                         container.appendChild(card);
                         setTimeout(() => {
                             try {
-                                JsBarcode(`#${codeContainerId}`, payloadStr, {
+                                JsBarcode(`#${codeContainerId}`, cleanCode, {
                                     format: "CODE128", width: 2, height: 50, displayValue: true, fontSize: 14, margin: 5
                                 });
                             } catch (e) {
