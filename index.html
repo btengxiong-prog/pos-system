@@ -144,7 +144,7 @@
         </div>
     </div>
 
-    <!-- 🌟 Modal ແກ້ໄຂ Username / Password & ຂໍ້ມູນຮ້ານ -->
+    <!-- 🌟 Modal ແກ້ໄຂ Username / Password & ອັບໂຫຼດຮູບ QR Code ບັນຊີກີບ/ບາດ -->
     <div id="edit-user-modal" class="hidden fixed inset-0 bg-black/60 z-[350] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 max-h-[90vh] overflow-y-auto shadow-2xl space-y-3 text-left">
             <div class="text-2xl text-center">✏️</div>
@@ -157,12 +157,14 @@
                     <input type="text" id="edit-modal-shop-name" class="w-full border rounded-lg px-3 py-2 font-semibold outline-none bg-white" placeholder="ປ້ອນຊື່ຮ້ານ">
                 </div>
                 <div>
-                    <label class="block font-bold text-gray-700 mb-0.5">🏦 ເລກບັນຊີ (ກີບ):</label>
-                    <input type="text" id="edit-modal-lak-acc" class="w-full border rounded-lg px-3 py-2 font-semibold outline-none bg-white" placeholder="ປ້ອນເລກບັນຊີກີບ">
+                    <label class="block font-bold text-gray-700 mb-0.5">🏦 ອັບໂຫຼດຮູບ QR ບັນຊີ (ກີບ):</label>
+                    <input type="file" id="edit-modal-lak-qr-file" accept="image/*" onchange="handleQrImageUpload(event, 'lak')" class="w-full border rounded-lg p-1 text-xs bg-gray-50 cursor-pointer">
+                    <div id="preview-lak-qr" class="mt-1 text-center"></div>
                 </div>
                 <div>
-                    <label class="block font-bold text-gray-700 mb-0.5">🇹🇭 ເລກບັນຊີ (ບາດ):</label>
-                    <input type="text" id="edit-modal-thb-acc" class="w-full border rounded-lg px-3 py-2 font-semibold outline-none bg-white" placeholder="ປ້ອນເລກບັນຊີບາດ">
+                    <label class="block font-bold text-gray-700 mb-0.5">🇹🇭 ອັບໂຫຼດຮູບ QR ບັນຊີ (ບາດ):</label>
+                    <input type="file" id="edit-modal-thb-qr-file" accept="image/*" onchange="handleQrImageUpload(event, 'thb')" class="w-full border rounded-lg p-1 text-xs bg-gray-50 cursor-pointer">
+                    <div id="preview-thb-qr" class="mt-1 text-center"></div>
                 </div>
                 <div>
                     <label class="block font-bold text-gray-700 mb-0.5">Username ໃໝ່:</label>
@@ -366,7 +368,7 @@
         </div>
     </div>
 
-    <!-- 🌟 Popup ເລືອກວິທີຊຳລະເງິນ (ເງິນສົດ / ເງິນໂອນ ກີບ & ບາດ ພ້ອມຄຳນວນ ROUNDUP -1) -->
+    <!-- 🌟 Popup ເລືອກວິທີຊຳລະເງິນ (ເງິນສົດ / ເງິນໂອນ ກີບ & ບາດ ພ້ອມສະແດງຮູບ QR Code ຕົວຈິງ) -->
     <div id="checkout-method-modal" class="hidden fixed inset-0 bg-black/70 z-[340] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
             <div class="text-4xl">💰</div>
@@ -1523,17 +1525,40 @@
             container.innerHTML = html;
         }
 
-        // --- 🌟 ຟັງຊັນປ໋ອບອັບແກ້ໄຂບັນຊີ ພ້ອມ ຂໍ້ມູນຮ້ານ (ຊື່ຮ້ານ, ເລກບັນຊີກີບ, ເລກບັນຊີບາດ) ---
+        // --- 🌟 ຟັງຊັນຈັດການອັບໂຫຼດຮູບ QR Code (Base64) ---
+        function handleQrImageUpload(event, type) {
+            let file = event.target.files[0];
+            if (!file) return;
+            let reader = new FileReader();
+            reader.onload = function(e) {
+                let base64Img = e.target.result;
+                if (type === 'lak') {
+                    window.tempLakQrBase64 = base64Img;
+                    document.getElementById('preview-lak-qr').innerHTML = `<span class="text-green-600 font-bold text-[10px]">✅ ອັບໂຫຼດຮູບ QR ກີບສຳເລັດ</span>`;
+                } else if (type === 'thb') {
+                    window.tempThbQrBase64 = base64Img;
+                    document.getElementById('preview-thb-qr').innerHTML = `<span class="text-green-600 font-bold text-[10px]">✅ ອັບໂຫຼດຮູບ QR ບາດສຳເລັດ</span>`;
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // --- 🌟 ຟັງຊັນປ໋ອບອັບແກ້ໄຂບັນຊີ ພ້ອມ ຂໍ້ມູນຮ້ານ ແລະ ອັບໂຫຼດ QR Code ຕົວຈິງ ---
         function promptEditUser(targetId) {
             editingDeviceId = targetId;
             document.getElementById('edit-modal-device-id').innerText = targetId;
             document.getElementById('edit-modal-shop-name').value = localStorage.getItem('pos_shop_name_' + targetId) || '';
-            document.getElementById('edit-modal-lak-acc').value = localStorage.getItem('pos_shop_lak_' + targetId) || '1006000000470';
-            document.getElementById('edit-modal-thb-acc').value = localStorage.getItem('pos_shop_thb_' + targetId) || '';
             document.getElementById('edit-modal-username').value = targetId;
             document.getElementById('edit-modal-password').value = localStorage.getItem('pos_shop_pass_' + targetId) || '';
             document.getElementById('edit-modal-action-select').value = 'none';
             document.getElementById('extend-days-container').classList.add('hidden');
+
+            window.tempLakQrBase64 = localStorage.getItem('pos_shop_lak_qr_' + targetId) || '';
+            window.tempThbQrBase64 = localStorage.getItem('pos_shop_thb_qr_' + targetId) || '';
+
+            document.getElementById('preview-lak-qr').innerHTML = window.tempLakQrBase64 ? `<span class="text-green-600 font-bold text-[10px]">✅ ມີຮູບ QR ກີບແລ້ວ</span>` : '';
+            document.getElementById('preview-thb-qr').innerHTML = window.tempThbQrBase64 ? `<span class="text-green-600 font-bold text-[10px]">✅ ມີຮູບ QR ບາດແລ້ວ</span>` : '';
+
             document.getElementById('edit-user-modal').classList.remove('hidden');
         }
 
@@ -1553,8 +1578,6 @@
 
         async function saveEditedUser() {
             let shopName = document.getElementById('edit-modal-shop-name').value.trim();
-            let lakAcc = document.getElementById('edit-modal-lak-acc').value.trim();
-            let thbAcc = document.getElementById('edit-modal-thb-acc').value.trim();
             let newPass = document.getElementById('edit-modal-password').value.trim();
             let actionVal = document.getElementById('edit-modal-action-select').value;
             let extendDaysInput = parseInt(document.getElementById('edit-modal-extend-days').value) || 15;
@@ -1565,9 +1588,14 @@
             }
 
             localStorage.setItem('pos_shop_name_' + editingDeviceId, shopName);
-            localStorage.setItem('pos_shop_lak_' + editingDeviceId, lakAcc);
-            localStorage.setItem('pos_shop_thb_' + editingDeviceId, thbAcc);
             localStorage.setItem('pos_shop_pass_' + editingDeviceId, newPass);
+
+            if (window.tempLakQrBase64) {
+                localStorage.setItem('pos_shop_lak_qr_' + editingDeviceId, window.tempLakQrBase64);
+            }
+            if (window.tempThbQrBase64) {
+                localStorage.setItem('pos_shop_thb_qr_' + editingDeviceId, window.tempThbQrBase64);
+            }
 
             let updatePayload = {
                 device_id: editingDeviceId,
