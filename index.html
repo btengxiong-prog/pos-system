@@ -1402,14 +1402,19 @@
                 } catch (e) {}
             }
 
-            // Fallback ຖ້າ Supabase ບໍ່ມີຂໍ້ມູນ ໃຫ້ດຶງຈາກ localStorage ຂອງເຄື່ອງ
-            if (licenses.length === 0) {
-                let localDevId = localStorage.getItem('pos_device_id') || deviceId;
-                licenses = [{ device_id: localDevId, status: 'trial' }];
-            }
-
             let datalist = document.getElementById('trial-devices-list');
             if (datalist) datalist.innerHTML = '';
+
+            // 🌟 ຖ້າໃນ Supabase ຍັງບໍ່ມີ ID ຕົວຈິງຂອງເຄື່ອງນີ້ ໃຫ້ດຶງຈາກ localStorage ມາສະແດງຜົນເພີ່ມເຕີມເພື່ອບໍ່ໃຫ້ຕົກຫຼົ່ນ
+            let currentDevId = localStorage.getItem('pos_device_id') || deviceId;
+            if (currentDevId && !licenses.some(l => l.device_id === currentDevId)) {
+                licenses.unshift({ device_id: currentDevId, status: 'trial' });
+            }
+
+            if (licenses.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-500 py-4">ຍັງບໍ່ມີບັນຊີໃນລະບົບ</p>`;
+                return;
+            }
 
             let html = '';
             licenses.forEach(lic => {
@@ -1422,7 +1427,7 @@
                 let username = lic.device_id;
                 let pass = localStorage.getItem('pos_shop_pass_' + username) || '-';
                 
-                // 🌟 ສະແດງ ID ຕົວຈິງທີ່ລະບົບສ້າງຂຶ້ນ (ເຊັ່ນ POS-T69ISZM) ໃຫ້ກົງກັນທັງສອງໜ້າຈໍ 100%
+                // 🌟 ບັງຄັບໃຫ້ສະແດງ ID ຕົວຈິງ (ເຊັ່ນ POS-T69ISZM ຈາກຮູບ 1) ມາສະແດງຜົນໃນລາຍຊື່ Admin (ຮູບ 2) ຢ່າງຖືກຕ້ອງ 100%
                 let displayId = lic.device_id; 
                 let statusBadge = lic.status === 'deleted' ? `<span class="text-red-600 font-bold">[ລຶບຖາວອນ]</span>` : (lic.status === 'trial' ? `<span class="text-amber-600 font-bold">[ທົດລອງ]</span>` : `<span class="text-green-600 font-bold">[ຖາວອນ/Active]</span>`);
 
