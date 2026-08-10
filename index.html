@@ -1942,7 +1942,7 @@
             openStockInModal(code, defaultCost);
         }
 
-async function confirmStockIn() {
+        async function confirmStockIn() {
             let costVal = parseFloat(String(document.getElementById('stock-in-cost').value).replace(/,/g, '')) || 0;
             let qtyVal = parseInt(document.getElementById('stock-in-qty').value) || 1;
             let subQtyVal = parseInt(document.getElementById('stock-in-sub-qty').value) || 0;
@@ -1992,20 +1992,21 @@ async function confirmStockIn() {
 
             let subRowsPayload = [];
 
-            // 2) ຖ້າມີການປ້ອນຈຳນວນສິນຄ້າຍ່ອຍ (ເຊັ່ນ 12 ແກ້ວ/ລາງ) ໃຫ້ລະບົບສ້າງລາຄາຂາຍຍ່ອຍອັດຕະໂນມັດ
+            // 2) ຖ້າມີການປ້ອນຈຳນວນສິນຄ້າຍ່ອຍ ໃຫ້ສ້າງແຖວຂາຍຍ່ອຍໂດຍໃຊ້ "ລະຫັດ Barcode/QR ໂຕດຽວກັນ" ເພື່ອໃຫ້ລະບົບຈຳແນກເປັນສິນຄ້າມีຫຼາຍລາຄາ (Multi-Price)
             if (subQtyVal > 0) {
-                let costPerUnit = costVal / subQtyVal; // ต้นทุนຕໍ່ແກ້ວ
-                let retailRawPrice = costPerUnit + (costPerUnit * retailPctVal / 100);
-                let retailPrice = Math.ceil(retailRawPrice / 500) * 500; // ປັດມົນມາດຕະຖານຂາຍຍ່ອຍ
+                let unitCost = costVal / subQtyVal; // ຕົ້ນທຶນຕໍ່ໜ່ວຍຍ່ອຍ
+                let roundedUnitCost = Math.ceil(unitCost / 1000) * 1000; // ROUNDUP -3 ຕົ້ນທຶນ
+                let rawRetail = roundedUnitCost * (1 + retailPctVal / 100);
+                let retailPrice = Math.ceil(rawRetail / 1000) * 1000; // ROUNDUP -3 ລາຄາຂາຍຍ່ອຍ
                 
                 let subRowId = 'ROW-SUB-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
                 let totalSubQty = qtyVal * subQtyVal;
 
                 excelRows.push({
                     id: subRowId,
-                    code: currentStockInCode + " (ແກ້ວ/ຍ່ອຍ)",
-                    cost: costPerUnit,
-                    originalCost: costPerUnit,
+                    code: currentStockInCode, // 🌟 ໃຊ້ລະຫັດ Barcode/QR ໂຕດຽວກັນເປ๊ะໆ ບໍ່ມີຄຳວ່າແກ້ວ/ຍ່ອຍຕໍ່ທ້າຍ
+                    cost: roundedUnitCost,
+                    originalCost: roundedUnitCost,
                     profitPct: retailPctVal,
                     price: retailPrice,
                     qty: totalSubQty,
@@ -2017,9 +2018,9 @@ async function confirmStockIn() {
                 subRowsPayload.push({
                     id: subRowId,
                     device_id: deviceId,
-                    code: currentStockInCode + " (ແກ້ວ/ຍ່ອຍ)",
-                    cost: costPerUnit,
-                    original_cost: costPerUnit,
+                    code: currentStockInCode, // 🌟 ໃຊ້ລະຫັດ Barcode/QR ໂຕດຽວກັນເປ๊ะໆ
+                    cost: roundedUnitCost,
+                    original_cost: roundedUnitCost,
                     profit_pct: retailPctVal,
                     price: retailPrice,
                     qty: totalSubQty,
@@ -2052,7 +2053,7 @@ async function confirmStockIn() {
             }
 
             closeStockInModal();
-            showAlert("ສຳເລັດ", `ນຳເຂົ້າສິນຄ້າ [ຂາຍສົ່ງ ແລະ ຂາຍຍ່ອຍ] ສຳເລັດຮຽບຮ້ອຍ!`, "✅");
+            showAlert("ສຳເລັດ", `ນຳເຂົ້າສິນຄ້າ [ຂາຍສົ່ງ ແລະ ຂາຍຍ່ອຍ ລະຫັດດຽວກັນ] ສຳເລັດຮຽບຮ້ອຍ!`, "✅");
         }
 
         function openStockInModal(code, defaultCost = null) {
