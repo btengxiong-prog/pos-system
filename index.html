@@ -1105,6 +1105,7 @@
         let deviceId = localStorage.getItem('pos_device_id');
         let currentUsername = localStorage.getItem('pos_current_username') || null;
 
+        // 🌟 ຟັງຊັນສ້າງ ID ສະເພາະຕົວເຄື່ອງ ໂດຍໃຊ້ LocalStorage ແລະ Random ID (ປ້ອງກັນບໍ່ໃຫ້ມືຖືທັງ 2 ເຄື່ອງໄດ້ ID ດຽວກັນເປັນ POS-A0010)
         async function initDeviceId() {
             let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
             if (linkedAdminId) {
@@ -1119,18 +1120,14 @@
                 return;
             }
 
-            if (!deviceId || deviceId.startsWith('DEV-')) {
-                if (supabaseClient) {
-                    try {
-                        let { count, error } = await supabaseClient.from('licenses').select('*', { count: 'exact', head: true });
-                        let nextNum = (!error && count !== null) ? count + 1 : 1;
-                        deviceId = formatDeviceSeqId(nextNum);
-                    } catch (e) {
-                        deviceId = 'POS-' + Math.random().toString(36).substring(2, 7).toUpperCase();
-                    }
-                } else {
-                    deviceId = 'POS-' + Math.random().toString(36).substring(2, 7).toUpperCase();
+            // ຖ້າບໍ່ມີ deviceId ທີ່ບັນທຶກໄວ້ໃນເຄື່ອງມືຖືນີ້ ໃຫ້ສ້າງ ID ໃໝ່ສະເພາະຕົວເຄື່ອງທັນທີ (ເຊັ່ນ POS-M followed by random)
+            if (!deviceId || deviceId.startsWith('DEV-') || deviceId === 'POS-A0010') {
+                let existingMobileId = localStorage.getItem('pos_unique_mobile_id');
+                if (!existingMobileId) {
+                    existingMobileId = 'POS-M' + Math.random().toString(36).substring(2, 7).toUpperCase();
+                    localStorage.setItem('pos_unique_mobile_id', existingMobileId);
                 }
+                deviceId = existingMobileId;
                 localStorage.setItem('pos_device_id', deviceId);
             }
             
@@ -1149,18 +1146,6 @@
                     }
                 } catch(e) {}
             }
-        }
-
-        function formatDeviceSeqId(num) {
-            let blockChar = 'A';
-            let seq = num;
-            if (num > 9999) {
-                let blockIndex = Math.floor((num - 1) / 9999);
-                blockChar = String.fromCharCode(65 + blockIndex);
-                seq = ((num - 1) % 9999) + 1;
-            }
-            let paddedSeq = String(seq).padStart(4, '0');
-            return `POS-${blockChar}${paddedSeq}`;
         }
 
         async function checkTrialLicense() {
@@ -1615,6 +1600,18 @@
 
             await Promise.all(promises);
         }
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            await initDeviceId();
+            let userRole = localStorage.getItem('pos_user_role');
+            let shopOwner = localStorage.getItem('pos_shop_owner');
+            let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
+            if (userRole === 'admin' || shopOwner === 'true' || linkedAdminId) {
+                let roleModal = document.getElementById('role-select-modal');
+                if (roleModal) roleModal.classList.add('hidden');
+            }
+            checkRoleAndLicense();
+        });
     </script>
 </body>
 </html>
