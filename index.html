@@ -607,7 +607,7 @@
                     📱 QR Code ເຊື່ອມຕໍ່ພະນັກງານ
                 </button>
 
-                <!-- ປຸ່ມ: ປ່ຽນໂໝດ / ອອກລະບົບ (ແກ້ໄຂ: ໃຫ້ລ້າງ ID ເກົ່າອອກ ເພື່ອໃຫ້ໂໝດທົດລອງໄດ້ ID ໃໝ່ສະເໝີ) -->
+                <!-- ປຸ່ມ: ປ່ຽນໂໝດ / ອອກລະບົບ -->
                 <button onclick="adminLogout()" class="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     🚪 ປ່ຽນໂໝດ / ອອກລະບົບ
                 </button>
@@ -698,7 +698,7 @@
             </div>
         </div>
 
-    <!-- Stock-In Input Modal -->
+        <!-- Stock-In Input Modal -->
         <div id="stock-in-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
                 <div class="text-3xl text-center">📥</div>
@@ -714,7 +714,7 @@
                         <input type="number" id="stock-in-qty" value="1" min="1" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 font-bold text-gray-800 text-lg bg-white" placeholder="ປ້ອນຈຳນວນ">
                     </div>
 
-                    <!-- 🌟 ພາກສ່ວນທີ່ເພີ່ມໃໝ່ຕາມກອບສີແດງ: ຈຳນວນຍ່ອຍຕໍ່ລາງ ແລະ ເປີເຊັນຂາຍຍ່ອຍ -->
+                    <!-- ຈຳນວນຍ່ອຍ/ລາງ ແລະ ເປີເຊັນຂາຍຍ່ອຍ -->
                     <div class="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200">
                         <div>
                             <label class="block text-[11px] font-bold text-gray-700 mb-1">📦 ຈຳນວນຍ່ອຍ/ລາງ (ເຊັ່ນ 12):</label>
@@ -1114,50 +1114,48 @@
             return new Date().toISOString().split('T')[0];
         }
 
-            let deviceId = localStorage.getItem('pos_device_id');
-            let currentUsername = localStorage.getItem('pos_current_username') || null;
+        let deviceId = localStorage.getItem('pos_device_id');
+        let currentUsername = localStorage.getItem('pos_current_username') || null;
 
-            // 🌟 ປັບປຸງ: ສ້າງ ID ສະເພາະຕົວເຄື່ອງ ໂດຍໃຊ້ LocalStorage (ຮັບຮອງວ່າ ID ບໍ່ຊ້ຳກັນລະຫວ່າງເຄື່ອງແນ່ນອນ 100%)
-            async function initDeviceId() {
-                let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
-                if (linkedAdminId) {
-                    deviceId = linkedAdminId;
-                    localStorage.setItem('pos_device_id', deviceId);
-                    return;
-                }
-
-                if (currentUsername) {
-                    deviceId = currentUsername;
-                    localStorage.setItem('pos_device_id', deviceId);
-                    return;
-                }
-
-                // ຖ້າເຄື່ອງນີ້ຍັງບໍ່ເຄີຍມີ ID ສະເພາະຕົວ ໃຫ້ສ້າງລະຫັດແບບ Random ທີ່ບໍ່ຊ້ຳກັນທັນທີ
-                let uniqueDeviceKey = localStorage.getItem('pos_unique_device_id');
-                if (!uniqueDeviceKey) {
-                    uniqueDeviceKey = 'POS-T' + Math.random().toString(36).substring(2, 8).toUpperCase();
-                    localStorage.setItem('pos_unique_device_id', uniqueDeviceKey);
-                }
-                
-                deviceId = uniqueDeviceKey;
+        async function initDeviceId() {
+            let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
+            if (linkedAdminId) {
+                deviceId = linkedAdminId;
                 localStorage.setItem('pos_device_id', deviceId);
-                
-                if (supabaseClient && deviceId) {
-                    try {
-                        let { data: existing } = await supabaseClient.from('licenses').select('*').eq('device_id', deviceId).single();
-                        if (!existing) {
-                            let trialUntil = new Date();
-                            trialUntil.setDate(trialUntil.getDate() + 15);
-                            await supabaseClient.from('licenses').insert({
-                                device_id: deviceId,
-                                status: 'trial',
-                                trial_until: trialUntil.toISOString(),
-                                created_at: new Date().toISOString()
-                            });
-                        }
-                    } catch(e) {}
-                }
+                return;
             }
+
+            if (currentUsername) {
+                deviceId = currentUsername;
+                localStorage.setItem('pos_device_id', deviceId);
+                return;
+            }
+
+            let uniqueDeviceKey = localStorage.getItem('pos_unique_device_id');
+            if (!uniqueDeviceKey) {
+                uniqueDeviceKey = 'POS-T' + Math.random().toString(36).substring(2, 8).toUpperCase();
+                localStorage.setItem('pos_unique_device_id', uniqueDeviceKey);
+            }
+            
+            deviceId = uniqueDeviceKey;
+            localStorage.setItem('pos_device_id', deviceId);
+            
+            if (supabaseClient && deviceId) {
+                try {
+                    let { data: existing } = await supabaseClient.from('licenses').select('*').eq('device_id', deviceId).single();
+                    if (!existing) {
+                        let trialUntil = new Date();
+                        trialUntil.setDate(trialUntil.getDate() + 15);
+                        await supabaseClient.from('licenses').insert({
+                            device_id: deviceId,
+                            status: 'trial',
+                            trial_until: trialUntil.toISOString(),
+                            created_at: new Date().toISOString()
+                        });
+                    }
+                } catch(e) {}
+            }
+        }
 
         function formatDeviceSeqId(num) {
             let blockChar = 'A';
@@ -1211,7 +1209,6 @@
             if (roleModal) roleModal.classList.add('hidden');
             if (loginModal) loginModal.classList.add('hidden');
             checkTrialLicense();
-            setupRealtimeSync(); 
         }
 
         function showUnifiedLoginModal() {
@@ -1252,7 +1249,6 @@
                 let rateBtn = document.getElementById('header-rate-btn');
                 if (rateBtn) rateBtn.classList.remove('hidden');
                 document.getElementById('license-status-badge').innerText = "🛡️ ສະຖານະ: ເຂົ້າລະບົບ Super Admin (Full Access)";
-                setupRealtimeSync();
                 return;
             }
 
@@ -1275,8 +1271,6 @@
                 let rateBtn = document.getElementById('header-rate-btn');
                 if (rateBtn) rateBtn.classList.remove('hidden');
                 document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ເຈົ້າຂອງຮ້ານ [${currentUsername}] (Shop Owner Admin)`;
-                
-                setupRealtimeSync();
                 return;
             }
 
@@ -1299,8 +1293,6 @@
                         let rateBtn = document.getElementById('header-rate-btn');
                         if (rateBtn) rateBtn.classList.remove('hidden');
                         document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ເຈົ້າຂອງຮ້ານ [${currentUsername}] (Shop Owner Admin)`;
-                        
-                        setupRealtimeSync();
                         return;
                     }
                 } catch (e) {}
@@ -1313,14 +1305,13 @@
             if (event.key === 'Enter') { verifyUnifiedLogin(); }
         }
 
-        // 🌟 ແກ້ໄຂຟັງຊັນອອກລະບົບ (adminLogout) ໃຫ້ລ້າງ ID ເກົ່າອອກ ເພື່ອໃຫ້ເວລາອອກໄປໂໝດທົດລອງ ລະບົບຈະໄດ້ສ້າງ ID ໃໝ່ສະເໝີ
         function adminLogout() {
             localStorage.removeItem('pos_user_role');
             localStorage.removeItem('pos_license_status');
             localStorage.removeItem('pos_current_username');
             localStorage.removeItem('pos_shop_owner');
             localStorage.removeItem('pos_linked_admin_id');
-            localStorage.removeItem('pos_device_id'); // ລຶບ ID ເກົ່າອອກ ເພື່ອໃຫ້გენ ID ใหม่
+            localStorage.removeItem('pos_device_id');
             location.reload();
         }
 
@@ -1392,7 +1383,6 @@
             }
         }
 
-        // 🌟 ຟັງຊັນຈັດການລະບົບຂອງ Admin ໃຫຍ່
         async function openAdminManager() {
             document.getElementById('admin-manager-modal').classList.remove('hidden');
             await loadAllDevices();
@@ -1417,7 +1407,6 @@
             let datalist = document.getElementById('trial-devices-list');
             if (datalist) datalist.innerHTML = '';
 
-            // 🌟 ຖ້າໃນ Supabase ຍັງບໍ່ມີ ID ຕົວຈິງຂອງເຄື່ອງນີ້ ໃຫ້ດຶງຈາກ localStorage ມາສະແດງຜົນເພີ່ມເຕີມເພື່ອບໍ່ໃຫ້ຕົກຫຼົ່ນ
             let currentDevId = localStorage.getItem('pos_device_id') || deviceId;
             if (currentDevId && !licenses.some(l => l.device_id === currentDevId)) {
                 licenses.unshift({ device_id: currentDevId, status: 'trial' });
@@ -1439,7 +1428,6 @@
                 let username = lic.device_id;
                 let pass = localStorage.getItem('pos_shop_pass_' + username) || '-';
                 
-                // 🌟 ບັງຄັບໃຫ້ສະແດງ ID ຕົວຈິງ (ເຊັ່ນ POS-T69ISZM ຈາກຮູບ 1) ມາສະແດງຜົນໃນລາຍຊື່ Admin (ຮູບ 2) ຢ່າງຖືກຕ້ອງ 100%
                 let displayId = lic.device_id; 
                 let statusBadge = lic.status === 'deleted' ? `<span class="text-red-600 font-bold">[ລຶບຖາວອນ]</span>` : (lic.status === 'trial' ? `<span class="text-amber-600 font-bold">[ທົດລອງ]</span>` : `<span class="text-green-600 font-bold">[ຖາວອນ/Active]</span>`);
 
@@ -1514,7 +1502,6 @@
             }
         }
 
-        // 🌟 ຟັງຊັນບັນທຶກການແກ້ໄຂບັນຊີ ແລະ ຈັດການສະຖານະ (ອັບເດດຕາມເງື່ອນໄຂ 1, 2, 3, 4 ຂອງອາຈານ)
         async function saveEditedUser() {
             let newPass = document.getElementById('edit-modal-password').value.trim();
             let actionVal = document.getElementById('edit-modal-action-select').value;
@@ -1533,22 +1520,18 @@
             };
 
             if (actionVal === 'to_trial') {
-                // 1) ປົດມາເປັນທົດລອງ 15 ວັນ: ຕັ້ງເວລາໃຫ້ໝົດອາຍຸທັນທີ ເພື່ອບໍ່ໃຫ້ສາມາດໃຊ້ງານໄດ້ ຕ້ອງຕໍ່ອາຍຸ ຫຼື ລົງທະບຽນເທົ່ານັ້ນ
                 let expiredDate = new Date();
                 expiredDate.setDate(expiredDate.getDate() - 1);
                 updatePayload.status = 'trial';
                 updatePayload.trial_until = expiredDate.toISOString();
             } else if (actionVal === 'extend_trial') {
-                // 2) ຕໍ່ອາຍຸຢູເຊີທົດລອງຕາມຈຳນວນວັນທີ່ ADMIN ກຳນົດເອງ
                 let extendDate = new Date();
                 extendDate.setDate(extendDate.getDate() + extendDaysInput);
                 updatePayload.status = 'trial';
                 updatePayload.trial_until = extendDate.toISOString();
             } else if (actionVal === 'delete_permanent') {
-                // 3) ລົບບັນຊີຖາວອນ (ປິດກັ້ນການໃຊ້ງານທັງໝົດ)
                 updatePayload.status = 'deleted';
             } else if (actionVal === 'restore_user') {
-                // 4) ແກ້ໄຂຢູເຊີຄືນ / ກູ້ຄືນສະຖານະໃຫ້ກັບມາໃຊ້ງານໄດ້ປົກກະຕິ
                 updatePayload.status = 'active';
             }
 
@@ -1563,7 +1546,6 @@
             loadAllDevices();
         }
 
-        // 🌟 ຟັງຊັນ Dropdown
         function toggleCustomDropdown(menuId, event) {
             if (event) event.stopPropagation();
             let menus = ['import-export-menu', 'history-id-menu', 'create-code-menu', 'report-menu'];
@@ -1593,7 +1575,6 @@
             }
         });
 
-        // 🌟 Modal Open/Close Functions
         function openRegisterModal() {
             let m = document.getElementById('register-payment-modal');
             if (m) m.classList.remove('hidden');
@@ -1705,7 +1686,6 @@
             reader.readAsArrayBuffer(file);
         }
 
-        // --- CORE POS LOGIC ---
         async function openInventoryModal() {
             document.getElementById('inventory-modal').classList.remove('hidden');
             await loadInventory();
@@ -1970,13 +1950,11 @@
 
             let today = new Date().toISOString().split('T')[0];
             
-            // ຄຳນວນລາຄາຂາຍສົ່ງ (ປົກກະຕິ +20% ກຳໄລ)
             let rawPrice = costVal + (costVal * 20 / 100);
             let wholesalePrice = Math.ceil(rawPrice / 1000) * 1000;
 
             let newRowId = 'ROW-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
 
-            // 1) ບັນທຶກລາຄາຂາຍສົ່ງ (ລາງ)
             excelRows.push({
                 id: newRowId,
                 code: currentStockInCode,
@@ -1992,19 +1970,18 @@
 
             let subRowsPayload = [];
 
-            // 2) ຖ້າມີການປ້ອນຈຳນວນສິນຄ້າຍ່ອຍ ໃຫ້ສ້າງແຖວຂາຍຍ່ອຍໂດຍໃຊ້ "ລະຫັດ Barcode/QR ໂຕດຽວກັນ" ເພື່ອໃຫ້ລະບົບຈຳແນກເປັນສິນຄ້າມีຫຼາຍລາຄາ (Multi-Price)
             if (subQtyVal > 0) {
-                let unitCost = costVal / subQtyVal; // ຕົ້ນທຶນຕໍ່ໜ່ວຍຍ່ອຍ
-                let roundedUnitCost = Math.ceil(unitCost / 1000) * 1000; // ROUNDUP -3 ຕົ້ນທຶນ
+                let unitCost = costVal / subQtyVal; 
+                let roundedUnitCost = Math.ceil(unitCost / 1000) * 1000; 
                 let rawRetail = roundedUnitCost * (1 + retailPctVal / 100);
-                let retailPrice = Math.ceil(rawRetail / 1000) * 1000; // ROUNDUP -3 ລາຄາຂາຍຍ່ອຍ
+                let retailPrice = Math.ceil(rawRetail / 1000) * 1000; 
                 
                 let subRowId = 'ROW-SUB-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
                 let totalSubQty = qtyVal * subQtyVal;
 
                 excelRows.push({
                     id: subRowId,
-                    code: currentStockInCode, // 🌟 ໃຊ້ລະຫັດ Barcode/QR ໂຕດຽວກັນເປ๊ะໆ ບໍ່ມີຄຳວ່າແກ້ວ/ຍ່ອຍຕໍ່ທ້າຍ
+                    code: currentStockInCode, 
                     cost: roundedUnitCost,
                     originalCost: roundedUnitCost,
                     profitPct: retailPctVal,
@@ -2018,7 +1995,7 @@
                 subRowsPayload.push({
                     id: subRowId,
                     device_id: deviceId,
-                    code: currentStockInCode, // 🌟 ໃຊ້ລະຫັດ Barcode/QR ໂຕດຽວກັນເປ๊ะໆ
+                    code: currentStockInCode, 
                     cost: roundedUnitCost,
                     original_cost: roundedUnitCost,
                     profit_pct: retailPctVal,
@@ -2073,6 +2050,8 @@
 
             document.getElementById('stock-in-modal').classList.add('hidden');
             document.getElementById('stock-in-qty').value = "1";
+            document.getElementById('stock-in-sub-qty').value = "";
+            document.getElementById('stock-in-retail-pct').value = "10";
             document.getElementById('stock-in-mfg-date').value = "";
             document.getElementById('stock-in-exp-date').value = "";
             document.getElementById('stock-in-modal').classList.remove('hidden');
@@ -2176,7 +2155,7 @@
             }
             html5QrCode.start(
                 { facingMode: "environment" },
-                { fps: 10, qrbox: 250 },
+                { fps: 10, qrbox: { width: 300, height: 150 } },
                 (decodedText) => {
                     let currentTime = new Date().getTime();
                     if (decodedText === lastScannedCode && (currentTime - lastScanTime < 3000)) return;
@@ -2342,162 +2321,42 @@
             showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
         }
 
-        async function updateCartQtyDirect(index, inputElem) {
-            let val = parseInt(inputElem.value);
-            if (isNaN(val) || val <= 0) {
-                val = 1;
-            }
-
-            await fetchProductsForGenerator();
-            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-            let soldQtyMap = {};
-            localHistory.forEach(tx => {
-                if (tx.items) {
-                    tx.items.forEach(it => {
-                        let cKey = String(it.code || '').trim().toLowerCase();
-                        soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
-                    });
-                }
-            });
-
-            let targetItem = cart[index];
-            let cKey = String(targetItem.code || '').trim().toLowerCase();
-            let totalStock = 0;
-            excelRows.forEach(row => {
-                if (String(row.code || '').trim().toLowerCase() === cKey) {
-                    totalStock += parseInt(String(row.qty || 1).replace(/,/g, '')) || 1;
-                }
-            });
-
-            let totalSold = soldQtyMap[cKey] || 0;
-            let otherCartQty = 0;
-            cart.forEach((it, idx) => {
-                if (idx !== index && String(it.code || '').trim().toLowerCase() === cKey) {
-                    otherCartQty += it.qty;
-                }
-            });
-
-            let remainingStock = totalStock - totalSold - otherCartQty;
-            if (remainingStock < 0) remainingStock = 0;
-
-            if (val > remainingStock) {
-                showAlert("ສິນຄ້າໃນສາງບໍ່ພໍ", `ສິນຄ້າ [${targetItem.name}] ໃນສາງເຫຼືອພຽງ ${remainingStock} ອັນເທົ່ານັ້ນ!`, "⚠️");
-                inputElem.value = remainingStock;
-                cart[index].qty = remainingStock;
-            } else {
-                cart[index].qty = val;
-            }
-            renderCart();
-        }
-
-        function removeItem(index) { cart.splice(index, 1); renderCart(); }
-
-        function renderCart() {
-            let tbody = document.getElementById('cart-items');
+        // --- BCEL QR CODE PAYMENT MODAL ---
+        function openBcelQrModal() {
             if (cart.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ</td></tr>`;
-                document.getElementById('grand-total-cost').innerText = "0 ກີບ";
-                document.getElementById('grand-total').innerText = "0 ກີບ";
-                document.getElementById('custom-final-price').value = "";
-                document.getElementById('final-total').innerText = "0 ກີບ";
-                document.getElementById('grand-total-profit').innerText = "0 ກີບ";
-                document.getElementById('change-amount').innerText = "0 ກີບ";
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າກ່ອນສະແກນ QR ຮັບເງິນ!", "⚠️");
                 return;
             }
-            let html = '', grandTotal = 0, grandTotalCost = 0;
-            cart.forEach((item, index) => {
-                let total = item.price * item.qty, totalCost = item.cost * item.qty;
-                grandTotal += total; grandTotalCost += totalCost;
-                html += `
-                    <tr class="hover:bg-gray-50 border-b">
-                        <td class="p-3 font-medium text-gray-800">${item.name}</td>
-                        <td class="p-3 text-right text-gray-600">${formatNumberWithCommas(item.cost)}</td>
-                        <td class="p-3 text-right text-blue-600 font-semibold">${formatNumberWithCommas(item.price)}</td>
-                        <td class="p-3 text-center">
-                            <input type="number" min="1" value="${item.qty}" onchange="updateCartQtyDirect(${index}, this)" class="w-16 border rounded text-center px-2 py-1 font-bold text-gray-800 bg-white shadow-inner outline-none focus:ring-1 focus:ring-blue-500">
-                        </td>
-                        <td class="p-3 text-right font-bold text-gray-800">${formatNumberWithCommas(total)}</td>
-                        <td class="p-3 text-center"><button onclick="removeItem(${index})" class="text-red-500 font-bold cursor-pointer">ລຶບ</button></td>
-                    </tr>
-                `;
-            });
-            tbody.innerHTML = html;
-            document.getElementById('grand-total-cost').innerText = formatNumberWithCommas(grandTotalCost) + " ກີບ";
-            document.getElementById('grand-total').innerText = formatNumberWithCommas(grandTotal) + " ກີບ";
-            
-            calculateChange();
-        }
-
-        function calculateChange() {
             let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-            let grandTotalCost = cart.reduce((sum, item) => sum + ((item.cost || 0) * item.qty), 0);
-            
             let customPriceVal = document.getElementById('custom-final-price').value.replace(/,/g, '');
             let finalTotal = customPriceVal !== "" ? (parseFloat(customPriceVal) || 0) : grandTotal;
-            if (finalTotal < 0) finalTotal = 0;
 
-            let grandTotalProfit = finalTotal - grandTotalCost;
+            document.getElementById('bcel-qr-amount-text').innerText = formatNumberWithCommas(finalTotal) + " ກີບ";
+            document.getElementById('bcel-qr-modal').classList.remove('hidden');
 
-            document.getElementById('final-total').innerText = formatNumberWithCommas(finalTotal) + " ກີບ";
-            document.getElementById('grand-total-profit').innerText = formatNumberWithCommas(grandTotalProfit) + " ກີບ";
-
-            let cashInput = document.getElementById('cash-given').value.replace(/,/g, ''), changeElem = document.getElementById('change-amount');
-            if (!cashInput) { changeElem.innerText = "0 ກີບ (ຈ່າຍພໍດີ)"; return; }
-            let cashGiven = parseFloat(cashInput) || 0, change = cashGiven - finalTotal;
-            changeElem.innerText = change >= 0 ? formatNumberWithCommas(change) + " ກີບ" : "ເງິນຍັງບໍ່ພໍ";
-        }
-
-        function handleCustomPriceKeydown(event) {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                document.getElementById('cash-given').focus();
+            let qrContainer = document.getElementById('bcel-qrcode-container');
+            if (qrContainer && window.QRCode) {
+                qrContainer.innerHTML = "";
+                let bcelPayload = `BCEL:1006000000470:AMOUNT=${finalTotal}`;
+                QRCode.toString(bcelPayload, { type: 'svg', width: 160, margin: 1 }, function (err, svgString) {
+                    if (!err && qrContainer) {
+                        qrContainer.innerHTML = svgString;
+                    }
+                });
             }
         }
 
-        function handleCashKeydown(event) {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                checkout();
-            }
+        function closeBcelQrModal() {
+            document.getElementById('bcel-qr-modal').classList.add('hidden');
         }
 
-        async function checkStockAvailability() {
-            await fetchProductsForGenerator();
-            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-            let soldQtyMap = {};
-            localHistory.forEach(tx => {
-                if (tx.items) {
-                    tx.items.forEach(it => {
-                        let cKey = String(it.code || '').trim().toLowerCase();
-                        soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
-                    });
-                }
-            });
-
-            let stockMap = {};
-            excelRows.forEach(row => {
-                let cKey = String(row.code || '').trim().toLowerCase();
-                let initial = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1;
-                stockMap[cKey] = (stockMap[cKey] || 0) + initial;
-            });
-
-            for (let item of cart) {
-                let cKey = String(item.code || '').trim().toLowerCase();
-                let totalStock = stockMap[cKey] || 0;
-                let totalSold = soldQtyMap[cKey] || 0;
-                let remaining = totalStock - totalSold;
-                if (remaining < 0) remaining = 0;
-
-                if (item.qty > remaining) {
-                    return { ok: false, name: item.name, requested: item.qty, available: remaining };
-                }
-            }
-            return { ok: true };
-        }
-
+        // --- 🌟 ແກ້ໄຂຟັງຊັນຊຳລະເງິນໃຫ້ສົມບູນ 100% ---
         async function checkout() {
-            if (cart.length === 0) { showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າ!", "⚠️"); return; }
-            
+            if (cart.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າ!", "⚠️");
+                return;
+            }
+
             let stockCheck = await checkStockAvailability();
             if (!stockCheck.ok) {
                 showAlert("ສິນຄ້າໃນສາງບໍ່ພໍ", `ສິນຄ້າ [${stockCheck.name}] ໃນສາງເຫຼືອພຽງ ${stockCheck.available} ອັນ ແຕ່ທ່ານຕ້ອງການຂາຍ ${stockCheck.requested} ອັນ! ບໍ່ສາມາດຊຳລະເງິນໄດ້.`, "❌");
