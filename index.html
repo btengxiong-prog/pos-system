@@ -1208,47 +1208,78 @@
             }
         }
 
-        function checkRoleAndLicense() {
+        function formatDeviceSeqId(num) {
+            let blockChar = 'A';
+            let seq = num;
+            if (num > 9999) {
+                let blockIndex = Math.floor((num - 1) / 9999);
+                blockChar = String.fromCharCode(65 + blockIndex);
+                seq = ((num - 1) % 9999) + 1;
+            }
+            let paddedSeq = String(seq).padStart(4, '0');
+            return `POS-${blockChar}${paddedSeq}`;
+        }
+
+        async function checkTrialLicense() {
             let userRole = localStorage.getItem('pos_user_role');
             let shopOwner = localStorage.getItem('pos_shop_owner');
             let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
 
-            if (userRole === 'admin') {
-                let adminBtn = document.getElementById('admin-manage-btn');
-                if (adminBtn) adminBtn.classList.remove('hidden');
-                let rateBtn = document.getElementById('header-rate-btn');
-                if (rateBtn) rateBtn.classList.remove('hidden');
-                let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
-                if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
-                document.getElementById('license-status-badge').innerText = "🛡️ ສະຖານະ: ເຂົ້າລະບົບ Super Admin (Full Access)";
-            } else if (shopOwner === 'true' || currentUsername) {
-                let adminBtn = document.getElementById('admin-manage-btn');
-                if (adminBtn) adminBtn.classList.add('hidden');
-                let rateBtn = document.getElementById('header-rate-btn');
-                if (rateBtn) rateBtn.classList.remove('hidden');
-                let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
-                if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
-                let currentDev = localStorage.getItem('pos_device_id') || deviceId;
-                document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ເຈົ້າຂອງຮ້ານ [${currentDev}] (Shop Owner Admin)`;
-            } else if (linkedAdminId) {
-                let adminBtn = document.getElementById('admin-manage-btn');
-                if (adminBtn) adminBtn.classList.add('hidden');
-                let rateBtn = document.getElementById('header-rate-btn');
-                if (rateBtn) rateBtn.classList.add('hidden');
-                let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
-                if (headerConnectQrBtn) headerConnectQrBtn.classList.add('hidden');
-                document.getElementById('license-status-badge').innerText = `🔗 ສະຖານະ: ພนักงานຂາຍ (ເຊື່ອມຕໍ່ຮ້ານ Admin: ${linkedAdminId})`;
-            } else {
-                let adminBtn = document.getElementById('admin-manage-btn');
-                if (adminBtn) adminBtn.classList.add('hidden');
-                let rateBtn = document.getElementById('header-rate-btn');
-                if (rateBtn) rateBtn.classList.add('hidden');
-                let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
-                if (headerConnectQrBtn) headerConnectQrBtn.classList.add('hidden');
-                document.getElementById('license-status-badge').innerText = `⏳ ສະຖານະ: ທົດລອງໃຊ້ 15 ວັນ (ID: ${deviceId})`;
+            if (userRole === 'admin' || shopOwner === 'true' || linkedAdminId) {
+                checkRoleAndLicense();
+                return;
             }
-            updateHeaderTitle();
-            fetchProductsForGenerator();
+
+            if (supabaseClient && deviceId) {
+                try {
+                    let { data } = await supabaseClient.from('licenses').select('*').eq('device_id', deviceId).single();
+                    if (data) {
+                        if (data.status === 'deleted') {
+                            alert("⚠️ ບັນຊີນີ້ຖືກລຶບຖາວອນແລ້ວ! ບໍ່ສາມາດນຳໃຊ້ລະບົບໄດ້.");
+                            document.body.innerHTML = `<div style="text-align:center; margin-top:20vh; font-family:sans-serif;"><h2>❌ ບັນຊີນີ້ຖືກລະງັບ/ລຶບຖາວອນ</h2><p>ກະລຸນາຕິດຕໍ່ຜູ້ພັດທະນາ</p></div>`;
+                            return;
+                        }
+                        if (data.status === 'trial' && data.trial_until) {
+                            let now = new Date();
+                            let expiry = new Date(data.trial_until);
+                            if (now > expiry) {
+                                alert("⏳ ໝົດອາຍຸທົດລອງໃຊ້ 15 ວັນແລ້ວ! ກະລຸນາຕິດຕໍ່ Admin ເພື່ອຕໍ່ອາຍຸ ຫຼື ລົງທະບຽນ.");
+                                document.body.innerHTML = `<div style="text-align:center; margin-top:20vh; font-family:sans-serif;"><h2>⏳ ເວລາທົດລອງໃຊ້ໝົດແລ້ວ</h2><p>ກະລຸນາຕິດຕໍ່ 020 59456999 ເພື່ອຕໍ່ອາຍຸ</p></div>`;
+                                return;
+                            }
+                        }
+                    }
+                } catch (e) {}
+            }
+            checkRoleAndLicense();
+        }
+
+        function selectRole(role) {
+            let roleModal = document.getElementById('role-select-modal');
+            let loginModal = document.getElementById('unified-login-modal');
+            if (roleModal) roleModal.classList.add('hidden');
+            if (loginModal) loginModal.classList.add('hidden');
+            checkTrialLicense();
+        }
+
+        function showUnifiedLoginModal() {
+            let roleModal = document.getElementById('role-select-modal');
+            let loginModal = document.getElementById('unified-login-modal');
+            if (roleModal) roleModal.classList.add('hidden');
+            if (loginModal) loginModal.classList.remove('hidden');
+        }
+
+        function backToRoleSelectFromUnified() {
+            let roleModal = document.getElementById('role-select-modal');
+            let loginModal = document.getElementById('unified-login-modal');
+            if (loginModal) loginModal.classList.add('hidden');
+            if (roleModal) roleModal.classList.remove('hidden');
+        }
+
+        function openStaffScannerFromRole() {
+            let roleModal = document.getElementById('role-select-modal');
+            if (roleModal) roleModal.classList.add('hidden');
+            openStaffScanner();
         }
 
         async function verifyUnifiedLogin() {
@@ -1309,6 +1340,55 @@
             showAlert("ຜິດພາດ", "Username ຫຼື Password ບໍ່ຖືກຕ້ອງ!", "❌");
         }
 
+        function checkRoleAndLicense() {
+            let userRole = localStorage.getItem('pos_user_role');
+            let shopOwner = localStorage.getItem('pos_shop_owner');
+            let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
+
+            let roleModal = document.getElementById('role-select-modal');
+            let loginModal = document.getElementById('unified-login-modal');
+            if (roleModal) roleModal.classList.add('hidden');
+            if (loginModal) loginModal.classList.add('hidden');
+
+            if (userRole === 'admin') {
+                let adminBtn = document.getElementById('admin-manage-btn');
+                if (adminBtn) adminBtn.classList.remove('hidden');
+                let rateBtn = document.getElementById('header-rate-btn');
+                if (rateBtn) rateBtn.classList.remove('hidden');
+                let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
+                if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
+                document.getElementById('license-status-badge').innerText = "🛡️ ສະຖານະ: ເຂົ້າລະບົບ Super Admin (Full Access)";
+            } else if (shopOwner === 'true' || currentUsername) {
+                let adminBtn = document.getElementById('admin-manage-btn');
+                if (adminBtn) adminBtn.classList.add('hidden');
+                let rateBtn = document.getElementById('header-rate-btn');
+                if (rateBtn) rateBtn.classList.remove('hidden');
+                let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
+                if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
+                let currentDev = localStorage.getItem('pos_device_id') || deviceId;
+                document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ເຈົ້າຂອງຮ້ານ [${currentDev}] (Shop Owner Admin)`;
+            } else if (linkedAdminId) {
+                let adminBtn = document.getElementById('admin-manage-btn');
+                if (adminBtn) adminBtn.classList.add('hidden');
+                let rateBtn = document.getElementById('header-rate-btn');
+                if (rateBtn) rateBtn.classList.add('hidden');
+                let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
+                if (headerConnectQrBtn) headerConnectQrBtn.classList.add('hidden');
+                document.getElementById('license-status-badge').innerText = `🔗 ສະຖານະ: ພະນັກງານຂາຍ (ເຊື່ອມຕໍ່ຮ້ານ Admin: ${linkedAdminId})`;
+            } else {
+                let adminBtn = document.getElementById('admin-manage-btn');
+                if (adminBtn) adminBtn.classList.add('hidden');
+                let rateBtn = document.getElementById('header-rate-btn');
+                if (rateBtn) rateBtn.classList.add('hidden');
+                let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
+                if (headerConnectQrBtn) headerConnectQrBtn.classList.add('hidden');
+                document.getElementById('license-status-badge').innerText = `⏳ ສະຖານະ: ທົດລອງໃຊ້ 15 ວັນ (ID: ${deviceId})`;
+            }
+            updateHeaderTitle();
+            fetchProductsForGenerator();
+        }
+
+        // 🌟 ຟັງຊັນອັບເດດຊື່ຮ້ານທີ່ Header (ແຖວທີ 2: ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ ຊື່ຮ້ານ - ບໍ່ມີວົງເລັບ)
         function updateHeaderTitle() {
             let headerTitle = document.getElementById('main-header-title');
             if (!headerTitle) return;
@@ -1490,6 +1570,7 @@
             reader.readAsDataURL(file);
         }
 
+        // --- 🌟 ຟັງຊັນປ໋ອບອັບແກ້ໄຂບັນຊີ ພ້ອມ ຂໍ້ມູນຮ້ານ ແລະ ອັບໂຫຼດ QR Code ຕົວຈິງ ---
         function promptEditUser(targetId) {
             editingDeviceId = targetId;
             document.getElementById('edit-modal-device-id').innerText = targetId;
