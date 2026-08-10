@@ -1119,20 +1119,16 @@
                 return;
             }
 
-            if (!deviceId || deviceId.startsWith('DEV-')) {
-                if (supabaseClient) {
-                    try {
-                        let { count, error } = await supabaseClient.from('licenses').select('*', { count: 'exact', head: true });
-                        let nextNum = (!error && count !== null) ? count + 1 : 1;
-                        deviceId = formatDeviceSeqId(nextNum);
-                    } catch (e) {
-                        deviceId = 'POS-A0001';
-                    }
-                } else {
-                    deviceId = 'POS-A0001';
-                }
-                localStorage.setItem('pos_device_id', deviceId);
+            // ດຶງ ID ສະເພາະຕົວເຄື່ອງທີ່ເຄີຍສ້າງໄວ້ໃນ Browser ນີ້
+            let savedDevice = localStorage.getItem('pos_unique_device_id');
+            if (!savedDevice) {
+                // ສ້າງ ID ໃໝ່ທີ່ບໍ່ຊ້ຳກັນແນ່ນອນສຳລັບແຕ່ລະເຄື່ອງ (Mobile / PC)
+                savedDevice = 'POS-DEV-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+                localStorage.setItem('pos_unique_device_id', savedDevice);
             }
+            
+            deviceId = savedDevice;
+            localStorage.setItem('pos_device_id', deviceId);
             
             if (supabaseClient && deviceId) {
                 try {
@@ -3138,16 +3134,28 @@
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
-            await initDeviceId();
             let userRole = localStorage.getItem('pos_user_role');
             let shopOwner = localStorage.getItem('pos_shop_owner');
             let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
-            if (userRole === 'admin' || shopOwner === 'true' || linkedAdminId) {
-                let roleModal = document.getElementById('role-select-modal');
-                if (roleModal) roleModal.classList.add('hidden');
+            let isSessionActive = localStorage.getItem('pos_session_active');
+
+            let roleModal = document.getElementById('role-select-modal');
+
+            // ຖ້າມີ Session ທີ່ເຄີຍເຂົ້າໃຊ້ງານແລ້ວ ໃຫ້ປິດ Modal ເລືອກໂໝດຖາວອນ
+            if (userRole === 'admin' || shopOwner === 'true' || linkedAdminId || isSessionActive === 'true') {
+                if (roleModal) {
+                    roleModal.classList.add('hidden');
+                    roleModal.style.display = 'none';
+                }
+            } else {
+                if (roleModal) {
+                    roleModal.classList.remove('hidden');
+                    roleModal.style.display = 'flex';
+                }
             }
+            
+            await initDeviceId();
             checkRoleAndLicense();
         });
-    </script>
 </body>
 </html>
