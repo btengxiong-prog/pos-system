@@ -594,6 +594,7 @@
                         📊 ປະຫວັດ ແລະ ID ເຄື່ອງ <span class="text-xs">▼</span>
                     </button>
                     <div id="history-id-menu" class="hidden absolute left-0 sm:left-auto mt-2 w-56 rounded-xl bg-gray-600 shadow-2xl ring-1 ring-black/10 z-[100] text-left py-1">
+                        <!-- 🌟 ຜູກຟັງຊັນ openHistory() ໃຫ້ຖືກຕ້ອງ 100% -->
                         <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); openHistory();" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-gray-700 flex items-center gap-2 text-left cursor-pointer transition">
                             📊 ປະຫວັດການຂາຍ
                         </button>
@@ -2575,7 +2576,158 @@
             return { ok: true };
         }
 
-        // --- 🌟 ຟັງຊັນແກ້ໄຂ: ໂຫຼດປະຫວັດການຂາຍແບບ Group by ລາຍການສິນຄ້າໃນບິນ ບໍ່ໃຫ້ສະແດງແຖວຊ້ຳກັນ ---
+        async function openCheckoutMethodModal() {
+            if (cart.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າກ່ອນຊຳລະເງິນ!", "⚠️");
+                return;
+            }
+            let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            let customPriceVal = document.getElementById('custom-final-price').value.replace(/,/g, '');
+            let finalTotal = customPriceVal !== "" ? (parseFloat(customPriceVal) || 0) : grandTotal;
+
+            let currentRate = parseFloat(localStorage.getItem('pos_custom_manual_rate')) || 650;
+            let thbAmount = 0;
+            if (currentRate > 0) {
+                let rawThb = finalTotal / currentRate;
+                thbAmount = Math.ceil(rawThb / 10) * 10;
+            }
+
+            document.getElementById('popup-total-amount-text').innerText = formatNumberWithCommas(finalTotal) + " ກີບ";
+            document.getElementById('popup-total-thb-text').innerText = formatNumberWithCommas(thbAmount) + " ບາດ (Rate: " + currentRate + ")";
+            
+            document.getElementById('transfer-lak-qr-section').classList.add('hidden');
+            document.getElementById('transfer-thb-qr-section').classList.add('hidden');
+            document.getElementById('checkout-method-modal').classList.remove('hidden');
+        }
+
+        function closeCheckoutMethodModal() {
+            document.getElementById('checkout-method-modal').classList.add('hidden');
+        }
+
+        function selectPaymentMode(mode, labelElem) {
+            let labels = document.querySelectorAll('#checkout-method-modal .space-y-3 label');
+            labels.forEach(l => {
+                l.classList.remove('border-blue-600', 'bg-blue-50/50');
+                l.classList.add('border-gray-200');
+            });
+            labelElem.classList.remove('border-gray-200');
+            labelElem.classList.add('border-blue-600', 'bg-blue-50/50');
+            let radio = labelElem.querySelector('input[type="radio"]');
+            if (radio) radio.checked = true;
+
+            let lakSection = document.getElementById('transfer-lak-qr-section');
+            let thbSection = document.getElementById('transfer-thb-qr-section');
+
+            lakSection.classList.add('hidden');
+            thbSection.classList.add('hidden');
+
+            if (mode === 'transfer_lak') {
+                lakSection.classList.remove('hidden');
+                renderShopQrImage('lak');
+            } else if (mode === 'transfer_thb') {
+                thbSection.classList.remove('hidden');
+                renderShopQrImage('thb');
+            }
+        }
+
+        function renderShopQrImage(type) {
+            let currentDev = localStorage.getItem('pos_device_id') || deviceId;
+            let containerId = type === 'lak' ? 'modal-lak-qr-display' : 'modal-thb-qr-display';
+            let container = document.getElementById(containerId);
+            if (!container) return;
+
+            let qrBase64 = localStorage.getItem(type === 'lak' ? ('pos_shop_lak_qr_' + currentDev) : ('pos_shop_thb_qr_' + currentDev));
+            
+            if (qrBase64) {
+                container.innerHTML = `<img src="${qrBase64}" alt="Shop QR Code" class="max-w-[180px] max-h-[180px] rounded-xl border shadow">`;
+            } else {
+                container.innerHTML = `<div class="text-gray-400 text-xs py-4">⚠️ ຍັງບໍ່ໄດ້ອັບໂຫຼດຮູບ QR Code ບັນຊີ${type === 'lak' ? 'ກີບ' : 'ບາດ'} <br>ກະລຸນາໄປທີ່ ຈັດການລະບົບ -> ແກ້ໄຂ</div>`;
+            }
+        }
+
+        async function confirmCheckoutPayment() {
+            let selectedRadio = document.querySelector('input[name="pay_mode"]:checked');
+            let payMode = selectedRadio ? selectedRadio.value : 'cash';
+
+            let stockCheck = await checkStockAvailability();
+            if (!stockCheck.ok) {
+                showAlert("ສິນຄ້າໃນສາງບໍ່ພໍ", `ສິນຄ້າ [${stockCheck.name}] ໃນສາງເຫຼືອພຽງ ${stockCheck.available} ອັນ ແຕ່ທ່ານຕ້ອງການຂາຍ ${stockCheck.requested} ອັນ! ບໍ່ສາມາດຂາຍເກີນຈຳນວນສາງໄດ້.`, "❌");
+                return;
+            }
+
+            let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            let totalCost = cart.reduce((sum, item) => sum + ((item.cost || 0) * item.qty), 0);
+            
+            let customPriceVal = document.getElementById('custom-final-price').value.replace(/,/g, '');
+            let finalTotal = customPriceVal !== "" ? (parseFloat(customPriceVal) || 0) : grandTotal;
+            let discount = grandTotal - finalTotal;
+            if (discount < 0) discount = 0;
+
+            let cashGivenInput = document.getElementById('cash-given').value.replace(/,/g, '');
+            let cashGiven = cashGivenInput ? (parseFloat(cashGivenInput) || 0) : finalTotal;
+
+            let txData = {
+                id: 'TX-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+                device_id: deviceId,
+                created_at: new Date().toISOString(),
+                items: cart,
+                total_items: cart.reduce((sum, item) => sum + item.qty, 0),
+                total_cost: totalCost,
+                sub_total: grandTotal,
+                discount: discount,
+                total: finalTotal,
+                cash: cashGiven,
+                change: cashGiven - finalTotal,
+                payment_method: payMode
+            };
+
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            localHistory.unshift(txData);
+            localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
+
+            if (supabaseClient) {
+                try {
+                    await supabaseClient.from('sales_history').insert([{
+                        device_id: deviceId,
+                        items: cart,
+                        total_items: txData.total_items,
+                        total_cost: totalCost,
+                        sub_total: grandTotal,
+                        discount: discount,
+                        total: finalTotal,
+                        cash: cashGiven,
+                        change: txData.change,
+                        created_at: txData.created_at
+                    }]);
+                } catch (err) {}
+            }
+
+            closeCheckoutMethodModal();
+            let payLabel = payMode === 'cash' ? 'ເງິນສົດ' : (payMode === 'transfer_lak' ? 'ເງິນໂອນ (ກີບ)' : 'ເງິນໂອນ (ບາດ)');
+            showAlert("ສຳເລັດ", `ຊຳລະເງິນ (${payLabel}) ສຳເລັດຮຽບຮ້ອຍ!`, "✅");
+            
+            cart = []; 
+            document.getElementById('cash-given').value = ''; 
+            document.getElementById('custom-final-price').value = '';
+            document.getElementById('grand-total-cost').innerText = "0 ກີບ";
+            document.getElementById('grand-total').innerText = "0 ກີບ";
+            document.getElementById('final-total').innerText = "0 ກີບ";
+            document.getElementById('grand-total-profit').innerText = "0 ກີບ";
+            document.getElementById('change-amount').innerText = "0 ກີບ (ຈ່າຍພໍດີ)";
+            
+            renderCart();
+        }
+
+        // --- HISTORY & REPORT MODALS ---
+        function openHistory() { 
+            document.getElementById('history-modal').classList.remove('hidden'); 
+            loadCloudHistory(); 
+        }
+
+        function closeHistory() { 
+            document.getElementById('history-modal').classList.add('hidden'); 
+        }
+
         async function loadCloudHistory() {
             let tbody = document.getElementById('history-table-tbody');
             tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</td></tr>`;
@@ -2623,42 +2775,17 @@
                 return;
             }
 
-            // 🌟 ຈັດກຸ່ມລວມຍອດສິນຄ້າຕາມ Code/Name ພາຍໃນບິນດຽວກັນ ເພື່ອປ້ອງກັນການສະແດງຜົນຊ້ຳຊ້ອນ (1 ອັນຂຶ້ນ 2 ແຖວ)
-            let aggregatedItemsMap = new Map();
             let productSalesCount = {};
-
-            globalHistoryList.forEach((tx) => {
-                let txDateObj = new Date(tx.created_at);
-                let dateStr = !isNaN(txDateObj.getTime()) ? formatDateToDDMMYYYY(txDateObj.toISOString().split('T')[0]) : '-';
-
+            globalHistoryList.forEach(tx => {
                 if (tx.items && Array.isArray(tx.items)) {
                     tx.items.forEach(it => {
-                        let itemName = it.name || it.code || '-';
-                        let itemCost = parseFloat(it.cost || 0) || 0;
-                        let itemPrice = parseFloat(it.price || 0) || 0;
-                        let itemQty = parseInt(it.qty || 1) || 1;
-
-                        productSalesCount[itemName] = (productSalesCount[itemName] || 0) + itemQty;
-
-                        // ສ້າງ Key ເພື່ອກວດສອບລາຍການທີ່ຊ້ຳກັນໃນວັນດຽວກັນ ແລະ ລາຄາດຽວກັນ
-                        let aggKey = `${dateStr}_${itemName}_${itemCost}_${itemPrice}`;
-                        if (aggregatedItemsMap.has(aggKey)) {
-                            let existing = aggregatedItemsMap.get(aggKey);
-                            existing.qty += itemQty;
-                        } else {
-                            aggregatedItemsMap.set(aggKey, {
-                                dateStr: dateStr,
-                                name: itemName,
-                                cost: itemCost,
-                                price: itemPrice,
-                                qty: itemQty
-                            });
-                        }
+                        let name = it.name || it.code || 'ບໍ່ລະບຸຊື່';
+                        let qty = parseInt(it.qty || 1) || 1;
+                        productSalesCount[name] = (productSalesCount[name] || 0) + qty;
                     });
                 }
             });
 
-            // ຈັດລຽງອັນດັບສິນຄ້າຂາຍດີ (Best Sellers)
             let sortedBestSellers = Object.keys(productSalesCount).sort((a, b) => productSalesCount[b] - productSalesCount[a]);
             let rankMap = {};
             sortedBestSellers.forEach((name, idx) => {
@@ -2670,28 +2797,39 @@
             let sumCostTotal = 0;
             let sumPriceTotal = 0;
 
-            aggregatedItemsMap.forEach((item) => {
-                let itemTotal = item.price * item.qty;
-                let itemTotalCost = item.cost * item.qty;
+            globalHistoryList.forEach((tx) => {
+                let txDateObj = new Date(tx.created_at);
+                let dateStr = !isNaN(txDateObj.getTime()) ? formatDateToDDMMYYYY(txDateObj.toISOString().split('T')[0]) : '-';
 
-                sumCostTotal += itemTotalCost;
-                sumPriceTotal += itemTotal;
+                if (tx.items && Array.isArray(tx.items)) {
+                    tx.items.forEach(it => {
+                        let itemName = it.name || it.code || '-';
+                        let itemCost = parseFloat(it.cost || 0) || 0;
+                        let itemPrice = parseFloat(it.price || 0) || 0;
+                        let itemQty = parseInt(it.qty || 1) || 1;
+                        let itemTotal = itemPrice * itemQty;
+                        let itemTotalCost = itemCost * itemQty;
 
-                let rank = rankMap[item.name] || '-';
-                let rankBadge = rank !== '-' ? `🔥 ອັນດັບ ${rank}` : `-`;
+                        sumCostTotal += itemTotalCost;
+                        sumPriceTotal += itemTotal;
 
-                html += `
-                    <tr class="hover:bg-gray-50 border-b">
-                        <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
-                        <td class="p-3 border-r text-center font-semibold text-purple-700">${item.dateStr}</td>
-                        <td class="p-3 border-r font-bold text-gray-900">${item.name}</td>
-                        <td class="p-3 border-r text-right text-blue-600 font-semibold">${formatNumberWithCommas(item.cost)}</td>
-                        <td class="p-3 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(item.price)}</td>
-                        <td class="p-3 border-r text-center font-bold text-gray-800">${item.qty}</td>
-                        <td class="p-3 border-r text-right font-bold text-gray-900 bg-gray-50">${formatNumberWithCommas(itemTotal)}</td>
-                        <td class="p-3 text-center text-xs font-bold text-orange-600">${rankBadge}</td>
-                    </tr>
-                `;
+                        let rank = rankMap[itemName] || '-';
+                        let rankBadge = rank !== '-' ? `🔥 ອັນດັບ ${rank}` : `-`;
+
+                        html += `
+                            <tr class="hover:bg-gray-50 border-b">
+                                <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
+                                <td class="p-3 border-r text-center font-semibold text-purple-700">${dateStr}</td>
+                                <td class="p-3 border-r font-bold text-gray-900">${itemName}</td>
+                                <td class="p-3 border-r text-right text-blue-600 font-semibold">${formatNumberWithCommas(itemCost)}</td>
+                                <td class="p-3 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(itemPrice)}</td>
+                                <td class="p-3 border-r text-center font-bold text-gray-800">${itemQty}</td>
+                                <td class="p-3 border-r text-right font-bold text-gray-900 bg-gray-50">${formatNumberWithCommas(itemTotal)}</td>
+                                <td class="p-3 text-center text-xs font-bold text-orange-600">${rankBadge}</td>
+                            </tr>
+                        `;
+                    });
+                }
             });
 
             tbody.innerHTML = html;
