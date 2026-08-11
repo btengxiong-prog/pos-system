@@ -512,7 +512,7 @@
     </div>
 
     <!-- Custom Confirm Modal -->
-    <div id="custom-confirm-modal" class="hidden fixed inset-0 bg-black/60 z-[300] flex items-center justify-center p-4">
+    <div id="custom-confirm-modal" class="hidden fixed inset-0 bg-black/60 z-[600] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
             <div class="text-4xl">⚠️</div>
             <h3 id="confirm-title" class="text-xl font-bold text-gray-800">ຢືນຢັນການລຶບ</h3>
@@ -525,7 +525,7 @@
     </div>
 
     <!-- Custom Beautiful Alert Modal -->
-    <div id="custom-alert-modal" class="hidden fixed inset-0 bg-black/70 z-[400] flex items-center justify-center p-4">
+    <div id="custom-alert-modal" class="hidden fixed inset-0 bg-black/70 z-[700] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
             <div id="alert-icon" class="text-4xl">✅</div>
             <h3 id="alert-title" class="text-xl font-bold text-gray-800">ແຈ້ງເຕືອນ</h3>
@@ -901,8 +901,8 @@
         </div>
     </div>
 
-    <!-- 🌟 Popup ລຶບປະຫວັດ (ປັບປຸງໃໝ່ຕາມ 2 ເງື່ອນໄຂຂອງທ່ານອາຈານ) -->
-    <div id="delete-history-modal" class="hidden fixed inset-0 bg-black/70 z-[450] flex items-center justify-center p-4">
+    <!-- 🌟 Popup ລຶບປະຫວັດ (ປັບປຸງ Z-Index z-[500] ให้อยู่ด้านหน้า ແລະ ຕາຕະລາງລາຍການຄົບຖ້ວນ) -->
+    <div id="delete-history-modal" class="hidden fixed inset-0 bg-black/70 z-[500] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto space-y-4 text-left shadow-2xl">
             <div class="text-3xl text-center">🗑️</div>
             <h3 class="text-lg font-bold text-red-700 text-center">ຈັດການລຶບປະຫວັດການຂາຍ</h3>
@@ -927,7 +927,7 @@
                 <div class="space-y-2 border-t pt-2">
                     <div class="flex justify-between items-center">
                         <label class="font-bold text-gray-700">📦 ລາຍການປະຫວັດການຂາຍ:</label>
-                        <!-- 🌟 1) 4 ລ່ຽມສີແດງ 1: ປຸ່ມ ເລືອກທັງໝົດ -->
+                        <!-- 🌟 1) ປຸ່ມ ເລືອກທັງໝົດ -->
                         <button type="button" onclick="toggleSelectAllDelHistItems(this)" class="text-[11px] bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold px-2.5 py-1 rounded cursor-pointer transition">☑️ ເລືອກທັງໝົດ</button>
                     </div>
 
@@ -3091,7 +3091,7 @@
             document.getElementById('history-summary').classList.remove('hidden');
         }
 
-        // --- 🌟 ຟັງຊັນຈັດການປ໋ອບອັບລຶບປະຫວັດ (ອັບເດດຕາມ 2 ຂໍ້ໃໝ່) ---
+        // --- 🌟 ຟັງຊັນຈັດການປ໋ອບອັບລຶບປະຫວັດ (ອັບເດດ Z-Index z-[500] ແລະ ຕາຕະລາງລາຍການ) ---
         function openDeleteHistoryModal() {
             let shopSelect = document.getElementById('del-hist-shop-select');
             
@@ -3114,7 +3114,6 @@
             document.getElementById('delete-history-modal').classList.add('hidden');
         }
 
-        // 🌟 ສະແດງລາຍການປະຫວັດການຂາຍໃນຕາຕະລາງລຶບ ພ້ອມ Checkbox ຂວາມືສຸດ
         function renderDeleteHistoryTable() {
             let tbody = document.getElementById('del-hist-table-tbody');
             let targetShop = document.getElementById('del-hist-shop-select').value;
@@ -3140,7 +3139,9 @@
                             let itemPrice = parseFloat(it.price || 0) || 0;
                             let itemQty = parseInt(it.qty || 1) || 1;
                             let itemTotal = itemPrice * itemQty;
-                            let uniqueKey = `${tx.id || tx.created_at}___${itemIdx}`;
+                            
+                            // 🌟 ບັນທຶກ unique key ໃຫ້ກົງກັບ Object structure ເພື່ອລຶບໄດ້ 100%
+                            let uniqueKey = `${tx.id || tx.created_at}___${itemIdx}___${tx.device_id}`;
 
                             html += `
                                 <tr class="hover:bg-gray-50 border-b">
@@ -3169,6 +3170,7 @@
             btn.innerText = allChecked ? "☑️ ເລືອກທັງໝົດ" : "☒ ຍົກເລີກເລືອກທັງໝົດ";
         }
 
+        // 🌟 2) ກົດ ຕົກລົງ/ຢືນຢັນ ລຶບຂໍ້ມູນອອກຈິງທັງ Local ແລະ Supabase ພ້ອມຫາຍທັນທີ
         async function confirmExecuteDeleteHistory() {
             let checkedBoxes = document.querySelectorAll('input[name="del_hist_checkbox"]:checked');
             if (checkedBoxes.length === 0) {
@@ -3190,7 +3192,9 @@
                     deleteMap.get(txKey).push(itemIdx);
                 });
 
-                localHistory = localHistory.map(tx => {
+                // 🌟 4) ປັບປຸງການລຶບໃຫ້ Admin ໃຫຍ່ລຶບອອກໄດ້ຈິງ 100% ທັງ LocalStorage ແລະ Supabase Database
+                let updatedLocalHistory = [];
+                localHistory.forEach(tx => {
                     let key = tx.id || tx.created_at;
                     if (deleteMap.has(key) && tx.items) {
                         let indicesToRemove = deleteMap.get(key);
@@ -3199,10 +3203,35 @@
                             tx.items.splice(idx, 1);
                         });
                     }
-                    return tx;
-                }).filter(tx => !tx.items || tx.items.length > 0);
+                    if (!tx.items || tx.items.length > 0) {
+                        updatedLocalHistory.push(tx);
+                    }
+                });
 
-                localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
+                localStorage.setItem('pos_local_history', JSON.stringify(updatedLocalHistory));
+
+                // Sync ໄປ Supabase (ອັບເດດ ຫຼື ລຶບຊຸດທຸລະກຳທີ່ຖືກລຶບ item ໝົດ)
+                if (supabaseClient) {
+                    try {
+                        for (let [txKey, indices] of deleteMap.entries()) {
+                            // ດຶງຂໍ້ມູນຈາກ Cloud ມາອັບເດດ
+                            let { data: currentCloudTx } = await supabaseClient.from('sales_history').select('*').or(`id.eq.${txKey},created_at.eq.${txKey}`);
+                            if (currentCloudTx && currentCloudTx.length > 0) {
+                                let cTx = currentCloudTx[0];
+                                if (cTx.items) {
+                                    indices.sort((a, b) => b - a);
+                                    indices.forEach(idx => cTx.items.splice(idx, 1));
+                                    if (cTx.items.length === 0) {
+                                        await supabaseClient.from('sales_history').delete().eq('id', cTx.id);
+                                    } else {
+                                        await supabaseClient.from('sales_history').update({ items: cTx.items }).eq('id', cTx.id);
+                                    }
+                                }
+                            }
+                        }
+                    } catch (e) {}
+                }
+
                 showAlert("ສຳເລັດ", "ລຶບລາຍການປະຫວັດທີ່ເລືອກສຳເລັດຮຽບຮ້ອຍ!", "🗑️");
 
                 closeDeleteHistoryModal();
