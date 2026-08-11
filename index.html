@@ -901,7 +901,7 @@
         </div>
     </div>
 
-    <!-- 🌟 Popup ລຶບປະຫວັດ (ປັບປຸງ Z-Index z-[500] ให้อยู่ด้านหน้า ແລະ ຕາຕະລາງລາຍການຄົບຖ້ວນ) -->
+    <!-- 🌟 Popup ລຶບປະຫວັດ ( Z-Index z-[500] ให้อยู่ด้านหน้า 100%, ตัดขັ້ນຕອນຢືນຢັນຊ້ຳຊ້ອນ, ລຶບອອກຈິງ ) -->
     <div id="delete-history-modal" class="hidden fixed inset-0 bg-black/70 z-[500] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto space-y-4 text-left shadow-2xl">
             <div class="text-3xl text-center">🗑️</div>
@@ -927,11 +927,11 @@
                 <div class="space-y-2 border-t pt-2">
                     <div class="flex justify-between items-center">
                         <label class="font-bold text-gray-700">📦 ລາຍການປະຫວັດການຂາຍ:</label>
-                        <!-- 🌟 1) ປຸ່ມ ເລືອກທັງໝົດ -->
+                        <!-- 🌟 ປຸ່ມ ເລືອກທັງໝົດ -->
                         <button type="button" onclick="toggleSelectAllDelHistItems(this)" class="text-[11px] bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold px-2.5 py-1 rounded cursor-pointer transition">☑️ ເລືອກທັງໝົດ</button>
                     </div>
 
-                    <!-- 🌟 2) ຕາຕະລາງ ລ/ດ | ວັນ/ເດືອນ/ປີ | ຊື່ສິນຄ້າ | ລວມ | ເລືອກ -->
+                    <!-- 🌟 ຕາຕະລາງ ລ/ດ | ວັນ/ເດືອນ/ປີ | ຊື່ສິນຄ້າ | ລວມ | ເລືອກ -->
                     <div class="overflow-x-auto border rounded-xl max-h-60 overflow-y-auto">
                         <table class="w-full text-left border-collapse bg-white text-xs">
                             <thead>
@@ -3091,7 +3091,7 @@
             document.getElementById('history-summary').classList.remove('hidden');
         }
 
-        // --- 🌟 ຟັງຊັນຈັດການປ໋ອບອັບລຶບປະຫວັດ (ອັບເດດ Z-Index z-[500] ແລະ ຕາຕະລາງລາຍການ) ---
+        // --- 🌟 ຟັງຊັນຈັດການປ໋ອບອັບລຶບປະຫວັດ ( Z-Index z-[500] ให้อยู่ด้านหน้า 100%, ตัดขັ້ນຕອນຢືນຢັນຊ້ຳຊ້ອນ, ລຶບອອກຈິງ ) ---
         function openDeleteHistoryModal() {
             let shopSelect = document.getElementById('del-hist-shop-select');
             
@@ -3139,9 +3139,7 @@
                             let itemPrice = parseFloat(it.price || 0) || 0;
                             let itemQty = parseInt(it.qty || 1) || 1;
                             let itemTotal = itemPrice * itemQty;
-                            
-                            // 🌟 ບັນທຶກ unique key ໃຫ້ກົງກັບ Object structure ເພື່ອລຶບໄດ້ 100%
-                            let uniqueKey = `${tx.id || tx.created_at}___${itemIdx}___${tx.device_id}`;
+                            let uniqueKey = `${tx.id || ''}___${tx.created_at}___${itemIdx}___${tx.device_id}`;
 
                             html += `
                                 <tr class="hover:bg-gray-50 border-b">
@@ -3162,7 +3160,6 @@
             tbody.innerHTML = html || `<tr><td colspan="5" class="p-4 text-center text-gray-400">ບໍ່ພົບລາຍການປະຫວັດການຂາຍຕາມເງື່ອນໄຂ</td></tr>`;
         }
 
-        // 🌟 1) ປຸ່ມ "ເລືອກທັງໝົດ" (ຕິກ/ບໍ່ຕິກ Checkbox ທັງໝົດໃນຕາຕະລາງ)
         function toggleSelectAllDelHistItems(btn) {
             let checkboxes = document.querySelectorAll('input[name="del_hist_checkbox"]');
             let allChecked = Array.from(checkboxes).every(cb => cb.checked);
@@ -3170,7 +3167,7 @@
             btn.innerText = allChecked ? "☑️ ເລືອກທັງໝົດ" : "☒ ຍົກເລີກເລືອກທັງໝົດ";
         }
 
-        // 🌟 2) ກົດ ຕົກລົງ/ຢືນຢັນ ລຶບຂໍ້ມູນອອກຈິງທັງ Local ແລະ Supabase ພ້ອມຫາຍທັນທີ
+        // 🌟 ປັບປຸງການລຶບໃຫ້ Admin ໃຫຍ່ລຶບອອກໄດ້ຈິງ 100% ຜ່ານທັງ LocalStorage ແລະ Supabase Database
         async function confirmExecuteDeleteHistory() {
             let checkedBoxes = document.querySelectorAll('input[name="del_hist_checkbox"]:checked');
             if (checkedBoxes.length === 0) {
@@ -3182,49 +3179,74 @@
                 if (!confirmed) return;
 
                 let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+                
+                // Grouping by transaction key
                 let deleteMap = new Map();
-
                 checkedBoxes.forEach(cb => {
                     let parts = cb.value.split('___');
-                    let txKey = parts[0];
-                    let itemIdx = parseInt(parts[1]);
-                    if (!deleteMap.has(txKey)) deleteMap.set(txKey, []);
-                    deleteMap.get(txKey).push(itemIdx);
+                    let txId = parts[0];
+                    let txCreated = parts[1];
+                    let itemIdx = parseInt(parts[2]);
+                    let devId = parts[3];
+
+                    let mapKey = txId && txId !== 'undefined' ? txId : txCreated;
+                    if (!deleteMap.has(mapKey)) deleteMap.set(mapKey, { indices: [], device_id: devId, created_at: txCreated, id: txId });
+                    deleteMap.get(mapKey).indices.push(itemIdx);
                 });
 
-                // 🌟 4) ປັບປຸງການລຶບໃຫ້ Admin ໃຫຍ່ລຶບອອກໄດ້ຈິງ 100% ທັງ LocalStorage ແລະ Supabase Database
+                // 1. Remove from LocalStorage
                 let updatedLocalHistory = [];
                 localHistory.forEach(tx => {
                     let key = tx.id || tx.created_at;
-                    if (deleteMap.has(key) && tx.items) {
-                        let indicesToRemove = deleteMap.get(key);
+                    // Find matching in deleteMap
+                    let matchedKey = null;
+                    for (let [mKey, val] of deleteMap.entries()) {
+                        if (mKey === tx.id || mKey === tx.created_at) {
+                            matchedKey = mKey;
+                            break;
+                        }
+                    }
+
+                    if (matchedKey && tx.items) {
+                        let indicesToRemove = deleteMap.get(matchedKey).indices;
                         indicesToRemove.sort((a, b) => b - a);
                         indicesToRemove.forEach(idx => {
                             tx.items.splice(idx, 1);
                         });
                     }
+
                     if (!tx.items || tx.items.length > 0) {
                         updatedLocalHistory.push(tx);
                     }
                 });
-
                 localStorage.setItem('pos_local_history', JSON.stringify(updatedLocalHistory));
 
-                // Sync ໄປ Supabase (ອັບເດດ ຫຼື ລຶບຊຸດທຸລະກຳທີ່ຖືກລຶບ item ໝົດ)
+                // 2. Remove from Supabase Database
                 if (supabaseClient) {
                     try {
-                        for (let [txKey, indices] of deleteMap.entries()) {
-                            // ດຶງຂໍ້ມູນຈາກ Cloud ມາອັບເດດ
-                            let { data: currentCloudTx } = await supabaseClient.from('sales_history').select('*').or(`id.eq.${txKey},created_at.eq.${txKey}`);
-                            if (currentCloudTx && currentCloudTx.length > 0) {
-                                let cTx = currentCloudTx[0];
-                                if (cTx.items) {
-                                    indices.sort((a, b) => b - a);
-                                    indices.forEach(idx => cTx.items.splice(idx, 1));
-                                    if (cTx.items.length === 0) {
-                                        await supabaseClient.from('sales_history').delete().eq('id', cTx.id);
-                                    } else {
-                                        await supabaseClient.from('sales_history').update({ items: cTx.items }).eq('id', cTx.id);
+                        for (let [mKey, val] of deleteMap.entries()) {
+                            let query = supabaseClient.from('sales_history').select('*');
+                            if (val.id && val.id !== 'undefined') {
+                                query = query.eq('id', val.id);
+                            } else {
+                                query = query.eq('created_at', val.created_at).eq('device_id', val.device_id);
+                            }
+
+                            let { data: cloudTxList } = await query;
+                            if (cloudTxList && cloudTxList.length > 0) {
+                                for (let cTx of cloudTxList) {
+                                    if (cTx.items) {
+                                        let indicesToRemove = val.indices;
+                                        indicesToRemove.sort((a, b) => b - a);
+                                        indicesToRemove.forEach(idx => {
+                                            cTx.items.splice(idx, 1);
+                                        });
+
+                                        if (cTx.items.length === 0) {
+                                            await supabaseClient.from('sales_history').delete().eq('id', cTx.id);
+                                        } else {
+                                            await supabaseClient.from('sales_history').update({ items: cTx.items }).eq('id', cTx.id);
+                                        }
                                     }
                                 }
                             }
