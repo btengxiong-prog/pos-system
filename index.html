@@ -366,7 +366,7 @@
         </div>
     </div>
 
-    <!-- 🌟 Popup ເລືອກວິທີຊຳລະເງິນ (ເງິນສົດ / ເງິນໂອນ ກີບ & ບາດ ພ້ອມຄຳນວນ ROUNDUP -1) -->
+    <!-- 🌟 Popup ເລືອກວິທີຊຳລະເງິນ -->
     <div id="checkout-method-modal" class="hidden fixed inset-0 bg-black/70 z-[340] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
             <div class="text-4xl">💰</div>
@@ -375,7 +375,6 @@
             <div class="bg-blue-50 p-3 rounded-xl border text-center space-y-1">
                 <div class="text-xs text-gray-600 font-semibold">ຍອດເງິນລວມທັງໝົດ:</div>
                 <div class="text-xl font-extrabold text-green-600" id="popup-total-amount-text">0 ກີບ</div>
-                <!-- 🌟 ສະແດງຈຳນວນເງິນບາດ ທີ່ຄຳນວນ ROUNDUP -1 -->
                 <div class="text-sm font-bold text-purple-700" id="popup-total-thb-text">0 ບາດ</div>
             </div>
 
@@ -646,7 +645,7 @@
                     📱 QR Code ເຊື່ອມຕໍ່ພະນັກງານ
                 </button>
 
-                <!-- ປຸ່ມ: ປ່ຽນໂໝດ / ອອກລະບົບ -->
+                <!-- ປຸ່ມ: ປ່ຽນໂໝດ / ອອກລະບົບ (ໂຄດຫຼັກອາຈານ 100%) -->
                 <button onclick="adminLogout()" class="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     🚪 ປ່ຽນໂໝດ / ອອກລະບົບ
                 </button>
@@ -1293,14 +1292,7 @@
                 localStorage.setItem('pos_user_role', 'admin');
                 document.getElementById('unified-login-modal').classList.add('hidden');
                 document.getElementById('role-select-modal').classList.add('hidden');
-                let adminBtn = document.getElementById('admin-manage-btn');
-                if (adminBtn) adminBtn.classList.remove('hidden');
-                let rateBtn = document.getElementById('header-rate-btn');
-                if (rateBtn) rateBtn.classList.remove('hidden');
-                let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
-                if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
-                document.getElementById('license-status-badge').innerText = "🛡️ ສະຖານະ: ເຂົ້າລະບົບ Super Admin (Full Access)";
-                updateHeaderTitle();
+                checkRoleAndLicense();
                 return;
             }
 
@@ -1318,14 +1310,7 @@
 
                 document.getElementById('unified-login-modal').classList.add('hidden');
                 document.getElementById('role-select-modal').classList.add('hidden');
-                let adminBtn = document.getElementById('admin-manage-btn');
-                if (adminBtn) adminBtn.classList.add('hidden');
-                let rateBtn = document.getElementById('header-rate-btn');
-                if (rateBtn) rateBtn.classList.remove('hidden');
-                let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
-                if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
-                document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ເຈົ້າຂອງຮ້ານ [${currentUsername}] (Shop Owner Admin)`;
-                updateHeaderTitle();
+                checkRoleAndLicense();
                 return;
             }
 
@@ -1343,14 +1328,7 @@
 
                         document.getElementById('unified-login-modal').classList.add('hidden');
                         document.getElementById('role-select-modal').classList.add('hidden');
-                        let adminBtn = document.getElementById('admin-manage-btn');
-                        if (adminBtn) adminBtn.classList.add('hidden');
-                        let rateBtn = document.getElementById('header-rate-btn');
-                        if (rateBtn) rateBtn.classList.remove('hidden');
-                        let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
-                        if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
-                        document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ເຈົ້າຂອງຮ້ານ [${currentUsername}] (Shop Owner Admin)`;
-                        updateHeaderTitle();
+                        checkRoleAndLicense();
                         return;
                     }
                 } catch (e) {}
@@ -1431,15 +1409,14 @@
             if (event.key === 'Enter') { verifyUnifiedLogin(); }
         }
 
-        // 🌟 ຟັງຊັນປຸ່ມປ່ຽນໂໝດ / ອອກລະບົບ (ໂຄດຫຼັກທີ່ຖືກຕ້ອງ)
+        // 🌟 ຟັງຊັນປຸ່ມປ່ຽນໂໝດ / ອອກລະບົບ (ໂຄດຫຼັກອາຈານ 100%)
         function adminLogout() {
-            localStorage.removeItem('pos_user_role');
-            localStorage.removeItem('pos_license_status');
-            localStorage.removeItem('pos_current_username');
-            localStorage.removeItem('pos_shop_owner');
-            localStorage.removeItem('pos_linked_admin_id');
-            localStorage.removeItem('pos_device_id');
-            location.reload();
+            let roleModal = document.getElementById('role-select-modal');
+            if (roleModal) {
+                roleModal.classList.remove('hidden');
+            } else {
+                location.reload();
+            }
         }
 
         function openMyDeviceModal() {
@@ -2492,22 +2469,8 @@
             document.getElementById('popup-total-amount-text').innerText = formatNumberWithCommas(finalTotal) + " ກີບ";
             document.getElementById('popup-total-thb-text').innerText = formatNumberWithCommas(thbAmount) + " ບາດ (Rate: " + currentRate + ")";
             
-            let selectedRadio = document.querySelector('input[name="pay_mode"]:checked');
-            let currentMode = selectedRadio ? selectedRadio.value : 'cash';
-
-            let lakSection = document.getElementById('transfer-lak-qr-section');
-            let thbSection = document.getElementById('transfer-thb-qr-section');
-            lakSection.classList.add('hidden');
-            thbSection.classList.add('hidden');
-
-            if (currentMode === 'transfer_lak') {
-                lakSection.classList.remove('hidden');
-                renderShopQrImage('lak');
-            } else if (currentMode === 'transfer_thb') {
-                thbSection.classList.remove('hidden');
-                renderShopQrImage('thb');
-            }
-
+            document.getElementById('transfer-lak-qr-section').classList.add('hidden');
+            document.getElementById('transfer-thb-qr-section').classList.add('hidden');
             document.getElementById('checkout-method-modal').classList.remove('hidden');
         }
 
@@ -2639,7 +2602,7 @@
             document.getElementById('history-modal').classList.add('hidden'); 
         }
 
-        // 🌟 ປັບປຸງສະເພາະຫ້ອງ "ໝາຍເຫດ" ໃຫ້ສະແດງອັນດັບສິນຄ້າຂາຍດີ (ອັນດັບ 1, 2, 3...)
+        // 🌟 ເພີ່ມເງື່ອນໄຂ: ຫ້ອງ "ໝາຍເຫດ" ສະແດງສິນຄ້າຂາຍດີ (ອັນດັບ 1, 2, 3...) ສຳລັບຢູເຊີທັງໝົດ
         async function loadCloudHistory() {
             let tbody = document.getElementById('history-table-tbody');
             tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</td></tr>`;
@@ -2694,7 +2657,7 @@
                 }
             });
 
-            // ລຽງລຳດັບຈາກຫຼາຍໄປຫາໜ້ອຍ
+            // ຈັດລຽງອັນດັບຈາກຂາຍດີຫຼາຍໄປຫາໜ້ອຍ
             let sortedBestSellers = Object.keys(productSalesCount).sort((a, b) => productSalesCount[b] - productSalesCount[a]);
             let rankMap = {};
             sortedBestSellers.forEach((name, idx) => {
