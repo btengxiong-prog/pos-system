@@ -594,7 +594,6 @@
                         📊 ປະຫວັດ ແລະ ID ເຄື່ອງ <span class="text-xs">▼</span>
                     </button>
                     <div id="history-id-menu" class="hidden absolute left-0 sm:left-auto mt-2 w-56 rounded-xl bg-gray-600 shadow-2xl ring-1 ring-black/10 z-[100] text-left py-1">
-                        <!-- 🌟 ຜູກຟັງຊັນ openHistory() ໃຫ້ຖືກຕ້ອງ 100% -->
                         <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); openHistory();" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-gray-700 flex items-center gap-2 text-left cursor-pointer transition">
                             📊 ປະຫວັດການຂາຍ
                         </button>
@@ -2728,6 +2727,7 @@
             document.getElementById('history-modal').classList.add('hidden'); 
         }
 
+        // 🌟 ແກ້ໄຂຟັງຊັນ loadCloudHistory ໃຫ້ລວມຍອດສິນຄ້າໃນບິນດຽວກັນຢ່າງຖືກຕ້ອງ ແລະ ປ້ອງກັນການສະແດງຜົນຊ້ຳຊ້ອນ (Duplicate)
         async function loadCloudHistory() {
             let tbody = document.getElementById('history-table-tbody');
             tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</td></tr>`;
@@ -2735,12 +2735,13 @@
             globalHistoryList = [];
 
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-            let combinedMap = new Map();
+            let transactionMap = new Map();
 
-            localHistory.forEach(tx => { 
-                let uniqueKey = tx.id || tx.created_at;
-                if (!combinedMap.has(uniqueKey)) {
-                    combinedMap.set(uniqueKey, tx); 
+            // ດຶງຂໍ້ມູນຈາກ LocalStorage ໂດຍໃຊ້ ID ຫຼື created_at ເປັນ Key ປ້ອງກັນຊ້ຳ
+            localHistory.forEach(tx => {
+                let txKey = tx.id || tx.created_at;
+                if (!transactionMap.has(txKey)) {
+                    transactionMap.set(txKey, tx);
                 }
             });
 
@@ -2754,9 +2755,9 @@
                     if (!error && cloudSales) {
                         cloudSales.forEach(tx => {
                             if (tx.device_id && String(tx.device_id).toUpperCase() === String(deviceId).toUpperCase()) {
-                                let key = tx.id || tx.created_at;
-                                if (!combinedMap.has(key)) {
-                                    combinedMap.set(key, {
+                                let txKey = tx.id || tx.created_at;
+                                if (!transactionMap.has(txKey)) {
+                                    transactionMap.set(txKey, {
                                         id: tx.id, source: 'cloud', device_id: tx.device_id, created_at: tx.created_at,
                                         total_items: tx.total_items || 0, total_cost: tx.total_cost || 0,
                                         discount: tx.discount || 0, total: tx.total, cash: tx.cash, change: tx.change, items: tx.items || []
@@ -2768,34 +2769,16 @@
                 } catch (err) {}
             }
 
-            globalHistoryList = Array.from(combinedMap.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            globalHistoryList = Array.from(transactionMap.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
             if (globalHistoryList.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີປະຫວັດການຂາຍ.</td></tr>`;
                 return;
             }
 
+            // 🌟 ຈັດກຸ່ມລວມຍອດ (Group by) ຕາມວັນທີ, ຊື່ສິນຄ້າ, ລາຄາຊື້ ແລະ ລາຄາຂາຍ ພາຍໃນບິນດຽວກັນເພື່ອບໍ່ໃຫ້ອອກມາເປັນ 2 ແຖວ
+            let aggregatedMap = new Map();
             let productSalesCount = {};
-            globalHistoryList.forEach(tx => {
-                if (tx.items && Array.isArray(tx.items)) {
-                    tx.items.forEach(it => {
-                        let name = it.name || it.code || 'ບໍ່ລະບຸຊື່';
-                        let qty = parseInt(it.qty || 1) || 1;
-                        productSalesCount[name] = (productSalesCount[name] || 0) + qty;
-                    });
-                }
-            });
-
-            let sortedBestSellers = Object.keys(productSalesCount).sort((a, b) => productSalesCount[b] - productSalesCount[a]);
-            let rankMap = {};
-            sortedBestSellers.forEach((name, idx) => {
-                rankMap[name] = idx + 1;
-            });
-
-            let html = '';
-            let countIndex = 1;
-            let sumCostTotal = 0;
-            let sumPriceTotal = 0;
 
             globalHistoryList.forEach((tx) => {
                 let txDateObj = new Date(tx.created_at);
@@ -2807,29 +2790,62 @@
                         let itemCost = parseFloat(it.cost || 0) || 0;
                         let itemPrice = parseFloat(it.price || 0) || 0;
                         let itemQty = parseInt(it.qty || 1) || 1;
-                        let itemTotal = itemPrice * itemQty;
-                        let itemTotalCost = itemCost * itemQty;
 
-                        sumCostTotal += itemTotalCost;
-                        sumPriceTotal += itemTotal;
+                        productSalesCount[itemName] = (productSalesCount[itemName] || 0) + itemQty;
 
-                        let rank = rankMap[itemName] || '-';
-                        let rankBadge = rank !== '-' ? `🔥 ອັນດັບ ${rank}` : `-`;
-
-                        html += `
-                            <tr class="hover:bg-gray-50 border-b">
-                                <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
-                                <td class="p-3 border-r text-center font-semibold text-purple-700">${dateStr}</td>
-                                <td class="p-3 border-r font-bold text-gray-900">${itemName}</td>
-                                <td class="p-3 border-r text-right text-blue-600 font-semibold">${formatNumberWithCommas(itemCost)}</td>
-                                <td class="p-3 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(itemPrice)}</td>
-                                <td class="p-3 border-r text-center font-bold text-gray-800">${itemQty}</td>
-                                <td class="p-3 border-r text-right font-bold text-gray-900 bg-gray-50">${formatNumberWithCommas(itemTotal)}</td>
-                                <td class="p-3 text-center text-xs font-bold text-orange-600">${rankBadge}</td>
-                            </tr>
-                        `;
+                        // ໃຊ້ Transaction ID ປະສົມກັບຊື່ສິນຄ້າ ແລະ ລາຄາ ເປັນ Key ເພື່ອຮັບປະກັນວ່າ 1 ການຂາຍຈະບໍ່ຖືກແຍກເປັນ 2 ແຖວຜິດພາດ
+                        let uniqueRowKey = `${tx.id || tx.created_at}_${itemName}_${itemCost}_${itemPrice}`;
+                        
+                        if (aggregatedMap.has(uniqueRowKey)) {
+                            let existing = aggregatedMap.get(uniqueRowKey);
+                            existing.qty += itemQty;
+                        } else {
+                            aggregatedMap.set(uniqueRowKey, {
+                                dateStr: dateStr,
+                                name: itemName,
+                                cost: itemCost,
+                                price: itemPrice,
+                                qty: itemQty
+                            });
+                        }
                     });
                 }
+            });
+
+            // ຄຳນວນອັນດັບສິນຄ້າຂາຍດີ (Best Sellers)
+            let sortedBestSellers = Object.keys(productSalesCount).sort((a, b) => productSalesCount[b] - productSalesCount[a]);
+            let rankMap = {};
+            sortedBestSellers.forEach((name, idx) => {
+                rankMap[name] = idx + 1;
+            });
+
+            let html = '';
+            let countIndex = 1;
+            let sumCostTotal = 0;
+            let sumPriceTotal = 0;
+
+            aggregatedMap.forEach((item) => {
+                let itemTotal = item.price * item.qty;
+                let itemTotalCost = item.cost * item.qty;
+
+                sumCostTotal += itemTotalCost;
+                sumPriceTotal += itemTotal;
+
+                let rank = rankMap[item.name] || '-';
+                let rankBadge = rank !== '-' ? `🔥 ອັນດັບ ${rank}` : `-`;
+
+                html += `
+                    <tr class="hover:bg-gray-50 border-b">
+                        <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
+                        <td class="p-3 border-r text-center font-semibold text-purple-700">${item.dateStr}</td>
+                        <td class="p-3 border-r font-bold text-gray-900">${item.name}</td>
+                        <td class="p-3 border-r text-right text-blue-600 font-semibold">${formatNumberWithCommas(item.cost)}</td>
+                        <td class="p-3 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(item.price)}</td>
+                        <td class="p-3 border-r text-center font-bold text-gray-800">${item.qty}</td>
+                        <td class="p-3 border-r text-right font-bold text-gray-900 bg-gray-50">${formatNumberWithCommas(itemTotal)}</td>
+                        <td class="p-3 text-center text-xs font-bold text-orange-600">${rankBadge}</td>
+                    </tr>
+                `;
             });
 
             tbody.innerHTML = html;
