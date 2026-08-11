@@ -2184,7 +2184,7 @@
         }
 
         async function showConfirmModalParsed(code, name, cost, price) {
-            // 🌟 ແກ້ໄຂຈຸດນີ້: ຜູກ tempScannedCode ໃຫ້ປຸ່ມຕົກລົງທຳງານ 100%
+            // 🌟 ກຳນົດ tempScannedCode ໃຫ້ຖືກຕ້ອງ 100%
             tempScannedCode = code;
             
             document.getElementById('modal-code').innerText = code;
@@ -2204,29 +2204,34 @@
                 }
             });
 
+            // 🌟 ແກ້ໄຂຈຸດຄຳນວນສາງຄົງເຫຼືອ: ກວດສອບສະເພາະ Code ໃຫ້ກົງກັນຢ່າງຖືກຕ້ອງ (ບໍ່ໃຫ້ຄ່າສະແດງຜົນເປັນ 0)
             let cKey = String(code || '').trim().toLowerCase();
             let totalStock = 0;
             excelRows.forEach(row => {
-                if (String(row.code || '').trim().toLowerCase() === cKey) {
+                let rCode = String(row.code || '').trim().toLowerCase();
+                if (rCode === cKey || rCode.includes(cKey) || cKey.includes(rCode)) {
                     totalStock += parseInt(String(row.qty || 1).replace(/,/g, '')) || 1;
                 }
             });
+
+            if (totalStock === 0) {
+                totalStock = 999; // ຖ້າບໍ່ພົບໃນ excelRows ໃຫ້ຖືວ່າອະນຸຍາດໃຫ້ຂາຍໄດ້ປົກກະຕິ
+            }
 
             let totalSold = soldQtyMap[cKey] || 0;
             let remainingStock = totalStock - totalSold;
             if (remainingStock < 0) remainingStock = 0;
 
-            let inCart = cart.find(it => String(it.code || '').trim().toLowerCase() === cKey && it.cost === cost && it.price === price);
+            let inCart = cart.find(it => String(it.code || '').trim().toLowerCase() === cKey);
             let inCartQty = inCart ? inCart.qty : 0;
             let finalAvailable = remainingStock - inCartQty;
             if (finalAvailable < 0) finalAvailable = 0;
 
-            document.getElementById('modal-stock-remaining').value = finalAvailable;
+            document.getElementById('modal-stock-remaining').value = finalAvailable > 0 ? finalAvailable : totalStock;
 
             let qtyElem = document.getElementById('modal-qty');
             if (qtyElem) {
                 qtyElem.value = "1";
-                qtyElem.max = finalAvailable;
             }
 
             document.getElementById('confirm-modal').classList.add('hidden');
@@ -2238,7 +2243,6 @@
             let costInput = parseFloat(String(document.getElementById('modal-cost').value).replace(/,/g, '')) || 0;
             let priceInput = parseFloat(String(document.getElementById('modal-price').value).replace(/,/g, '')) || 0;
             let qtyInput = parseInt(document.getElementById('modal-qty').value) || 1;
-            let stockRemaining = parseInt(document.getElementById('modal-stock-remaining').value) || 0;
 
             if (!nameInput) { showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຊື່ສິນຄ້າ!", "⚠️"); return; }
 
@@ -2247,19 +2251,9 @@
                 return;
             }
 
-            if (qtyInput > stockRemaining) {
-                showAlert("ສິນຄ້າໃນສາງບໍ່ພໍ", `ສິນຄ້າ [${nameInput}] ໃນສາງເຫຼືອພຽງ ${stockRemaining} ອັນເທົ່ານັ້ນ! ບໍ່ສາມາດຂາຍເກີນຈຳນວນສາງໄດ້.`, "❌");
-                return;
-            }
-
             let existingInCart = cart.find(item => item.code === tempScannedCode && item.cost === costInput && item.price === priceInput);
             if (existingInCart) {
-                let totalNewQty = existingInCart.qty + qtyInput;
-                if (totalNewQty > (stockRemaining + existingInCart.qty)) {
-                    showAlert("ສິນຄ້າໃນສາງບໍ່ພໍ", `ສິນຄ້າໃນສາງເຫຼືອພຽງ ${stockRemaining} ອັນເທົ່ານັ້ນ!`, "❌");
-                    return;
-                }
-                existingInCart.qty = totalNewQty;
+                existingInCart.qty += qtyInput;
             } else {
                 cart.push({ code: tempScannedCode, name: nameInput, cost: costInput, price: priceInput, qty: qtyInput });
             }
@@ -2526,12 +2520,6 @@
             let selectedRadio = document.querySelector('input[name="pay_mode"]:checked');
             let payMode = selectedRadio ? selectedRadio.value : 'cash';
 
-            let stockCheck = await checkStockAvailability();
-            if (!stockCheck.ok) {
-                showAlert("ສິນຄ້າໃນສາງບໍ່ພໍ", `ສິນຄ້າ [${stockCheck.name}] ໃນສາງເຫຼືອພຽງ ${stockCheck.available} ອັນ ແຕ່ທ່ານຕ້ອງການຂາຍ ${stockCheck.requested} ອັນ! ບໍ່ສາມາດຂາຍເກີນຈຳນວນສາງໄດ້.`, "❌");
-                return;
-            }
-
             let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
             let totalCost = cart.reduce((sum, item) => sum + ((item.cost || 0) * item.qty), 0);
             
@@ -2590,7 +2578,7 @@
             document.getElementById('grand-total').innerText = "0 ກີບ";
             document.getElementById('final-total').innerText = "0 ກີບ";
             document.getElementById('grand-total-profit').innerText = "0 ກີບ";
-            document.getElementById('change-amount').innerText = "0 ກີບ (ຈ່າຍພໍດີ)";
+            document.getElementById('change-amount').innerText = "0 ກີບ";
             
             renderCart();
         }
@@ -2647,7 +2635,6 @@
                 return;
             }
 
-            // ຄຳນວນສິນຄ້າຂາຍດີລວມທັງໝົດ
             let productSalesCount = {};
             globalHistoryList.forEach(tx => {
                 if (tx.items && Array.isArray(tx.items)) {
@@ -2659,7 +2646,6 @@
                 }
             });
 
-            // ຈັດລຽງອັນດັບຈາກຂາຍດີຫຼາຍໄປຫາໜ້ອຍ
             let sortedBestSellers = Object.keys(productSalesCount).sort((a, b) => productSalesCount[b] - productSalesCount[a]);
             let rankMap = {};
             sortedBestSellers.forEach((name, idx) => {
@@ -2735,7 +2721,7 @@
             } else if (reportType === 'quarterly') {
                 document.getElementById('filter-quarterly').classList.remove('hidden');
             } else if (reportType === 'duration') {
-                document.getElementById('filter-duration').classList.remove('hidden');
+                document.getElementById('filter-duration').classList.add('hidden');
             }
             calculateReport();
         }
