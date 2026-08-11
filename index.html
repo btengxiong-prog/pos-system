@@ -872,7 +872,7 @@
                             <th class="p-3 border-r text-right">ລາຄາຂາຍ</th>
                             <th class="p-3 border-r text-center">ຈໍານວນ</th>
                             <th class="p-3 border-r text-right">ລວມ</th>
-                            <th class="p-3 border-r text-center">ໝາຍເຫດ</th>
+                            <th class="p-3 text-center">ໝາຍເຫດ</th>
                         </tr>
                     </thead>
                     <tbody id="history-table-tbody" class="divide-y divide-gray-200 text-sm">
@@ -901,7 +901,7 @@
         </div>
     </div>
 
-    <!-- 🌟 Popup ລຶບປະຫວັດ ( Z-Index z-[500] ให้อยู่ด้านหน้า 100%, ตัดขັ້ນຕອນຢືນຢັນຊ້ຳຊ້ອນ, ລຶບອອກຈິງ ) -->
+    <!-- 🌟 Popup ລຶບປະຫວັດ ( Z-Index z-[500] อยู่ด้านหน้า 100%, ตัดขั้นຕອນຢືນຢັນຊ້ຳຊ້ອນ, ລຶບອອກຈິງ ) -->
     <div id="delete-history-modal" class="hidden fixed inset-0 bg-black/70 z-[500] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto space-y-4 text-left shadow-2xl">
             <div class="text-3xl text-center">🗑️</div>
@@ -931,7 +931,7 @@
                         <button type="button" onclick="toggleSelectAllDelHistItems(this)" class="text-[11px] bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold px-2.5 py-1 rounded cursor-pointer transition">☑️ ເລືອກທັງໝົດ</button>
                     </div>
 
-                    <!-- 🌟 2) ຕາຕະລາງ ລ/ດ | ວັນ/ເດືອນ/ປີ | ຊື່ສິນຄ້າ | ລວມ | ເລືອກ -->
+                    <!-- 🌟 2) ຕາຕະລາງ ລ/ດ | ວັນ/ເດືອນ/ປີ | ຊື່ສິນຄ້າ | ລວມ | ເລືອກ (ຕັດຂັ້ນຕອນ dropdown 2 ອອກແລ້ວ) -->
                     <div class="overflow-x-auto border rounded-xl max-h-60 overflow-y-auto">
                         <table class="w-full text-left border-collapse bg-white text-xs">
                             <thead>
@@ -3091,7 +3091,7 @@
             document.getElementById('history-summary').classList.remove('hidden');
         }
 
-        // --- 🌟 ຟັງຊັນຈັດການປ໋ອບອັບລຶບປະຫວັດ (ອັບເດດ Z-Index z-[500] ແລະ ຕາຕະລາງລາຍການ) ---
+        // --- 🌟 ຟັງຊັນຈັດການປ໋ອບອັບລຶບປະຫວັດ ( Z-Index z-[500] ให้อยู่ด้านหน้า 100% ) ---
         function openDeleteHistoryModal() {
             let shopSelect = document.getElementById('del-hist-shop-select');
             
@@ -3139,6 +3139,8 @@
                             let itemPrice = parseFloat(it.price || 0) || 0;
                             let itemQty = parseInt(it.qty || 1) || 1;
                             let itemTotal = itemPrice * itemQty;
+                            
+                            // 🌟 ບັນທຶກ unique key ໃຫ້ກົງກັບ Object structure ເພື່ອລຶບໄດ້ 100%
                             let uniqueKey = `${tx.id || ''}___${tx.created_at}___${itemIdx}___${tx.device_id}`;
 
                             html += `
@@ -3198,10 +3200,9 @@
                 let updatedLocalHistory = [];
                 localHistory.forEach(tx => {
                     let key = tx.id || tx.created_at;
-                    // Find matching in deleteMap
                     let matchedKey = null;
                     for (let [mKey, val] of deleteMap.entries()) {
-                        if (mKey === tx.id || mKey === tx.created_at) {
+                        if (mKey === tx.id || mKey === tx.created_at || (val.created_at === tx.created_at && val.device_id === tx.device_id)) {
                             matchedKey = mKey;
                             break;
                         }
@@ -3227,7 +3228,7 @@
                         for (let [mKey, val] of deleteMap.entries()) {
                             let query = supabaseClient.from('sales_history').select('*');
                             if (val.id && val.id !== 'undefined') {
-                                query = query.eq('id', val.id);
+                                query = query.or(`id.eq.${val.id},created_at.eq.${val.created_at}`);
                             } else {
                                 query = query.eq('created_at', val.created_at).eq('device_id', val.device_id);
                             }
