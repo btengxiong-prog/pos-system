@@ -593,7 +593,7 @@
     <header class="bg-[#1e3a8a] text-white py-5 shadow-lg">
         <div class="container mx-auto px-4 text-center">
             <h1 id="main-header-title" class="text-2xl md:text-3xl font-bold flex items-center justify-center gap-2">
-                🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Smart Realtime Sync)
+                🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Smart One-Time Sync)
             </h1>
             <div class="mt-1.5 text-xs md:text-sm text-yellow-300 font-semibold">
                 ✨ ວ່ອງໄວ ທັນໃຈ, ຍອດເງິນຖືກຕ້ອງ ຊັດເຈນ 100%, ບໍ່ເສຍເວລາ — ໃຜກໍ່ຂາຍເປັນ ບໍ່ມີພື້ນຖານໄອທີກໍ່ໃຊ້ໄດ້ສະບາຍ!
@@ -1336,6 +1336,8 @@
             if (roleModal) roleModal.classList.add('hidden');
             if (loginModal) loginModal.classList.add('hidden');
             checkTrialLicense();
+            // 🌟 One-Time Auto-Sync ເມື່ອເລືອກໂໝດເຂົ້າໃຊ້ງານ
+            performOneTimeStartupSync();
         }
 
         function showUnifiedLoginModal() {
@@ -1379,6 +1381,8 @@
                 if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
                 document.getElementById('license-status-badge').innerText = "🛡️ ສະຖານະ: ເຂົ້າລະບົບ Super Admin (Full Access)";
                 updateHeaderTitle();
+                // 🌟 One-Time Auto-Sync ເມື່ອ Admin Login สำເລັດ
+                performOneTimeStartupSync();
                 return;
             }
 
@@ -1404,6 +1408,8 @@
                 if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
                 document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ເຈົ້າຂອງຮ້ານ [${currentUsername}] (Shop Owner Admin)`;
                 updateHeaderTitle();
+                // 🌟 One-Time Auto-Sync ເມື່ອ Shop Owner Login สำເລັດ
+                performOneTimeStartupSync();
                 return;
             }
 
@@ -1429,6 +1435,8 @@
                         if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
                         document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ເຈົ້າຂອງຮ້ານ [${currentUsername}] (Shop Owner Admin)`;
                         updateHeaderTitle();
+                        // 🌟 One-Time Auto-Sync
+                        performOneTimeStartupSync();
                         return;
                     }
                 } catch (e) {}
@@ -1443,7 +1451,7 @@
             
             let userRole = localStorage.getItem('pos_user_role');
             if (userRole === 'admin') {
-                headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Smart Realtime Sync)`;
+                headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Smart One-Time Sync)`;
                 return;
             }
 
@@ -2835,7 +2843,6 @@
             return { ok: true };
         }
 
-        // --- 🌟 ຟັງຊັນຈັດການປ໋ອບອັບຊຳລະເງິນ ---
         function openCheckoutMethodModal() {
             if (cart.length === 0) {
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າກ່ອນຊຳລະເງິນ!", "⚠️");
@@ -3398,7 +3405,7 @@
             document.getElementById('excel-print-area').classList.add('hidden');
         }
 
-        // 🌟 ຟັງຊັນດຶງຂໍ້ມູນສິນຄ້າຈາກ Cloud 100% ພ້ອມກົນໄກອ່ານກົງຈາກ Supabase ທຸກຄັ້ງ
+        // 🌟 ຟັງຊັນດຶງຂໍ້ມູນສິນຄ້າຈາກ Cloud 100%
         async function fetchProductsForGenerator() {
             if (supabaseClient) {
                 try {
@@ -3805,20 +3812,10 @@
             await Promise.all(promises);
         }
 
-        // 🌟 ລະບົບ Realtime Sync ທີ່ເຊື່ອມຕໍ່ກົງກັບ Supabase Channel 100%
-        function initRealtimeSync() {
-            if (!supabaseClient) return;
-            try {
-                supabaseClient
-                    .channel('pos-global-realtime-channel')
-                    .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, payload => {
-                        fetchProductsForGenerator();
-                    })
-                    .on('postgres_changes', { event: '*', schema: 'public', table: 'sales_history' }, payload => {
-                        loadCloudHistory();
-                    })
-                    .subscribe();
-            } catch (e) {}
+        // 🌟 One-Time Auto-Sync function (ດຶງຂໍ້ມູນອັດຕະໂນມັດ 1 ครั้งທັນທີເມື່ອ Login / Startup ສຳເລັດ)
+        async function performOneTimeStartupSync() {
+            await fetchProductsForGenerator();
+            await loadCloudHistory();
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
@@ -3836,10 +3833,9 @@
             }
             updateHeaderTitle();
             checkTrialLicense();
-            initRealtimeSync();
 
-            // 🌟 ດຶງຂໍ້ມູນຫຼ້າສຸດຈາກ Cloud ມາສະແດງທັນທີທີ່ໂຫຼດໜ້າຈໍ
-            await fetchProductsForGenerator();
+            // 🌟 One-Time Auto-Sync ເມື່ອໂຫຼດໜ້າຈໍຄັ້ງທຳອິດ
+            await performOneTimeStartupSync();
         });
     </script>
 </body>
