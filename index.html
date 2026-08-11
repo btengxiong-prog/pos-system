@@ -3001,7 +3001,7 @@
                 return;
             }
 
-            // 🌟 Flatten ແລະ Extract items ທັງໝົດອອກມารຽງລໍາດັບ (Sort by Best Sellers / Quantity ຫຼາຍໄປໜ້ອຍ)
+            // 🌟 Flatten ແລະ Extract items ທັງໝົດອອກມຸມສາກ ພ້ອມ Sort by Best Sellers (Qty ຫຼາຍໄປຫາໜ້ອຍ)
             let flatRows = [];
             globalHistoryList.forEach((tx) => {
                 let txDateObj = new Date(tx.created_at);
@@ -3035,7 +3035,7 @@
                 }
             });
 
-            // 🌟 ຈັດລຽງລຳດັບສິນຄ້າຂາຍດີ (Qty ຫຼາຍໄປຫາໜ້ອຍ)
+            // 🌟 ຈັດລຽງລຳດັບເຄື່ອງທີ່ຂາຍດີ ແລະ ບໍ່ດີ (Sort by Qty Descending)
             flatRows.sort((a, b) => b.qty - a.qty);
 
             let html = '';
@@ -3066,7 +3066,6 @@
             tbody.innerHTML = html;
             let profitTotal = sumPriceTotal - sumCostTotal;
 
-            // ໝາຍເຫດ: ຖ້າມີຫຼາຍสกุลເງິນປົນກັນ ຈະສະແດງຜົນລວມລວມ (ສາມາດປັບແຕ່ງເພີ່ມເຕີມໄດ້ຕາມຄວາມເໝາະສົມ)
             let defaultCurr = 'ກີບ';
             document.getElementById('sum-total-cost').innerText = formatNumberWithCommas(sumCostTotal) + " " + defaultCurr;
             document.getElementById('sum-total-price').innerText = formatNumberWithCommas(sumPriceTotal) + " " + defaultCurr;
@@ -3074,16 +3073,18 @@
             document.getElementById('history-summary').classList.remove('hidden');
         }
 
-        // --- 🌟 ຟັງຊັນຈັດການປ໋ອບອັບລຶບປະຫວັດ (ສຳເພາະ Admin ໃຫຍ່) ---
+        // --- 🌟 ຟັງຊັນຈັດການປ໋ອບອັບລຶບປະຫວັດ (ສະເພາະ Admin ໃຫຍ່) ---
         function openDeleteHistoryModal() {
             let shopSelect = document.getElementById('del-hist-shop-select');
-            let licenses = JSON.parse(localStorage.getItem('pos_all_licenses') || '[]');
             
             let html = `<option value="all">-- ທຸກຮ້ານ / ທຸກຢູເຊີ --</option>`;
-            // ดึงรายชื่อจาก globalHistoryList หรือ licenses
             let uniqueShops = [...new Set(globalHistoryList.map(tx => tx.device_id).filter(Boolean))];
+            
             uniqueShops.forEach(s => {
-                html += `<option value="${s}">ຮ້ານ / ຢູເຊີ: ${s}</option>`;
+                // 🌟 ເງື່ອນໄຂ: ຖ້າມີຊື່ຮ້ານ ໃຫ້ໃສ່ຊື່ຮ້ານ, ຖ້າບໍ່ມີຊື່ຮ້ານ ໃຫ້ໃສ່ ID ແທນ
+                let shopName = localStorage.getItem('pos_shop_name_' + s) || '';
+                let displayName = (shopName && shopName.trim() !== '') ? `${shopName} (${s})` : s;
+                html += `<option value="${s}">ຮ້ານ: ${displayName}</option>`;
             });
             shopSelect.innerHTML = html;
 
@@ -3134,7 +3135,6 @@
                 let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
 
                 if (mode === 'all') {
-                    // ລຶບປະຫວັດທັງໝົດຂອງຮ້ານນັ້ນ ຫຼື ທັງໝົດ
                     if (targetShop === 'all') {
                         localStorage.removeItem('pos_local_history');
                         if (supabaseClient) {
@@ -3149,7 +3149,6 @@
                     }
                     showAlert("ສຳເລັດ", "ລຶບປະຫວັດການຂາຍທັງໝົດສຳເລັດຮຽບຮ້ອຍ!", "🗑️");
                 } else if (mode === 'item') {
-                    // ລຶບສະເພາະລายການຍ່ອຍ
                     let val = document.getElementById('del-hist-item-select').value;
                     if (!val) return;
                     let parts = val.split('___');
@@ -3165,7 +3164,6 @@
                     }).filter(tx => !tx.items || tx.items.length > 0);
 
                     localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
-                    // ຖ້າເປັນ Cloud ໃຫ້ໂຫຼດໃໝ່ ຫຼື ຣີເຟຣຊ
                     showAlert("ສຳເລັດ", "ລຶບລາຍການສິນຄ້າຍ່ອຍສຳເລັດຮຽບຮ້ອຍ!", "🗑️");
                 }
 
