@@ -243,7 +243,12 @@
                 <h3 class="text-xl font-bold text-cyan-800 flex items-center gap-2">
                     <span>📦 ສິນຄ້າຄ້າງສາງ (Inventory Stock)</span>
                 </h3>
-                <button onclick="loadInventory()" class="text-xs bg-cyan-100 text-cyan-800 px-3 py-1.5 rounded-lg cursor-pointer font-bold">🔄 ໂຫຼດໃໝ່</button>
+                <div class="flex gap-2 items-center">
+                    <!-- 🌟 ປຸ່ມລຶບສິນຄ້າໃນສາງ (ສະເພາະ Admin ໃຫຍ່) -->
+                    <button id="admin-delete-inventory-btn" onclick="openDeleteInventoryModal()" class="hidden text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg cursor-pointer font-bold shadow transition">🗑️ ລຶບສິນຄ້າ</button>
+                    <button onclick="loadInventory()" class="text-xs bg-cyan-100 text-cyan-800 px-3 py-1.5 rounded-lg cursor-pointer font-bold">🔄 ໂຫຼດໃໝ່</button>
+                    <button onclick="closeInventoryModal()" class="text-gray-500 hover:text-gray-700 font-bold text-lg cursor-pointer px-2">✕</button>
+                </div>
             </div>
             
             <div class="overflow-x-auto border rounded-xl">
@@ -253,8 +258,9 @@
                             <th class="p-3 border-r text-center w-12">ລ/ດ</th>
                             <th class="p-3 border-r">ຊື່ສິນຄ້າ</th>
                             <th class="p-3 border-r text-center">ວັນນຳເຂົ້າສິນຄ້າ</th>
-                            <th class="p-3 border-r text-center">ວັນຜະລິດ (dd/mm/yyyy)</th>
-                            <th class="p-3 border-r text-center">ວັນໝົດອາຍຸ (dd/mm/yyyy)</th>
+                            <!-- 🌟 1) ເອົາ (DD/MM/YYYY) ອອກ ໃຫ້ເຫຼືອແຕ່ພາສາລາວ -->
+                            <th class="p-3 border-r text-center">ວັນຜະລິດ</th>
+                            <th class="p-3 border-r text-center">ວັນໝົດອາຍຸ</th>
                             <th class="p-3 border-r text-right">ລາຄາຊື້ (ກີບ)</th>
                             <th class="p-3 border-r text-right">ລາຄາຂາຍ (ກີບ)</th>
                             <th class="p-3 border-r text-center">ໝາຍເຫດ</th>
@@ -270,6 +276,61 @@
             <div class="flex gap-2 pt-2">
                 <button onclick="window.print()" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">🖨️ ພິມລາຍງານ</button>
                 <button onclick="closeInventoryModal()" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ປິດ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🌟 Popup ລຶບສິນຄ້າໃນສາງ (ແບບດຽວກັບການລຶບປະຫວັດການຂາຍ) -->
+    <div id="delete-inventory-modal" class="hidden fixed inset-0 bg-black/70 z-[500] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto space-y-4 text-left shadow-2xl">
+            <div class="text-3xl text-center">🗑️</div>
+            <h3 class="text-lg font-bold text-red-700 text-center">ຈັດການລຶບສິນຄ້າໃນສາງ</h3>
+            <p class="text-xs text-gray-600 text-center">ກະລຸນາເລືອກຮ້ານ, ວັນທີ ແລະ ຕິກເລືອກສິນຄ້າທີ່ຕ້ອງການລຶບ:</p>
+
+            <div class="space-y-3 text-xs">
+                <!-- 1. ເລືອກຮ້ານ -->
+                <div>
+                    <label class="block font-bold text-gray-700 mb-1">🏪 ເລືອກ ຢູເຊີ ຫຼື ຊື່ຮ້ານ:</label>
+                    <select id="del-inv-shop-select" onchange="renderDeleteInventoryTable()" class="w-full border rounded-lg px-3 py-2 font-semibold outline-none bg-gray-50">
+                        <option value="all">-- ທຸກຮ້ານ / ທຸກຢູເຊີ --</option>
+                    </select>
+                </div>
+
+                <!-- 2. ເລືອກ ວັນ/ເດືອນ/ປີ -->
+                <div>
+                    <label class="block font-bold text-gray-700 mb-1">📅 ເລືອກ ວັນ/ເດືອນ/ປີ (ຖ້າບໍ່ເລືອກຈະສະແດງທັງໝົດ):</label>
+                    <input type="date" id="del-inv-date-input" onchange="renderDeleteInventoryTable()" class="w-full border rounded-lg px-3 py-2 font-semibold outline-none bg-white text-purple-700 cursor-pointer">
+                </div>
+
+                <!-- 3. ຕາຕະລາງລາຍການສິນຄ້າໃນສາງ ພ້ອມປຸ່ມ ເລືອກທັງໝົດ -->
+                <div class="space-y-2 border-t pt-2">
+                    <div class="flex justify-between items-center">
+                        <label class="font-bold text-gray-700">📦 ລາຍການສິນຄ້າໃນສາງ:</label>
+                        <button type="button" onclick="toggleSelectAllDelInvItems(this)" class="text-[11px] bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold px-2.5 py-1 rounded cursor-pointer transition">☑️ ເລືອກທັງໝົດ</button>
+                    </div>
+
+                    <div class="overflow-x-auto border rounded-xl max-h-60 overflow-y-auto">
+                        <table class="w-full text-left border-collapse bg-white text-xs">
+                            <thead>
+                                <tr class="bg-gray-100 text-gray-700 uppercase sticky top-0 border-b">
+                                    <th class="p-2 border-r text-center w-12">ລ/ດ</th>
+                                    <th class="p-2 border-r text-center">ວັນນຳເຂົ້າ</th>
+                                    <th class="p-2 border-r">ຊື່ສິນຄ້າ</th>
+                                    <th class="p-2 border-r text-right">ລາຄາຂາຍ</th>
+                                    <th class="p-2 text-center w-16">ເລືອກ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="del-inv-table-tbody" class="divide-y divide-gray-200">
+                                <!-- Rows injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex gap-2 pt-3 border-t">
+                <button onclick="closeDeleteInventoryModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer text-sm">ຍົກເລີກ</button>
+                <button onclick="confirmExecuteDeleteInventory()" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">🗑️ ຢືນຢັນລຶບ</button>
             </div>
         </div>
     </div>
@@ -901,7 +962,7 @@
         </div>
     </div>
 
-    <!-- 🌟 Popup ລຶບປະຫວັດ (Global Shared Data Sync 100%) -->
+    <!-- 🌟 Popup ລຶບປະຫວັດ (Global Shared Data 100%) -->
     <div id="delete-history-modal" class="hidden fixed inset-0 bg-black/70 z-[500] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto space-y-4 text-left shadow-2xl">
             <div class="text-3xl text-center">🗑️</div>
@@ -909,7 +970,6 @@
             <p class="text-xs text-gray-600 text-center">ກະລຸນາເລືອກຮ້ານ, ວັນທີ ແລະ ຕິກເລືອກລາຍການທີ່ຕ້ອງການລຶບ:</p>
 
             <div class="space-y-3 text-xs">
-                <!-- 1. ເລືອກຮ້ານ -->
                 <div>
                     <label class="block font-bold text-gray-700 mb-1">🏪 ເລືອກ ຢູເຊີ ຫຼື ຊື່ຮ້ານ:</label>
                     <select id="del-hist-shop-select" onchange="renderDeleteHistoryTable()" class="w-full border rounded-lg px-3 py-2 font-semibold outline-none bg-gray-50">
@@ -917,21 +977,17 @@
                     </select>
                 </div>
 
-                <!-- 2. ເລືອກ ວັນ/ເດືອນ/ປີ -->
                 <div>
                     <label class="block font-bold text-gray-700 mb-1">📅 ເລືອກ ວັນ/ເດືອນ/ປີ (ຖ້າບໍ່ເລືອກຈະສະແດງທັງໝົດ):</label>
                     <input type="date" id="del-hist-date-input" onchange="renderDeleteHistoryTable()" class="w-full border rounded-lg px-3 py-2 font-semibold outline-none bg-white text-purple-700 cursor-pointer">
                 </div>
 
-                <!-- 3. ຕາຕະລາງລາຍການປະຫວັດການຂາຍ ພ້ອມປຸ່ມ ເລືອກທັງໝົດ -->
                 <div class="space-y-2 border-t pt-2">
                     <div class="flex justify-between items-center">
                         <label class="font-bold text-gray-700">📦 ລາຍການປະຫວັດການຂາຍ:</label>
-                        <!-- 🌟 ປຸ່ມ ເລືອກທັງໝົດ -->
                         <button type="button" onclick="toggleSelectAllDelHistItems(this)" class="text-[11px] bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold px-2.5 py-1 rounded cursor-pointer transition">☑️ ເລືອກທັງໝົດ</button>
                     </div>
 
-                    <!-- 🌟 ຕາຕະລາງ ລ/ດ | ວັນ/ເດືອນ/ປີ | ຊື່ສິນຄ້າ | ລວມ | ເລືອກ -->
                     <div class="overflow-x-auto border rounded-xl max-h-60 overflow-y-auto">
                         <table class="w-full text-left border-collapse bg-white text-xs">
                             <thead>
@@ -944,7 +1000,6 @@
                                 </tr>
                             </thead>
                             <tbody id="del-hist-table-tbody" class="divide-y divide-gray-200">
-                                <!-- Rows injected here -->
                             </tbody>
                         </table>
                     </div>
@@ -954,6 +1009,57 @@
             <div class="flex gap-2 pt-3 border-t">
                 <button onclick="closeDeleteHistoryModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer text-sm">ຍົກເລີກ</button>
                 <button onclick="confirmExecuteDeleteHistory()" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">🗑️ ຢືນຢັນລຶບ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🌟 Popup ລຶບສິນຄ້າໃນສາງ (ສຳລັບ Admin ໃຫຍ່ - ຕາມຄວາມຕ້ອງການໃໝ່) -->
+    <div id="delete-inventory-modal" class="hidden fixed inset-0 bg-black/70 z-[500] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto space-y-4 text-left shadow-2xl">
+            <div class="text-3xl text-center">🗑️</div>
+            <h3 class="text-lg font-bold text-red-700 text-center">ຈັດການລຶບສິນຄ້າໃນສາງ</h3>
+            <p class="text-xs text-gray-600 text-center">ກະລຸນາເລືອກຮ້ານ, ວັນທີ ແລະ ຕິກເລືອກສິນຄ້າທີ່ຕ້ອງການລຶບ:</p>
+
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-bold text-gray-700 mb-1">🏪 ເລືອກ ຢູເຊີ ຫຼື ຊື່ຮ້ານ:</label>
+                    <select id="del-inv-shop-select" onchange="renderDeleteInventoryTable()" class="w-full border rounded-lg px-3 py-2 font-semibold outline-none bg-gray-50">
+                        <option value="all">-- ທຸກຮ້ານ / ທຸກຢູເຊີ --</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-gray-700 mb-1">📅 ເລືອກ ວັນ/ເດືອນ/ປີ (ຖ້າບໍ່ເລືອກຈະສະແດງທັງໝົດ):</label>
+                    <input type="date" id="del-inv-date-input" onchange="renderDeleteInventoryTable()" class="w-full border rounded-lg px-3 py-2 font-semibold outline-none bg-white text-purple-700 cursor-pointer">
+                </div>
+
+                <div class="space-y-2 border-t pt-2">
+                    <div class="flex justify-between items-center">
+                        <label class="font-bold text-gray-700">📦 ລາຍການສິນຄ້າໃນສາງ:</label>
+                        <button type="button" onclick="toggleSelectAllDelInvItems(this)" class="text-[11px] bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold px-2.5 py-1 rounded cursor-pointer transition">☑️ ເລືອກທັງໝົດ</button>
+                    </div>
+
+                    <div class="overflow-x-auto border rounded-xl max-h-60 overflow-y-auto">
+                        <table class="w-full text-left border-collapse bg-white text-xs">
+                            <thead>
+                                <tr class="bg-gray-100 text-gray-700 uppercase sticky top-0 border-b">
+                                    <th class="p-2 border-r text-center w-12">ລ/ດ</th>
+                                    <th class="p-2 border-r text-center">ວັນນຳເຂົ້າ</th>
+                                    <th class="p-2 border-r">ຊື່ສິນຄ້າ</th>
+                                    <th class="p-2 border-r text-right">ລາຄາຂາຍ</th>
+                                    <th class="p-2 text-center w-16">ເລືອກ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="del-inv-table-tbody" class="divide-y divide-gray-200">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex gap-2 pt-3 border-t">
+                <button onclick="closeDeleteInventoryModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer text-sm">ຍົກເລີກ</button>
+                <button onclick="confirmExecuteDeleteInventory()" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">🗑️ ຢືນຢັນລຶບ</button>
             </div>
         </div>
     </div>
@@ -1832,6 +1938,12 @@
 
         // --- CORE POS LOGIC ---
         async function openInventoryModal() {
+            let userRole = localStorage.getItem('pos_user_role');
+            let deleteBtn = document.getElementById('admin-delete-inventory-btn');
+            if (deleteBtn) {
+                if (userRole === 'admin') deleteBtn.classList.remove('hidden');
+                else deleteBtn.classList.add('hidden');
+            }
             document.getElementById('inventory-modal').classList.remove('hidden');
             await loadInventory();
         }
@@ -1956,6 +2068,103 @@
             };
         }
 
+        // --- 🌟 ຟັງຊັນຈັດການປ໋ອບອັບລຶບສິນຄ້າໃນສາງ (ແບບດຽວກັບລຶບປະຫວັດການຂາຍ) ---
+        function openDeleteInventoryModal() {
+            let shopSelect = document.getElementById('del-inv-shop-select');
+            
+            let html = `<option value="all">-- ທຸກຮ້ານ / ທຸກຢູເຊີ --</option>`;
+            let uniqueShops = [...new Set(excelRows.map(r => r.device_id).filter(Boolean))];
+            
+            uniqueShops.forEach(s => {
+                let shopName = localStorage.getItem('pos_shop_name_' + s) || '';
+                let displayName = (shopName && shopName.trim() !== '') ? `${shopName} (${s})` : s;
+                html += `<option value="${s}">${displayName}</option>`;
+            });
+            shopSelect.innerHTML = html;
+
+            document.getElementById('del-inv-date-input').value = '';
+            renderDeleteInventoryTable();
+            document.getElementById('delete-inventory-modal').classList.remove('hidden');
+        }
+
+        function closeDeleteInventoryModal() {
+            document.getElementById('delete-inventory-modal').classList.add('hidden');
+        }
+
+        function renderDeleteInventoryTable() {
+            let tbody = document.getElementById('del-inv-table-tbody');
+            let targetShop = document.getElementById('del-inv-shop-select').value;
+            let targetDateVal = document.getElementById('del-inv-date-input').value; // yyyy-mm-dd
+
+            let html = '';
+            let count = 1;
+
+            excelRows.forEach((row) => {
+                if (targetShop === 'all' || row.device_id === targetShop) {
+                    let rowIsoDate = row.dateAdded || '';
+                    if (targetDateVal && rowIsoDate !== targetDateVal) return;
+
+                    let dateStr = formatDateToDDMMYYYY(rowIsoDate);
+                    let itemName = row.code || '-';
+                    let itemPrice = parseFloat(row.price || 0) || 0;
+                    let uniqueKey = row.id;
+
+                    html += `
+                        <tr class="hover:bg-gray-50 border-b">
+                            <td class="p-2 border-r text-center font-bold text-gray-500">${count++}</td>
+                            <td class="p-2 border-r text-center font-semibold text-purple-700">${dateStr}</td>
+                            <td class="p-2 border-r font-bold text-gray-900">${itemName}</td>
+                            <td class="p-2 border-r text-right font-bold text-green-600">${formatNumberWithCommas(itemPrice)} ກີບ</td>
+                            <td class="p-2 text-center">
+                                <input type="checkbox" name="del_inv_checkbox" value="${uniqueKey}" class="w-4 h-4 text-red-600 rounded cursor-pointer">
+                            </td>
+                        </tr>
+                    `;
+                }
+            });
+
+            tbody.innerHTML = html || `<tr><td colspan="5" class="p-4 text-center text-gray-400">ບໍ່ພົບລາຍການສິນຄ້າໃນສາງຕາມເງື່ອນໄຂ</td></tr>`;
+        }
+
+        function toggleSelectAllDelInvItems(btn) {
+            let checkboxes = document.querySelectorAll('input[name="del_inv_checkbox"]');
+            let allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            checkboxes.forEach(cb => cb.checked = !allChecked);
+            btn.innerText = allChecked ? "☑️ ເລືອກທັງໝົດ" : "☒ ຍົກເລີກເລືອກທັງໝົດ";
+        }
+
+        async function confirmExecuteDeleteInventory() {
+            let checkedBoxes = document.querySelectorAll('input[name="del_inv_checkbox"]:checked');
+            if (checkedBoxes.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາຕິກເລືອກສິນຄ້າທີ່ຕ້ອງການລຶບຢ່າງໜ້ອຍ 1 ລາຍການ!", "⚠️");
+                return;
+            }
+
+            showCustomConfirm("ຢືນຢັນການລຶບສິນຄ້າ", `ທ່ານໝັ້ນໃຈບໍທີ່ຈະລຶບ ${checkedBoxes.length} ລາຍການສິນຄ້າທີ່ເລືອກນີ້ອອກຈາກສາງ?`, async (confirmed) => {
+                if (!confirmed) return;
+
+                let idsToDelete = Array.from(checkedBoxes).map(cb => cb.value);
+
+                // 1. Remove from LocalStorage (excelRows)
+                excelRows = excelRows.filter(r => !idsToDelete.includes(r.id));
+                localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
+
+                // 2. Remove from Supabase Database
+                if (supabaseClient) {
+                    try {
+                        for (let id of idsToDelete) {
+                            await supabaseClient.from('products').delete().eq('id', id);
+                        }
+                    } catch (e) {}
+                }
+
+                showAlert("ສຳເລັດ", "ລຶບລາຍການສິນຄ້າໃນສາງທີ່ເລືອກສຳເລັດຮຽບຮ້ອຍ!", "🗑️");
+
+                closeDeleteInventoryModal();
+                loadInventory();
+            });
+        }
+
         function resolveCustomConfirm(result) {
             let confirmModal = document.getElementById('custom-confirm-modal');
             if (confirmModal) confirmModal.classList.add('hidden');
@@ -1974,23 +2183,6 @@
             if (confirmMsg) confirmMsg.innerText = message;
             if (confirmModal) confirmModal.classList.remove('hidden');
             customConfirmCallback = callback;
-        }
-
-        function showAlert(title, message, icon = "✅") {
-            let alertModal = document.getElementById('custom-alert-modal');
-            let alertTitle = document.getElementById('alert-title');
-            let alertMsg = document.getElementById('alert-message');
-            let alertIcon = document.getElementById('alert-icon');
-
-            if (alertTitle) alertTitle.innerText = title;
-            if (alertMsg) alertMsg.innerText = message;
-            if (alertIcon) alertIcon.innerText = icon;
-            if (alertModal) alertModal.classList.remove('hidden');
-        }
-
-        function closeCustomAlert() {
-            let alertModal = document.getElementById('custom-alert-modal');
-            if (alertModal) alertModal.classList.add('hidden');
         }
 
         async function openExpiryModal() {
@@ -2946,7 +3138,7 @@
                 } catch (err) {}
             }
 
-            // 🌟 Global Shared Data: ໃຫ້ທຸກເຄື່ອງເຫັນປະຫວັດທັງໝົດຮ່ວມກັນ 100% ໂດຍບໍ່ກອງ Device ID
+            // 🌟 Global Shared Data: ໃຫ້ທຸກເຄື່ອງເຫັນປະຫວັດທັງໝົດຮ່ວມກັນ 100%
             globalHistoryList = Array.from(combinedMap.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
             if (globalHistoryList.length === 0) {
@@ -3022,172 +3214,6 @@
             document.getElementById('sum-total-price').innerText = formatNumberWithCommas(sumPriceTotal) + " " + defaultCurr;
             document.getElementById('sum-total-profit').innerText = formatNumberWithCommas(profitTotal) + " " + defaultCurr;
             document.getElementById('history-summary').classList.remove('hidden');
-        }
-
-        // --- 🌟 ຟັງຊັນຈັດການປ໋ອບອັບລຶບປະຫວັດ (Global Shared Data 100%) ---
-        function openDeleteHistoryModal() {
-            let shopSelect = document.getElementById('del-hist-shop-select');
-            
-            let html = `<option value="all">-- ທຸກຮ້ານ / ທຸກຢູເຊີ --</option>`;
-            let uniqueShops = [...new Set(globalHistoryList.map(tx => tx.device_id).filter(Boolean))];
-            
-            uniqueShops.forEach(s => {
-                let shopName = localStorage.getItem('pos_shop_name_' + s) || '';
-                let displayName = (shopName && shopName.trim() !== '') ? `${shopName} (${s})` : s;
-                html += `<option value="${s}">${displayName}</option>`;
-            });
-            shopSelect.innerHTML = html;
-
-            document.getElementById('del-hist-date-input').value = '';
-            renderDeleteHistoryTable();
-            document.getElementById('delete-history-modal').classList.remove('hidden');
-        }
-
-        function closeDeleteHistoryModal() {
-            document.getElementById('delete-history-modal').classList.add('hidden');
-        }
-
-        function renderDeleteHistoryTable() {
-            let tbody = document.getElementById('del-hist-table-tbody');
-            let targetShop = document.getElementById('del-hist-shop-select').value;
-            let targetDateVal = document.getElementById('del-hist-date-input').value; // yyyy-mm-dd
-
-            let html = '';
-            let count = 1;
-
-            globalHistoryList.forEach((tx) => {
-                if (targetShop === 'all' || tx.device_id === targetShop) {
-                    let txDateObj = new Date(tx.created_at);
-                    let txIsoDate = !isNaN(txDateObj.getTime()) ? txDateObj.toISOString().split('T')[0] : '';
-                    let dateStr = !isNaN(txDateObj.getTime()) ? formatDateToDDMMYYYY(txIsoDate) : '-';
-
-                    if (targetDateVal && txIsoDate !== targetDateVal) return;
-
-                    let payMethod = tx.payment_method || 'cash';
-                    let curr = (payMethod === 'transfer_thb') ? 'ບາດ' : 'ກີບ';
-
-                    if (tx.items && Array.isArray(tx.items)) {
-                        tx.items.forEach((it, itemIdx) => {
-                            let itemName = it.name || it.code || '-';
-                            let itemPrice = parseFloat(it.price || 0) || 0;
-                            let itemQty = parseInt(it.qty || 1) || 1;
-                            let itemTotal = itemPrice * itemQty;
-                            let uniqueKey = `${tx.id || ''}___${tx.created_at}___${itemIdx}___${tx.device_id}`;
-
-                            html += `
-                                <tr class="hover:bg-gray-50 border-b">
-                                    <td class="p-2 border-r text-center font-bold text-gray-500">${count++}</td>
-                                    <td class="p-2 border-r text-center font-semibold text-purple-700">${dateStr}</td>
-                                    <td class="p-2 border-r font-bold text-gray-900">${itemName}</td>
-                                    <td class="p-2 border-r text-right font-bold text-green-600">${formatNumberWithCommas(itemTotal)} ${curr}</td>
-                                    <td class="p-2 text-center">
-                                        <input type="checkbox" name="del_hist_checkbox" value="${uniqueKey}" class="w-4 h-4 text-red-600 rounded cursor-pointer">
-                                    </td>
-                                </tr>
-                            `;
-                        });
-                    }
-                }
-            });
-
-            tbody.innerHTML = html || `<tr><td colspan="5" class="p-4 text-center text-gray-400">ບໍ່ພົບລາຍການປະຫວັດການຂາຍຕາມເງື່ອນໄຂ</td></tr>`;
-        }
-
-        function toggleSelectAllDelHistItems(btn) {
-            let checkboxes = document.querySelectorAll('input[name="del_hist_checkbox"]');
-            let allChecked = Array.from(checkboxes).every(cb => cb.checked);
-            checkboxes.forEach(cb => cb.checked = !allChecked);
-            btn.innerText = allChecked ? "☑️ ເລືອກທັງໝົດ" : "☒ ຍົກເລີກເລືອກທັງໝົດ";
-        }
-
-        async function confirmExecuteDeleteHistory() {
-            let checkedBoxes = document.querySelectorAll('input[name="del_hist_checkbox"]:checked');
-            if (checkedBoxes.length === 0) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາຕິກເລືອກລາຍການທີ່ຕ້ອງການລຶບຢ່າງໜ້ອຍ 1 ລາຍການ!", "⚠️");
-                return;
-            }
-
-            showCustomConfirm("ຢືນຢັນການລຶບປະຫວັດ", `ທ່ານໝັ້ນໃຈບໍທີ່ຈະລຶບ ${checkedBoxes.length} ລາຍການທີ່ເລືອກນີ້ອອກຈາກປະຫວັດ?`, async (confirmed) => {
-                if (!confirmed) return;
-
-                let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-                
-                let deleteMap = new Map();
-                checkedBoxes.forEach(cb => {
-                    let parts = cb.value.split('___');
-                    let txId = parts[0];
-                    let txCreated = parts[1];
-                    let itemIdx = parseInt(parts[2]);
-                    let devId = parts[3];
-
-                    let mapKey = txId && txId !== 'undefined' ? txId : txCreated;
-                    if (!deleteMap.has(mapKey)) deleteMap.set(mapKey, { indices: [], device_id: devId, created_at: txCreated, id: txId });
-                    deleteMap.get(mapKey).indices.push(itemIdx);
-                });
-
-                // 1. Remove from LocalStorage
-                let updatedLocalHistory = [];
-                localHistory.forEach(tx => {
-                    let matchedKey = null;
-                    for (let [mKey, val] of deleteMap.entries()) {
-                        if (mKey === tx.id || mKey === tx.created_at || (val.created_at === tx.created_at && val.device_id === tx.device_id)) {
-                            matchedKey = mKey;
-                            break;
-                        }
-                    }
-
-                    if (matchedKey && tx.items) {
-                        let indicesToRemove = deleteMap.get(matchedKey).indices;
-                        indicesToRemove.sort((a, b) => b - a);
-                        indicesToRemove.forEach(idx => {
-                            tx.items.splice(idx, 1);
-                        });
-                    }
-
-                    if (!tx.items || tx.items.length > 0) {
-                        updatedLocalHistory.push(tx);
-                    }
-                });
-                localStorage.setItem('pos_local_history', JSON.stringify(updatedLocalHistory));
-
-                // 2. Remove from Supabase Database
-                if (supabaseClient) {
-                    try {
-                        for (let [mKey, val] of deleteMap.entries()) {
-                            let query = supabaseClient.from('sales_history').select('*');
-                            if (val.id && val.id !== 'undefined') {
-                                query = query.or(`id.eq.${val.id},created_at.eq.${val.created_at}`);
-                            } else {
-                                query = query.eq('created_at', val.created_at).eq('device_id', val.device_id);
-                            }
-
-                            let { data: cloudTxList } = await query;
-                            if (cloudTxList && cloudTxList.length > 0) {
-                                for (let cTx of cloudTxList) {
-                                    if (cTx.items) {
-                                        let indicesToRemove = val.indices;
-                                        indicesToRemove.sort((a, b) => b - a);
-                                        indicesToRemove.forEach(idx => {
-                                            cTx.items.splice(idx, 1);
-                                        });
-
-                                        if (cTx.items.length === 0) {
-                                            await supabaseClient.from('sales_history').delete().eq('id', cTx.id);
-                                        } else {
-                                            await supabaseClient.from('sales_history').update({ items: cTx.items }).eq('id', cTx.id);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    } catch (e) {}
-                }
-
-                showAlert("ສຳເລັດ", "ລຶບລາຍການປະຫວັດທີ່ເລືອກສຳເລັດຮຽບຮ້ອຍ!", "🗑️");
-
-                closeDeleteHistoryModal();
-                loadCloudHistory();
-            });
         }
 
         async function openReport() { 
@@ -3309,7 +3335,7 @@
                 try {
                     let { data } = await supabaseClient.from('products').select('*');
                     if (data && data.length > 0) {
-                        // 🌟 Global Shared Data: ດຶງສິນຄ້າທັງໝົດຂອງທຸກເຄື່ອງມາສະແດງຮ່ວມກັນ
+                        // 🌟 Global Shared Data: ດຶງສິນຄ້າທັງໝົດຂອງທຸກເຄື່ອງມາສະແດງຮ່ວມກັນທັນທີ
                         excelRows = data.map(item => ({
                             id: item.id || ('ROW-' + Math.random().toString(36).substring(2, 6)),
                             device_id: item.device_id || deviceId,
@@ -3509,7 +3535,7 @@
             });
             renderExcelTable();
             closeUpdatePctModal();
-            showAlert("ສຳເລັດ", `ອັບເດດເປີເຊັນ (%) ເປັນ ${val}% ທຸກລາຍການແລ້ວ!`, "📊");
+            showAlert("ສຳເລັດ", `ອັບເປີເຊັນ (%) ເປັນ ${val}% ທຸກລາຍການແລ້ວ!`, "📊");
         }
 
         function calculatePercentage() {
