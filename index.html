@@ -549,7 +549,7 @@
         </div>
     </div>
 
-    <!-- 🌟 Step 2: Admin Select Specific History Items Modal (Fix ID Matching) -->
+    <!-- 🌟 Step 2: Admin Select Specific History Items Modal -->
     <div id="admin-select-history-items-modal" class="hidden fixed inset-0 bg-black/70 z-[460] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-2xl w-full p-6 max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl text-left">
             <div class="flex justify-between items-center border-b pb-3">
@@ -678,7 +678,7 @@
                     </div>
                 </div>
 
-                <!-- ປຸ່ມ: ⚙️ ຈັດການລະບົບ (Admin ໃຫຍ່) -->
+                <!-- ປຸ່ມ: ⚙️ ຈັດການລະບົບ (Admin ໃຫຍ່ - 🌟 ແກ້ໄຂໃຫ້ໂຊຕະຫຼອດ 24 ຊົ່ວໂມງ ຖ້າເປັນ Admin ໃຫຍ່) -->
                 <button id="admin-manage-btn" onclick="openAdminManager()" class="hidden w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     ⚙️ ຈັດການລະບົບ
                 </button>
@@ -1337,12 +1337,15 @@
                 localStorage.setItem('pos_user_role', 'admin');
                 document.getElementById('unified-login-modal').classList.add('hidden');
                 document.getElementById('role-select-modal').classList.add('hidden');
+                
+                // 🌟 ໂຊປຸ່ມ Admin ຕະຫຼອດ 24 ຊົ່ວໂມງ
                 let adminBtn = document.getElementById('admin-manage-btn');
                 if (adminBtn) adminBtn.classList.remove('hidden');
                 let rateBtn = document.getElementById('header-rate-btn');
                 if (rateBtn) rateBtn.classList.remove('hidden');
                 let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
                 if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
+
                 document.getElementById('license-status-badge').innerText = "🛡️ ສະຖານະ: ເຂົ້າລະບົບ Super Admin (Full Access)";
                 updateHeaderTitle();
                 return;
@@ -1401,6 +1404,47 @@
             }
 
             showAlert("ຜິດພາດ", "Username ຫຼື Password ບໍ່ຖືກຕ້ອງ!", "❌");
+        }
+
+        // 🌟 ຟັງຊັນກວດສອບສະຖານະ Admin ຕະຫຼອດ 24 ຊົ່ວໂມງ (ບໍ່ໃຫ້ປຸ່ມຫາຍເວລາ Refresh)
+        function checkRoleAndLicense() {
+            let userRole = localStorage.getItem('pos_user_role');
+            let shopOwner = localStorage.getItem('pos_shop_owner');
+            let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
+
+            let roleModal = document.getElementById('role-select-modal');
+            let loginModal = document.getElementById('unified-login-modal');
+            if (roleModal) roleModal.classList.add('hidden');
+            if (loginModal) loginModal.classList.add('hidden');
+
+            let adminBtn = document.getElementById('admin-manage-btn');
+            let rateBtn = document.getElementById('header-rate-btn');
+            let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
+
+            if (userRole === 'admin') {
+                if (adminBtn) adminBtn.classList.remove('hidden');
+                if (rateBtn) rateBtn.classList.remove('hidden');
+                if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
+                document.getElementById('license-status-badge').innerText = "🛡️ ສະຖານະ: ເຂົ້າລະບົບ Super Admin (Full Access)";
+            } else if (shopOwner === 'true' || currentUsername) {
+                if (adminBtn) adminBtn.classList.add('hidden');
+                if (rateBtn) rateBtn.classList.remove('hidden');
+                if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
+                let currentDev = localStorage.getItem('pos_device_id') || deviceId;
+                document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ເຈົ້າຂອງຮ້ານ [${currentDev}] (Shop Owner Admin)`;
+            } else if (linkedAdminId) {
+                if (adminBtn) adminBtn.classList.add('hidden');
+                if (rateBtn) rateBtn.classList.add('hidden');
+                if (headerConnectQrBtn) headerConnectQrBtn.classList.add('hidden');
+                document.getElementById('license-status-badge').innerText = `🔗 ສະຖານະ: ພະນັກງານຂາຍ (ເຊື່ອມຕໍ່ຮ້ານ Admin: ${linkedAdminId})`;
+            } else {
+                if (adminBtn) adminBtn.classList.add('hidden');
+                if (rateBtn) rateBtn.classList.add('hidden');
+                if (headerConnectQrBtn) headerConnectQrBtn.classList.add('hidden');
+                document.getElementById('license-status-badge').innerText = `⏳ ສະຖານະ: ທົດລອງໃຊ້ 15 ວັນ (ID: ${deviceId})`;
+            }
+            updateHeaderTitle();
+            fetchProductsForGenerator();
         }
 
         function updateHeaderTitle() {
@@ -2889,7 +2933,6 @@
             document.getElementById('history-summary').classList.remove('hidden');
         }
 
-        // 🌟 Step 1: ເປີດປ໋ອບອັບເລືອກຮ້ານ
         async function openAdminClearHistoryModal() {
             let selectElem = document.getElementById('clear-history-shop-select');
             selectElem.innerHTML = `<option value="">ກຳລັງໂຫຼດລາຍຊື່ຮ້ານ...</option>`;
@@ -2929,7 +2972,6 @@
         let currentSelectedClearShop = "";
         let selectedShopTransactions = [];
 
-        // 🌟 Step 2: ໄປໜ້າເລືອກລາຍການປະຫວັດສະເພາະບິນທີ່ຕ້ອງການລຶບ
         async function nextToSelectHistoryItemsModal() {
             let shopSelect = document.getElementById('clear-history-shop-select');
             currentSelectedClearShop = shopSelect.value;
@@ -2971,7 +3013,6 @@
                 let itemsSummary = (tx.items || []).map(it => `${it.name || it.code} (${it.qty} ອັນ)`).join(', ');
                 let totalAmount = formatNumberWithCommas(tx.total || 0);
 
-                // 🌟 ເກັບ Unique Key ທີ່ສົມບູນ (id ແລະ created_at) ໄວ້ໃນ value ຂອງ checkbox
                 let uniqueVal = JSON.stringify({ id: tx.id || '', created_at: tx.created_at || '' });
 
                 html += `
@@ -2997,7 +3038,7 @@
             checkboxes.forEach(cb => { cb.checked = masterCb.checked; });
         }
 
-        // 🌟 Step 3: ຢືນຢັນການລຶບລາຍການທີ່ຕິກເລືອກໄວ້ (ແກ້ໄຂໃຫ້ລຶບອອກຈາກທັງ Local ແລະ Supabase ໄດ້ຢ່າງຖືກຕ້ອງ 100%)
+        // 🌟 ຟັງຊັນແກ້ໄຂການລຶບລາຍການປະຫວັດທີ່ເລືອກ ໃຫ້ລຶບອອກຈາກທັງ Supabase ແລະ LocalStorage ຢ່າງສົມບູນ 100%
         async function confirmDeleteSelectedHistoryItems() {
             let checkboxes = document.querySelectorAll('input[name="clear_history_item_cb"]:checked');
             if (checkboxes.length === 0) {
@@ -3009,26 +3050,26 @@
                 try { return JSON.parse(cb.value); } catch(e) { return null; }
             }).filter(Boolean);
 
-            // 1. ລຶບອອກຈາກ LocalStorage ຢ່າງຖືກຕ້ອງ
+            // 1. ລຶບອອກຈາກ LocalStorage ຢ່າງສົມບູນ
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
             let filteredLocal = localHistory.filter(tx => {
                 let matchFound = selectedObjects.some(sel => {
-                    if (sel.id && tx.id && String(sel.id) === String(tx.id)) return true;
-                    if (sel.created_at && tx.created_at && String(sel.created_at) === String(tx.created_at)) return true;
+                    if (sel.id && tx.id && String(sel.id).trim() === String(tx.id).trim()) return true;
+                    if (sel.created_at && tx.created_at && String(sel.created_at).trim() === String(tx.created_at).trim()) return true;
                     return false;
                 });
                 return !matchFound;
             });
             localStorage.setItem('pos_local_history', JSON.stringify(filteredLocal));
 
-            // 2. ລຶບອອກຈາກ Supabase Cloud ຢ່າງຖືກຕ້ອງ
+            // 2. ລຶບອອກຈາກ Supabase Cloud ຢ່າງສົມບູນ
             if (supabaseClient) {
                 try {
                     for (let sel of selectedObjects) {
-                        if (sel.id) {
+                        if (sel.id && String(sel.id).trim() !== '') {
                             await supabaseClient.from('sales_history').delete().eq('id', sel.id);
                         }
-                        if (sel.created_at) {
+                        if (sel.created_at && String(sel.created_at).trim() !== '') {
                             await supabaseClient.from('sales_history').delete().eq('created_at', sel.created_at).eq('device_id', currentSelectedClearShop);
                         }
                     }
@@ -3060,7 +3101,7 @@
             } else if (reportType === 'quarterly') {
                 document.getElementById('filter-quarterly').classList.remove('hidden');
             } else if (reportType === 'duration') {
-                document.getElementById('filter-duration').classList.remove('hidden');
+                document.getElementById('filter-duration').classList.add('hidden');
             }
             calculateReport();
         }
