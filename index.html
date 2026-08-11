@@ -144,7 +144,7 @@
         </div>
     </div>
 
-    <!-- 🌟 Modal ແກ້ໄຂ Username / Password & ຂໍ້ມູນຮ້ານ -->
+    <!-- Modal ແກ້ໄຂ Username / Password & ຂໍ້ມູນຮ້ານ -->
     <div id="edit-user-modal" class="hidden fixed inset-0 bg-black/60 z-[350] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 max-h-[90vh] overflow-y-auto shadow-2xl space-y-3 text-left">
             <div class="text-2xl text-center">✏️</div>
@@ -157,12 +157,14 @@
                     <input type="text" id="edit-modal-shop-name" class="w-full border rounded-lg px-3 py-2 font-semibold outline-none bg-white" placeholder="ປ້ອນຊື່ຮ້ານ">
                 </div>
                 <div>
-                    <label class="block font-bold text-gray-700 mb-0.5">🏦 ເລກບັນຊີ (ກີບ):</label>
-                    <input type="text" id="edit-modal-lak-acc" class="w-full border rounded-lg px-3 py-2 font-semibold outline-none bg-white" placeholder="ປ້ອນເລກບັນຊີກີບ">
+                    <label class="block font-bold text-gray-700 mb-0.5">🏦 ອັບໂຫຼດຮູບ QR ບັນຊີ (ກີບ):</label>
+                    <input type="file" id="edit-modal-lak-qr-file" accept="image/*" onchange="handleQrImageUpload(event, 'lak')" class="w-full border rounded-lg p-1 text-xs bg-gray-50 cursor-pointer">
+                    <div id="preview-lak-qr" class="mt-1 text-center"></div>
                 </div>
                 <div>
-                    <label class="block font-bold text-gray-700 mb-0.5">🇹🇭 ເລກບັນຊີ (ບາດ):</label>
-                    <input type="text" id="edit-modal-thb-acc" class="w-full border rounded-lg px-3 py-2 font-semibold outline-none bg-white" placeholder="ປ້ອນເລກບັນຊີບາດ">
+                    <label class="block font-bold text-gray-700 mb-0.5">🇹🇭 ອັບໂຫຼດຮູບ QR ບັນຊີ (ບາດ):</label>
+                    <input type="file" id="edit-modal-thb-qr-file" accept="image/*" onchange="handleQrImageUpload(event, 'thb')" class="w-full border rounded-lg p-1 text-xs bg-gray-50 cursor-pointer">
+                    <div id="preview-thb-qr" class="mt-1 text-center"></div>
                 </div>
                 <div>
                     <label class="block font-bold text-gray-700 mb-0.5">Username ໃໝ່:</label>
@@ -366,7 +368,7 @@
         </div>
     </div>
 
-    <!-- 🌟 Popup ເລືອກວິທີຊຳລະເງິນ (ເງິນສົດ / ເງິນໂອນ ກີບ & ບາດ ພ້ອມຄຳນວນ ROUNDUP -1) -->
+    <!-- 🌟 Popup ເລືອກວິທີຊຳລະເງິນ (ສະແດງຮູບ QR Code ຕົວຈິງທັນທີເມື່ອເລືອກໂໝດໂອນ) -->
     <div id="checkout-method-modal" class="hidden fixed inset-0 bg-black/70 z-[340] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
             <div class="text-4xl">💰</div>
@@ -860,7 +862,7 @@
             <div class="overflow-x-auto border rounded-xl">
                 <table class="w-full text-left border-collapse bg-white min-w-[750px]">
                     <thead>
-                        <tr class="bg-blue-900 text-white text-xs uppercase">
+                        <tr id="history-table-header" class="bg-blue-900 text-white text-xs uppercase">
                             <th class="p-3 border-r text-center w-12">ລ/ດ</th>
                             <th class="p-3 border-r text-center">ວັນ/ເດືອນ/ປີ</th>
                             <th class="p-3 border-r">ຊື່ສິນຄ້າ</th>
@@ -868,7 +870,7 @@
                             <th class="p-3 border-r text-right">ລາຄາຂາຍ (ກ/ບ)</th>
                             <th class="p-3 border-r text-center">ຈໍານວນ</th>
                             <th class="p-3 border-r text-right">ລວມ (ກ/ບ)</th>
-                            <th class="p-3 text-center">ໝາຍເຫດ</th>
+                            <th id="history-header-action" class="p-3 text-center">ໝາຍເຫດ</th>
                         </tr>
                     </thead>
                     <tbody id="history-table-tbody" class="divide-y divide-gray-200 text-sm">
@@ -1523,17 +1525,40 @@
             container.innerHTML = html;
         }
 
-        // --- 🌟 ຟັງຊັນປ໋ອບອັບແກ້ໄຂບັນຊີ ພ້ອມ ຂໍ້ມູນຮ້ານ (ຊື່ຮ້ານ, ເລກບັນຊີກີບ, ເລກບັນຊີບາດ) ---
+        // --- 🌟 ຟັງຊັນຈັດການອັບໂຫຼດຮູບ QR Code (Base64) ---
+        function handleQrImageUpload(event, type) {
+            let file = event.target.files[0];
+            if (!file) return;
+            let reader = new FileReader();
+            reader.onload = function(e) {
+                let base64Img = e.target.result;
+                if (type === 'lak') {
+                    window.tempLakQrBase64 = base64Img;
+                    document.getElementById('preview-lak-qr').innerHTML = `<span class="text-green-600 font-bold text-[10px]">✅ ອັບໂຫຼດຮູບ QR ກີບສຳເລັດ</span>`;
+                } else if (type === 'thb') {
+                    window.tempThbQrBase64 = base64Img;
+                    document.getElementById('preview-thb-qr').innerHTML = `<span class="text-green-600 font-bold text-[10px]">✅ ອັບໂຫຼດຮູບ QR ບາດສຳເລັດ</span>`;
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // --- 🌟 ຟັງຊັນປ໋ອບອັບແກ້ໄຂບັນຊີ ພ້ອມ ຂໍ້ມູນຮ້ານ ແລະ ອັບໂຫຼດ QR Code ຕົວຈິງ ---
         function promptEditUser(targetId) {
             editingDeviceId = targetId;
             document.getElementById('edit-modal-device-id').innerText = targetId;
             document.getElementById('edit-modal-shop-name').value = localStorage.getItem('pos_shop_name_' + targetId) || '';
-            document.getElementById('edit-modal-lak-acc').value = localStorage.getItem('pos_shop_lak_' + targetId) || '1006000000470';
-            document.getElementById('edit-modal-thb-acc').value = localStorage.getItem('pos_shop_thb_' + targetId) || '';
             document.getElementById('edit-modal-username').value = targetId;
             document.getElementById('edit-modal-password').value = localStorage.getItem('pos_shop_pass_' + targetId) || '';
             document.getElementById('edit-modal-action-select').value = 'none';
             document.getElementById('extend-days-container').classList.add('hidden');
+
+            window.tempLakQrBase64 = localStorage.getItem('pos_shop_lak_qr_' + targetId) || '';
+            window.tempThbQrBase64 = localStorage.getItem('pos_shop_thb_qr_' + targetId) || '';
+
+            document.getElementById('preview-lak-qr').innerHTML = window.tempLakQrBase64 ? `<span class="text-green-600 font-bold text-[10px]">✅ ມີຮູບ QR ກີບແລ້ວ</span>` : '';
+            document.getElementById('preview-thb-qr').innerHTML = window.tempThbQrBase64 ? `<span class="text-green-600 font-bold text-[10px]">✅ ມີຮູບ QR ບາດແລ້ວ</span>` : '';
+
             document.getElementById('edit-user-modal').classList.remove('hidden');
         }
 
@@ -1553,8 +1578,6 @@
 
         async function saveEditedUser() {
             let shopName = document.getElementById('edit-modal-shop-name').value.trim();
-            let lakAcc = document.getElementById('edit-modal-lak-acc').value.trim();
-            let thbAcc = document.getElementById('edit-modal-thb-acc').value.trim();
             let newPass = document.getElementById('edit-modal-password').value.trim();
             let actionVal = document.getElementById('edit-modal-action-select').value;
             let extendDaysInput = parseInt(document.getElementById('edit-modal-extend-days').value) || 15;
@@ -1565,9 +1588,14 @@
             }
 
             localStorage.setItem('pos_shop_name_' + editingDeviceId, shopName);
-            localStorage.setItem('pos_shop_lak_' + editingDeviceId, lakAcc);
-            localStorage.setItem('pos_shop_thb_' + editingDeviceId, thbAcc);
             localStorage.setItem('pos_shop_pass_' + editingDeviceId, newPass);
+
+            if (window.tempLakQrBase64) {
+                localStorage.setItem('pos_shop_lak_qr_' + editingDeviceId, window.tempLakQrBase64);
+            }
+            if (window.tempThbQrBase64) {
+                localStorage.setItem('pos_shop_thb_qr_' + editingDeviceId, window.tempThbQrBase64);
+            }
 
             let updatePayload = {
                 device_id: editingDeviceId,
@@ -1804,8 +1832,8 @@
                         <td class="p-3 border-r text-center font-semibold text-purple-700">${formattedDate}</td>
                         <td class="p-3 border-r text-center font-semibold text-gray-700">${formattedMfg}</td>
                         <td class="p-3 border-r text-center font-bold text-red-600">${expDateStr}</td>
-                        <td class="p-3 border-r text-right text-blue-600 font-semibold">${formatNumberWithCommas(cost)}</td>
-                        <td class="p-3 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(price)}</td>
+                        <td class="p-3 border-r text-right text-blue-600 font-semibold">${formatNumberWithCommas(cost)}ກີບ</td>
+                        <td class="p-3 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(price)}ກີບ</td>
                         <td class="p-3 border-r text-center text-xs font-bold text-indigo-700">ຍັງເຫຼືອ: ${remainingQty} ອັນ</td>
                         <td class="p-3 text-center">${deleteBtnHtml}</td>
                     </tr>
@@ -1944,8 +1972,8 @@
                             <td class="p-3 border-r text-center font-semibold text-purple-700">${formattedDate}</td>
                             <td class="p-3 border-r text-center font-semibold text-gray-700">${formattedMfg}</td>
                             <td class="p-3 border-r text-center font-bold text-red-600">${formattedExpiry}</td>
-                            <td class="p-3 border-r text-right text-blue-600 font-semibold">${formatNumberWithCommas(cost)}</td>
-                            <td class="p-3 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(price)}</td>
+                            <td class="p-3 border-r text-right text-blue-600 font-semibold">${formatNumberWithCommas(cost)}ກີບ</td>
+                            <td class="p-3 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(price)}ກີບ</td>
                             <td class="p-3 text-center">${noteBadge}</td>
                         </tr>
                     `;
@@ -2383,11 +2411,11 @@
                         <input type="radio" name="price_option" value="${idx}" ${idx === 0 ? 'checked' : ''} class="w-4 h-4 text-blue-600">
                         <div>
                             <div class="text-xs font-bold text-gray-800">ເກຣດ/ຕົວເລືອກທີ #${idx + 1} <span class="text-[10px] text-gray-400">(${dateStr})</span></div>
-                            <div class="text-xs font-semibold text-blue-700">ລາຄາຊື້: ${formatNumberWithCommas(costNum)} ກີບ</div>
+                            <div class="text-xs font-semibold text-blue-700">ລາຄາຊື້: ${formatNumberWithCommas(costNum)}ກີບ</div>
                         </div>
                     </div>
                     <div class="text-right">
-                        <div class="text-sm font-extrabold text-green-600">ຂາຍ: ${formatNumberWithCommas(priceNum)} ກີບ</div>
+                        <div class="text-sm font-extrabold text-green-600">ຂາຍ: ${formatNumberWithCommas(priceNum)}ກີບ</div>
                         <div class="text-[10px] font-bold text-amber-600">ກຳໄລ: +${profitPct}%</div>
                     </div>
                 </label>`;
@@ -2471,12 +2499,12 @@
             let tbody = document.getElementById('cart-items');
             if (cart.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ</td></tr>`;
-                document.getElementById('grand-total-cost').innerText = "0 ກີບ";
-                document.getElementById('grand-total').innerText = "0 ກີບ";
+                document.getElementById('grand-total-cost').innerText = "0ກີບ";
+                document.getElementById('grand-total').innerText = "0ກີບ";
                 document.getElementById('custom-final-price').value = "";
-                document.getElementById('final-total').innerText = "0 ກີບ";
-                document.getElementById('grand-total-profit').innerText = "0 ກີບ";
-                document.getElementById('change-amount').innerText = "0 ກີບ (ຈ່າຍພໍດີ)";
+                document.getElementById('final-total').innerText = "0ກີບ";
+                document.getElementById('grand-total-profit').innerText = "0ກີບ";
+                document.getElementById('change-amount').innerText = "0ກີບ (ຈ່າຍພໍດີ)";
                 return;
             }
             let html = '', grandTotal = 0, grandTotalCost = 0;
@@ -2486,19 +2514,19 @@
                 html += `
                     <tr class="hover:bg-gray-50 border-b">
                         <td class="p-3 font-medium text-gray-800">${item.name}</td>
-                        <td class="p-3 text-right text-gray-600">${formatNumberWithCommas(item.cost)}</td>
-                        <td class="p-3 text-right text-blue-600 font-semibold">${formatNumberWithCommas(item.price)}</td>
+                        <td class="p-3 text-right text-gray-600">${formatNumberWithCommas(item.cost)}ກີບ</td>
+                        <td class="p-3 text-right text-blue-600 font-semibold">${formatNumberWithCommas(item.price)}ກີບ</td>
                         <td class="p-3 text-center">
                             <input type="number" min="1" value="${item.qty}" onchange="updateCartQtyDirect(${index}, this)" class="w-16 border rounded text-center px-2 py-1 font-bold text-gray-800 bg-white shadow-inner outline-none focus:ring-1 focus:ring-blue-500">
                         </td>
-                        <td class="p-3 text-right font-bold text-gray-800">${formatNumberWithCommas(total)}</td>
+                        <td class="p-3 text-right font-bold text-gray-800">${formatNumberWithCommas(total)}ກີບ</td>
                         <td class="p-3 text-center"><button onclick="removeItem(${index})" class="text-red-500 font-bold cursor-pointer">ລຶບ</button></td>
                     </tr>
                 `;
             });
             tbody.innerHTML = html;
-            document.getElementById('grand-total-cost').innerText = formatNumberWithCommas(grandTotalCost) + " ກີບ";
-            document.getElementById('grand-total').innerText = formatNumberWithCommas(grandTotal) + " ກີບ";
+            document.getElementById('grand-total-cost').innerText = formatNumberWithCommas(grandTotalCost) + "ກີບ";
+            document.getElementById('grand-total').innerText = formatNumberWithCommas(grandTotal) + "ກີບ";
             
             calculateChange();
         }
@@ -2513,13 +2541,13 @@
 
             let grandTotalProfit = finalTotal - grandTotalCost;
 
-            document.getElementById('final-total').innerText = formatNumberWithCommas(finalTotal) + " ກີບ";
-            document.getElementById('grand-total-profit').innerText = formatNumberWithCommas(grandTotalProfit) + " ກີບ";
+            document.getElementById('final-total').innerText = formatNumberWithCommas(finalTotal) + "ກີບ";
+            document.getElementById('grand-total-profit').innerText = formatNumberWithCommas(grandTotalProfit) + "ກີບ";
 
             let cashInput = document.getElementById('cash-given').value.replace(/,/g, ''), changeElem = document.getElementById('change-amount');
-            if (!cashInput) { changeElem.innerText = "0 ກີບ (ຈ່າຍພໍດີ)"; return; }
+            if (!cashInput) { changeElem.innerText = "0ກີບ (ຈ່າຍພໍດີ)"; return; }
             let cashGiven = parseFloat(cashInput) || 0, change = cashGiven - finalTotal;
-            changeElem.innerText = change >= 0 ? formatNumberWithCommas(change) + " ກີບ" : "ເງິນຍັງບໍ່ພໍ";
+            changeElem.innerText = change >= 0 ? formatNumberWithCommas(change) + "ກີບ" : "ເງິນຍັງບໍ່ພໍ";
         }
 
         function handleCustomPriceKeydown(event) {
@@ -2570,7 +2598,7 @@
             return { ok: true };
         }
 
-        // --- 🌟 ຟັງຊັນຊຳລະເງິນ ແລະ ສະແດງຮູບ QR Code ຕົວຈິງ ---
+        // --- 🌟 ຟັງຊັນຈັດການປ໋ອບອັບຊຳລະເງິນ ແລະ ສະແດງຮູບ QR Code ຕາມໂໝດທີ່ເລືອກ ---
         function openCheckoutMethodModal() {
             if (cart.length === 0) {
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າກ່ອນຊຳລະເງິນ!", "⚠️");
@@ -2587,11 +2615,25 @@
                 thbAmount = Math.ceil(rawThb / 10) * 10;
             }
 
-            document.getElementById('popup-total-amount-text').innerText = formatNumberWithCommas(finalTotal) + " ກີບ";
-            document.getElementById('popup-total-thb-text').innerText = formatNumberWithCommas(thbAmount) + " ບາດ (Rate: " + currentRate + ")";
+            document.getElementById('popup-total-amount-text').innerText = formatNumberWithCommas(finalTotal) + "ກີບ";
+            document.getElementById('popup-total-thb-text').innerText = formatNumberWithCommas(thbAmount) + "ບາດ (Rate: " + currentRate + ")";
             
-            document.getElementById('transfer-lak-qr-section').classList.add('hidden');
-            document.getElementById('transfer-thb-qr-section').classList.add('hidden');
+            let selectedRadio = document.querySelector('input[name="pay_mode"]:checked');
+            let currentMode = selectedRadio ? selectedRadio.value : 'cash';
+
+            let lakSection = document.getElementById('transfer-lak-qr-section');
+            let thbSection = document.getElementById('transfer-thb-qr-section');
+            lakSection.classList.add('hidden');
+            thbSection.classList.add('hidden');
+
+            if (currentMode === 'transfer_lak') {
+                lakSection.classList.remove('hidden');
+                renderShopQrImage('lak');
+            } else if (currentMode === 'transfer_thb') {
+                thbSection.classList.remove('hidden');
+                renderShopQrImage('thb');
+            }
+
             document.getElementById('checkout-method-modal').classList.remove('hidden');
         }
 
@@ -2634,9 +2676,9 @@
             let qrBase64 = localStorage.getItem(type === 'lak' ? ('pos_shop_lak_qr_' + currentDev) : ('pos_shop_thb_qr_' + currentDev));
             
             if (qrBase64) {
-                container.innerHTML = `<img src="${qrBase64}" alt="Shop QR Code" class="max-w-[180px] max-h-[180px] rounded-xl border shadow">`;
+                container.innerHTML = `<img src="${qrBase64}" alt="Shop QR Code" class="max-w-[200px] max-h-[200px] rounded-xl border shadow mx-auto">`;
             } else {
-                container.innerHTML = `<div class="text-gray-400 text-xs py-4">⚠️ ຍັງບໍ່ໄດ້ອັບໂຫຼດຮູບ QR Code ບັນຊີ${type === 'lak' ? 'ກີບ' : 'ບາດ'} <br>ກະລຸນາໄປທີ່ ຈັດການລະບົບ -> ແກ້ໄຂ</div>`;
+                container.innerHTML = `<div class="text-red-500 font-semibold text-xs py-4 text-center">⚠️ ຍັງບໍ່ໄດ້ອັບໂຫຼດຮູບ QR Code ບັນຊີ${type === 'lak' ? 'ກີບ' : 'ບາດ'} <br>ກະລຸນາໄປທີ່ ⚙️ ຈັດການລະບົບ -> ✏️ ແກ້ໄຂ ເພື່ອອັບໂຫຼດຮູບ QR Code!</div>`;
             }
         }
 
@@ -2704,11 +2746,11 @@
             cart = []; 
             document.getElementById('cash-given').value = ''; 
             document.getElementById('custom-final-price').value = '';
-            document.getElementById('grand-total-cost').innerText = "0 ກີບ";
-            document.getElementById('grand-total').innerText = "0 ກີບ";
-            document.getElementById('final-total').innerText = "0 ກີບ";
-            document.getElementById('grand-total-profit').innerText = "0 ກີບ";
-            document.getElementById('change-amount').innerText = "0 ກີບ (ຈ່າຍພໍດີ)";
+            document.getElementById('grand-total-cost').innerText = "0ກີບ";
+            document.getElementById('grand-total').innerText = "0ກີບ";
+            document.getElementById('final-total').innerText = "0ກີບ";
+            document.getElementById('grand-total-profit').innerText = "0ກີບ";
+            document.getElementById('change-amount').innerText = "0ກີບ (ຈ່າຍພໍດີ)";
             
             renderCart();
         }
@@ -2725,9 +2767,17 @@
 
         async function loadCloudHistory() {
             let tbody = document.getElementById('history-table-tbody');
+            let headerAction = document.getElementById('history-header-action');
             tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</td></tr>`;
             document.getElementById('history-summary').classList.add('hidden');
             globalHistoryList = [];
+
+            let userRole = localStorage.getItem('pos_user_role');
+            let isAdminUser = (userRole === 'admin' || currentUsername === 'POSXIONG');
+
+            if (headerAction) {
+                headerAction.innerText = isAdminUser ? "ຈັດການ" : "";
+            }
 
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
             let combinedMap = new Map();
@@ -2770,7 +2820,7 @@
             let sumCostTotal = 0;
             let sumPriceTotal = 0;
 
-            globalHistoryList.forEach((tx) => {
+            globalHistoryList.forEach((tx, txIndex) => {
                 let txDateObj = new Date(tx.created_at);
                 let dateStr = !isNaN(txDateObj.getTime()) ? formatDateToDDMMYYYY(txDateObj.toISOString().split('T')[0]) : '-';
 
@@ -2786,16 +2836,22 @@
                         sumCostTotal += itemTotalCost;
                         sumPriceTotal += itemTotal;
 
+                        let actionTd = isAdminUser ? 
+                            `<td class="p-3 text-center"><button onclick="deleteHistoryItem(${txIndex})" class="text-xs bg-red-100 text-red-600 px-2 py-1 rounded font-bold cursor-pointer hover:bg-red-200 transition">🗑️ ລຶບ</button></td>` : 
+                            `<td></td>`;
+
+                        let payTypeLabel = tx.payment_method === 'transfer_lak' ? 'ກີບ' : (tx.payment_method === 'transfer_thb' ? 'ບາດ' : 'ກີບ');
+
                         html += `
                             <tr class="hover:bg-gray-50 border-b">
                                 <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
                                 <td class="p-3 border-r text-center font-semibold text-purple-700">${dateStr}</td>
                                 <td class="p-3 border-r font-bold text-gray-900">${itemName}</td>
-                                <td class="p-3 border-r text-right text-blue-600 font-semibold">${formatNumberWithCommas(itemCost)}</td>
-                                <td class="p-3 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(itemPrice)}</td>
+                                <td class="p-3 border-r text-right text-blue-600 font-semibold">${formatNumberWithCommas(itemCost)}${payTypeLabel}</td>
+                                <td class="p-3 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(itemPrice)}${payTypeLabel}</td>
                                 <td class="p-3 border-r text-center font-bold text-gray-800">${itemQty}</td>
-                                <td class="p-3 border-r text-right font-bold text-gray-900 bg-gray-50">${formatNumberWithCommas(itemTotal)}</td>
-                                <td class="p-3 text-center text-xs font-bold text-gray-600">ກີບ</td>
+                                <td class="p-3 border-r text-right font-bold text-gray-900 bg-gray-50">${formatNumberWithCommas(itemTotal)}${payTypeLabel}</td>
+                                ${actionTd}
                             </tr>
                         `;
                     });
@@ -2805,10 +2861,32 @@
             tbody.innerHTML = html;
             let profitTotal = sumPriceTotal - sumCostTotal;
 
-            document.getElementById('sum-total-cost').innerText = formatNumberWithCommas(sumCostTotal) + " ກີບ";
-            document.getElementById('sum-total-price').innerText = formatNumberWithCommas(sumPriceTotal) + " ກີບ";
-            document.getElementById('sum-total-profit').innerText = formatNumberWithCommas(profitTotal) + " ກີບ";
+            document.getElementById('sum-total-cost').innerText = formatNumberWithCommas(sumCostTotal) + "ກີບ";
+            document.getElementById('sum-total-price').innerText = formatNumberWithCommas(sumPriceTotal) + "ກີບ";
+            document.getElementById('sum-total-profit').innerText = formatNumberWithCommas(profitTotal) + "ກີບ";
             document.getElementById('history-summary').classList.remove('hidden');
+        }
+
+        async function deleteHistoryItem(index) {
+            let targetTx = globalHistoryList[index];
+            if (!targetTx) return;
+
+            showCustomConfirm("ຢືນຢັນການລຶບ", "ທ່ານຕ້ອງການລຶບປະຫວັດການຂາຍລາຍການນີ້ແທ້ບໍ?", async (confirmed) => {
+                if (!confirmed) return;
+
+                let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+                localHistory = localHistory.filter(tx => (tx.id !== targetTx.id && tx.created_at !== targetTx.created_at));
+                localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
+
+                if (supabaseClient && targetTx.id) {
+                    try {
+                        await supabaseClient.from('sales_history').delete().eq('id', targetTx.id);
+                    } catch (e) {}
+                }
+
+                loadCloudHistory();
+                showAlert("ສຳເລັດ", "ລຶບປະຫວັດການຂາຍສຳເລັດຮຽບຮ້ອຍ!", "🗑️");
+            });
         }
 
         async function openReport() { 
@@ -2898,9 +2976,9 @@
 
             let profit = totalPrice - totalCost;
 
-            document.getElementById('rep-total-cost').innerText = formatNumberWithCommas(totalCost) + " ກີບ";
-            document.getElementById('rep-total-price').innerText = formatNumberWithCommas(totalPrice) + " ກີບ";
-            document.getElementById('rep-total-profit').innerText = formatNumberWithCommas(profit) + " ກີບ";
+            document.getElementById('rep-total-cost').innerText = formatNumberWithCommas(totalCost) + "ກີບ";
+            document.getElementById('rep-total-price').innerText = formatNumberWithCommas(totalPrice) + "ກີບ";
+            document.getElementById('rep-total-profit').innerText = formatNumberWithCommas(profit) + "ກີບ";
         }
 
         // --- EXCEL & QR CODE GENERATOR ---
