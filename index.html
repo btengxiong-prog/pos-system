@@ -532,20 +532,45 @@
         </div>
     </div>
 
-    <!-- 🌟 Admin Clear History Modal (ປ໋ອບອັບເລືອກຮ້ານເພື່ອລຶບປະຫວັດການຂາຍ) -->
+    <!-- 🌟 Step 1: Admin Select Shop Modal for Clear History -->
     <div id="admin-clear-history-modal" class="hidden fixed inset-0 bg-black/70 z-[450] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
             <div class="text-3xl">🗑️</div>
             <h3 class="text-lg font-bold text-red-700">ລຶບປະຫວັດການຂາຍ (Admin)</h3>
-            <p class="text-xs text-gray-600">ກະລຸນາເລືອກຮ້ານທີ່ต้องการລຶບປະຫວັດການຂາຍ:</p>
+            <p class="text-xs text-gray-600">ກະລຸນາເລືອກຮ້ານທີ່ຕ້ອງການລຶບປະຫວັດການຂາຍ:</p>
             <div>
                 <select id="clear-history-shop-select" class="w-full border rounded-lg px-3 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-red-500 bg-gray-50">
-                    <!-- Options will be populated dynamically -->
                 </select>
             </div>
             <div class="flex gap-2 pt-2">
                 <button onclick="closeAdminClearHistoryModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer text-sm">ຍົກເລີກ</button>
-                <button onclick="confirmAdminClearHistory()" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">🗑️ ຢືນຢັນລຶບປະຫວັດ</button>
+                <button onclick="nextToSelectHistoryItemsModal()" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">ຖັດໄປ ➔</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🌟 Step 2: Admin Select Specific History Items Modal -->
+    <div id="admin-select-history-items-modal" class="hidden fixed inset-0 bg-black/70 z-[460] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-2xl w-full p-6 max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl text-left">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-lg font-bold text-red-700 flex items-center gap-2">
+                    <span>🗑️ ເລືອກລາຍການປະຫວັດທີ່ຕ້ອງການລຶບ</span>
+                </h3>
+                <button onclick="closeAdminSelectHistoryItemsModal()" class="text-gray-500 hover:text-gray-700 font-bold text-lg cursor-pointer">✕</button>
+            </div>
+            <div class="flex justify-between items-center bg-gray-50 p-2.5 rounded-lg border text-xs font-bold text-gray-700">
+                <span>ຮ້ານ: <span id="modal-target-shop-name" class="text-blue-600"></span></span>
+                <label class="flex items-center gap-1.5 cursor-pointer text-purple-700">
+                    <input type="checkbox" id="select-all-history-checkbox" onchange="toggleSelectAllHistoryItems(this)" class="w-4 h-4 rounded text-purple-600">
+                    <span>ເລືອກທັງໝົດ</span>
+                </label>
+            </div>
+            <div id="admin-history-items-container" class="space-y-2 max-h-[50vh] overflow-y-auto border p-3 rounded-xl bg-gray-50/50">
+                <!-- Dynamic Items Checkboxes -->
+            </div>
+            <div class="flex gap-2 pt-2 border-t">
+                <button onclick="closeAdminSelectHistoryItemsModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer text-sm">ຍົກເລີກ</button>
+                <button onclick="confirmDeleteSelectedHistoryItems()" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">🗑️ ຕົກລົງ / ລຶບລາຍການທີ່ເລືອກ</button>
             </div>
         </div>
     </div>
@@ -2741,7 +2766,6 @@
         function openHistory() { 
             document.getElementById('history-modal').classList.remove('hidden'); 
             
-            // 🌟 ກວດສອບສະຖານະ Admin ໃຫຍ່ (POSXIONG) ເພື່ອສະແດງປຸ່ມ "ລຶບປະຫວັດ"
             let userRole = localStorage.getItem('pos_user_role');
             let clearHistoryBtn = document.getElementById('admin-clear-history-btn');
             if (clearHistoryBtn) {
@@ -2759,7 +2783,6 @@
             document.getElementById('history-modal').classList.add('hidden'); 
         }
 
-        // 🌟 ຟັງຊັນໂຫຼດປະຫວັດການຂາຍ (ດຶງສະເພາະ Supabase ຢ່າງດຽວຖ້າມີ ເພື່ອປ້ອງກັນການສະແດງຜົນຊ້ຳຄູນສອງ)
         async function loadCloudHistory() {
             let tbody = document.getElementById('history-table-tbody');
             tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</td></tr>`;
@@ -2784,7 +2807,6 @@
                 } catch (err) {}
             }
 
-            // ຖ້າ Cloud ບໍ່ມີຂໍ້ມູນ ໃຫ້ດຶງຈາກ LocalStorage ມາສະແດງແທ້
             let rawSales = cloudSalesList.length > 0 ? cloudSalesList : JSON.parse(localStorage.getItem('pos_local_history') || '[]');
 
             let uniqueMap = new Map();
@@ -2868,7 +2890,7 @@
             document.getElementById('history-summary').classList.remove('hidden');
         }
 
-        // 🌟 ຟັງຊັນເປີດປ໋ອບອັບເລືອກຮ້ານເພື່ອລຶບປະຫວັດ (ສຳລັບ ADMIN ໃຫຍ່)
+        // 🌟 Step 1: ເປີດປ໋ອບອັບເລືອກຮ້ານ
         async function openAdminClearHistoryModal() {
             let selectElem = document.getElementById('clear-history-shop-select');
             selectElem.innerHTML = `<option value="">ກຳລັງໂຫຼດລາຍຊື່ຮ້ານ...</option>`;
@@ -2905,31 +2927,107 @@
             document.getElementById('admin-clear-history-modal').classList.add('hidden');
         }
 
-        // 🌟 ຟັງຊັນຢືນຢັນການລຶບປະຫວັດການຂາຍຂອງຮ້ານທີ່ເລືອກ
-        async function confirmAdminClearHistory() {
-            let shopSelect = document.getElementById('clear-history-shop-select');
-            let targetShop = shopSelect.value;
+        let currentSelectedClearShop = "";
+        let selectedShopTransactions = [];
 
-            if (!targetShop) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກຊື່ຮ້ານທີ່ຕ້ອງການລຶບປະຫວັດ!", "⚠️");
+        // 🌟 Step 2: ໄປໜ້າເລືອກລາຍການປະຫວັດສະເພາະບິນທີ່ຕ້ອງການລຶບ
+        async function nextToSelectHistoryItemsModal() {
+            let shopSelect = document.getElementById('clear-history-shop-select');
+            currentSelectedClearShop = shopSelect.value;
+
+            if (!currentSelectedClearShop) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກຊື່ຮ້ານກ່ອນ!", "⚠️");
                 return;
             }
 
             closeAdminClearHistoryModal();
+            document.getElementById('modal-target-shop-name').innerText = currentSelectedClearShop;
+            
+            let container = document.getElementById('admin-history-items-container');
+            container.innerHTML = `<p class="text-center py-4 text-gray-400">ກຳລັງໂຫຼດລາຍການປະຫວັດ...</p>`;
+            document.getElementById('admin-select-history-items-modal').classList.remove('hidden');
 
-            // ລຶບຈາກ LocalStorage
-            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-            let filteredLocal = localHistory.filter(tx => String(tx.device_id || '').toUpperCase() !== String(targetShop).toUpperCase());
-            localStorage.setItem('pos_local_history', JSON.stringify(filteredLocal));
-
-            // ລຶບຈາກ Supabase Cloud
+            // ດຶງປະຫວັດການຂາຍຂອງຮ້ານນັ້ນມາສະແດງ
+            selectedShopTransactions = [];
             if (supabaseClient) {
                 try {
-                    await supabaseClient.from('sales_history').delete().eq('device_id', targetShop);
-                } catch (e) {}
+                    let { data } = await supabaseClient.from('sales_history').select('*').eq('device_id', currentSelectedClearShop).order('created_at', { ascending: false });
+                    if (data) selectedShopTransactions = data;
+                } catch(e) {}
             }
 
-            showAlert("ສຳເລັດ", `ລຶບປະຫວັດການຂາຍຂອງຮ້ານ [${targetShop}] ສຳເລັດຮຽບຮ້ອຍແລ້ວ!`, "🗑️");
+            if (selectedShopTransactions.length === 0) {
+                let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+                selectedShopTransactions = localHistory.filter(tx => String(tx.device_id || '').toUpperCase() === String(currentSelectedClearShop).toUpperCase());
+            }
+
+            if (selectedShopTransactions.length === 0) {
+                container.innerHTML = `<p class="text-center py-4 text-gray-500 text-xs">ບໍ່ພົບປະຫວັດການຂາຍຂອງຮ້ານນີ້</p>`;
+                return;
+            }
+
+            let html = '';
+            selectedShopTransactions.forEach((tx, idx) => {
+                let txDateObj = new Date(tx.created_at);
+                let dateStr = !isNaN(txDateObj.getTime()) ? formatDateToDDMMYYYY(txDateObj.toISOString().split('T')[0]) : '-';
+                let itemsSummary = (tx.items || []).map(it => `${it.name || it.code} (${it.qty} ອັນ)`).join(', ');
+                let totalAmount = formatNumberWithCommas(tx.total || 0);
+
+                html += `
+                    <label class="flex items-start gap-2.5 p-2.5 border rounded-lg bg-white hover:bg-gray-100 cursor-pointer text-xs transition">
+                        <input type="checkbox" name="clear_history_item_cb" value="${tx.id || tx.created_at}" class="mt-0.5 w-4 h-4 rounded text-red-600">
+                        <div class="flex-1">
+                            <div class="font-bold text-gray-800">ວັນທີ: ${dateStr} | ยອດລວມ: <span class="text-green-600">${totalAmount} ກີບ</span></div>
+                            <div class="text-gray-600 text-[11px] truncate">ສິນຄ້າ: ${itemsSummary || 'ບໍ່ລະບຸ'}</div>
+                        </div>
+                    </label>
+                `;
+            });
+            container.innerHTML = html;
+            document.getElementById('select-all-history-checkbox').checked = false;
+        }
+
+        function closeAdminSelectHistoryItemsModal() {
+            document.getElementById('admin-select-history-items-modal').classList.add('hidden');
+        }
+
+        function toggleSelectAllHistoryItems(masterCb) {
+            let checkboxes = document.querySelectorAll('input[name="clear_history_item_cb"]');
+            checkboxes.forEach(cb => { cb.checked = masterCb.checked; });
+        }
+
+        // 🌟 Step 3: ຢືນຢັນການລຶບລາຍການທີ່ຕິກເລືອກໄວ້
+        async function confirmDeleteSelectedHistoryItems() {
+            let checkboxes = document.querySelectorAll('input[name="clear_history_item_cb"]:checked');
+            if (checkboxes.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາຕິກເລືອກລາຍການທີ່ຕ້ອງການລຶບຢ່າງໜ້ອຍ 1 ລາຍການ!", "⚠️");
+                return;
+            }
+
+            let selectedIds = Array.from(checkboxes).map(cb => cb.value);
+
+            // ລຶບອອກຈາກ LocalStorage
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            let filteredLocal = localHistory.filter(tx => !selectedIds.includes(String(tx.id)) && !selectedIds.includes(String(tx.created_at)));
+            localStorage.setItem('pos_local_history', JSON.stringify(filteredLocal));
+
+            // ລຶບອອກຈາກ Supabase Cloud
+            if (supabaseClient) {
+                try {
+                    for (let idVal of selectedIds) {
+                        if (idVal.startsWith('TX-')) {
+                            // ລຶບຕາມ id
+                            await supabaseClient.from('sales_history').delete().eq('id', idVal);
+                        } else {
+                            // ລຶບຕາມ created_at
+                            await supabaseClient.from('sales_history').delete().eq('created_at', idVal).eq('device_id', currentSelectedClearShop);
+                        }
+                    }
+                } catch(e) {}
+            }
+
+            closeAdminSelectHistoryItemsModal();
+            showAlert("ສຳເລັດ", `ລຶບລາຍການປະຫວັດທີ່ເລືອກສຳເລັດຮຽບຮ້ອຍແລ້ວ!`, "🗑️");
             loadCloudHistory();
         }
 
