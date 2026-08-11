@@ -1337,14 +1337,7 @@
                 localStorage.setItem('pos_user_role', 'admin');
                 document.getElementById('unified-login-modal').classList.add('hidden');
                 document.getElementById('role-select-modal').classList.add('hidden');
-                let adminBtn = document.getElementById('admin-manage-btn');
-                if (adminBtn) adminBtn.classList.remove('hidden');
-                let rateBtn = document.getElementById('header-rate-btn');
-                if (rateBtn) rateBtn.classList.remove('hidden');
-                let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
-                if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
-                document.getElementById('license-status-badge').innerText = "🛡️ ສະຖານະ: ເຂົ້າລະບົບ Super Admin (Full Access)";
-                updateHeaderTitle();
+                checkRoleAndLicense();
                 return;
             }
 
@@ -1362,14 +1355,7 @@
 
                 document.getElementById('unified-login-modal').classList.add('hidden');
                 document.getElementById('role-select-modal').classList.add('hidden');
-                let adminBtn = document.getElementById('admin-manage-btn');
-                if (adminBtn) adminBtn.classList.add('hidden');
-                let rateBtn = document.getElementById('header-rate-btn');
-                if (rateBtn) rateBtn.classList.remove('hidden');
-                let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
-                if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
-                document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ເຈົ້າຂອງຮ້ານ [${currentUsername}] (Shop Owner Admin)`;
-                updateHeaderTitle();
+                checkRoleAndLicense();
                 return;
             }
 
@@ -1387,14 +1373,7 @@
 
                         document.getElementById('unified-login-modal').classList.add('hidden');
                         document.getElementById('role-select-modal').classList.add('hidden');
-                        let adminBtn = document.getElementById('admin-manage-btn');
-                        if (adminBtn) adminBtn.classList.add('hidden');
-                        let rateBtn = document.getElementById('header-rate-btn');
-                        if (rateBtn) rateBtn.classList.remove('hidden');
-                        let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
-                        if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
-                        document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ເຈົ້າຂອງຮ້ານ [${currentUsername}] (Shop Owner Admin)`;
-                        updateHeaderTitle();
+                        checkRoleAndLicense();
                         return;
                     }
                 } catch (e) {}
@@ -1403,7 +1382,7 @@
             showAlert("ຜິດພາດ", "Username ຫຼື Password ບໍ່ຖືກຕ້ອງ!", "❌");
         }
 
-        // 🌟 ຟັງຊັນກວດສອບສະຖານະ Admin ຕະຫຼອດ 24 ຊົ່ວໂມງ (ບໍ່ໃຫ້ປຸ່ມ "⚙️ ຈັດການລະບົບ" ຫາຍເວລາ Refresh)
+        // 🌟 ຟັງຊັນກວດສອບສະຖານະ Admin ຕະຫຼອດ 24 ຊົ່ວໂມງ (ໂຊປຸ່ມ "⚙️ ຈັດການລະບົບ" ຕະຫຼອດເວລາ)
         function checkRoleAndLicense() {
             let userRole = localStorage.getItem('pos_user_role');
             let shopOwner = localStorage.getItem('pos_shop_owner');
@@ -1467,7 +1446,7 @@
             if (event.key === 'Enter') { verifyUnifiedLogin(); }
         }
 
-        // 🌟 ແກ້ໄຂຟັງຊັນປຸ່ມ ປ່ຽນໂໝດ / ອອກລະບົບ ໃຫ້ກັບມາເປີດ Role Modal ຢ່າງຖືກຕ້ອງ
+        // 🌟 ຟັງຊັນປຸ່ມປ່ຽນໂໝດ / ອອກລະບົບ (ແກ້ໄຂໃຫ້ເປີດ Role Modal ຢ່າງຖືກຕ້ອງ 100%)
         function adminLogout() {
             localStorage.removeItem('pos_user_role');
             localStorage.removeItem('pos_license_status');
@@ -1830,7 +1809,7 @@
             reader.readAsArrayBuffer(file);
         }
 
-        // --- CORE POS LOGIC ---
+        // --- CORE POS LOGIC (🌟 ແກ້ໄຂໃຫ້ກັ່ນຕອງຂໍ້ມູນສະເພາະຮ້ານຂອງຕົນເອງ - ສາຂາ/ພະນັກງານ/Admin ຮ້ານ) ---
         async function openInventoryModal() {
             document.getElementById('inventory-modal').classList.remove('hidden');
             await loadInventory();
@@ -1849,11 +1828,15 @@
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
             let soldQtyMap = {};
             localHistory.forEach(tx => {
-                if (tx.items) {
-                    tx.items.forEach(it => {
-                        let cKey = String(it.code || '').trim().toLowerCase();
-                        soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
-                    });
+                let userRole = localStorage.getItem('pos_user_role');
+                // ຖ້າບໍ່ແມ່ນ Admin ໃຫຍ່ ໃຫ້ກັ່ນຕອງສະເພາະປະຫວັດຂອງຮ້ານຕนເອງ
+                if (userRole === 'admin' || String(tx.device_id || '').toUpperCase() === String(deviceId).toUpperCase()) {
+                    if (tx.items) {
+                        tx.items.forEach(it => {
+                            let cKey = String(it.code || '').trim().toLowerCase();
+                            soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
+                        });
+                    }
                 }
             });
 
@@ -1868,7 +1851,18 @@
             let isShopOwner = localStorage.getItem('pos_shop_owner') === 'true';
             let canDelete = (userRole === 'admin' || isShopOwner);
 
-            excelRows.forEach((row, index) => {
+            // 🌟 ຖ້າບໍ່ແມ່ນ Admin ໃຫຍ່ ໃຫ້ກັ່ນຕອງສະເພາະສິນຄ້າຂອງ Device ID ນັ້ນໆ
+            let filteredRows = excelRows;
+            if (userRole !== 'admin') {
+                filteredRows = excelRows.filter(row => String(row.device_id || deviceId).toUpperCase() === String(deviceId).toUpperCase());
+            }
+
+            if (filteredRows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນສາງຂອງຮ້ານທ່ານ</td></tr>`;
+                return;
+            }
+
+            filteredRows.forEach((row, index) => {
                 let codeKey = String(row.code || '').trim().toLowerCase();
                 let initialQty = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1;
                 let soldQty = soldQtyMap[codeKey] || 0;
@@ -1995,7 +1989,13 @@
             let countIndex = 1;
             let hasFiltered = false;
 
-            excelRows.forEach((row) => {
+            let userRole = localStorage.getItem('pos_user_role');
+            let filteredRows = excelRows;
+            if (userRole !== 'admin') {
+                filteredRows = excelRows.filter(row => String(row.device_id || deviceId).toUpperCase() === String(deviceId).toUpperCase());
+            }
+
+            filteredRows.forEach((row) => {
                 let dateAddedStr = row.dateAdded || new Date().toISOString().split('T')[0];
                 let addedDate = new Date(dateAddedStr);
                 let expiryDate = new Date(addedDate);
@@ -2256,18 +2256,21 @@
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
             let soldQtyMap = {};
             localHistory.forEach(tx => {
-                if (tx.items) {
-                    tx.items.forEach(it => {
-                        let cKey = String(it.code || '').trim().toLowerCase();
-                        soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
-                    });
+                let userRole = localStorage.getItem('pos_user_role');
+                if (userRole === 'admin' || String(tx.device_id || '').toUpperCase() === String(deviceId).toUpperCase()) {
+                    if (tx.items) {
+                        tx.items.forEach(it => {
+                            let cKey = String(it.code || '').trim().toLowerCase();
+                            soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
+                        });
+                    }
                 }
             });
 
             let cKey = String(code || '').trim().toLowerCase();
             let totalStock = 0;
             excelRows.forEach(row => {
-                if (String(row.code || '').trim().toLowerCase() === cKey) {
+                if (String(row.code || '').trim().toLowerCase() === cKey && String(row.device_id || deviceId).toUpperCase() === String(deviceId).toUpperCase()) {
                     totalStock += parseInt(String(row.qty || 1).replace(/,/g, '')) || 1;
                 }
             });
@@ -2365,14 +2368,17 @@
                         }
                     } catch (e) {}
 
-                    let matches = excelRows.filter(r => {
+                    let userRole = localStorage.getItem('pos_user_role');
+                    let targetRows = userRole === 'admin' ? excelRows : excelRows.filter(r => String(r.device_id || deviceId).toUpperCase() === String(deviceId).toUpperCase());
+
+                    let matches = targetRows.filter(r => {
                         let itemCode = String(r.code || '').trim();
                         return itemCode.toLowerCase() === cleanDecoded.toLowerCase();
                     });
 
                     if (matches.length === 0) {
                         let cleanDecodedDigits = cleanDecoded.replace(/\D/g, '');
-                        matches = excelRows.filter(r => {
+                        matches = targetRows.filter(r => {
                             let itemCodeDigits = String(r.code || '').replace(/\D/g, '');
                             return itemCodeDigits !== '' && cleanDecodedDigits !== '' && itemCodeDigits === cleanDecodedDigits;
                         });
@@ -2439,7 +2445,10 @@
             let scannedPrice = 0;
             let scannedName = cleanDecoded;
 
-            let matches = excelRows.filter(r => {
+            let userRole = localStorage.getItem('pos_user_role');
+            let targetRows = userRole === 'admin' ? excelRows : excelRows.filter(r => String(r.device_id || deviceId).toUpperCase() === String(deviceId).toUpperCase());
+
+            let matches = targetRows.filter(r => {
                 let itemCode = String(r.code || '').trim();
                 return itemCode.toLowerCase() === cleanDecoded.toLowerCase();
             });
@@ -2522,11 +2531,14 @@
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
             let soldQtyMap = {};
             localHistory.forEach(tx => {
-                if (tx.items) {
-                    tx.items.forEach(it => {
-                        let cKey = String(it.code || '').trim().toLowerCase();
-                        soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
-                    });
+                let userRole = localStorage.getItem('pos_user_role');
+                if (userRole === 'admin' || String(tx.device_id || '').toUpperCase() === String(deviceId).toUpperCase()) {
+                    if (tx.items) {
+                        tx.items.forEach(it => {
+                            let cKey = String(it.code || '').trim().toLowerCase();
+                            soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
+                        });
+                    }
                 }
             });
 
@@ -2534,7 +2546,7 @@
             let cKey = String(targetItem.code || '').trim().toLowerCase();
             let totalStock = 0;
             excelRows.forEach(row => {
-                if (String(row.code || '').trim().toLowerCase() === cKey) {
+                if (String(row.code || '').trim().toLowerCase() === cKey && String(row.device_id || deviceId).toUpperCase() === String(deviceId).toUpperCase()) {
                     totalStock += parseInt(String(row.qty || 1).replace(/,/g, '')) || 1;
                 }
             });
@@ -2636,19 +2648,24 @@
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
             let soldQtyMap = {};
             localHistory.forEach(tx => {
-                if (tx.items) {
-                    tx.items.forEach(it => {
-                        let cKey = String(it.code || '').trim().toLowerCase();
-                        soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
-                    });
+                let userRole = localStorage.getItem('pos_user_role');
+                if (userRole === 'admin' || String(tx.device_id || '').toUpperCase() === String(deviceId).toUpperCase()) {
+                    if (tx.items) {
+                        tx.items.forEach(it => {
+                            let cKey = String(it.code || '').trim().toLowerCase();
+                            soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
+                        });
+                    }
                 }
             });
 
             let stockMap = {};
             excelRows.forEach(row => {
-                let cKey = String(row.code || '').trim().toLowerCase();
-                let initial = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1;
-                stockMap[cKey] = (stockMap[cKey] || 0) + initial;
+                if (String(row.device_id || deviceId).toUpperCase() === String(deviceId).toUpperCase()) {
+                    let cKey = String(row.code || '').trim().toLowerCase();
+                    let initial = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1;
+                    stockMap[cKey] = (stockMap[cKey] || 0) + initial;
+                }
             });
 
             for (let item of cart) {
@@ -2807,7 +2824,7 @@
             renderCart();
         }
 
-        // --- HISTORY & REPORT MODALS ---
+        // --- HISTORY & REPORT MODALS (🌟 ແກ້ໄຂໃຫ້ກັ່ນຕອງຂໍ້ມູນປະຫວັດສະເພາະຮ້ານຂອງຕົນເອງ) ---
         function openHistory() { 
             document.getElementById('history-modal').classList.remove('hidden'); 
             
@@ -2844,7 +2861,9 @@
 
                     if (!error && cloudSales) {
                         cloudSales.forEach(tx => {
-                            if (tx.device_id && String(tx.device_id).toUpperCase() === String(deviceId).toUpperCase()) {
+                            let userRole = localStorage.getItem('pos_user_role');
+                            // ຖ້າເປັນ Admin ໃຫຍ່ ໃຫ້ເຫັນທすべて; ຖ້າເປັນ Admin ຮ້ານ/ພະນັກງານ ໃຫ້ເຫັນສະເພາະຮ້ານຕนເອງ
+                            if (userRole === 'admin' || (tx.device_id && String(tx.device_id).toUpperCase() === String(deviceId).toUpperCase())) {
                                 cloudSalesList.push(tx);
                             }
                         });
@@ -2853,6 +2872,11 @@
             }
 
             let rawSales = cloudSalesList.length > 0 ? cloudSalesList : JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+
+            let userRole = localStorage.getItem('pos_user_role');
+            if (userRole !== 'admin') {
+                rawSales = rawSales.filter(tx => String(tx.device_id || deviceId).toUpperCase() === String(deviceId).toUpperCase());
+            }
 
             let uniqueMap = new Map();
             rawSales.forEach(tx => {
@@ -2865,7 +2889,7 @@
             globalHistoryList = Array.from(uniqueMap.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
             if (globalHistoryList.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີປະຫວັດການຂາຍ.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີປະຫວັດການຂາຍຂອງຮ້ານທ່ານ.</td></tr>`;
                 return;
             }
 
@@ -3040,7 +3064,6 @@
             checkboxes.forEach(cb => { cb.checked = masterCb.checked; });
         }
 
-        // 🌟 ຟັງຊັນແກ້ໄຂການລຶບລາຍການປະຫວັດທີ່ເລືອກ ໃຫ້ລຶບອອກຈາກທັງ Supabase ແລະ LocalStorage ຢ່າງສົມບູນ 100% ພ້ອມແຈ້ງເຕືອນສຳເລັດ
         async function confirmDeleteSelectedHistoryItems() {
             let checkboxes = document.querySelectorAll('input[name="clear_history_item_cb"]:checked');
             if (checkboxes.length === 0) {
@@ -3052,7 +3075,6 @@
                 try { return JSON.parse(cb.value); } catch(e) { return null; }
             }).filter(Boolean);
 
-            // 1. ລຶບອອກຈາກ LocalStorage ຢ່າງສົມບູນ
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
             let filteredLocal = localHistory.filter(tx => {
                 let matchFound = selectedObjects.some(sel => {
@@ -3064,7 +3086,6 @@
             });
             localStorage.setItem('pos_local_history', JSON.stringify(filteredLocal));
 
-            // 2. ລຶບອອກຈາກ Supabase Cloud ຢ່າງສົມບູນ
             if (supabaseClient) {
                 try {
                     for (let sel of selectedObjects) {
@@ -3123,7 +3144,8 @@
                     let { data: cloudSales } = await supabaseClient.from('sales_history').select('*');
                     if (cloudSales) {
                         cloudSales.forEach(tx => {
-                            if (tx.device_id && String(tx.device_id).toUpperCase() === String(deviceId).toUpperCase()) {
+                            let userRole = localStorage.getItem('pos_user_role');
+                            if (userRole === 'admin' || (tx.device_id && String(tx.device_id).toUpperCase() === String(deviceId).toUpperCase())) {
                                 if (!allSales.some(s => (s.id === tx.id || s.created_at === tx.created_at))) {
                                     allSales.push({
                                         total_cost: tx.total_cost || 0,
@@ -3203,9 +3225,12 @@
                 try {
                     let { data } = await supabaseClient.from('products').select('*');
                     if (data && data.length > 0) {
-                        let myData = data.filter(item => String(item.device_id).toUpperCase() === String(deviceId).toUpperCase());
+                        let userRole = localStorage.getItem('pos_user_role');
+                        let myData = userRole === 'admin' ? data : data.filter(item => String(item.device_id).toUpperCase() === String(deviceId).toUpperCase());
+                        
                         excelRows = myData.map(item => ({
                             id: item.id || ('ROW-' + Math.random().toString(36).substring(2, 6)),
+                            device_id: item.device_id || deviceId,
                             code: item.code,
                             cost: item.cost,
                             originalCost: item.original_cost || item.cost,
@@ -3281,7 +3306,7 @@
             syncTableInputsToData();
             let today = new Date().toISOString().split('T')[0];
             let newId = 'ROW-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
-            excelRows.push({ id: newId, code: code, cost: cost, originalCost: cost || 0, profitPct: profitPct, price: price, qty: qty, dateAdded: dateAdded || today });
+            excelRows.push({ id: newId, device_id: deviceId, code: code, cost: cost, originalCost: cost || 0, profitPct: profitPct, price: price, qty: qty, dateAdded: dateAdded || today });
             renderExcelTable();
         }
 
@@ -3352,6 +3377,9 @@
                 if (excelRows[index]) {
                     if (!excelRows[index].id) {
                         excelRows[index].id = 'ROW-' + Date.now() + '-' + index;
+                    }
+                    if (!excelRows[index].device_id) {
+                        excelRows[index].device_id = deviceId;
                     }
                     let codeInput = tr.querySelector('input[data-field="code"]');
                     let costInput = tr.querySelector('input[data-field="cost"]');
