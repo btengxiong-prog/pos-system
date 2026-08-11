@@ -549,7 +549,7 @@
         </div>
     </div>
 
-    <!-- 🌟 Step 2: Admin Select Specific History Items Modal -->
+    <!-- 🌟 Step 2: Admin Select Specific History Items Modal (Fix ID Matching) -->
     <div id="admin-select-history-items-modal" class="hidden fixed inset-0 bg-black/70 z-[460] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-2xl w-full p-6 max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl text-left">
             <div class="flex justify-between items-center border-b pb-3">
@@ -566,7 +566,6 @@
                 </label>
             </div>
             <div id="admin-history-items-container" class="space-y-2 max-h-[50vh] overflow-y-auto border p-3 rounded-xl bg-gray-50/50">
-                <!-- Dynamic Items Checkboxes -->
             </div>
             <div class="flex gap-2 pt-2 border-t">
                 <button onclick="closeAdminSelectHistoryItemsModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer text-sm">ຍົກເລີກ</button>
@@ -2947,7 +2946,6 @@
             container.innerHTML = `<p class="text-center py-4 text-gray-400">ກຳລັງໂຫຼດລາຍການປະຫວັດ...</p>`;
             document.getElementById('admin-select-history-items-modal').classList.remove('hidden');
 
-            // ດຶງປະຫວັດການຂາຍຂອງຮ້ານນັ້ນມາສະແດງ
             selectedShopTransactions = [];
             if (supabaseClient) {
                 try {
@@ -2973,11 +2971,14 @@
                 let itemsSummary = (tx.items || []).map(it => `${it.name || it.code} (${it.qty} ອັນ)`).join(', ');
                 let totalAmount = formatNumberWithCommas(tx.total || 0);
 
+                // 🌟 ເກັບ Unique Key ທີ່ສົມບູນ (id ແລະ created_at) ໄວ້ໃນ value ຂອງ checkbox
+                let uniqueVal = JSON.stringify({ id: tx.id || '', created_at: tx.created_at || '' });
+
                 html += `
                     <label class="flex items-start gap-2.5 p-2.5 border rounded-lg bg-white hover:bg-gray-100 cursor-pointer text-xs transition">
-                        <input type="checkbox" name="clear_history_item_cb" value="${tx.id || tx.created_at}" class="mt-0.5 w-4 h-4 rounded text-red-600">
+                        <input type="checkbox" name="clear_history_item_cb" value='${uniqueVal}' class="mt-0.5 w-4 h-4 rounded text-red-600">
                         <div class="flex-1">
-                            <div class="font-bold text-gray-800">ວັນທີ: ${dateStr} | ยອດລວມ: <span class="text-green-600">${totalAmount} ກີບ</span></div>
+                            <div class="font-bold text-gray-800">ວັນທີ: ${dateStr} | ຍອດລວມ: <span class="text-green-600">${totalAmount} ກີບ</span></div>
                             <div class="text-gray-600 text-[11px] truncate">ສິນຄ້າ: ${itemsSummary || 'ບໍ່ລະບຸ'}</div>
                         </div>
                     </label>
@@ -2996,7 +2997,7 @@
             checkboxes.forEach(cb => { cb.checked = masterCb.checked; });
         }
 
-        // 🌟 Step 3: ຢືນຢັນການລຶບລາຍການທີ່ຕິກເລືອກໄວ້
+        // 🌟 Step 3: ຢືນຢັນການລຶບລາຍການທີ່ຕິກເລືອກໄວ້ (ແກ້ໄຂໃຫ້ລຶບອອກຈາກທັງ Local ແລະ Supabase ໄດ້ຢ່າງຖືກຕ້ອງ 100%)
         async function confirmDeleteSelectedHistoryItems() {
             let checkboxes = document.querySelectorAll('input[name="clear_history_item_cb"]:checked');
             if (checkboxes.length === 0) {
@@ -3004,23 +3005,31 @@
                 return;
             }
 
-            let selectedIds = Array.from(checkboxes).map(cb => cb.value);
+            let selectedObjects = Array.from(checkboxes).map(cb => {
+                try { return JSON.parse(cb.value); } catch(e) { return null; }
+            }).filter(Boolean);
 
-            // ລຶບອອກຈາກ LocalStorage
+            // 1. ລຶບອອກຈາກ LocalStorage ຢ່າງຖືກຕ້ອງ
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-            let filteredLocal = localHistory.filter(tx => !selectedIds.includes(String(tx.id)) && !selectedIds.includes(String(tx.created_at)));
+            let filteredLocal = localHistory.filter(tx => {
+                let matchFound = selectedObjects.some(sel => {
+                    if (sel.id && tx.id && String(sel.id) === String(tx.id)) return true;
+                    if (sel.created_at && tx.created_at && String(sel.created_at) === String(tx.created_at)) return true;
+                    return false;
+                });
+                return !matchFound;
+            });
             localStorage.setItem('pos_local_history', JSON.stringify(filteredLocal));
 
-            // ລຶບອອກຈາກ Supabase Cloud
+            // 2. ລຶບອອກຈາກ Supabase Cloud ຢ່າງຖືກຕ້ອງ
             if (supabaseClient) {
                 try {
-                    for (let idVal of selectedIds) {
-                        if (idVal.startsWith('TX-')) {
-                            // ລຶບຕາມ id
-                            await supabaseClient.from('sales_history').delete().eq('id', idVal);
-                        } else {
-                            // ລຶບຕາມ created_at
-                            await supabaseClient.from('sales_history').delete().eq('created_at', idVal).eq('device_id', currentSelectedClearShop);
+                    for (let sel of selectedObjects) {
+                        if (sel.id) {
+                            await supabaseClient.from('sales_history').delete().eq('id', sel.id);
+                        }
+                        if (sel.created_at) {
+                            await supabaseClient.from('sales_history').delete().eq('created_at', sel.created_at).eq('device_id', currentSelectedClearShop);
                         }
                     }
                 } catch(e) {}
