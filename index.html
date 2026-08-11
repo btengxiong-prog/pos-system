@@ -901,9 +901,9 @@
         </div>
     </div>
 
-    <!-- 🌟 Popup ລຶບປະຫວັດ (ສຳລັບ Admin ໃຫຍ່ - ປັບປຸງໃໝ່ຕາມ 3 ຂໍ້) -->
+    <!-- 🌟 Popup ລຶບປະຫວັດ (ສຳລັບ Admin ໃຫຍ່ - ອັບເດດຕາມ 3 ຂໍ້ຫຼ້າສຸດ) -->
     <div id="delete-history-modal" class="hidden fixed inset-0 bg-black/70 z-[450] flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto shadow-2xl space-y-4 text-left">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto space-y-4 text-left">
             <div class="text-3xl text-center">🗑️</div>
             <h3 class="text-lg font-bold text-red-700 text-center">ຈັດການລຶບປະຫວັດການຂາຍ</h3>
             <p class="text-xs text-gray-600 text-center">ກະລຸນາເລືອກຮ້ານ, ວັນທີ ແລະ ລາຍການທີ່ຕ້ອງການລຶບ:</p>
@@ -917,10 +917,10 @@
                     </select>
                 </div>
 
-                <!-- 2. ເລືອກວັນ/ເດືອນ/ປີ -->
+                <!-- 2. ເລືອກ ວັນ/ເດືອນ/ປີ (ເລືອກຈາກປະຕິທິນ ຫຼື ປ້ອນເອງ) -->
                 <div>
                     <label class="block font-bold text-gray-700 mb-1">📅 ເລືອກ ວັນ/ເດືອນ/ປີ (ຖ້າບໍ່ເລືອກຈະສະແດງທັງໝົດ):</label>
-                    <input type="text" id="del-hist-date-input" inputmode="numeric" oninput="autoSlashDateInput(this); renderDeleteHistoryItemsList();" maxlength="10" class="w-full border rounded-lg px-3 py-2 font-semibold outline-none bg-white text-purple-700" placeholder="dd/mm/yyyy">
+                    <input type="date" id="del-hist-date-input" onchange="renderDeleteHistoryItemsList()" class="w-full border rounded-lg px-3 py-2 font-semibold outline-none bg-white text-purple-700 cursor-pointer">
                 </div>
 
                 <!-- 3. ຮູບແບບການລຶບ -->
@@ -935,11 +935,11 @@
                 <!-- 4. ລາຍການຍ່ອຍພ້ອມປຸ່ມ ເລືອກທັງໝົດ -->
                 <div id="del-hist-sub-container" class="hidden space-y-2 border-t pt-2">
                     <div class="flex justify-between items-center">
-                        <label class="font-bold text-gray-700">📦 ເລືອກລາຍການສິນຄ້າທີ່ຕ້ອງການລຶບ:</label>
+                        <label class="font-bold text-gray-700">📦 ເລືອກລາຍການສິນຄ້າ (ຕິກເລືອກຂວາມືສຸດ):</label>
                         <!-- 🌟 4 ລ່ຽມສີແດງ 1: ປຸ່ມເລືອກທັງໝົດ -->
                         <button type="button" onclick="toggleSelectAllDelHistItems(this)" class="text-[11px] bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold px-2.5 py-1 rounded cursor-pointer transition">☑️ ເລືອກທັງໝົດ</button>
                     </div>
-                    <div id="del-hist-checkbox-list" class="max-h-48 overflow-y-auto border rounded-xl p-2 space-y-1.5 bg-gray-50">
+                    <div id="del-hist-checkbox-list" class="max-h-52 overflow-y-auto border rounded-xl p-2 space-y-1 bg-gray-50">
                         <!-- Checkboxes injected here -->
                     </div>
                 </div>
@@ -3087,7 +3087,7 @@
             document.getElementById('history-summary').classList.remove('hidden');
         }
 
-        // --- 🌟 ຟັງຊັນຈັດການປ໋ອບອັບລຶບປະຫວັດ (ປັບປຸງໃໝ່ຕາມ 3 ຂໍ້) ---
+        // --- 🌟 ຟັງຊັນຈັດການປ໋ອບອັບລຶບປະຫວັດ (ອັບເດດຕາມ 3 ຂໍ້ຫຼ້າສຸດ) ---
         function openDeleteHistoryModal() {
             let shopSelect = document.getElementById('del-hist-shop-select');
             
@@ -3128,9 +3128,8 @@
         function renderDeleteHistoryItemsList() {
             let listContainer = document.getElementById('del-hist-checkbox-list');
             let targetShop = document.getElementById('del-hist-shop-select').value;
-            let targetDateInput = document.getElementById('del-hist-date-input').value.trim();
-            let targetIsoDate = targetDateInput ? parseDDMMYYYYToISO(targetDateInput) : '';
-
+            let targetDateVal = document.getElementById('del-hist-date-input').value; // format yyyy-mm-dd from type="date"
+            
             let html = '';
             globalHistoryList.forEach((tx) => {
                 if (targetShop === 'all' || tx.device_id === targetShop) {
@@ -3138,8 +3137,8 @@
                     let txIsoDate = !isNaN(txDateObj.getTime()) ? txDateObj.toISOString().split('T')[0] : '';
                     let dateStr = !isNaN(txDateObj.getTime()) ? formatDateToDDMMYYYY(txIsoDate) : '-';
 
-                    // ຖ້າມີການກຳນົດວັນທີ ແຕ່ບໍ່ກົງກັນ ໃຫ້ຂ້າມ
-                    if (targetIsoDate && txIsoDate !== targetIsoDate) return;
+                    // ຖ້າມີການເລືອກວັນທີ ຈາກປະຕິທິນ ແຕ່ບໍ່ກົງກັນ ໃຫ້ຂ້າມ
+                    if (targetDateVal && txIsoDate !== targetDateVal) return;
 
                     if (tx.items && Array.isArray(tx.items)) {
                         tx.items.forEach((it, itemIdx) => {
@@ -3151,10 +3150,11 @@
                             let curr = (payMethod === 'transfer_thb') ? 'ບາດ' : 'ກີບ';
 
                             let uniqueKey = `${tx.id || tx.created_at}___${itemIdx}`;
+                            // 🌟 3) ໃຫ້ມີບ່ອນຕິກເລືອກຂໍ້ມູນ (Checkbox อยู่ทางขวามือสุด)
                             html += `
-                                <label class="flex items-center gap-2 p-1.5 hover:bg-white rounded cursor-pointer border border-transparent hover:border-gray-200">
-                                    <input type="checkbox" name="del_hist_checkbox" value="${uniqueKey}" class="w-4 h-4 text-red-600 rounded">
+                                <label class="flex items-center justify-between p-2 hover:bg-white rounded cursor-pointer border border-transparent hover:border-gray-200">
                                     <span class="text-gray-800 font-medium">${itemName} (ຈຳນວນ: ${itemQty} | ລວມ: ${formatNumberWithCommas(itemTotal)} ${curr}) - [ວັນທີ: ${dateStr}]</span>
+                                    <input type="checkbox" name="del_hist_checkbox" value="${uniqueKey}" class="w-4 h-4 text-red-600 rounded cursor-pointer">
                                 </label>
                             `;
                         });
@@ -3165,7 +3165,7 @@
             listContainer.innerHTML = html || `<div class="text-gray-400 text-center py-2">ບໍ່ພົບລາຍການສິນຄ້າຕາມເງື່ອນໄຂ</div>`;
         }
 
-        // 🌟 ປຸ່ມເລືອກທັງໝົດ (ຕິກ/ບໍ່ຕິກ Checkbox ທັງໝົດໃນລາຍການຍ່ອຍ)
+        // 🌟 1) ປຸ່ມ "ເລືອກທັງໝົດ" (ຕິກ/ບໍ່ຕິກ Checkbox ທັງໝົດໃນລາຍການຍ່ອຍ)
         function toggleSelectAllDelHistItems(btn) {
             let checkboxes = document.querySelectorAll('input[name="del_hist_checkbox"]');
             let allChecked = Array.from(checkboxes).every(cb => cb.checked);
@@ -3175,8 +3175,7 @@
 
         async function confirmExecuteDeleteHistory() {
             let targetShop = document.getElementById('del-hist-shop-select').value;
-            let targetDateInput = document.getElementById('del-hist-date-input').value.trim();
-            let targetIsoDate = targetDateInput ? parseDDMMYYYYToISO(targetDateInput) : '';
+            let targetDateVal = document.getElementById('del-hist-date-input').value;
             let mode = document.getElementById('del-hist-mode-select').value;
 
             showCustomConfirm("ຢືນຢັນການລຶບປະຫວັດ", "ທ່ານໝັ້ນໃຈບໍທີ່ຈະລຶບປະຫວັດການຂາຍຕາມເງື່ອນໄຂທີ່ເລືອກ?", async (confirmed) => {
@@ -3185,8 +3184,7 @@
                 let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
 
                 if (mode === 'all') {
-                    // ລຶບທັງໝົດ (ກອງຕາມຮ້ານ ແລະ ວັນທີ ຖ້າມີ)
-                    if (targetShop === 'all' && !targetIsoDate) {
+                    if (targetShop === 'all' && !targetDateVal) {
                         localStorage.removeItem('pos_local_history');
                         if (supabaseClient) {
                             try { await supabaseClient.from('sales_history').delete().neq('id', '0'); } catch(e){}
@@ -3196,21 +3194,18 @@
                             let matchShop = (targetShop === 'all' || tx.device_id === targetShop);
                             let txDateObj = new Date(tx.created_at);
                             let txIsoDate = !isNaN(txDateObj.getTime()) ? txDateObj.toISOString().split('T')[0] : '';
-                            let matchDate = (!targetIsoDate || txIsoDate === targetIsoDate);
+                            let matchDate = (!targetDateVal || txIsoDate === targetDateVal);
                             
-                            // ຖ້າກົງທັງຮ້ານ ແລະ ວັນທີ ໃຫ້ລຶບອອກ (return false)
                             if (matchShop && matchDate) return false;
                             return true;
                         });
                         localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
-                        // ຫມາຍເຫດ: ຝັ່ງ Supabase ຈະລຶບຕາມ Device ID ຫຼື ໂຫຼດໃໝ່
-                        if (supabaseClient && targetShop !== 'all' && !targetIsoDate) {
+                        if (supabaseClient && targetShop !== 'all' && !targetDateVal) {
                             try { await supabaseClient.from('sales_history').delete().eq('device_id', targetShop); } catch(e){}
                         }
                     }
                     showAlert("ສຳເລັດ", "ລຶບປະຫວັດການຂາຍສຳເລັດຮຽບຮ້ອຍ!", "🗑️");
                 } else if (mode === 'item') {
-                    // ລຶບສະເພາະລາຍການຍ່ອຍທີ່ຕິກ Checkbox
                     let checkedBoxes = document.querySelectorAll('input[name="del_hist_checkbox"]:checked');
                     if (checkedBoxes.length === 0) {
                         showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາຕິກເລືອກລາຍການທີ່ຕ້ອງການລຶບຢ່າງໜ້ອຍ 1 ລາຍການ!", "⚠️");
@@ -3230,7 +3225,6 @@
                         let key = tx.id || tx.created_at;
                         if (deleteMap.has(key) && tx.items) {
                             let indicesToRemove = deleteMap.get(key);
-                            // ຈັດລຽງຈາກໃຫຍ່ໄປນ້ອຍເພື່ອບໍ່ให้ Index ເພี้ยນເວລາ splice
                             indicesToRemove.sort((a, b) => b - a);
                             indicesToRemove.forEach(idx => {
                                 tx.items.splice(idx, 1);
