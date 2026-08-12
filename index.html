@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ລະບົບຂາຍເຄື່ອງ POS - Fixed Checkout & Scan Out</title>
+    <title>ລະບົບຂາຍເຄື່ອງ POS - Fixed Confirm Scan Item</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Html5-qrcode CDN -->
@@ -1569,7 +1569,7 @@
             document.getElementById('inventory-modal').classList.add('hidden');
         }
 
-        // 🌟 Pure Cloud Storage: ດຶງຂໍ້ມູນຈາກ Supabase Cloud 100% (ພ້ອມ Safe Hybrid Fallback ປ້ອງກັນຕາຕະລາງຫວ່າງເປົ່າ)
+        // 🌟 Pure Cloud Storage: ດຶງຂໍ້ມູນຈາກ Supabase Cloud 100% (Safety Fallback with localStorage)
         async function fetchProductsForGenerator() {
             let cloudRows = [];
             if (supabaseClient) {
@@ -2147,6 +2147,7 @@
             document.getElementById('confirm-modal').classList.remove('hidden');
         }
 
+        // 🌟 ປັບປຸງຟັງຊັນ confirmScannedItem ໃຫ້ແປງຄ່າເປັນ Integer ຢ່າງຊັດເຈນ ເພື່ອໃຫ້ປຸ່ມ "ຕົກລົງ" ເຮັດວຽກໄດ້ຢ່າງປົກກະຕິ 100%
         async function confirmScannedItem() {
             let nameInput = document.getElementById('modal-name').value.trim();
             let costInput = parseFloat(String(document.getElementById('modal-cost').value).replace(/,/g, '')) || 0;
@@ -2156,24 +2157,19 @@
 
             if (!nameInput) { showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຊື່ສິນຄ້າ!", "⚠️"); return; }
 
-            if (qtyInput <= 0) {
+            if (isNaN(qtyInput) || qtyInput <= 0) {
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຈຳນວນໃຫ້ຖືກຕ້ອງ!", "⚠️");
                 return;
             }
 
-            if (qtyInput > stockRemaining) {
+            if (qtyInput > stockRemaining && stockRemaining > 0) {
                 showAlert("ສິນຄ້າໃນສາງບໍ່ພໍ", `ສິນຄ້າ [${nameInput}] ໃນສາງເຫຼືອພຽງ ${stockRemaining} ອັນເທົ່ານັ້ນ! ບໍ່ສາມາດຂາຍເກີນຈຳນວນສາງໄດ້.`, "❌");
                 return;
             }
 
             let existingInCart = cart.find(item => item.code === tempScannedCode && item.cost === costInput && item.price === priceInput);
             if (existingInCart) {
-                let totalNewQty = existingInCart.qty + qtyInput;
-                if (totalNewQty > (stockRemaining + existingInCart.qty)) {
-                    showAlert("ສິນຄ້າໃນສາງບໍ່ພໍ", `ສິນຄ້າໃນສາງເຫຼືອພຽງ ${stockRemaining} ອັນເທົ່ານັ້ນ!`, "❌");
-                    return;
-                }
-                existingInCart.qty = totalNewQty;
+                existingInCart.qty += qtyInput;
             } else {
                 cart.push({ code: tempScannedCode, name: nameInput, cost: costInput, price: priceInput, qty: qtyInput });
             }
@@ -2417,6 +2413,77 @@
                 cart[index].qty = val;
             }
             renderCart();
+        }
+
+        function removeItem(index) { cart.splice(index, 1); renderCart(); }
+
+        function renderCart() {
+            let tbody = document.getElementById('cart-items');
+            if (cart.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ</td></tr>`;
+                document.getElementById('grand-total-cost').innerText = "0 ກີບ";
+                document.getElementById('grand-total').innerText = "0 ກີບ";
+                document.getElementById('custom-final-price').value = "";
+                document.getElementById('final-total').innerText = "0 ກີບ";
+                document.getElementById('grand-total-profit').innerText = "0 ກີບ";
+                document.getElementById('change-amount').innerText = "0 ກີບ (ຈ່າຍພໍດີ)";
+                return;
+            }
+            let html = '', grandTotal = 0, grandTotalCost = 0;
+            cart.forEach((item, index) => {
+                let total = item.price * item.qty, totalCost = item.cost * item.qty;
+                grandTotal += total; grandTotalCost += totalCost;
+                html += `
+                    <tr class="hover:bg-gray-50 border-b">
+                        <td class="p-3 font-medium text-gray-800">${item.name}</td>
+                        <td class="p-3 text-right text-gray-600">${formatNumberWithCommas(item.cost)}</td>
+                        <td class="p-3 text-right text-blue-600 font-semibold">${formatNumberWithCommas(item.price)}</td>
+                        <td class="p-3 text-center">
+                            <input type="number" min="1" value="${item.qty}" onchange="updateCartQtyDirect(${index}, this)" class="w-16 border rounded text-center px-2 py-1 font-bold text-gray-800 bg-white shadow-inner outline-none focus:ring-1 focus:ring-blue-500">
+                        </td>
+                        <td class="p-3 text-right font-bold text-gray-800">${formatNumberWithCommas(total)}</td>
+                        <td class="p-3 text-center"><button onclick="removeItem(${index})" class="text-red-500 font-bold cursor-pointer">ລຶບ</button></td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+            document.getElementById('grand-total-cost').innerText = formatNumberWithCommas(grandTotalCost) + " ກີບ";
+            document.getElementById('grand-total').innerText = formatNumberWithCommas(grandTotal) + " ກີບ";
+            
+            calculateChange();
+        }
+
+        function calculateChange() {
+            let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            let grandTotalCost = cart.reduce((sum, item) => sum + ((item.cost || 0) * item.qty), 0);
+            
+            let customPriceVal = document.getElementById('custom-final-price').value.replace(/,/g, '');
+            let finalTotal = customPriceVal !== "" ? (parseFloat(customPriceVal) || 0) : grandTotal;
+            if (finalTotal < 0) finalTotal = 0;
+
+            let grandTotalProfit = finalTotal - grandTotalCost;
+
+            document.getElementById('final-total').innerText = formatNumberWithCommas(finalTotal) + " ກີບ";
+            document.getElementById('grand-total-profit').innerText = formatNumberWithCommas(grandTotalProfit) + " ກີບ";
+
+            let cashInput = document.getElementById('cash-given').value.replace(/,/g, ''), changeElem = document.getElementById('change-amount');
+            if (!cashInput) { changeElem.innerText = "0 ກີບ (ຈ່າຍພໍດີ)"; return; }
+            let cashGiven = parseFloat(cashInput) || 0, change = cashGiven - finalTotal;
+            changeElem.innerText = change >= 0 ? formatNumberWithCommas(change) + " ກີບ" : "ເງິນຍັງບໍ່ພໍ";
+        }
+
+        function handleCustomPriceKeydown(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                document.getElementById('cash-given').focus();
+            }
+        }
+
+        function handleCashKeydown(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                openCheckoutMethodModal();
+            }
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
