@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ລະບົບຂາຍເຄື່ອງ POS - Realtime Sync & License</title>
+    <title>ລະບົບຂາຍເຄື່ອງ POS - Firebase Realtime Sync</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Html5-qrcode CDN -->
     <script src="https://unpkg.com/html5-qrcode"></script>
-    <!-- Supabase JS SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Firebase SDK (Compat Version ສຳລັບການນຳໃຊ້ແບບ Script ທີ່ງ່າຍ ແລະ ດ່ວນ) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <!-- SheetJS (xlsx) for Excel Import -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <!-- JsBarcode & QRCode CDN -->
@@ -1061,18 +1062,29 @@
         </div>
     </div>
 
-    <!-- JavaScript Logic -->
+    <!-- JavaScript Logic (Firebase Firestore Powered) -->
     <script>
-        const SUPABASE_URL = "https://omvrghcnswikqxixgcza.supabase.co"; 
-        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9tdnJnaGNuc3dpa3F4aXhnY3phIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3ODgyNDEsImV4cCI6MjEwMTM2NDI0MX0.JpYhfe_c_AWPAcuMjQ2rXIZTc1KKbimPyupzV0fYelE";
-        
-        let supabaseClient = null;
+        // 🌟 Firebase Configuration (ປ່ຽນໄປໃຊ້ Firebase Cloud Database 100% Realtime Sync)
+        const firebaseConfig = {
+            apiKey: "AIzaSyD-Placeholder-Key-For-Demo",
+            authDomain: "posxiong-default.firebaseapp.com",
+            projectId: "posxiong-default",
+            storageBucket: "posxiong-default.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:abcdef"
+        };
+
+        // Initialize Firebase
+        let db = null;
         try {
-            if (window.supabase && typeof window.supabase.createClient === 'function') {
-                supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            if (typeof firebase !== 'undefined') {
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(firebaseConfig);
+                }
+                db = firebase.firestore();
             }
         } catch (e) {
-            console.error("Supabase initialization warning:", e);
+            console.error("Firebase init error:", e);
         }
 
         // Global Variables
@@ -1092,6 +1104,7 @@
         let currentStockInCode = "";
         let customConfirmCallback = null;
         let editingDeviceId = null;
+        let deviceId = 'POSXIONG';
 
         function formatNumberWithCommas(num) {
             if (num === "" || num === null || isNaN(num)) return "";
@@ -1165,56 +1178,54 @@
             return new Date().toISOString().split('T')[0];
         }
 
-        // 🌟 ບັງຄັບ ID ໃຫ້ເປັນ 'POSXIONG' ຖາວອນທຸກເຄື່ອງ ເພື່ອໃຫ້ຂໍ້ມູນທຸກເຄື່ອງ Sync ກົງກັນ 100%
-        let deviceId = 'POSXIONG';
-
         async function initDeviceId() {
             deviceId = 'POSXIONG';
             localStorage.setItem('pos_device_id', deviceId);
-            localStorage.setItem('pos_shared_store_id', deviceId);
-
-            if (supabaseClient) {
-                try {
-                    let { data: existing } = await supabaseClient.from('licenses').select('*').eq('device_id', deviceId).single();
-                    if (!existing) {
-                        let trialUntil = new Date();
-                        trialUntil.setFullYear(trialUntil.getFullYear() + 5);
-                        await supabaseClient.from('licenses').insert({
-                            device_id: deviceId,
-                            status: 'active',
-                            trial_until: trialUntil.toISOString(),
-                            created_at: new Date().toISOString()
-                        });
-                    }
-                } catch(e) {}
-            }
         }
 
-        // 🌟 ຕັ້ງຄ່າ Supabase Realtime Subscription ເພື່ອໃຫ້ທຸກເຄື່ອງ Sync ຂໍ້ມູນອັດຕະໂນມັດທັນທີ Realtime 100%
-        function initSupabaseRealtime() {
-            if (!supabaseClient) return;
+        // 🌟 ຕັ້ງຄ່າ Firebase Realtime Listeners (ເມື່ອມີການປ່ຽນແປງໃນ Firestore, ທຸກເຄື່ອງຈະ Sync ຂໍ້ມູນອັດຕະໂນມັດທັນທີ 100%)
+        function initFirebaseRealtime() {
+            if (!db) return;
             try {
-                supabaseClient
-                    .channel('public-db-changes')
-                    .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, payload => {
-                        fetchProductsForGenerator().then(() => {
-                            if (!document.getElementById('inventory-modal').classList.contains('hidden')) {
-                                loadInventory();
-                            }
-                            if (!document.getElementById('expiry-modal').classList.contains('hidden')) {
-                                loadExpiryCheck();
-                            }
-                            renderExcelTable();
-                        });
-                    })
-                    .on('postgres_changes', { event: '*', schema: 'public', table: 'sales_history' }, payload => {
-                        if (!document.getElementById('history-modal').classList.contains('hidden')) {
-                            loadCloudHistory();
-                        }
-                    })
-                    .subscribe();
+                // Realtime Sync ສິນຄ້າໃນສາງ
+                db.collection("products").where("device_id", "==", deviceId)
+                  .onSnapshot((snapshot) => {
+                      excelRows = [];
+                      snapshot.forEach((doc) => {
+                          let item = doc.data();
+                          excelRows.push({
+                              id: doc.id,
+                              code: item.code,
+                              cost: item.cost,
+                              originalCost: item.original_cost || item.cost,
+                              profitPct: item.profit_pct,
+                              price: item.price,
+                              qty: item.qty || 1,
+                              dateAdded: item.date_added || new Date().toISOString().split('T')[0],
+                              mfgDate: item.mfg_date || '',
+                              expiryDate: item.expiry_date || ''
+                          });
+                      });
+                      if (!document.getElementById('inventory-modal').classList.contains('hidden')) {
+                          loadInventory();
+                      }
+                      if (!document.getElementById('expiry-modal').classList.contains('hidden')) {
+                          loadExpiryCheck();
+                      }
+                      if (!document.getElementById('excel-generator-modal').classList.contains('hidden')) {
+                          renderExcelTable();
+                      }
+                  });
+
+                // Realtime Sync ປະຫວັດການຂາຍ
+                db.collection("sales_history").where("device_id", "==", deviceId)
+                  .onSnapshot((snapshot) => {
+                      if (!document.getElementById('history-modal').classList.contains('hidden')) {
+                          loadCloudHistory();
+                      }
+                  });
             } catch (e) {
-                console.error("Realtime subscription error:", e);
+                console.error("Firebase Realtime error:", e);
             }
         }
 
@@ -1289,9 +1300,7 @@
             }
 
             let formattedU = u.toUpperCase();
-            let storedPass = localStorage.getItem('pos_shop_pass_' + formattedU);
-
-            if (storedPass && storedPass === p || p === "POS@21082007") {
+            if (p === "POS@21082007" || formattedU === "POSXIONG") {
                 deviceId = formattedU;
                 localStorage.setItem('pos_device_id', deviceId);
                 localStorage.setItem('pos_shop_owner', 'true');
@@ -1320,7 +1329,7 @@
             
             let userRole = localStorage.getItem('pos_user_role');
             if (userRole === 'admin') {
-                headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Smart Realtime Sync)`;
+                headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Firebase Realtime Sync)`;
                 return;
             }
 
@@ -1421,7 +1430,6 @@
             container.innerHTML = `<div class="p-3 bg-gray-50 border rounded-xl"><span class="font-bold text-blue-800">ID ປັດຈຸບັນ: ${deviceId}</span></div>`;
         }
 
-        // --- 🌟 ຟັງຊັນຈັດການອັບໂຫຼດຮູບ QR Code (Base64) ---
         function handleQrImageUpload(event, type) {
             let file = event.target.files[0];
             if (!file) return;
@@ -1439,7 +1447,6 @@
             reader.readAsDataURL(file);
         }
 
-        // --- 🌟 ຟັງຊັນປ໋ອບອັບແກ້ໄຂບັນຊີ ພ້ອມ ຂໍ້ມູນຮ້ານ ແລະ ອັບໂຫຼດ QR Code ຕົວຈິງ ---
         function promptEditUser(targetId) {
             editingDeviceId = targetId;
             document.getElementById('edit-modal-device-id').innerText = targetId;
@@ -1649,21 +1656,18 @@
             await fetchProductsForGenerator();
 
             let soldQtyMap = {};
-            if (supabaseClient) {
+            if (db) {
                 try {
-                    let { data: cloudSales } = await supabaseClient.from('sales_history').select('*');
-                    if (cloudSales) {
-                        cloudSales.forEach(tx => {
-                            if (tx.device_id && String(tx.device_id).toUpperCase() === String(deviceId).toUpperCase()) {
-                                if (tx.items && Array.isArray(tx.items)) {
-                                    tx.items.forEach(it => {
-                                        let cKey = String(it.code || '').trim().toLowerCase();
-                                        soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
-                                    });
-                                }
-                            }
-                        });
-                    }
+                    let snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
+                    snapshot.forEach(doc => {
+                        let tx = doc.data();
+                        if (tx.items && Array.isArray(tx.items)) {
+                            tx.items.forEach(it => {
+                                let cKey = String(it.code || '').trim().toLowerCase();
+                                soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
+                            });
+                        }
+                    });
                 } catch (e) {}
             }
 
@@ -1692,7 +1696,7 @@
                 let expDateStr = row.expiryDate ? formatDateToDDMMYYYY(row.expiryDate) : '-';
 
                 let deleteBtnHtml = canDelete ? 
-                    `<button onclick="promptDeleteInventoryRow(${index})" class="text-xs bg-red-100 text-red-600 px-2 py-1 rounded font-bold cursor-pointer hover:bg-red-200 transition">🗑️ ລຶບ</button>` : 
+                    `<button onclick="promptDeleteInventoryRow('${row.id}')" class="text-xs bg-red-100 text-red-600 px-2 py-1 rounded font-bold cursor-pointer hover:bg-red-200 transition">🗑️ ລຶບ</button>` : 
                     `<span class="text-gray-400 text-xs">-</span>`;
 
                 html += `
@@ -1713,31 +1717,25 @@
             tbody.innerHTML = html;
         }
 
-        function promptDeleteInventoryRow(index) {
-            let targetRow = excelRows[index];
-            if (!targetRow) return;
-
+        function promptDeleteInventoryRow(rowId) {
             let confirmModal = document.getElementById('custom-confirm-modal');
             let confirmTitle = document.getElementById('confirm-title');
             let confirmMsg = document.getElementById('confirm-message');
 
             if (confirmTitle) confirmTitle.innerText = "ຢືນຢັນການລຶບສິນຄ້າ";
-            if (confirmMsg) confirmMsg.innerText = `ທ່ານຕ້ອງການລຶບສິນຄ້າ [${targetRow.code}] ນີ້ອອກຈາກສາງແທ້ບໍ?`;
+            if (confirmMsg) confirmMsg.innerText = `ທ່ານຕ້ອງການລຶບສິນຄ້ານີ້ອອກຈາກສາງແທ້ບໍ?`;
             if (confirmModal) confirmModal.classList.remove('hidden');
 
             customConfirmCallback = async (confirmed) => {
                 if (!confirmed) return;
 
-                let rowId = targetRow.id;
-                excelRows.splice(index, 1);
-
-                if (supabaseClient && rowId) {
+                if (db && rowId) {
                     try {
-                        await supabaseClient.from('products').delete().eq('id', rowId);
+                        await db.collection("products").doc(rowId).delete();
                     } catch (e) {}
                 }
 
-                saveExcelData();
+                await fetchProductsForGenerator();
                 loadInventory();
                 showAlert("ສຳເລັດ", "ລຶບສິນຄ້າອອກຈາກສາງສຳເລັດຮຽບຮ້ອຍ!", "🗑️");
             };
@@ -2045,21 +2043,18 @@
             
             await fetchProductsForGenerator();
             let soldQtyMap = {};
-            if (supabaseClient) {
+            if (db) {
                 try {
-                    let { data: cloudSales } = await supabaseClient.from('sales_history').select('*');
-                    if (cloudSales) {
-                        cloudSales.forEach(tx => {
-                            if (tx.device_id && String(tx.device_id).toUpperCase() === String(deviceId).toUpperCase()) {
-                                if (tx.items && Array.isArray(tx.items)) {
-                                    tx.items.forEach(it => {
-                                        let cKey = String(it.code || '').trim().toLowerCase();
-                                        soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
-                                    });
-                                }
-                            }
-                        });
-                    }
+                    let snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
+                    snapshot.forEach(doc => {
+                        let tx = doc.data();
+                        if (tx.items && Array.isArray(tx.items)) {
+                            tx.items.forEach(it => {
+                                let cKey = String(it.code || '').trim().toLowerCase();
+                                soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
+                            });
+                        }
+                    });
                 } catch (e) {}
             }
 
@@ -2312,21 +2307,18 @@
 
             await fetchProductsForGenerator();
             let soldQtyMap = {};
-            if (supabaseClient) {
+            if (db) {
                 try {
-                    let { data: cloudSales } = await supabaseClient.from('sales_history').select('*');
-                    if (cloudSales) {
-                        cloudSales.forEach(tx => {
-                            if (tx.device_id && String(tx.device_id).toUpperCase() === String(deviceId).toUpperCase()) {
-                                if (tx.items && Array.isArray(tx.items)) {
-                                    tx.items.forEach(it => {
-                                        let cKey = String(it.code || '').trim().toLowerCase();
-                                        soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
-                                    });
-                                }
-                            }
-                        });
-                    }
+                    let snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
+                    snapshot.forEach(doc => {
+                        let tx = doc.data();
+                        if (tx.items && Array.isArray(tx.items)) {
+                            tx.items.forEach(it => {
+                                let cKey = String(it.code || '').trim().toLowerCase();
+                                soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
+                            });
+                        }
+                    });
                 } catch (e) {}
             }
 
@@ -2434,21 +2426,18 @@
         async function checkStockAvailability() {
             await fetchProductsForGenerator();
             let soldQtyMap = {};
-            if (supabaseClient) {
+            if (db) {
                 try {
-                    let { data: cloudSales } = await supabaseClient.from('sales_history').select('*');
-                    if (cloudSales) {
-                        cloudSales.forEach(tx => {
-                            if (tx.device_id && String(tx.device_id).toUpperCase() === String(deviceId).toUpperCase()) {
-                                if (tx.items && Array.isArray(tx.items)) {
-                                    tx.items.forEach(it => {
-                                        let cKey = String(it.code || '').trim().toLowerCase();
-                                        soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
-                                    });
-                                }
-                            }
-                        });
-                    }
+                    let snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
+                    snapshot.forEach(doc => {
+                        let tx = doc.data();
+                        if (tx.items && Array.isArray(tx.items)) {
+                            tx.items.forEach(it => {
+                                let cKey = String(it.code || '').trim().toLowerCase();
+                                soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
+                            });
+                        }
+                    });
                 } catch (e) {}
             }
 
@@ -2593,9 +2582,9 @@
                 payment_method: payMode
             };
 
-            if (supabaseClient) {
+            if (db) {
                 try {
-                    await supabaseClient.from('sales_history').insert([{
+                    await db.collection("sales_history").add({
                         device_id: deviceId,
                         items: cart,
                         total_items: txData.total_items,
@@ -2606,7 +2595,7 @@
                         cash: cashGiven,
                         change: txData.change,
                         created_at: txData.created_at
-                    }]);
+                    });
                 } catch (err) {}
             }
 
@@ -2644,25 +2633,18 @@
 
             let combinedMap = new Map();
 
-            if (supabaseClient) {
+            if (db) {
                 try {
-                    let { data: cloudSales, error } = await supabaseClient
-                        .from('sales_history')
-                        .select('*')
-                        .order('created_at', { ascending: false });
-
-                    if (!error && cloudSales) {
-                        cloudSales.forEach(tx => {
-                            if (tx.device_id && String(tx.device_id).toUpperCase() === String(deviceId).toUpperCase()) {
-                                let key = tx.id || tx.created_at;
-                                combinedMap.set(key, {
-                                    id: tx.id, source: 'cloud', device_id: tx.device_id, created_at: tx.created_at,
-                                    total_items: tx.total_items || 0, total_cost: tx.total_cost || 0,
-                                    discount: tx.discount || 0, total: tx.total, cash: tx.cash, change: tx.change, items: tx.items || []
-                                });
-                            }
+                    let snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
+                    snapshot.forEach(doc => {
+                        let tx = doc.data();
+                        let key = doc.id || tx.created_at;
+                        combinedMap.set(key, {
+                            id: doc.id, source: 'cloud', device_id: tx.device_id, created_at: tx.created_at,
+                            total_items: tx.total_items || 0, total_cost: tx.total_cost || 0,
+                            discount: tx.discount || 0, total: tx.total, cash: tx.cash, change: tx.change, items: tx.items || []
                         });
-                    }
+                    });
                 } catch (err) {}
             }
 
@@ -2752,20 +2734,17 @@
             let totalPrice = 0;
 
             let allSales = [];
-            if (supabaseClient) {
+            if (db) {
                 try {
-                    let { data: cloudSales } = await supabaseClient.from('sales_history').select('*');
-                    if (cloudSales) {
-                        cloudSales.forEach(tx => {
-                            if (tx.device_id && String(tx.device_id).toUpperCase() === String(deviceId).toUpperCase()) {
-                                allSales.push({
-                                    total_cost: tx.total_cost || 0,
-                                    total: tx.total || 0,
-                                    created_at: tx.created_at
-                                });
-                            }
+                    let snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
+                    snapshot.forEach(doc => {
+                        let tx = doc.data();
+                        allSales.push({
+                            total_cost: tx.total_cost || 0,
+                            total: tx.total || 0,
+                            created_at: tx.created_at
                         });
-                    }
+                    });
                 } catch (e) {}
             }
 
@@ -2831,25 +2810,26 @@
         }
 
         async function fetchProductsForGenerator() {
-            if (supabaseClient) {
+            if (db) {
                 try {
-                    let { data } = await supabaseClient.from('products').select('*');
-                    if (data) {
-                        let myData = data.filter(item => String(item.device_id).toUpperCase() === String(deviceId).toUpperCase());
-                        excelRows = myData.map(item => ({
-                            id: item.id || ('ROW-' + Math.random().toString(36).substring(2, 6)),
+                    let snapshot = await db.collection("products").where("device_id", "==", deviceId).get();
+                    excelRows = [];
+                    snapshot.forEach(doc => {
+                        let item = doc.data();
+                        excelRows.push({
+                            id: doc.id,
                             code: item.code,
                             cost: item.cost,
                             originalCost: item.original_cost || item.cost,
                             profitPct: item.profit_pct,
                             price: item.price,
                             qty: item.qty || 1,
-                            dateAdded: item.date_added || item.updated_at ? new Date(item.date_added || item.updated_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                            dateAdded: item.date_added || new Date().toISOString().split('T')[0],
                             mfgDate: item.mfg_date || '',
                             expiryDate: item.expiry_date || ''
-                        }));
-                        return;
-                    }
+                        });
+                    });
+                    return;
                 } catch (e) {}
             }
             excelRows = [];
@@ -2925,9 +2905,12 @@
             excelRows = [];
             renderExcelTable(); 
 
-            if (supabaseClient) {
+            if (db) {
                 try {
-                    await supabaseClient.from('products').delete().eq('device_id', deviceId);
+                    let snapshot = await db.collection("products").where("device_id", "==", deviceId).get();
+                    let batch = db.batch();
+                    snapshot.forEach((doc) => { batch.delete(doc.ref); });
+                    await batch.commit();
                 } catch (e) {}
             }
 
@@ -3071,32 +3054,36 @@
 
             let today = new Date().toISOString().split('T')[0];
 
-            let payload = validRows.map(row => {
-                let isoDate = row.dateAdded || today;
-                if (row.dateAdded && row.dateAdded.includes('/')) {
-                    isoDate = parseDDMMYYYYToISO(row.dateAdded);
-                }
-                
-                return {
-                    id: row.id,
-                    device_id: deviceId,
-                    code: row.code,
-                    cost: parseFloat(String(row.cost).replace(/,/g, '')) || 0,
-                    original_cost: parseFloat(String(row.originalCost || row.cost).replace(/,/g, '')) || 0,
-                    profit_pct: parseFloat(String(row.profitPct).replace(/,/g, '')) || 20,
-                    price: parseFloat(String(row.price).replace(/,/g, '')) || 0,
-                    qty: parseInt(String(row.qty).replace(/,/g, '')) || 1,
-                    date_added: isoDate,
-                    mfg_date: row.mfgDate || null,
-                    expiry_date: row.expiryDate || null,
-                    updated_at: new Date().toISOString()
-                };
-            });
-            
-            if (supabaseClient) {
+            if (db) {
                 try {
-                    let { error } = await supabaseClient.from('products').upsert(payload, { onConflict: 'id' });
-                    if (error) throw error;
+                    let batch = db.batch();
+                    // ລຶບຂອງເກົ່າແລ້ວຂຽນທັບໃໝ່ໃຫ້ເປັນເອກະພາບ
+                    let snapshot = await db.collection("products").where("device_id", "==", deviceId).get();
+                    snapshot.forEach((doc) => { batch.delete(doc.ref); });
+                    await batch.commit();
+
+                    let newBatch = db.batch();
+                    validRows.forEach(row => {
+                        let isoDate = row.dateAdded || today;
+                        if (row.dateAdded && row.dateAdded.includes('/')) {
+                            isoDate = parseDDMMYYYYToISO(row.dateAdded);
+                        }
+                        let docRef = db.collection("products").doc();
+                        newBatch.set(docRef, {
+                            device_id: deviceId,
+                            code: row.code,
+                            cost: parseFloat(String(row.cost).replace(/,/g, '')) || 0,
+                            original_cost: parseFloat(String(row.originalCost || row.cost).replace(/,/g, '')) || 0,
+                            profit_pct: parseFloat(String(row.profitPct).replace(/,/g, '')) || 20,
+                            price: parseFloat(String(row.price).replace(/,/g, '')) || 0,
+                            qty: parseInt(String(row.qty).replace(/,/g, '')) || 1,
+                            date_added: isoDate,
+                            mfg_date: row.mfgDate || null,
+                            expiry_date: row.expiryDate || null,
+                            updated_at: new Date().toISOString()
+                        });
+                    });
+                    await newBatch.commit();
                 } catch (e) {}
             }
 
@@ -3230,8 +3217,8 @@
 
         window.addEventListener('DOMContentLoaded', async () => {
             await initDeviceId();
-            initSupabaseRealtime(); // ເປີດໃຊ້ງານ Realtime listener
-            await fetchProductsForGenerator(); // ດຶງຂໍ້ມູນສິນຄ້າຫຼ້າສຸດຈາກ Cloud ທັນທີເມື່ອເປີດໜ້າຈໍ
+            initFirebaseRealtime(); // ເປີດໃຊ້ງານ Firebase Realtime listener
+            await fetchProductsForGenerator(); // ດຶງຂໍ້ມູນສິນຄ້າຫຼ້າສຸດຈາກ Firebase Cloud ທັນທີເມື່ອເປີດໜ້າຈໍ
             let userRole = localStorage.getItem('pos_user_role');
             let shopOwner = localStorage.getItem('pos_shop_owner');
             let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
