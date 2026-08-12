@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ລະບົບຂາຍເຄື່ອງ POS - Pure Independent Global Shared</title>
+    <title>ລະບົບຂາຍເຄື່ອງ POS - Independent Global Shared</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Html5-qrcode CDN -->
@@ -593,7 +593,7 @@
     <header class="bg-[#1e3a8a] text-white py-5 shadow-lg">
         <div class="container mx-auto px-4 text-center">
             <h1 id="main-header-title" class="text-2xl md:text-3xl font-bold flex items-center justify-center gap-2">
-                🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Pure Independent Global Shared)
+                🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Safe Hybrid Storage)
             </h1>
             <div class="mt-1.5 text-xs md:text-sm text-yellow-300 font-semibold">
                 ✨ ວ່ອງໄວ ທັນໃຈ, ຍອດເງິນຖືກຕ້ອງ ຊັດເຈນ 100%, ບໍ່ເສຍເວລາ — ໃຜກໍ່ຂາຍເປັນ ບໍ່ມີພື້ນຖານໄອທີກໍ່ໃຊ້ໄດ້ສະບາຍ!
@@ -1253,11 +1253,17 @@
             return new Date().toISOString().split('T')[0];
         }
 
-        let deviceId = 'SHARED_USER';
-        let currentUsername = null;
+        let deviceId = localStorage.getItem('pos_device_id');
+        let currentUsername = localStorage.getItem('pos_current_username') || null;
 
         async function initDeviceId() {
-            deviceId = 'SHARED_USER';
+            let uniqueDeviceKey = localStorage.getItem('pos_unique_device_id');
+            if (!uniqueDeviceKey) {
+                uniqueDeviceKey = 'POS-T' + Math.random().toString(36).substring(2, 8).toUpperCase();
+                localStorage.setItem('pos_unique_device_id', uniqueDeviceKey);
+            }
+            deviceId = uniqueDeviceKey;
+            localStorage.setItem('pos_device_id', deviceId);
         }
 
         async function checkTrialLicense() {
@@ -1269,6 +1275,7 @@
             let loginModal = document.getElementById('unified-login-modal');
             if (roleModal) roleModal.classList.add('hidden');
             if (loginModal) loginModal.classList.add('hidden');
+            checkTrialLicense();
         }
 
         function showUnifiedLoginModal() {
@@ -1300,6 +1307,7 @@
                 return;
             }
 
+            localStorage.setItem('pos_user_role', 'admin');
             document.getElementById('unified-login-modal').classList.add('hidden');
             document.getElementById('role-select-modal').classList.add('hidden');
             let adminBtn = document.getElementById('admin-manage-btn');
@@ -1323,11 +1331,17 @@
         }
 
         function adminLogout() {
+            localStorage.removeItem('pos_user_role');
+            localStorage.removeItem('pos_license_status');
+            localStorage.removeItem('pos_current_username');
+            localStorage.removeItem('pos_shop_owner');
+            localStorage.removeItem('pos_linked_admin_id');
+            localStorage.removeItem('pos_device_id');
             location.reload();
         }
 
         function openMyDeviceModal() {
-            document.getElementById('my-device-id-text').innerText = "SHARED_USER";
+            document.getElementById('my-device-id-text').innerText = "SHARED-MODE";
             document.getElementById('my-device-modal').classList.add('hidden');
             document.getElementById('my-device-modal').classList.remove('hidden');
         }
@@ -1337,7 +1351,7 @@
         }
 
         function copyMyDeviceId() {
-            navigator.clipboard.writeText("SHARED_USER").then(() => {}).catch(() => {});
+            navigator.clipboard.writeText("SHARED-MODE").then(() => {}).catch(() => {});
         }
 
         function openAdminQrModal() {
@@ -1345,7 +1359,7 @@
             let qrContainer = document.getElementById('admin-connect-qrcode');
             if (qrContainer && window.QRCode) {
                 qrContainer.innerHTML = "";
-                QRCode.toString("SHARED_USER", { type: 'svg', width: 160, margin: 1 }, function (err, svgString) {
+                QRCode.toString("SHARED-MODE", { type: 'svg', width: 160, margin: 1 }, function (err, svgString) {
                     if (!err && qrContainer) {
                         qrContainer.innerHTML = svgString;
                     }
@@ -1397,7 +1411,7 @@
 
         async function loadAllDevices() {
             let container = document.getElementById('device-list-container');
-            container.innerHTML = `<div class="p-3 bg-gray-50 border rounded-xl font-bold text-blue-800">ໂໝດອິດສະຫຼະ: ທຸກເຄື່ອງໃຊ້ງານຮ່ວມກັນ 100%</div>`;
+            container.innerHTML = `<div class="p-3 bg-gray-50 border rounded-xl font-bold text-blue-800">🌐 ໂໝດອິດສະຫຼະ (Global Shared Mode - ທຸກເຄື່ອງເຫັນຂໍ້ມູນກັນ 100%)</div>`;
         }
 
         function handleQrImageUpload(event, type) {
@@ -1406,10 +1420,11 @@
             let reader = new FileReader();
             reader.onload = function(e) {
                 let base64Img = e.target.result;
-                localStorage.setItem('pos_shop_' + type + '_qr_shared', base64Img);
                 if (type === 'lak') {
+                    window.tempLakQrBase64 = base64Img;
                     document.getElementById('preview-lak-qr').innerHTML = `<span class="text-green-600 font-bold text-[10px]">✅ ອັບໂຫຼດຮູບ QR ກີບສຳເລັດ</span>`;
-                } else {
+                } else if (type === 'thb') {
+                    window.tempThbQrBase64 = base64Img;
                     document.getElementById('preview-thb-qr').innerHTML = `<span class="text-green-600 font-bold text-[10px]">✅ ອັບໂຫຼດຮູບ QR ບາດສຳເລັດ</span>`;
                 }
             };
@@ -1417,23 +1432,18 @@
         }
 
         function promptEditUser(targetId) {
-            document.getElementById('edit-modal-device-id').innerText = "SHARED_USER";
-            document.getElementById('edit-modal-shop-name').value = localStorage.getItem('pos_shop_name_shared') || '';
-            document.getElementById('edit-modal-username').value = "SHARED_USER";
-            document.getElementById('edit-modal-password').value = "SHARED";
-            document.getElementById('edit-user-modal').classList.remove('hidden');
+            showAlert("ແຈ້ງເຕືອນ", "ໂໝດອິດສະຫຼະ ບໍ່ຈຳເປັນຕ້ອງຈັດການບັນຊີແຍກເຄື່ອງ!", "ℹ️");
         }
 
         function closeEditUserModal() {
             document.getElementById('edit-user-modal').classList.add('hidden');
         }
 
+        function handleActionSelectChange(selectElem) {}
+
         async function saveEditedUser() {
-            let shopName = document.getElementById('edit-modal-shop-name').value.trim();
-            localStorage.setItem('pos_shop_name_shared', shopName);
             closeEditUserModal();
-            updateHeaderTitle();
-            showAlert("ສຳເລັດ", "ບັນທຶກຂໍ້ມູນຮ້ານສຳເລັດຮຽບຮ້ອຍ!", "✅");
+            showAlert("ສຳເລັດ", "ບັນທຶກສຳເລັດ!", "✅");
         }
 
         function toggleCustomDropdown(menuId, event) {
@@ -1466,24 +1476,29 @@
         });
 
         function openRegisterModal() {
-            document.getElementById('register-payment-modal').classList.remove('hidden');
+            let m = document.getElementById('register-payment-modal');
+            if (m) m.classList.remove('hidden');
         }
 
         function closeRegisterModal() {
-            document.getElementById('register-payment-modal').classList.add('hidden');
+            let m = document.getElementById('register-payment-modal');
+            if (m) m.classList.add('hidden');
         }
 
         function openUserManual() {
-            document.getElementById('user-manual-modal').classList.remove('hidden');
+            let m = document.getElementById('user-manual-modal');
+            if (m) m.classList.remove('hidden');
         }
 
         function closeUserManual() {
-            document.getElementById('user-manual-modal').classList.add('hidden');
+            let m = document.getElementById('user-manual-modal');
+            if (m) m.classList.add('hidden');
         }
 
         function openRateInputModal() {
             let savedRate = localStorage.getItem('pos_custom_manual_rate') || '';
             let savedDate = localStorage.getItem('pos_custom_manual_rate_date') || '';
+            
             document.getElementById('input-custom-rate').value = savedRate;
             document.getElementById('input-custom-rate-date').value = savedDate;
             document.getElementById('rate-input-modal').classList.remove('hidden');
@@ -1507,7 +1522,10 @@
 
             closeRateInputModal();
             showAlert("ສຳເລັດ", "ບັນທຶກຄ່າ Rate ສຳເລັດຮຽບຮ້ອຍ!", "💱");
-            setTimeout(() => { openExcelGenerator(); }, 300);
+            
+            setTimeout(() => {
+                openExcelGenerator();
+            }, 300);
         }
 
         function handleExcelUploadFromModal(event) {
@@ -1566,6 +1584,11 @@
 
         // --- CORE POS LOGIC ---
         async function openInventoryModal() {
+            let userRole = localStorage.getItem('pos_user_role');
+            let deleteBtn = document.getElementById('admin-delete-inventory-btn');
+            if (deleteBtn) {
+                deleteBtn.classList.remove('hidden');
+            }
             document.getElementById('inventory-modal').classList.remove('hidden');
             await loadInventory();
         }
@@ -1574,7 +1597,7 @@
             document.getElementById('inventory-modal').classList.add('hidden');
         }
 
-        // 🌟 ໂຫຼດສິນຄ້າໃນສາງແບບອິດສະຫຼະ (Hybrid: ດຶງ Cloud ກ່ອນ ຖ້າບໍ່ໄດ້ໃຊ້ localStorage ສຳຮອງ)
+        // 🌟 ຟັງຊັນໂຫຼດສິນຄ້າในສາງແບບອິດສະຫຼະ 100% (Hybrid Cloud + Local Storage Fallback)
         async function loadInventory() {
             let tbody = document.getElementById('inventory-tbody');
             tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
@@ -1733,7 +1756,7 @@
                 return;
             }
 
-            showCustomConfirm("ຢືນຢັນການລຶບສິນຄ້າ", `ທ່ານໝັ້ນໃຈບໍທີ່ຈະລຶບ ${checkedBoxes.length} ລາຍການສິນຄ້າທີ່ເລືອກນີ້ອອກຈາກສາງ?`, async (confirmed) => {
+            showCustomConfirm("ຢືນຢັນການລຶບສິນຄ້າ", `ທ່ານໝັ້ນໃຈບໍທີ່ຈະລຶບ ${checkedBoxes.length} ລາຍການທີ່ເລືອກນີ້ອອກຈາກສາງ?`, async (confirmed) => {
                 if (!confirmed) return;
 
                 let idsToDelete = Array.from(checkedBoxes).map(cb => cb.value);
@@ -2667,8 +2690,7 @@
             let userRole = localStorage.getItem('pos_user_role');
             let deleteBtn = document.getElementById('admin-delete-history-btn');
             if (deleteBtn) {
-                if (userRole === 'admin') deleteBtn.classList.remove('hidden');
-                else deleteBtn.classList.add('hidden');
+                deleteBtn.classList.remove('hidden');
             }
             loadCloudHistory(); 
         }
@@ -3007,7 +3029,7 @@
             document.getElementById('excel-print-area').classList.add('hidden');
         }
 
-        // 🌟 Hybrid Safety Fallback (ດຶງ Cloud ກ່ອນ ຖ້າບໍ່ມີໃຫ້ດຶງ localStorage ມາສະແດງທັນທີ)
+        // 🌟 Hybrid Safe Fallback: ດຶງ Cloud ກ່ອນ ຖ້າ Cloud ຫວ່າງເປົ່າ ໃຫ້ດຶງ localStorage ມາສະແດງທັນທີ (ບໍ່ໃຫ້ໜ້າຕາຕະລາງຫວ່າງເປົ່າ)
         async function fetchProductsForGenerator() {
             let cloudRows = [];
             if (supabaseClient) {
