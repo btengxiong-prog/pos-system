@@ -244,11 +244,11 @@
                 <h3 class="text-xl font-bold text-cyan-800 flex items-center gap-2">
                     <span>📦 ສິນຄ້າຄ້າງສາງ (Inventory Stock)</span>
                 </h3>
-                <div class="flex gap-2">
-                    <!-- 🌟 ປຸ່ມລຶບຂໍ້ມູນທີ່ເລືອກ -->
-                    <button onclick="promptDeleteSelectedInventory()" class="text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg cursor-pointer font-bold transition shadow">🗑️ ລຶບຂໍ້ມູນທີ່ເລືອກ</button>
-                    <!-- 🌟 ປຸ່ມລຶບຂໍ້ມູນທັງໝົດ -->
-                    <button onclick="promptDeleteAllInventory()" class="text-xs bg-red-800 hover:bg-red-900 text-white px-3 py-1.5 rounded-lg cursor-pointer font-bold transition shadow">🔥 ລຶບຂໍ້ມູນທັງໝົດ</button>
+                <!-- 🌟 ປຸ່ມລຶບຂໍ້ມູນ (ລຶບທີ່ເລືອກ ຫຼື ລຶບທັງໝົດ) -->
+                <div>
+                    <button onclick="promptDeleteInventoryAction()" class="text-xs bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg cursor-pointer font-bold transition shadow flex items-center gap-1.5">
+                        <span>🗑️</span> ລຶບຂໍ້ມູນ
+                    </button>
                 </div>
             </div>
             
@@ -256,9 +256,6 @@
                 <table class="w-full text-left border-collapse bg-white min-w-[750px]">
                     <thead>
                         <tr class="bg-cyan-800 text-white text-xs uppercase">
-                            <th class="p-3 border-r text-center w-12">
-                                <input type="checkbox" id="select-all-checkbox" onclick="toggleSelectAllInventory(this)" class="w-4 h-4 cursor-pointer accent-cyan-600">
-                            </th>
                             <th class="p-3 border-r text-center w-12">ລ/ດ</th>
                             <th class="p-3 border-r">ຊື່ສິນຄ້າ</th>
                             <th class="p-3 border-r text-center">ວັນນຳເຂົ້າສິນຄ້າ</th>
@@ -267,6 +264,10 @@
                             <th class="p-3 border-r text-right">ລາຄາຊື້ (ກີບ)</th>
                             <th class="p-3 border-r text-right">ລາຄາຂາຍ (ກີບ)</th>
                             <th class="p-3 border-r text-center">ໝາຍເຫດ</th>
+                            <!-- 🌟 ຍ້າຍ Checkbox ມາໄວ້ຫຼັງສຸດ (ຫຼັງຈາກໝາຍເຫດ) -->
+                            <th class="p-3 text-center w-16">
+                                <input type="checkbox" id="select-all-checkbox" onclick="toggleSelectAllInventory(this)" class="w-4 h-4 cursor-pointer accent-cyan-600" title="ເລືອກທັງໝົດ">
+                            </th>
                         </tr>
                     </thead>
                     <tbody id="inventory-tbody" class="divide-y divide-gray-200 text-sm">
@@ -1629,7 +1630,7 @@
             document.getElementById('inventory-modal').classList.add('hidden');
         }
 
-        // 🌟 ຟັງຊັນ "ເລືອກທັງໝົດ" (ກ່ອງທີ 1)
+        // 🌟 ຟັງຊັນ "ເລືອກທັງໝົດ" (ປຸ່ມເທິງສຸດ)
         function toggleSelectAllInventory(masterCheckbox) {
             let checkboxes = document.querySelectorAll('.inventory-row-checkbox');
             checkboxes.forEach(cb => {
@@ -1637,56 +1638,53 @@
             });
         }
 
-        // 🌟 ຟັງຊັນ "ລຶບຂໍ້ມູນທັງໝົດ" (ກ່ອງທີ 2)
-        function promptDeleteAllInventory() {
-            showCustomConfirm("🔥 ຢືນຢັນລຶບຂໍ້ມູນທັງໝົດ", "ທ່ານຕ້ອງການລຶບຂໍ້ມູນສິນຄ້າທັງໝົດໃນສາງແທ້ບໍ? ການກະຳນຳນີ້ບໍ່ສາມາດກູ້ຄືນໄດ້!", async (confirmed) => {
-                if (!confirmed) return;
-                if (db) {
-                    try {
-                        let snapshot = await db.collection("products").where("device_id", "==", "POSXIONG").get();
-                        let batch = db.batch();
-                        snapshot.forEach((doc) => { batch.delete(doc.ref); });
-                        await batch.commit();
-                    } catch (e) {}
-                }
-                excelRows = [];
-                loadInventory();
-                showAlert("ສຳເລັດ", "ລຶບຂໍ້ມູນສິນຄ້າທັງໝົດໃນສາງສຳເລັດຮຽບຮ້ອຍ!", "🗑️");
-            });
-        }
-
-        // 🌟 ຟັງຊັນ "ລຶບຂໍ້ມູນທີ່ເລືອກ" (ກ່ອງທີ 3)
-        function promptDeleteSelectedInventory() {
+        // 🌟 ຟັງຊັນ "ລຶບຂໍ້ມູນ" (ຮອງຮັບທັງລຶບທີ່ເລືອກ ແລະ ລຶບທັງໝົດ)
+        function promptDeleteInventoryAction() {
             let checkboxes = document.querySelectorAll('.inventory-row-checkbox:checked');
-            if (checkboxes.length === 0) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາຕິກເລືອກລາຍການສິນຄ້າທີ່ຕ້ອງການລຶບກ່ອນ!", "⚠️");
-                return;
+            
+            if (checkboxes.length > 0) {
+                // ລຶບສະເພາະລາຍການທີ່ຕິກເລືອກ
+                let idsToDelete = [];
+                checkboxes.forEach(cb => {
+                    idsToDelete.push(cb.getAttribute('data-id'));
+                });
+
+                showCustomConfirm("🗑️ ຢືນຢັນລຶບລາຍການທີ່ເລືອກ", `ທ່ານຕ້ອງການລຶບຂໍ້ມູນສິນຄ້າ ${idsToDelete.length} ລາຍການທີ່ເລືອກແທ້ບໍ?`, async (confirmed) => {
+                    if (!confirmed) return;
+                    if (db) {
+                        try {
+                            let batch = db.batch();
+                            for (let id of idsToDelete) {
+                                let docRef = db.collection("products").doc(id);
+                                batch.delete(docRef);
+                            }
+                            await batch.commit();
+                        } catch (e) {}
+                    }
+
+                    excelRows = excelRows.filter(r => !idsToDelete.includes(r.id));
+                    loadInventory();
+                    let masterCb = document.getElementById('select-all-checkbox');
+                    if (masterCb) masterCb.checked = false;
+                    showAlert("ສຳເລັດ", `ລຶບລາຍການສິນຄ້າທີ່ເລືອກສຳເລັດຮຽບຮ້ອຍແລ້ວ!`, "🗑️");
+                });
+            } else {
+                // ຖ້າບໍ່ໄດ້ຕິກເລືອກຈັກລາຍການ ຈະຖືວ່າລຶບຂໍ້ມູນທັງໝົດໃນສາງ
+                showCustomConfirm("🔥 ຢືນຢັນລຶບຂໍ້ມູນທັງໝົດ", "ທ່ານບໍ່ໄດ້ຕິກເລືອກລາຍການໃດໆ! ທ່ານຕ້ອງການລຶບຂໍ້ມູນສິນຄ້າທັງໝົດໃນສາງແທ້ບໍ?", async (confirmed) => {
+                    if (!confirmed) return;
+                    if (db) {
+                        try {
+                            let snapshot = await db.collection("products").where("device_id", "==", "POSXIONG").get();
+                            let batch = db.batch();
+                            snapshot.forEach((doc) => { batch.delete(doc.ref); });
+                            await batch.commit();
+                        } catch (e) {}
+                    }
+                    excelRows = [];
+                    loadInventory();
+                    showAlert("ສຳເລັດ", "ລຶບຂໍ້ມູນສິນຄ້າທັງໝົດໃນສາງສຳເລັດຮຽບຮ້ອຍ!", "🗑️");
+                });
             }
-
-            let idsToDelete = [];
-            checkboxes.forEach(cb => {
-                idsToDelete.push(cb.getAttribute('data-id'));
-            });
-
-            showCustomConfirm("🗑️ ຢືນຢັນລຶບລາຍການທີ່ເລືອກ", `ທ່ານຕ້ອງການລຶບຂໍ້ມູນສິນຄ້າ ${idsToDelete.length} ລາຍການທີ່ເລືອກແທ້ບໍ?`, async (confirmed) => {
-                if (!confirmed) return;
-                if (db) {
-                    try {
-                        let batch = db.batch();
-                        for (let id of idsToDelete) {
-                            let docRef = db.collection("products").doc(id);
-                            batch.delete(docRef);
-                        }
-                        await batch.commit();
-                    } catch (e) {}
-                }
-
-                excelRows = excelRows.filter(r => !idsToDelete.includes(r.id));
-                loadInventory();
-                let masterCb = document.getElementById('select-all-checkbox');
-                if (masterCb) masterCb.checked = false;
-                showAlert("ສຳເລັດ", `ລຶບລາຍການສິນຄ້າທີ່ເລືອກສຳເລັດຮຽບຮ້ອຍແລ້ວ!`, "🗑️");
-            });
         }
 
         async function loadInventory() {
@@ -1736,9 +1734,6 @@
 
                 html += `
                     <tr class="hover:bg-gray-50 border-b">
-                        <td class="p-3 border-r text-center">
-                            <input type="checkbox" data-id="${row.id}" class="inventory-row-checkbox w-4 h-4 cursor-pointer accent-cyan-600">
-                        </td>
                         <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
                         <td class="p-3 border-r font-bold text-gray-900">${row.code || '-'}</td>
                         <td class="p-3 border-r text-center font-semibold text-purple-700">${formattedDate}</td>
@@ -1746,7 +1741,11 @@
                         <td class="p-3 border-r text-center font-bold text-red-600">${expDateStr}</td>
                         <td class="p-3 border-r text-right text-blue-600 font-semibold">${formatNumberWithCommas(cost)}</td>
                         <td class="p-3 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(price)}</td>
-                        <td class="p-3 text-center text-xs font-bold text-indigo-700">ຍັງເຫຼືອ: ${remainingQty} ອັນ</td>
+                        <td class="p-3 border-r text-center text-xs font-bold text-indigo-700">ຍັງເຫຼືອ: ${remainingQty} ອັນ</td>
+                        <!-- 🌟 ຍ້າຍ Checkbox ມາໄວ້ຫຼັງສຸດ (ຫຼັງຈາກໝາຍເຫດ) -->
+                        <td class="p-3 text-center">
+                            <input type="checkbox" data-id="${row.id}" class="inventory-row-checkbox w-4 h-4 cursor-pointer accent-cyan-600">
+                        </td>
                     </tr>
                 `;
             });
