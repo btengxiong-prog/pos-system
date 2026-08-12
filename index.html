@@ -627,7 +627,6 @@
                     ⚙️ ຈັດການລະບົບ
                 </button>
 
-                <!-- 🌟 ປຸ່ມ QR Code ເຊື່ອມຕໍ່ພະນັກງານ (ເຊື່ອງໄວ້ສຳລັບຢູເຊີທົດລອງ ແລະ ພະນັກງານຂາຍ) -->
                 <button id="header-connect-qr-btn" onclick="openAdminQrModal()" class="hidden w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     📱 QR Code ເຊື່ອມຕໍ່ພະນັກງານ
                 </button>
@@ -1146,23 +1145,17 @@
             return new Date().toISOString().split('T')[0];
         }
 
-        // 🌟 ປັບປຸງການສ້າງ ຫຼື ດຶງ ID ເຄື່ອງ ໃຫ້ຄົງທີ່ຖາວອນຕະຫຼອດ 15 ວັນ (ເປີດຈັກຄັ້ງກໍ່ໃຊ້ ID ເກົ່າ)
+        // 🌟 ລັອກຄ່າ ID ເຄື່ອງໃຫ້ຖາວອນຕະຫຼອດໄປ ໂດຍບໍ່ໃຫ້ສຸ່ມໃໝ່ເວລາ Logout ຫຼື Refresh
         async function initDeviceId() {
             let storedId = localStorage.getItem('pos_permanent_device_id');
             if (!storedId) {
-                // ກວດສອບເບິ່ງວ່າເຄີຍມີ POS- ID ຢູ່ໃນ localStorage ແລ້ວບໍ່
-                let oldId = localStorage.getItem('pos_device_id');
-                if (oldId && oldId.startsWith('POS-')) {
-                    storedId = oldId;
-                } else {
-                    storedId = 'POS-' + Math.floor(1000 + Math.random() * 9000);
-                }
+                storedId = 'POS-' + Math.floor(1000 + Math.random() * 9000);
                 localStorage.setItem('pos_permanent_device_id', storedId);
             }
             deviceId = storedId;
             localStorage.setItem('pos_device_id', deviceId);
 
-            // 🌟 ກວດສອບວັນໝົດອາຍຸ 15 ວັນ (ຖ້າກາຍວັນທີ 15 ໃຫ້ລະງັບການໃຊ້ງານທັນທີ)
+            // ກວດສອບວັນໝົດອາຍຸ 15 ວັນ
             if (db && deviceId.startsWith('POS-')) {
                 try {
                     let docRef = db.collection("devices_registry").doc(deviceId);
@@ -1425,7 +1418,7 @@
 
             let shopName = localStorage.getItem('pos_shop_name_' + deviceId);
             if (shopName && shopName.trim() !== '') {
-                headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ &nbsp; ${shopName}`;
+                headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ &nbsp; ${shopName} (${deviceId})`;
             } else {
                 headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ &nbsp; ${deviceId}`;
             }
@@ -1435,8 +1428,12 @@
             if (event.key === 'Enter') { verifyUnifiedLogin(); }
         }
 
+        // 🌟 ປັບປຸງປຸ່ມ Logout ໃຫ້ລຶບສະເພາະສະຖານະການລັອກອິນ ແຕ່ຮັກສາ ID ເຄື່ອງຖາວອນໄວ້ (ບໍ່ໃຫ້ ID เปลี่ยน)
         function adminLogout() {
-            localStorage.clear();
+            localStorage.removeItem('pos_logged_in');
+            localStorage.removeItem('pos_user_role');
+            localStorage.removeItem('pos_shop_owner');
+            localStorage.removeItem('pos_linked_admin_id');
             location.reload();
         }
 
@@ -1484,6 +1481,7 @@
                 (decodedText) => {
                     deviceId = decodedText.trim();
                     localStorage.setItem('pos_device_id', deviceId);
+                    localStorage.setItem('pos_permanent_device_id', deviceId);
                     localStorage.setItem('pos_logged_in', 'true');
                     closeStaffScanner();
                     let roleModal = document.getElementById('role-select-modal');
