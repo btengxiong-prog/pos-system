@@ -145,7 +145,7 @@
         </div>
     </div>
 
-    <!-- Modal ແກ້ໄຂຂໍ້ມູນຮ້ານ (ປ່ຽນຈາກອັບໂຫຼດ QR ມາເປັນປ້ອນເລກບັນຊີທະນາຄານ) -->
+    <!-- Modal ແກ້ໄຂຂໍ້ມູນຮ້ານ -->
     <div id="edit-user-modal" class="hidden fixed inset-0 bg-black/60 z-[350] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto shadow-2xl space-y-3 text-left">
             <div class="text-3xl text-center">✏️</div>
@@ -227,7 +227,7 @@
 
     <!-- Inventory Modal (ສິນຄ້າຄ້າງສາງ) -->
     <div id="inventory-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-xl max-w-5xl w-full p-6 max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl">
+        <div class="bg-white rounded-xl max-w-6xl w-full p-6 max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl">
             <div class="flex justify-between items-center border-b pb-3">
                 <h3 class="text-xl font-bold text-cyan-800 flex items-center gap-2">
                     <span>📦 ສິນຄ້າຄ້າງສາງ (Inventory Stock)</span>
@@ -240,7 +240,7 @@
             </div>
             
             <div class="overflow-x-auto border rounded-xl">
-                <table class="w-full text-left border-collapse bg-white min-w-[750px]">
+                <table class="w-full text-left border-collapse bg-white min-w-[950px]">
                     <thead>
                         <tr class="bg-cyan-800 text-white text-xs uppercase">
                             <th class="p-3 border-r text-center w-12">ລ/ດ</th>
@@ -250,6 +250,9 @@
                             <th class="p-3 border-r text-center">ວັນໝົດອາຍຸ</th>
                             <th class="p-3 border-r text-right">ລາຄາຊື້</th>
                             <th class="p-3 border-r text-right">ລາຄາຂາຍ</th>
+                            <th class="p-3 border-r text-center">ຈຳນວນ</th>
+                            <th class="p-3 border-r text-center">ສິນຄ້າລວມ</th>
+                            <th class="p-3 border-r text-right">ລວມເງິນ</th>
                             <th class="p-3 border-r text-center">ໝາຍເຫດ</th>
                             <th class="p-3 text-center w-16">
                                 <input type="checkbox" id="select-all-checkbox" onclick="toggleSelectAllInventory(this)" class="w-4 h-4 cursor-pointer accent-cyan-600" title="ເລືອກທັງໝົດ">
@@ -257,7 +260,7 @@
                         </tr>
                     </thead>
                     <tbody id="inventory-tbody" class="divide-y divide-gray-200 text-sm">
-                        <tr><td colspan="9" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>
+                        <tr><td colspan="12" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -363,7 +366,7 @@
         </div>
     </div>
 
-    <!-- 🌟 Popup ເລືອກວິທີຊຳລະເງິນ (ສະແດງເລກບັນຊີທະນາຄານທີ່ປ້ອນໄວ້) -->
+    <!-- 🌟 Popup ເລືອກວິທີຊຳລະເງິນ -->
     <div id="checkout-method-modal" class="hidden fixed inset-0 bg-black/70 z-[340] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
             <div class="text-4xl">💰</div>
@@ -1145,36 +1148,23 @@
             return new Date().toISOString().split('T')[0];
         }
 
-        // 🌟 ປັບປຸງການກວດສອບ ແລະ ດຶງ ID ເຄື່ອງ ໃຫ້ຖາວອນ 100% ໂດຍອ່ານຈາກ Firestore ຖ້າມີການຜູກໄວ້ແລ້ວ ຫຼື ໃຊ້ ID ເດີມຕະຫຼອດ 15 ວັນ
         async function initDeviceId() {
             let storedId = localStorage.getItem('pos_permanent_device_id');
             if (!storedId) {
-                let oldId = localStorage.getItem('pos_device_id');
-                if (oldId && oldId.startsWith('POS-')) {
-                    storedId = oldId;
-                } else {
-                    storedId = 'POS-' + Math.floor(1000 + Math.random() * 9000);
-                }
+                storedId = 'POS-' + Math.floor(1000 + Math.random() * 9000);
                 localStorage.setItem('pos_permanent_device_id', storedId);
             }
             deviceId = storedId;
             localStorage.setItem('pos_device_id', deviceId);
 
-            // ກວດສອບວັນໝົດອາຍຸ 15 ວັນ
             if (db && deviceId.startsWith('POS-')) {
                 try {
                     let docRef = db.collection("devices_registry").doc(deviceId);
                     let docSnap = await docRef.get();
                     if (docSnap.exists) {
                         let data = docSnap.data();
-                        
-                        // 🌟 ຖ້າເຄື່ອງນີ້ຖືກ Admin ອັບເດດເປັນ "ຖາວອນ" ແລ້ວ ໃຫ້ອັບເດດສະຖານະໃນ LocalStorage ໃຫ້ຈົດຈຳຖາວອນ
-                        if (data.type === 'permanent') {
+                        if (data.type === ' permanent') {
                             localStorage.setItem('pos_shop_owner', 'true');
-                            if (data.username) {
-                                localStorage.setItem('pos_shop_pass_' + data.username, data.password);
-                                localStorage.setItem('pos_shop_dev_' + data.username, deviceId);
-                            }
                         } else if (data.type === 'trial' && data.expiry_date) {
                             let expiryDate = new Date(data.expiry_date);
                             let today = new Date();
@@ -1258,7 +1248,6 @@
                 }
             }
 
-            // 🌟 ປຸ່ມ QR Code ເຊື່ອມຕໍ່ພະນັກງານ: ຈະສະແດງສະເພາະ Admin ໃຫຍ່ ຫຼື ເຈົ້າຂອງຮ້ານ (ຖາວອນ) ເທົ່ານັ້ນ
             if (connectQrBtn) {
                 if (userRole === 'admin' || shopOwner === 'true') {
                     connectQrBtn.classList.remove('hidden');
@@ -1448,7 +1437,6 @@
             if (event.key === 'Enter') { verifyUnifiedLogin(); }
         }
 
-        // 🌟 ປັບປຸງປຸ່ມ Logout ໃຫ້ຮັກສາ `pos_permanent_device_id` ໄວ້ຄົງເດີມສະເໝີ
         function adminLogout() {
             localStorage.removeItem('pos_logged_in');
             localStorage.removeItem('pos_user_role');
@@ -1596,8 +1584,9 @@
             let phone = localStorage.getItem('pos_shop_phone_' + targetDevId) || '';
             let username = localStorage.getItem('pos_shop_user_' + targetDevId) || targetDevId;
             let pass = localStorage.getItem('pos_shop_pass_' + targetDevId) || '';
+            let lakAcc = localStorage.getItem('pos_shop_lak_acc_' + targetDevId) || '1006000000470';
+            let thbAcc = localStorage.getItem('pos_shop_thb_acc_' + targetDevId) || '';
 
-            // ດึงຈາກ Firestore ມາສະແດງຜົນຖ່າມີ
             if (db) {
                 try {
                     let docSnap = await db.collection("devices_registry").doc(targetDevId).get();
@@ -1607,6 +1596,8 @@
                         if (data.phone) phone = data.phone;
                         if (data.username) username = data.username;
                         if (data.password) pass = data.password;
+                        if (data.lak_acc) lakAcc = data.lak_acc;
+                        if (data.thb_acc) thbAcc = data.thb_acc;
                     }
                 } catch (e) {}
             }
@@ -1615,6 +1606,8 @@
             document.getElementById('edit-modal-phone').value = phone;
             document.getElementById('edit-modal-username').value = username;
             document.getElementById('edit-modal-password').value = pass;
+            document.getElementById('edit-modal-lak-acc').value = lakAcc;
+            document.getElementById('edit-modal-thb-acc').value = thbAcc;
 
             document.getElementById('edit-user-modal').classList.remove('hidden');
         }
@@ -1628,6 +1621,8 @@
             let phone = document.getElementById('edit-modal-phone').value.trim();
             let username = document.getElementById('edit-modal-username').value.trim().toUpperCase();
             let newPass = document.getElementById('edit-modal-password').value.trim();
+            let lakAcc = document.getElementById('edit-modal-lak-acc').value.trim();
+            let thbAcc = document.getElementById('edit-modal-thb-acc').value.trim();
 
             if (!username || !newPass) {
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ Username ແລະ Password!", "⚠️");
@@ -1640,6 +1635,8 @@
             localStorage.setItem('pos_shop_pass_' + username, newPass);
             localStorage.setItem('pos_shop_pass_' + editingDeviceId, newPass);
             localStorage.setItem('pos_shop_dev_' + username, editingDeviceId);
+            localStorage.setItem('pos_shop_lak_acc_' + editingDeviceId, lakAcc);
+            localStorage.setItem('pos_shop_thb_acc_' + editingDeviceId, thbAcc);
 
             if (db) {
                 try {
@@ -1650,6 +1647,8 @@
                         phone: phone,
                         username: username,
                         password: newPass,
+                        lak_acc: lakAcc,
+                        thb_acc: thbAcc,
                         updated_at: new Date().toISOString()
                     }, { merge: true });
                 } catch (e) {}
@@ -1729,15 +1728,7 @@
 
         function openRegisterModal() {
             let m = document.getElementById('register-payment-modal');
-            if (m) {
-                let lakAcc = localStorage.getItem('pos_shop_lak_acc_' + deviceId) || '1006000000470';
-                let thbAcc = localStorage.getItem('pos_shop_thb_acc_' + deviceId) || '-';
-                let lakElem = document.getElementById('display-lak-acc');
-                let thbElem = document.getElementById('display-thb-acc');
-                if (lakElem) lakElem.innerText = lakAcc;
-                if (thbElem) thbElem.innerText = thbAcc;
-                m.classList.remove('hidden');
-            }
+            if (m) m.classList.remove('hidden');
         }
 
         function closeRegisterModal() {
@@ -1906,9 +1897,10 @@
             }
         }
 
+        // 🌟 ໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ: ປັບປຸງຕາຕະລາງໃຫ້ມີ 11 ຫ້ອງ ຕາມຄວາມຕ້ອງການ
         async function loadInventory() {
             let tbody = document.getElementById('inventory-tbody');
-            tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="12" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
 
             await fetchProductsForGenerator();
 
@@ -1929,7 +1921,7 @@
             }
 
             if (excelRows.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="12" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ</td></tr>`;
                 let masterCb = document.getElementById('select-all-checkbox');
                 if (masterCb) masterCb.checked = false;
                 return;
@@ -1947,10 +1939,12 @@
 
                 let cost = parseFloat(String(row.cost || 0).replace(/,/g, '')) || 0;
                 let price = parseFloat(String(row.price || 0).replace(/,/g, '')) || 0;
+                let totalMoney = cost * initialQty;
                 
                 let currency = row.currency || 'ກີບ'; 
                 let costStr = formatNumberWithCommas(cost) + " " + currency;
                 let priceStr = formatNumberWithCommas(price) + " " + currency;
+                let totalMoneyStr = formatNumberWithCommas(totalMoney) + " " + currency;
 
                 let formattedDate = formatDateToDDMMYYYY(row.dateAdded || new Date().toISOString().split('T')[0]);
                 let formattedMfg = formatDateToDDMMYYYY(row.mfgDate || row.dateAdded);
@@ -1965,7 +1959,10 @@
                         <td class="p-3 border-r text-center font-bold text-red-600">${expDateStr}</td>
                         <td class="p-3 border-r text-right text-blue-600 font-semibold">${costStr}</td>
                         <td class="p-3 border-r text-right text-green-600 font-semibold">${priceStr}</td>
-                        <td class="p-3 border-r text-center text-xs font-bold text-indigo-700">ຍັງເຫຼືອ: ${remainingQty} ອັນ</td>
+                        <td class="p-3 border-r text-center font-bold text-gray-800">${remainingQty}</td>
+                        <td class="p-3 border-r text-center font-bold text-cyan-800">${initialQty}</td>
+                        <td class="p-3 border-r text-right font-extrabold text-indigo-700">${totalMoneyStr}</td>
+                        <td class="p-3 border-r text-center text-xs font-bold text-gray-600">ປົກກະຕິ</td>
                         <td class="p-3 text-center">
                             <input type="checkbox" data-id="${row.id}" class="inventory-row-checkbox w-4 h-4 cursor-pointer accent-cyan-600">
                         </td>
@@ -1996,21 +1993,13 @@
             customConfirmCallback = callback;
         }
 
-        function showAlert(title, message, icon = "✅") {
-            let alertModal = document.getElementById('custom-alert-modal');
-            let alertTitle = document.getElementById('alert-title');
-            let alertMsg = document.getElementById('alert-message');
-            let alertIcon = document.getElementById('alert-icon');
-
-            if (alertTitle) alertTitle.innerText = title;
-            if (alertMsg) alertMsg.innerText = message;
-            if (alertIcon) alertIcon.innerText = icon;
-            if (alertModal) alertModal.classList.remove('hidden');
-        }
-
-        function closeCustomAlert() {
-            let alertModal = document.getElementById('custom-alert-modal');
-            if (alertModal) alertModal.classList.add('hidden');
+        function resolveCustomConfirm(result) {
+            let confirmModal = document.getElementById('custom-confirm-modal');
+            if (confirmModal) confirmModal.classList.add('hidden');
+            if (typeof customConfirmCallback === 'function') {
+                customConfirmCallback(result);
+                customConfirmCallback = null;
+            }
         }
 
         async function openExpiryModal() {
