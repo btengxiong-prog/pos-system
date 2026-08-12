@@ -669,7 +669,6 @@
             <div class="mt-4 p-3 bg-pink-50 rounded-xl border border-pink-200 text-left space-y-2">
                 <label class="block text-xs font-bold text-pink-900">⌨️ ຫຼື ພິມ/ຍິງບາໂຄດດ້ວຍມື ແລ້ວກົດ Enter:</label>
                 <div class="flex gap-2">
-                    <!-- 🌟 ປັບປຸງຊ່ອງປ້ອນ Manual Barcode ໂໝດນຳເຂົ້າ ໃຫ້ເປີດປ໊ອບອាប់ນຳເຂົ້າຊຳ້ໄດ້ທັນທີທຸກຄັ້ງ -->
                     <input type="text" id="manual-barcode-input" onkeydown="handleManualBarcodeInput(event)" placeholder="ປ້ອນລະຫັດ Barcode..." class="flex-1 border rounded-lg px-3 py-2 text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-pink-500 bg-white">
                     <button type="button" onclick="submitManualBarcode()" class="bg-pink-600 hover:bg-pink-700 text-white px-4 py-2 rounded-lg text-xs font-bold cursor-pointer shadow">ຕົກລົງ</button>
                 </div>
@@ -748,7 +747,8 @@
                         </div>
                         <div>
                             <label class="block font-[11px] font-bold text-pink-800 mb-1">✨ ລວມຫົວໜ່ວຍຍ່ອຍ:</label>
-                            <input type="text" id="stock-in-total-calculated" readonly class="w-full border rounded-lg px-2 py-1.5 text-center font-extrabold text-pink-700 text-sm bg-pink-100" value="1">
+                            <!-- 🌟 ປັບປຸງໃຫ້ເປັນ Readonly ບໍ່ໃຫ້ຜູ້ໃຊ້ແກ້ໄຂເອງ ແຕ່ຄຳນວນອອກມາແບບອໍໂຕເລີຍ -->
+                            <input type="text" id="stock-in-total-calculated" readonly class="w-full border rounded-lg px-2 py-1.5 text-center font-extrabold text-pink-700 text-sm bg-pink-100 cursor-not-allowed" value="1">
                         </div>
                     </div>
 
@@ -2117,7 +2117,6 @@
             openStockInScanner();
         }
 
-        // 🌟 ປັບປຸງການສະແກນໂໝດນຳເຂົ້າ ໃຫ້ເປີດປ໊ອບອាប់ນຳເຂົ້າທັນທີທຸກຄັ້ງ ໂດຍບໍ່ສົນໃຈວ່າລະຫັດຈະມີໃນສາງແລ້ວຫຼືບໍ່
         async function openStockInScanner() {
             document.getElementById('stock-in-scanner-container').classList.remove('hidden');
 
@@ -2167,7 +2166,7 @@
             }
         }
 
-        // 🌟 ປັບປຸງການປ້ອນລະຫັດ Barcode ດ້ວຍມືໃນໂໝດນຳເຂົ້າ ໃຫ້ເປີດປ໊ອບອាប់ທັນທີທຸກຄັ້ງໂດຍບໍ່ມີການບລັອກ
+        // 🌟 ປັບປຸງໃຫ້ເປີດປ໊ອບອັບນຳເຂົ້າທັນທີ 100% ໂດຍບໍ່ມີການກວດສອບວ່າເຄີຍມີລະຫັດນີ້ໃນສາງຫຼືບໍ່
         async function submitManualBarcode() {
             let inputElem = document.getElementById('manual-barcode-input');
             let code = inputElem.value.trim();
@@ -2179,6 +2178,14 @@
             closeStockInScanner();
             
             openStockInModal(code, 0);
+        }
+
+        // 🌟 ຟັງຊັນຄຳນວນຈຳນວນລວມຫົວໜ່ວຍຍ່ອຍອັດຕະໂນມັດ (ລາງ x ຈຳນວນຕໍ່ລາງ = ລວມຫົວໜ່ວຍຍ່ອຍ) ປັບໃຫ້ Readonly ບໍ່ໃຫ້ແກ້ໄຂ
+        function calculateTotalUnit() {
+            let qty = parseInt(document.getElementById('stock-in-qty').value) || 1;
+            let unitPerPack = parseInt(document.getElementById('stock-in-unit-per-pack').value) || 0;
+            let total = unitPerPack > 0 ? (qty * unitPerPack) : qty;
+            document.getElementById('stock-in-total-calculated').value = formatNumberWithCommas(total);
         }
 
         async function confirmStockIn() {
@@ -2256,17 +2263,7 @@
             let todayFormatted = `${dd}/${mm}/${yyyy}`;
             document.getElementById('stock-in-import-date').value = todayFormatted;
 
-            if (defaultCost !== null && defaultCost > 0) {
-                document.getElementById('stock-in-cost').value = formatNumberWithCommas(defaultCost);
-            } else {
-                let found = excelRows.find(r => String(r.code).trim().toLowerCase() === code.toLowerCase());
-                if (found) {
-                    document.getElementById('stock-in-cost').value = formatNumberWithCommas(found.cost || 0);
-                } else {
-                    document.getElementById('stock-in-cost').value = "";
-                }
-            }
-
+            document.getElementById('stock-in-cost').value = "";
             document.getElementById('stock-in-modal').classList.add('hidden');
             document.getElementById('stock-in-qty').value = "1";
             document.getElementById('stock-in-unit-per-pack').value = "";
@@ -2964,7 +2961,7 @@
             } else if (reportType === 'quarterly') {
                 document.getElementById('filter-quarterly').classList.remove('hidden');
             } else if (reportType === 'duration') {
-                document.getElementById('filter-duration').classList.remove('hidden');
+                document.getElementById('filter-duration').classList.add('hidden');
             }
             calculateReport();
         }
