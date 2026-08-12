@@ -619,7 +619,6 @@
                     </div>
                 </div>
 
-                <!-- 🌟 ປຸ່ມຈັດການລະບົບ (ສະແດງສະເໝີສຳລັບ Admin ໃຫຍ່) -->
                 <button id="admin-manage-btn" onclick="openAdminManager()" class="hidden w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     ⚙️ ຈັດການລະບົບ
                 </button>
@@ -1145,7 +1144,6 @@
         async function initDeviceId() {
             let storedId = localStorage.getItem('pos_device_id');
             if (!storedId) {
-                // 🌟 สร้าง ID ສະເພາະເຄື່ອງ (POS-XXXX) ສຳລັບເຄື່ອງໃໝ່ທີ່ເຂົ້າທົດລອງໃຊ້ 15 ວັນ
                 storedId = 'POS-' + Math.floor(1000 + Math.random() * 9000);
                 localStorage.setItem('pos_device_id', storedId);
             }
@@ -1196,18 +1194,6 @@
             }
         }
 
-        function formatDeviceSeqId(num) {
-            let blockChar = 'A';
-            let seq = num;
-            if (num > 9999) {
-                let blockIndex = Math.floor((num - 1) / 9999);
-                blockChar = String.fromCharCode(65 + blockIndex);
-                seq = ((num - 1) % 9999) + 1;
-            }
-            let paddedSeq = String(seq).padStart(4, '0');
-            return `POS-${blockChar}${paddedSeq}`;
-        }
-
         function checkRoleAndLicense() {
             let roleModal = document.getElementById('role-select-modal');
             let isLogged = localStorage.getItem('pos_logged_in');
@@ -1231,7 +1217,6 @@
             }
         }
 
-        // 🌟 ຟັງຊັນກົດເຂົ້າໂໝດທົດລອງ 15 ວັນ (ບັນທຶກ ID ເຄື່ອງລົງ Firestore ໃຫ້ Admin ໃຫຍ່ເຫັນ)
         async function selectRole(role) {
             localStorage.setItem('pos_logged_in', 'true');
             let roleModal = document.getElementById('role-select-modal');
@@ -1239,7 +1224,6 @@
             if (roleModal) roleModal.classList.add('hidden');
             if (loginModal) loginModal.classList.add('hidden');
 
-            // ບັນທຶກຂໍ້ມູນເຄື່ອງທົດລອງລົງ Firestore ໃຫ້ Admin ໃຫຍ່ເຫັນ
             if (db && deviceId.startsWith('POS-')) {
                 try {
                     let expiryDate = new Date();
@@ -1330,6 +1314,30 @@
                 return;
             }
 
+            // ກວດສອບ Username/Password ຂອງເຈົ້າຂອງຮ້ານທີ່ Admin ໃຫຍ່ສ້າງໃຫ້
+            let shopPass = localStorage.getItem('pos_shop_pass_' + formattedU);
+            if (shopPass && shopPass === p) {
+                deviceId = formattedU;
+                localStorage.setItem('pos_device_id', deviceId);
+                localStorage.setItem('pos_shop_owner', 'true');
+                localStorage.setItem('pos_logged_in', 'true');
+
+                document.getElementById('unified-login-modal').classList.add('hidden');
+                document.getElementById('role-select-modal').classList.add('hidden');
+
+                let adminBtn = document.getElementById('admin-manage-btn');
+                if (adminBtn) adminBtn.classList.add('hidden');
+
+                let rateBtn = document.getElementById('header-rate-btn');
+                if (rateBtn) rateBtn.classList.remove('hidden');
+                let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
+                if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
+                document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ເຈົ້າຂອງຮ້ານ [${deviceId}] (Shop Owner Admin)`;
+                updateHeaderTitle();
+                checkAdminButtonVisibility();
+                return;
+            }
+
             showAlert("ຜິດພາດ", "Username ຫຼື Password ບໍ່ຖືກຕ້ອງ!", "❌");
         }
 
@@ -1343,11 +1351,11 @@
                 return;
             }
 
-            let shopName = localStorage.getItem('pos_shop_name_POSXIONG');
+            let shopName = localStorage.getItem('pos_shop_name_' + deviceId);
             if (shopName && shopName.trim() !== '') {
                 headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ &nbsp; ${shopName}`;
             } else {
-                headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ &nbsp; POSXIONG`;
+                headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ &nbsp; ${deviceId}`;
             }
         }
 
@@ -1433,7 +1441,7 @@
             document.getElementById('admin-manager-modal').classList.add('hidden');
         }
 
-        // 🌟 ຟັງຊັນໂຫຼດລາຍຊື່ເຄື່ອງທັງໝົດທີ່ເຂົ້າມາໃນລະບົບ (Admin Manager)
+        // 🌟 ຟັງຊັນໂຫຼດລາຍຊື່ເຄື່ອງ ແລະ ອັບເດດສະຖານະເປັນຖາວອນ
         async function loadAllDevices() {
             let container = document.getElementById('device-list-container');
             let datalist = document.getElementById('trial-devices-list');
@@ -1448,11 +1456,16 @@
                     
                     snapshot.forEach(doc => {
                         let dev = doc.data();
+                        let isPermanent = dev.type === 'permanent';
+                        let badgeHtml = isPermanent ? 
+                            `<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded ml-2 font-semibold">✅ ຖາວອນ</span>` : 
+                            `<span class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded ml-2 font-semibold">⏳ ທົດລອງ 15 ວັນ</span>`;
+
                         devicesHtml += `
                             <div class="p-3 bg-white border rounded-xl flex justify-between items-center shadow-sm">
                                 <div>
                                     <span class="font-mono font-bold text-blue-600">${dev.device_id}</span>
-                                    <span class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded ml-2 font-semibold">ທົດລອງ 15 ວັນ</span>
+                                    ${badgeHtml}
                                     <div class="text-[11px] text-gray-500 mt-1">ວັນທີໝົດອາຍຸ: ${dev.expiry_date || '-'}</div>
                                 </div>
                                 <button onclick="document.getElementById('new-target-device').value='${dev.device_id}';" class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer">ເລືອກ ID ນີ້</button>
@@ -1474,9 +1487,10 @@
             }
         }
 
+        // 🌟 ຟັງຊັນສ້າງ Username/Password ພ້ອມອັບເດດສະຖານະເປັນ "ຖາວອນ" (Permanent) ໃນ Firestore 
         async function adminCreateUser() {
             let targetDev = document.getElementById('new-target-device').value.trim().toUpperCase();
-            let userU = document.getElementById('new-admin-user').value.trim();
+            let userU = document.getElementById('new-admin-user').value.trim().toUpperCase();
             let userP = document.getElementById('new-admin-pass').value.trim();
 
             if (!targetDev || !userU || !userP) {
@@ -1484,15 +1498,27 @@
                 return;
             }
 
-            localStorage.setItem('pos_shop_name_' + targetDev, targetDev);
+            localStorage.setItem('pos_shop_name_' + targetDev, userU);
+            localStorage.setItem('pos_shop_pass_' + userU, userP);
             localStorage.setItem('pos_shop_pass_' + targetDev, userP);
+
+            if (db) {
+                try {
+                    await db.collection("devices_registry").doc(targetDev).set({
+                        device_id: targetDev,
+                        type: 'permanent',
+                        username: userU,
+                        updated_at: new Date().toISOString()
+                    }, { merge: true });
+                } catch (e) {}
+            }
 
             document.getElementById('new-target-device').value = '';
             document.getElementById('new-admin-user').value = '';
             document.getElementById('new-admin-pass').value = '';
 
             await loadAllDevices();
-            showAlert("ສຳເລັດ", `ສ້າງບັນຊີເຈົ້າຂອງຮ້ານ [${userU}] ສຳເລັດຮຽບຮ້ອຍ!`, "✅");
+            showAlert("ສຳເລັດ", `ສ້າງບັນຊີ ແລະ ອັບເດດເຄື່ອງ [${targetDev}] ເປັນຖາວອນສຳເລັດຮຽບຮ້ອຍ!`, "✅");
         }
 
         function handleQrImageUpload(event, type) {
