@@ -1204,6 +1204,7 @@
                             if (!document.getElementById('expiry-modal').classList.contains('hidden')) {
                                 loadExpiryCheck();
                             }
+                            renderExcelTable();
                         });
                     })
                     .on('postgres_changes', { event: '*', schema: 'public', table: 'sales_history' }, payload => {
@@ -2428,6 +2429,48 @@
                 event.preventDefault();
                 openCheckoutMethodModal();
             }
+        }
+
+        async function checkStockAvailability() {
+            await fetchProductsForGenerator();
+            let soldQtyMap = {};
+            if (supabaseClient) {
+                try {
+                    let { data: cloudSales } = await supabaseClient.from('sales_history').select('*');
+                    if (cloudSales) {
+                        cloudSales.forEach(tx => {
+                            if (tx.device_id && String(tx.device_id).toUpperCase() === String(deviceId).toUpperCase()) {
+                                if (tx.items && Array.isArray(tx.items)) {
+                                    tx.items.forEach(it => {
+                                        let cKey = String(it.code || '').trim().toLowerCase();
+                                        soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
+                                    });
+                                }
+                            }
+                        });
+                    }
+                } catch (e) {}
+            }
+
+            let stockMap = {};
+            excelRows.forEach(row => {
+                let cKey = String(row.code || '').trim().toLowerCase();
+                let initial = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1;
+                stockMap[cKey] = (stockMap[cKey] || 0) + initial;
+            });
+
+            for (let item of cart) {
+                let cKey = String(item.code || '').trim().toLowerCase();
+                let totalStock = stockMap[cKey] || 0;
+                let totalSold = soldQtyMap[cKey] || 0;
+                let remaining = totalStock - totalSold;
+                if (remaining < 0) remaining = 0;
+
+                if (item.qty > remaining) {
+                    return { ok: false, name: item.name, requested: item.qty, available: remaining };
+                }
+            }
+            return { ok: true };
         }
 
         // --- 🌟 ຟັງຊັນຈັດການປ໋ອບອັບຊຳລະເງິນ ແລະ ສະແດງຮູບ QR Code ຕາມໂໝດທີ່ເລືອກ ---
