@@ -1165,15 +1165,27 @@
             return new Date().toISOString().split('T')[0];
         }
 
-        // 🌟 ບັງຄັບໃຫ້ທຸກເຄື່ອງໃຊ້ ID ຫຼັກໂຕດຽວກັນ (Shared Store ID = POSXIONG) 100%
-        let deviceId = 'POSXIONG';
+        // 🌟 ບັງຄັບໃຫ້ທຸກເຄື່ອງໃຊ້ ID ຫຼັກໂຕດຽວກັນ (Shared Store ID = POSXIONG) ເພື່ອໃຫ້ 3 ເຄື່ອງເຫັນຂໍ້ມູນກົງກັນ 100%
+        let deviceId = localStorage.getItem('pos_current_username') || localStorage.getItem('pos_linked_admin_id') || localStorage.getItem('pos_shared_store_id') || 'POSXIONG';
 
         async function initDeviceId() {
-            deviceId = 'POSXIONG';
+            let currentUsr = localStorage.getItem('pos_current_username');
+            let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
+            let sharedStoreId = localStorage.getItem('pos_shared_store_id');
+            
+            if (currentUsr) {
+                deviceId = currentUsr;
+            } else if (linkedAdminId) {
+                deviceId = linkedAdminId;
+            } else if (sharedStoreId) {
+                deviceId = sharedStoreId;
+            } else {
+                deviceId = 'POSXIONG'; // ບັງຄັບໃຊ້ ID ໂຕດຽວກັນເປັນຄ່າເລີ່ມຕົ້ນຂອງທຸກເຄື່ອງ
+                localStorage.setItem('pos_shared_store_id', deviceId);
+            }
             localStorage.setItem('pos_device_id', deviceId);
-            localStorage.setItem('pos_shared_store_id', deviceId);
 
-            if (supabaseClient) {
+            if (supabaseClient && deviceId) {
                 try {
                     let { data: existing } = await supabaseClient.from('licenses').select('*').eq('device_id', deviceId).single();
                     if (!existing) {
@@ -1230,6 +1242,27 @@
         }
 
         async function checkTrialLicense() {
+            let userRole = localStorage.getItem('pos_user_role');
+            let shopOwner = localStorage.getItem('pos_shop_owner');
+            let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
+
+            if (userRole === 'admin' || shopOwner === 'true' || linkedAdminId) {
+                checkRoleAndLicense();
+                return;
+            }
+
+            if (supabaseClient && deviceId) {
+                try {
+                    let { data } = await supabaseClient.from('licenses').select('*').eq('device_id', deviceId).single();
+                    if (data) {
+                        if (data.status === 'deleted') {
+                            alert("⚠️ ບັນຊີນີ້ຖືກລຶບຖາວອນແລ້ວ! ບໍ່ສາມາດນຳໃຊ້ລະບົບໄດ້.");
+                            document.body.innerHTML = `<div style="text-align:center; margin-top:20vh; font-family:sans-serif;"><h2>❌ ບັນຊີນີ້ຖືກລະງັບ/ລຶບຖາວອນ</h2><p>ກະລຸນາຕິດຕໍ່ຜູ້ພັດທະນາ</p></div>`;
+                            return;
+                        }
+                    }
+                } catch (e) {}
+            }
             checkRoleAndLicense();
         }
 
@@ -1272,6 +1305,9 @@
 
             if (u === "POSXIONG" && p === "POS@21082007") {
                 localStorage.setItem('pos_user_role', 'admin');
+                localStorage.setItem('pos_current_username', 'POSXIONG');
+                localStorage.setItem('pos_shared_store_id', 'POSXIONG');
+                localStorage.setItem('pos_device_id', 'POSXIONG');
                 deviceId = 'POSXIONG';
                 document.getElementById('unified-login-modal').classList.add('hidden');
                 document.getElementById('role-select-modal').classList.add('hidden');
@@ -1290,10 +1326,15 @@
             let formattedU = u.toUpperCase();
             let storedPass = localStorage.getItem('pos_shop_pass_' + formattedU);
 
-            if (storedPass && storedPass === p || p === "POS@21082007") {
+            if (storedPass && storedPass === p) {
+                currentUsername = formattedU;
                 deviceId = formattedU;
+                localStorage.setItem('pos_current_username', currentUsername);
+                localStorage.setItem('pos_shared_store_id', deviceId);
                 localStorage.setItem('pos_device_id', deviceId);
                 localStorage.setItem('pos_shop_owner', 'true');
+                localStorage.removeItem('pos_user_role');
+                localStorage.removeItem('pos_linked_admin_id');
 
                 document.getElementById('unified-login-modal').classList.add('hidden');
                 document.getElementById('role-select-modal').classList.add('hidden');
@@ -1303,10 +1344,39 @@
                 if (rateBtn) rateBtn.classList.remove('hidden');
                 let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
                 if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
-                document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ເຈົ້າຂອງຮ້ານ [${deviceId}] (Shop Owner Admin)`;
+                document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ເຈົ້າຂອງຮ້ານ [${currentUsername}] (Shop Owner Admin)`;
                 updateHeaderTitle();
                 location.reload();
                 return;
+            }
+
+            if (supabaseClient) {
+                try {
+                    let { data } = await supabaseClient.from('licenses').select('*').eq('device_id', formattedU).single();
+                    if (data && (!storedPass || p === formattedU || p === data.device_id)) {
+                        currentUsername = data.device_id;
+                        deviceId = data.device_id;
+                        localStorage.setItem('pos_current_username', currentUsername);
+                        localStorage.setItem('pos_shared_store_id', deviceId);
+                        localStorage.setItem('pos_device_id', deviceId);
+                        localStorage.setItem('pos_shop_owner', 'true');
+                        localStorage.removeItem('pos_user_role');
+                        localStorage.removeItem('pos_linked_admin_id');
+
+                        document.getElementById('unified-login-modal').classList.add('hidden');
+                        document.getElementById('role-select-modal').classList.add('hidden');
+                        let adminBtn = document.getElementById('admin-manage-btn');
+                        if (adminBtn) adminBtn.classList.add('hidden');
+                        let rateBtn = document.getElementById('header-rate-btn');
+                        if (rateBtn) rateBtn.classList.remove('hidden');
+                        let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
+                        if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
+                        document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ເຈົ້າຂອງຮ້ານ [${currentUsername}] (Shop Owner Admin)`;
+                        updateHeaderTitle();
+                        location.reload();
+                        return;
+                    }
+                } catch (e) {}
             }
 
             showAlert("ຜິດພາດ", "Username ຫຼື Password ບໍ່ຖືກຕ້ອງ!", "❌");
@@ -1337,7 +1407,13 @@
         }
 
         function adminLogout() {
-            localStorage.clear();
+            localStorage.removeItem('pos_user_role');
+            localStorage.removeItem('pos_license_status');
+            localStorage.removeItem('pos_current_username');
+            localStorage.removeItem('pos_shop_owner');
+            localStorage.removeItem('pos_linked_admin_id');
+            localStorage.removeItem('pos_device_id');
+            localStorage.removeItem('pos_shared_store_id');
             location.reload();
         }
 
@@ -1384,12 +1460,16 @@
                 { fps: 10, qrbox: 250 },
                 (decodedText) => {
                     let cleanText = decodedText.trim();
-                    if (cleanText.length > 0) {
+                    if (cleanText.startsWith('POS-') || cleanText.length <= 15) {
+                        localStorage.setItem('pos_linked_admin_id', cleanText);
+                        localStorage.setItem('pos_shared_store_id', cleanText);
                         deviceId = cleanText;
                         localStorage.setItem('pos_device_id', deviceId);
                         closeStaffScanner();
                         showAlert("ສຳເລັດ", `ເຊື່ອມຕໍ່ກັບຮ້ານ Admin [${cleanText}] ສຳເລັດຮຽບຮ້ອຍ!`, "🔗");
                         setTimeout(() => { location.reload(); }, 1500);
+                    } else {
+                        showAlert("ແຈ້ງເຕືອນ", "QR Code ນີ້ບໍ່ແມ່ນຂອງຮ້ານ Admin POS!", "⚠️");
                     }
                 },
                 (err) => {}
@@ -1418,7 +1498,54 @@
         async function loadAllDevices() {
             let container = document.getElementById('device-list-container');
             container.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງໂຫຼດຂໍ້ມູນ...</p>`;
-            container.innerHTML = `<div class="p-3 bg-gray-50 border rounded-xl"><span class="font-bold text-blue-800">ID ປັດຈຸບັນ: ${deviceId}</span></div>`;
+            
+            let licenses = [];
+            if (supabaseClient) {
+                try {
+                    let { data, error } = await supabaseClient.from('licenses').select('*');
+                    if (!error && data) licenses = data;
+                } catch (e) {}
+            }
+
+            let datalist = document.getElementById('trial-devices-list');
+            if (datalist) datalist.innerHTML = '';
+
+            let currentDevId = deviceId;
+            if (currentDevId && !licenses.some(l => l.device_id === currentDevId)) {
+                licenses.unshift({ device_id: currentDevId, status: 'trial' });
+            }
+
+            if (licenses.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-500 py-4">ຍັງບໍ່ມີບັນຊີໃນລະບົບ</p>`;
+                return;
+            }
+
+            let html = '';
+            licenses.forEach(lic => {
+                if (datalist) {
+                    let opt = document.createElement('option');
+                    opt.value = lic.device_id;
+                    datalist.appendChild(opt);
+                }
+
+                let username = lic.device_id;
+                let pass = localStorage.getItem('pos_shop_pass_' + username) || '-';
+                
+                let displayId = lic.device_id; 
+                let statusBadge = lic.status === 'deleted' ? `<span class="text-red-600 font-bold">[ລຶບຖາວອນ]</span>` : (lic.status === 'trial' ? `<span class="text-amber-600 font-bold">[ທົດລອງ]</span>` : `<span class="text-green-600 font-bold">[ຖາວອນ/Active]</span>`);
+
+                html += `
+                    <div class="flex justify-between items-center p-3 bg-gray-50 border rounded-xl gap-2">
+                        <div class="flex-1">
+                            <span class="font-bold text-blue-800">ID: ${displayId}</span> ${statusBadge}<br>
+                            Username: <span class="font-semibold text-gray-700">${username}</span> | 
+                            Password: <span class="font-mono text-green-700">${pass}</span>
+                        </div>
+                        <button onclick="promptEditUser('${lic.device_id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow">✏️ ແກ້ໄຂ</button>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
         }
 
         // --- 🌟 ຟັງຊັນຈັດການອັບໂຫຼດຮູບ QR Code (Base64) ---
@@ -1475,6 +1602,8 @@
         async function saveEditedUser() {
             let shopName = document.getElementById('edit-modal-shop-name').value.trim();
             let newPass = document.getElementById('edit-modal-password').value.trim();
+            let actionVal = document.getElementById('edit-modal-action-select').value;
+            let extendDaysInput = parseInt(document.getElementById('edit-modal-extend-days').value) || 15;
 
             if (!newPass) {
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ Password!", "⚠️");
@@ -1491,9 +1620,37 @@
                 localStorage.setItem('pos_shop_thb_qr_' + editingDeviceId, window.tempThbQrBase64);
             }
 
+            let updatePayload = {
+                device_id: editingDeviceId,
+                updated_at: new Date().toISOString()
+            };
+
+            if (actionVal === 'to_trial') {
+                let expiredDate = new Date();
+                expiredDate.setDate(expiredDate.getDate() - 1);
+                updatePayload.status = 'trial';
+                updatePayload.trial_until = expiredDate.toISOString();
+            } else if (actionVal === 'extend_trial') {
+                let extendDate = new Date();
+                extendDate.setDate(extendDate.getDate() + extendDaysInput);
+                updatePayload.status = 'trial';
+                updatePayload.trial_until = extendDate.toISOString();
+            } else if (actionVal === 'delete_permanent') {
+                updatePayload.status = 'deleted';
+            } else if (actionVal === 'restore_user') {
+                updatePayload.status = 'active';
+            }
+
+            if (supabaseClient) {
+                try {
+                    await supabaseClient.from('licenses').upsert([updatePayload], { onConflict: 'device_id' });
+                } catch (e) {}
+            }
+
             closeEditUserModal();
             updateHeaderTitle();
             showAlert("ສຳເລັດ", "ບັນທຶກຂໍ້ມູນຮ້ານ ແລະ ບັນຊີສຳເລັດຮຽບຮ້ອຍ!", "✅");
+            loadAllDevices();
         }
 
         function toggleCustomDropdown(menuId, event) {
@@ -1593,6 +1750,9 @@
                     let today = new Date().toISOString().split('T')[0];
                     let parsedDate = dateVal ? parseDDMMYYYYToISO(dateVal) : today;
 
+                    let savedRows = localStorage.getItem('pos_saved_excel_rows');
+                    let existingRows = savedRows ? JSON.parse(savedRows) : [];
+
                     let newRows = [];
                     for (let i = 1; i < jsonData.length; i++) {
                         let r = jsonData[i];
@@ -1621,8 +1781,9 @@
                         }
                     }
 
-                    excelRows = [...excelRows, ...newRows];
-                    saveExcelData();
+                    excelRows = [...existingRows, ...newRows];
+                    localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
+                    
                     showAlert("ສຳເລັດ", `ນຳເຂົ້າຂໍ້ມູນ Excel ສຳເລັດ ${newRows.length} ລາຍການ!`, "📁");
                     openExcelGenerator();
                 } catch (err) {
@@ -1666,6 +1827,16 @@
                     }
                 } catch (e) {}
             }
+
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            localHistory.forEach(tx => {
+                if (tx.items) {
+                    tx.items.forEach(it => {
+                        let cKey = String(it.code || '').trim().toLowerCase();
+                        soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
+                    });
+                }
+            });
 
             if (excelRows.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ</td></tr>`;
@@ -1730,6 +1901,7 @@
 
                 let rowId = targetRow.id;
                 excelRows.splice(index, 1);
+                localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
 
                 if (supabaseClient && rowId) {
                     try {
@@ -1737,7 +1909,6 @@
                     } catch (e) {}
                 }
 
-                saveExcelData();
                 loadInventory();
                 showAlert("ສຳເລັດ", "ລຶບສິນຄ້າອອກຈາກສາງສຳເລັດຮຽບຮ້ອຍ!", "🗑️");
             };
@@ -2004,7 +2175,26 @@
                 expiryDate: calculatedExpiryDate
             });
 
-            saveExcelData();
+            localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
+
+            if (supabaseClient) {
+                try {
+                    await supabaseClient.from('products').insert([{
+                        id: newRowId,
+                        device_id: deviceId,
+                        code: currentStockInCode,
+                        cost: costVal,
+                        original_cost: costVal,
+                        profit_pct: 20,
+                        price: priceVal,
+                        qty: qtyVal,
+                        date_added: today,
+                        mfg_date: isExpiryMode ? isoMfgDate : today,
+                        expiry_date: calculatedExpiryDate || null,
+                        updated_at: new Date().toISOString()
+                    }]);
+                } catch (e) {}
+            }
 
             closeStockInModal();
             showAlert("ສຳເລັດ", `ນຳເຂົ້າສິນຄ້າ [ຈຳນວນ: ${qtyVal}] ສຳເລັດຮຽບຮ້ອຍ!`, "✅");
@@ -2062,6 +2252,16 @@
                     }
                 } catch (e) {}
             }
+
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            localHistory.forEach(tx => {
+                if (tx.items) {
+                    tx.items.forEach(it => {
+                        let cKey = String(it.code || '').trim().toLowerCase();
+                        soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
+                    });
+                }
+            });
 
             let cKey = String(code || '').trim().toLowerCase();
             let totalStock = 0;
@@ -2330,6 +2530,16 @@
                 } catch (e) {}
             }
 
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            localHistory.forEach(tx => {
+                if (tx.items) {
+                    tx.items.forEach(it => {
+                        let cKey = String(it.code || '').trim().toLowerCase();
+                        soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
+                    });
+                }
+            });
+
             let targetItem = cart[index];
             let cKey = String(targetItem.code || '').trim().toLowerCase();
             let totalStock = 0;
@@ -2451,6 +2661,16 @@
                     }
                 } catch (e) {}
             }
+
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            localHistory.forEach(tx => {
+                if (tx.items) {
+                    tx.items.forEach(it => {
+                        let cKey = String(it.code || '').trim().toLowerCase();
+                        soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
+                    });
+                }
+            });
 
             let stockMap = {};
             excelRows.forEach(row => {
@@ -2593,6 +2813,10 @@
                 payment_method: payMode
             };
 
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            localHistory.unshift(txData);
+            localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
+
             if (supabaseClient) {
                 try {
                     await supabaseClient.from('sales_history').insert([{
@@ -2665,6 +2889,14 @@
                     }
                 } catch (err) {}
             }
+
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            localHistory.forEach(tx => { 
+                let key = tx.id || tx.created_at;
+                if (!combinedMap.has(key)) {
+                    combinedMap.set(key, tx); 
+                }
+            });
 
             globalHistoryList = Array.from(combinedMap.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
@@ -2769,6 +3001,17 @@
                 } catch (e) {}
             }
 
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            localHistory.forEach(tx => {
+                if (!allSales.some(s => s.created_at === tx.created_at)) {
+                    allSales.push({
+                        total_cost: tx.total_cost || 0,
+                        total: tx.total || 0,
+                        created_at: tx.created_at
+                    });
+                }
+            });
+
             allSales.forEach(tx => {
                 let txDate = new Date(tx.created_at);
                 if (isNaN(txDate)) return;
@@ -2834,7 +3077,7 @@
             if (supabaseClient) {
                 try {
                     let { data } = await supabaseClient.from('products').select('*');
-                    if (data) {
+                    if (data && data.length > 0) {
                         let myData = data.filter(item => String(item.device_id).toUpperCase() === String(deviceId).toUpperCase());
                         excelRows = myData.map(item => ({
                             id: item.id || ('ROW-' + Math.random().toString(36).substring(2, 6)),
@@ -2848,11 +3091,13 @@
                             mfgDate: item.mfg_date || '',
                             expiryDate: item.expiry_date || ''
                         }));
+                        localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
                         return;
                     }
                 } catch (e) {}
             }
-            excelRows = [];
+            let savedRows = localStorage.getItem('pos_saved_excel_rows');
+            excelRows = savedRows ? JSON.parse(savedRows) : [];
         }
 
         function renderExcelTable() {
@@ -2925,6 +3170,7 @@
             excelRows = [];
             renderExcelTable(); 
             document.getElementById('excel-print-area').classList.add('hidden');
+            localStorage.removeItem('pos_saved_excel_rows');
 
             if (supabaseClient) {
                 try {
@@ -3093,6 +3339,8 @@
                     updated_at: new Date().toISOString()
                 };
             });
+
+            localStorage.setItem('pos_saved_excel_rows', JSON.stringify(validRows));
             
             if (supabaseClient) {
                 try {
