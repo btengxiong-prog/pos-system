@@ -362,7 +362,7 @@
 
             <div class="flex gap-2 pt-2">
                 <button onclick="window.print()" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">🖨️ ພິມລາຍງານ</button>
-                <button onclick="closeExpiryModal()" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ປิด</button>
+                <button onclick="closeExpiryModal()" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ປິດ</button>
             </div>
         </div>
     </div>
@@ -1443,7 +1443,7 @@
             
             let userRole = localStorage.getItem('pos_user_role');
             if (userRole === 'admin') {
-                headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Clean Main Code)`;
+                headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Safe Hybrid Storage)`;
                 return;
             }
 
@@ -1830,6 +1830,7 @@
                     }
 
                     excelRows = [...excelRows, ...newRows];
+                    localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
                     
                     showAlert("ສຳເລັດ", `ນຳເຂົ້າຂໍ້ມູນ Excel ສຳເລັດ ${newRows.length} ລາຍການ!`, "📁");
                     openExcelGenerator();
@@ -1856,7 +1857,7 @@
             document.getElementById('inventory-modal').classList.add('hidden');
         }
 
-        // 🌟 ຟັງຊັນໂຫຼດສິນຄ້າໃນສາງ ໂດຍດຶງຜ່ານ Hybrid Safe Fallback (Cloud First + LocalStorage Fallback)
+        // 🌟 ຟັງຊັນໂຫຼດສິນຄ້າໃນສາງແບບ Hybrid Safety Fallback (ດຶງ Cloud ກ່ອນ ຖ້າບໍ່ໄດ້ ດຶງ localStorage ມາສະແດງທັນທີ)
         async function loadInventory() {
             let tbody = document.getElementById('inventory-tbody');
             tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
@@ -3336,12 +3337,13 @@
             document.getElementById('excel-print-area').classList.add('hidden');
         }
 
+        // 🌟 ຟັງຊັນ Safe Hybrid Fallback ສຳລັບ fetchProductsForGenerator
         async function fetchProductsForGenerator() {
             let cloudRows = [];
             if (supabaseClient) {
                 try {
                     let { data, error } = await supabaseClient.from('products').select('*').order('updated_at', { ascending: false });
-                    if (!error && data) {
+                    if (!error && data && data.length > 0) {
                         cloudRows = data.map(item => ({
                             id: item.id || ('ROW-' + Math.random().toString(36).substring(2, 6)),
                             device_id: item.device_id || deviceId,
@@ -3358,7 +3360,14 @@
                     }
                 } catch (e) {}
             }
-            excelRows = cloudRows;
+
+            if (cloudRows.length > 0) {
+                excelRows = cloudRows;
+                localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
+            } else {
+                let savedRows = localStorage.getItem('pos_saved_excel_rows');
+                excelRows = savedRows ? JSON.parse(savedRows) : [];
+            }
         }
 
         function renderExcelTable() {
@@ -3432,6 +3441,7 @@
 
         async function clearUnsavedRows() {
             excelRows = [];
+            localStorage.removeItem('pos_saved_excel_rows');
             if (supabaseClient) {
                 try { await supabaseClient.from('products').delete().neq('id', '0'); } catch (e) {}
             }
@@ -3601,6 +3611,8 @@
                     updated_at: new Date().toISOString()
                 };
             });
+
+            localStorage.setItem('pos_saved_excel_rows', JSON.stringify(validRows));
             
             if (supabaseClient) {
                 try {
