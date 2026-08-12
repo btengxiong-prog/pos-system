@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ລະບົບຂາຍເຄື່ອງ POS - Independent Global Shared</title>
+    <title>ລະບົບຂາຍເຄື່ອງ POS - Safe Hybrid Storage</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Html5-qrcode CDN -->
@@ -593,7 +593,7 @@
     <header class="bg-[#1e3a8a] text-white py-5 shadow-lg">
         <div class="container mx-auto px-4 text-center">
             <h1 id="main-header-title" class="text-2xl md:text-3xl font-bold flex items-center justify-center gap-2">
-                🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Independent Global Shared)
+                🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Safe Hybrid Storage)
             </h1>
             <div class="mt-1.5 text-xs md:text-sm text-yellow-300 font-semibold">
                 ✨ ວ່ອງໄວ ທັນໃຈ, ຍອດເງິນຖືກຕ້ອງ ຊັດເຈນ 100%, ບໍ່ເສຍເວລາ — ໃຜກໍ່ຂາຍເປັນ ບໍ່ມີພື້ນຖານໄອທີກໍ່ໃຊ້ໄດ້ສະບາຍ!
@@ -1443,7 +1443,7 @@
             
             let userRole = localStorage.getItem('pos_user_role');
             if (userRole === 'admin') {
-                headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Independent Global Shared)`;
+                headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Safe Hybrid Storage)`;
                 return;
             }
 
@@ -1800,6 +1800,9 @@
                     let today = new Date().toISOString().split('T')[0];
                     let parsedDate = dateVal ? parseDDMMYYYYToISO(dateVal) : today;
 
+                    let savedRows = localStorage.getItem('pos_saved_excel_rows');
+                    let existingRows = savedRows ? JSON.parse(savedRows) : [];
+
                     let newRows = [];
                     for (let i = 1; i < jsonData.length; i++) {
                         let r = jsonData[i];
@@ -1829,14 +1832,16 @@
                         }
                     }
 
-                    excelRows = [...excelRows, ...newRows];
+                    excelRows = [...existingRows, ...newRows];
+                    localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
+                    
                     showAlert("ສຳເລັດ", `ນຳເຂົ້າຂໍ້ມູນ Excel ສຳເລັດ ${newRows.length} ລາຍການ!`, "📁");
                     openExcelGenerator();
                 } catch (err) {
                     showAlert("ຜິດພາດ", "ບໍ່ສາມາດອ່ານໄຟລ໌ Excel ນี้ໄດ້!", "❌");
                 }
             };
-            reader.readAsDataURL(file);
+            reader.readAsArrayBuffer(file);
         }
 
         // --- CORE POS LOGIC ---
@@ -1855,7 +1860,7 @@
             document.getElementById('inventory-modal').classList.add('hidden');
         }
 
-        // 🌟 ຟັງຊັນໂຫຼດສິນຄ້າໃນສາງ (Independent Global Shared - ບໍ່ສົນໃຈ ID ເຄື່ອງ)
+        // 🌟 ຟັງຊັນ Hybrid Safe Fallback: ດຶງ Cloud ກ່ອນ ຖ້າ Cloud ບໍ່ມີ/ເນັດຫຼຸດ ໃຫ້ດຶງ localStorage ມາສະແດງທັນທີ (ບໍ່ໃຫ້ຫວ່າງເປົ່າ)
         async function loadInventory() {
             let tbody = document.getElementById('inventory-tbody');
             tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
@@ -1863,6 +1868,9 @@
             await fetchProductsForGenerator();
 
             let combinedSalesMap = new Map();
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            localHistory.forEach(tx => combinedSalesMap.set(tx.id || tx.created_at, tx));
+
             if (supabaseClient) {
                 try {
                     let { data: cloudSales } = await supabaseClient.from('sales_history').select('*');
@@ -1951,6 +1959,7 @@
                 if (!confirmed) return;
 
                 excelRows = excelRows.filter(r => r.id !== rowId);
+                localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
 
                 if (supabaseClient && rowId) {
                     try {
@@ -2032,6 +2041,7 @@
                 let idsToDelete = Array.from(checkedBoxes).map(cb => cb.value);
 
                 excelRows = excelRows.filter(r => !idsToDelete.includes(r.id));
+                localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
 
                 if (supabaseClient) {
                     try {
@@ -2294,6 +2304,7 @@
             };
 
             excelRows.push(newProductObj);
+            localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
 
             if (supabaseClient) {
                 try {
@@ -2354,6 +2365,9 @@
             await fetchProductsForGenerator();
             
             let combinedSalesMap = new Map();
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            localHistory.forEach(tx => combinedSalesMap.set(tx.id || tx.created_at, tx));
+
             if (supabaseClient) {
                 try {
                     let { data: cloudSales } = await supabaseClient.from('sales_history').select('*');
@@ -3300,12 +3314,13 @@
             document.getElementById('excel-print-area').classList.add('hidden');
         }
 
+        // 🌟 Safe Hybrid Safety Fallback: ດຶງ Cloud ກ່ອນ ຖ້າບໍ່ມີ/ເນັດຫຼຸດ ໃຫ້ດຶງ localStorage ມາສະແດງທັນທີ (ຮັບປະກັນບໍ່ໃຫ້ຕາຕະລາງຫວ່າງເປົ່າ)
         async function fetchProductsForGenerator() {
             let cloudRows = [];
             if (supabaseClient) {
                 try {
                     let { data, error } = await supabaseClient.from('products').select('*').order('updated_at', { ascending: false });
-                    if (!error && data) {
+                    if (!error && data && data.length > 0) {
                         cloudRows = data.map(item => ({
                             id: item.id || ('ROW-' + Math.random().toString(36).substring(2, 6)),
                             device_id: 'SHARED',
@@ -3322,7 +3337,14 @@
                     }
                 } catch (e) {}
             }
-            excelRows = cloudRows;
+
+            if (cloudRows.length > 0) {
+                excelRows = cloudRows;
+                localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
+            } else {
+                let savedRows = localStorage.getItem('pos_saved_excel_rows');
+                excelRows = savedRows ? JSON.parse(savedRows) : [];
+            }
         }
 
         function renderExcelTable() {
@@ -3393,6 +3415,7 @@
 
         async function clearUnsavedRows() {
             excelRows = [];
+            localStorage.removeItem('pos_saved_excel_rows');
             if (supabaseClient) {
                 try { await supabaseClient.from('products').delete().neq('id', '0'); } catch (e) {}
             }
@@ -3563,6 +3586,8 @@
                 };
             });
 
+            localStorage.setItem('pos_saved_excel_rows', JSON.stringify(validRows));
+            
             if (supabaseClient) {
                 try {
                     let { error } = await supabaseClient.from('products').upsert(payload, { onConflict: 'id' });
