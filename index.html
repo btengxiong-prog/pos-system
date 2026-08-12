@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ລະບົບຂາຍເຄື່ອງ POS - Fixed Checkout & Scan Out</title>
+    <title>ລະບົບຂາຍເຄື່ອງ POS - Realtime Sync & License</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Html5-qrcode CDN -->
@@ -144,7 +144,7 @@
         </div>
     </div>
 
-    <!-- Modal ແກ້ໄຂ Username / Password & ຂໍ້ມູນຮ້ານ -->
+    <!-- Modal ແກ້ໄຂ Username / Password & ຂໍ້ມູນຮ້ານ (ອັບໂຫຼດຮູບ QR ບັນຊີກີບ/ບາດ) -->
     <div id="edit-user-modal" class="hidden fixed inset-0 bg-black/60 z-[350] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 max-h-[90vh] overflow-y-auto shadow-2xl space-y-3 text-left">
             <div class="text-2xl text-center">✏️</div>
@@ -245,6 +245,7 @@
                 </h3>
                 <div class="flex gap-2 items-center">
                     <button id="admin-delete-inventory-btn" onclick="openDeleteInventoryModal()" class="hidden text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg cursor-pointer font-bold shadow transition">🗑️ ລຶບສິນຄ້າ</button>
+                    <button onclick="loadInventory()" class="text-xs bg-cyan-100 text-cyan-800 px-3 py-1.5 rounded-lg cursor-pointer font-bold">🔄 ໂຫຼດໃໝ່</button>
                     <button onclick="closeInventoryModal()" class="text-gray-500 hover:text-gray-700 font-bold text-lg cursor-pointer px-2">✕</button>
                 </div>
             </div>
@@ -277,14 +278,21 @@
         </div>
     </div>
 
-    <!-- 🌟 Popup ລຶບສິນຄ້າໃນສາງ -->
+    <!-- 🌟 Popup ລຶບສິນຄ້າໃນສາງ (ເພີ່ມຊ່ອງ ຈຳນວນ) -->
     <div id="delete-inventory-modal" class="hidden fixed inset-0 bg-black/70 z-[500] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto space-y-4 text-left shadow-2xl">
             <div class="text-3xl text-center">🗑️</div>
             <h3 class="text-lg font-bold text-red-700 text-center">ຈັດການລຶບສິນຄ້າໃນສາງ</h3>
-            <p class="text-xs text-gray-600 text-center">ກະລຸນາເລືອກວັນທີ ແລະ ຕິກເລືອກສິນຄ້າທີ່ຕ້ອງການລຶບ:</p>
+            <p class="text-xs text-gray-600 text-center">ກະລຸນາເລືອກຮ້ານ, ວັນທີ ແລະ ຕິກເລືອກສິນຄ້າທີ່ຕ້ອງການລຶບ:</p>
 
             <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-bold text-gray-700 mb-1">🏪 ເລືອກ ຢູເຊີ ຫຼື ຊື່ຮ້ານ:</label>
+                    <select id="del-inv-shop-select" onchange="renderDeleteInventoryTable()" class="w-full border rounded-lg px-3 py-2 font-semibold outline-none bg-gray-50">
+                        <option value="all">-- ທຸກຮ້ານ / ທຸກຢູເຊີ --</option>
+                    </select>
+                </div>
+
                 <div>
                     <label class="block font-bold text-gray-700 mb-1">📅 ເລືອກ ວັນ/ເດືອນ/ປີ (ຖ້າບໍ່ເລືອກຈະສະແດງທັງໝົດ):</label>
                     <input type="date" id="del-inv-date-input" onchange="renderDeleteInventoryTable()" class="w-full border rounded-lg px-3 py-2 font-semibold outline-none bg-white text-purple-700 cursor-pointer">
@@ -303,6 +311,7 @@
                                     <th class="p-2 border-r text-center w-12">ລ/ດ</th>
                                     <th class="p-2 border-r text-center">ວັນນຳເຂົ້າ</th>
                                     <th class="p-2 border-r">ຊື່ສິນຄ້າ</th>
+                                    <!-- 🌟 ເພີ່ມຫົວຄໍລຳ ຈຳນວນ -->
                                     <th class="p-2 border-r text-center">ຈຳນວນ</th>
                                     <th class="p-2 border-r text-right">ລາຄາຂາຍ</th>
                                     <th class="p-2 text-center w-16">ເລືອກ</th>
@@ -416,7 +425,7 @@
         </div>
     </div>
 
-    <!-- 🌟 Popup ເລືອກວິທີຊຳລະເງິນ -->
+    <!-- 🌟 Popup ເລືອກວິທີຊຳລະເງິນ (ສະແດງຮູບ QR Code ຕົວຈິງທັນທີເມື່ອເລືອກໂໝດໂອນ) -->
     <div id="checkout-method-modal" class="hidden fixed inset-0 bg-black/70 z-[340] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
             <div class="text-4xl">💰</div>
@@ -425,6 +434,7 @@
             <div class="bg-blue-50 p-3 rounded-xl border text-center space-y-1">
                 <div class="text-xs text-gray-600 font-semibold">ຍອດເງິນລວມທັງໝົດ:</div>
                 <div class="text-xl font-extrabold text-green-600" id="popup-total-amount-text">0 ກີບ</div>
+                <!-- 🌟 ສະແດງຈຳນວນເງິນບາດ ທີ່ຄຳນວນ ROUNDUP -1 -->
                 <div class="text-sm font-bold text-purple-700" id="popup-total-thb-text">0 ບາດ</div>
             </div>
 
@@ -584,8 +594,9 @@
     <!-- Header -->
     <header class="bg-[#1e3a8a] text-white py-5 shadow-lg">
         <div class="container mx-auto px-4 text-center">
+            <!-- 🌟 ສະແດງຜົນຊື່ຮ້ານທີ່ Header (ແຖວທີ 2 ບໍ່ມີວົງເລັບ) -->
             <h1 id="main-header-title" class="text-2xl md:text-3xl font-bold flex items-center justify-center gap-2">
-                🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Safe Hybrid Storage)
+                🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Smart Realtime Sync)
             </h1>
             <div class="mt-1.5 text-xs md:text-sm text-yellow-300 font-semibold">
                 ✨ ວ່ອງໄວ ທັນໃຈ, ຍອດເງິນຖືກຕ້ອງ ຊັດເຈນ 100%, ບໍ່ເສຍເວລາ — ໃຜກໍ່ຂາຍເປັນ ບໍ່ມີພື້ນຖານໄອທີກໍ່ໃຊ້ໄດ້ສະບາຍ!
@@ -593,11 +604,14 @@
             <div id="license-status-badge" class="mt-1 text-xs text-cyan-200 font-semibold"></div>
             
             <div class="mt-4 grid grid-cols-2 sm:flex sm:flex-wrap justify-center gap-2 sm:gap-3 items-center max-w-4xl mx-auto">
+                
+                <!-- 1) ປຸ່ມນຳເຂົ້າ/ສົ່ງອອກສິນຄ້າ -->
                 <div class="relative inline-block text-left w-full sm:w-auto">
                     <button type="button" onclick="toggleCustomDropdown('import-export-menu', event)" class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                         📦 ນຳເຂົ້າ/ສົ່ງອອກສິນຄ້າ <span class="text-xs">▼</span>
                     </button>
                     <div id="import-export-menu" class="hidden absolute left-0 sm:left-auto mt-2 w-60 rounded-xl bg-blue-600 shadow-2xl ring-1 ring-black/10 z-[100] text-left py-1">
+                        <!-- Submenu ນຳເຂົ້າສິນຄ້າ -->
                         <div class="has-submenu relative">
                             <button type="button" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-blue-700 flex items-center justify-between text-left cursor-default transition">
                                 <span>📦 ນຳເຂົ້າສິນຄ້າ</span>
@@ -618,18 +632,22 @@
                     </div>
                 </div>
 
+                <!-- 2) ປຸ່ມ: ສິນຄ້າຄ້າງສາງ -->
                 <button onclick="openInventoryModal()" class="w-full sm:w-auto bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     📦 ສິນຄ້າຄ້າງສາງ
                 </button>
 
+                <!-- 3) ປຸ່ມ: ວັນໝົດອາຍຸສິນຄ້າ -->
                 <button onclick="openExpiryModal()" class="w-full sm:w-auto bg-teal-600 hover:bg-teal-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     ⏳ ວັນໝົດອາຍຸສິນຄ້າ
                 </button>
 
+                <!-- 4) ປຸ່ມ Rate -->
                 <button id="header-rate-btn" onclick="openRateInputModal()" class="w-full sm:w-auto bg-orange-600 hover:bg-orange-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     💱 ເຂົ້າຂໍ້ມູນ (Ex/Rate)
                 </button>
 
+                <!-- Custom Dropdown: 📊 ປະຫວັດ ແລະ ID ເຄື່ອງ -->
                 <div class="relative inline-block text-left w-full sm:w-auto">
                     <button type="button" onclick="toggleCustomDropdown('history-id-menu', event)" class="w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                         📊 ປະຫວັດ ແລະ ID ເຄື່ອງ <span class="text-xs">▼</span>
@@ -644,6 +662,7 @@
                     </div>
                 </div>
                 
+                <!-- Custom Dropdown: ສ້າງ QR Code/Barcode -->
                 <div class="relative inline-block text-left w-full sm:w-auto">
                     <button type="button" onclick="toggleCustomDropdown('create-code-menu', event)" class="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                         📱 ສ້າງ QR Code/Barcode <span class="text-xs">▼</span>
@@ -658,6 +677,7 @@
                     </div>
                 </div>
 
+                <!-- Custom Dropdown: 📋 ຂໍ້ມູນ ແລະ ລະບົບ -->
                 <div class="relative inline-block text-left w-full sm:w-auto">
                     <button type="button" onclick="toggleCustomDropdown('report-menu', event)" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                         📋 ຂໍ້ມູນ ແລະ ລະບົບ <span class="text-xs">▼</span>
@@ -675,14 +695,17 @@
                     </div>
                 </div>
 
+                <!-- ປຸ່ມ: ⚙️ ຈັດການລະບົບ (Admin ໃຫຍ່) -->
                 <button id="admin-manage-btn" onclick="openAdminManager()" class="hidden w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     ⚙️ ຈັດການລະບົບ
                 </button>
 
+                <!-- 📱 QR Code ເຊື່ອມຕໍ່ພະນັກງານ -->
                 <button id="header-connect-qr-btn" onclick="openAdminQrModal()" class="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     📱 QR Code ເຊື່ອມຕໍ່ພະນັກງານ
                 </button>
 
+                <!-- ປຸ່ມ: ປ່ຽນໂໝດ / ອອກລະບົບ -->
                 <button onclick="adminLogout()" class="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     🚪 ປ່ຽນໂໝດ / ອອກລະບົບ
                 </button>
@@ -693,6 +716,7 @@
     <!-- Main Content -->
     <main class="container mx-auto px-4 mt-6 max-w-4xl">
         
+        <!-- Scanner Container -->
         <div id="scanner-container" class="hidden mb-6 bg-white p-4 rounded-xl shadow border">
             <div class="flex justify-between items-center mb-2">
                 <h3 class="font-bold text-lg text-gray-700">📷 ກຳລັງສະແກນ QR / ບາໂຄດ (ຂາຍສິນຄ້າ)</h3>
@@ -711,6 +735,7 @@
             <button onclick="closeScanner()" class="mt-3 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded w-full font-bold cursor-pointer">ປິດກ້ອງ</button>
         </div>
 
+        <!-- Stock-In Scanner Container -->
         <div id="stock-in-scanner-container" class="hidden mb-6 bg-white p-4 rounded-xl shadow border">
             <div class="flex justify-between items-center mb-2">
                 <h3 class="font-bold text-lg text-pink-700">📷 ສະແກນ Barcode ສິນຄ້າ (ນຳເຂົ້າ)</h3>
@@ -729,6 +754,7 @@
             <button onclick="closeStockInScanner()" class="mt-3 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded w-full font-bold cursor-pointer">ປິດກ້ອງ</button>
         </div>
 
+        <!-- Confirmation & Price Input Popup -->
         <div id="confirm-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
                 <div class="text-3xl text-center">📦</div>
@@ -748,6 +774,7 @@
                         <input type="text" id="modal-price" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-right font-bold text-green-600 text-lg" placeholder="ຕົວຢ່າງ: 0">
                     </div>
 
+                    <!-- 2 ຫ້ອງລຽງກັນ: ສາງຄົງເຫຼືອ & ຈຳນວນຂາຍ -->
                     <div>
                         <label class="block font-semibold text-gray-700 mb-1">ຈຳນວນສິນຄ້າຄ້າງສາງ & ຕ້ອງການຂາຍ:</label>
                         <div class="grid grid-cols-2 gap-2">
@@ -884,6 +911,7 @@
                 </h3>
                 <div class="flex gap-2 items-center">
                     <button id="admin-delete-history-btn" onclick="openDeleteHistoryModal()" class="hidden text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg cursor-pointer font-bold shadow transition">🗑️ ລຶບປະຫວັດ</button>
+                    <button onclick="loadCloudHistory()" class="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg cursor-pointer font-bold">🔄 ໂຫຼດໃໝ່</button>
                     <button onclick="closeHistory()" class="text-gray-500 hover:text-gray-700 font-bold text-lg cursor-pointer px-2">✕</button>
                 </div>
             </div>
@@ -927,14 +955,21 @@
         </div>
     </div>
 
-    <!-- Popup ລຶບປະຫວັດ -->
+    <!-- 🌟 Popup ລຶບປະຫວັດ (ເພີ່ມຊ່ອງ ຈຳນວນ) -->
     <div id="delete-history-modal" class="hidden fixed inset-0 bg-black/70 z-[500] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto space-y-4 text-left shadow-2xl">
             <div class="text-3xl text-center">🗑️</div>
             <h3 class="text-lg font-bold text-red-700 text-center">ຈັດການລຶບປະຫວັດການຂາຍ</h3>
-            <p class="text-xs text-gray-600 text-center">ກະລຸນາເລືອກວັນທີ ແລະ ຕິກເລືອກລາຍການທີ່ຕ້ອງການລຶບ:</p>
+            <p class="text-xs text-gray-600 text-center">ກະລຸນາເລືອກຮ້ານ, ວັນທີ ແລະ ຕິກເລືອກລາຍການທີ່ຕ້ອງການລຶບ:</p>
 
             <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-bold text-gray-700 mb-1">🏪 ເລືອກ ຢູເຊີ ຫຼື ຊື່ຮ້ານ:</label>
+                    <select id="del-hist-shop-select" onchange="renderDeleteHistoryTable()" class="w-full border rounded-lg px-3 py-2 font-semibold outline-none bg-gray-50">
+                        <option value="all">-- ທຸກຮ້ານ / ທຸກຢູເຊີ --</option>
+                    </select>
+                </div>
+
                 <div>
                     <label class="block font-bold text-gray-700 mb-1">📅 ເລືອກ ວັນ/ເດືອນ/ປີ (ຖ້າບໍ່ເລືອກຈະສະແດງທັງໝົດ):</label>
                     <input type="date" id="del-hist-date-input" onchange="renderDeleteHistoryTable()" class="w-full border rounded-lg px-3 py-2 font-semibold outline-none bg-white text-purple-700 cursor-pointer">
@@ -953,6 +988,7 @@
                                     <th class="p-2 border-r text-center w-12">ລ/ດ</th>
                                     <th class="p-2 border-r text-center">ວັນ/ເດືອນ/ປີ</th>
                                     <th class="p-2 border-r">ຊື່ສິນຄ້າ</th>
+                                    <!-- 🌟 ເພີ່ມຫົວຄໍລຳ ຈຳນວນ -->
                                     <th class="p-2 border-r text-center">ຈຳນວນ</th>
                                     <th class="p-2 border-r text-right">ລວມ</th>
                                     <th class="p-2 text-center w-16">ເລືອກ</th>
@@ -1148,6 +1184,7 @@
             console.error("Supabase initialization warning:", e);
         }
 
+        // Global Variables
         let cart = [];
         let html5QrCode = null;
         let stockInQrCode = null;
@@ -1163,6 +1200,7 @@
         let isExpiryMode = false;
         let currentStockInCode = "";
         let customConfirmCallback = null;
+        let editingDeviceId = null;
 
         function formatNumberWithCommas(num) {
             if (num === "" || num === null || isNaN(num)) return "";
@@ -1236,16 +1274,93 @@
             return new Date().toISOString().split('T')[0];
         }
 
-        let deviceId = "SHARED-STORE";
+        let deviceId = localStorage.getItem('pos_device_id');
+        let currentUsername = localStorage.getItem('pos_current_username') || null;
 
         async function initDeviceId() {
-            deviceId = "SHARED-STORE";
+            let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
+            if (linkedAdminId) {
+                deviceId = linkedAdminId;
+                localStorage.setItem('pos_device_id', deviceId);
+                return;
+            }
+
+            if (currentUsername) {
+                deviceId = currentUsername;
+                localStorage.setItem('pos_device_id', deviceId);
+                return;
+            }
+
+            let uniqueDeviceKey = localStorage.getItem('pos_unique_device_id');
+            if (!uniqueDeviceKey) {
+                uniqueDeviceKey = 'POS-T' + Math.random().toString(36).substring(2, 8).toUpperCase();
+                localStorage.setItem('pos_unique_device_id', uniqueDeviceKey);
+            }
+            
+            deviceId = uniqueDeviceKey;
+            localStorage.setItem('pos_device_id', deviceId);
+            
+            if (supabaseClient && deviceId) {
+                try {
+                    let { data: existing } = await supabaseClient.from('licenses').select('*').eq('device_id', deviceId).single();
+                    if (!existing) {
+                        let trialUntil = new Date();
+                        trialUntil.setDate(trialUntil.getDate() + 15);
+                        await supabaseClient.from('licenses').insert({
+                            device_id: deviceId,
+                            status: 'trial',
+                            trial_until: trialUntil.toISOString(),
+                            created_at: new Date().toISOString()
+                        });
+                    }
+                } catch(e) {}
+            }
+        }
+
+        function formatDeviceSeqId(num) {
+            let blockChar = 'A';
+            let seq = num;
+            if (num > 9999) {
+                let blockIndex = Math.floor((num - 1) / 9999);
+                blockChar = String.fromCharCode(65 + blockIndex);
+                seq = ((num - 1) % 9999) + 1;
+            }
+            let paddedSeq = String(seq).padStart(4, '0');
+            return `POS-${blockChar}${paddedSeq}`;
         }
 
         async function checkTrialLicense() {
-            if (typeof checkRoleAndLicense === 'function') {
+            let userRole = localStorage.getItem('pos_user_role');
+            let shopOwner = localStorage.getItem('pos_shop_owner');
+            let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
+
+            if (userRole === 'admin' || shopOwner === 'true' || linkedAdminId) {
                 checkRoleAndLicense();
+                return;
             }
+
+            if (supabaseClient && deviceId) {
+                try {
+                    let { data } = await supabaseClient.from('licenses').select('*').eq('device_id', deviceId).single();
+                    if (data) {
+                        if (data.status === 'deleted') {
+                            alert("⚠️ ບັນຊີນີ້ຖືກລຶບຖາວອນແລ້ວ! ບໍ່ສາມາດນຳໃຊ້ລະບົບໄດ້.");
+                            document.body.innerHTML = `<div style="text-align:center; margin-top:20vh; font-family:sans-serif;"><h2>❌ ບັນຊີນີ້ຖືກລະງັບ/ລຶບຖາວອນ</h2><p>ກະລຸນາຕິດຕໍ່ຜູ້ພັດທະນາ</p></div>`;
+                            return;
+                        }
+                        if (data.status === 'trial' && data.trial_until) {
+                            let now = new Date();
+                            let expiry = new Date(data.trial_until);
+                            if (now > expiry) {
+                                alert("⏳ ໝົດອາຍຸທົດລອງໃຊ້ 15 ວັນແລ້ວ! ກະລຸນາຕິດຕໍ່ Admin ເພື່ອຕໍ່ອາຍຸ ຫຼື ລົງທະບຽນ.");
+                                document.body.innerHTML = `<div style="text-align:center; margin-top:20vh; font-family:sans-serif;"><h2>⏳ ເວລາທົດລອງໃຊ້ໝົດແລ້ວ</h2><p>ກະລຸນາຕິດຕໍ່ 020 59456999 ເພື່ອຕໍ່ອາຍຸ</p></div>`;
+                                return;
+                            }
+                        }
+                    }
+                } catch (e) {}
+            }
+            checkRoleAndLicense();
         }
 
         function selectRole(role) {
@@ -1285,23 +1400,94 @@
                 return;
             }
 
-            localStorage.setItem('pos_user_role', 'admin');
-            document.getElementById('unified-login-modal').classList.add('hidden');
-            document.getElementById('role-select-modal').classList.add('hidden');
-            let adminBtn = document.getElementById('admin-manage-btn');
-            if (adminBtn) adminBtn.classList.remove('hidden');
-            let rateBtn = document.getElementById('header-rate-btn');
-            if (rateBtn) rateBtn.classList.remove('hidden');
-            let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
-            if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
-            document.getElementById('license-status-badge').innerText = "🛡️ ສະຖານະ: ໂໝດ Pure Cloud Storage";
-            updateHeaderTitle();
+            if (u === "POSXIONG" && p === "POS@21082007") {
+                localStorage.setItem('pos_user_role', 'admin');
+                document.getElementById('unified-login-modal').classList.add('hidden');
+                document.getElementById('role-select-modal').classList.add('hidden');
+                let adminBtn = document.getElementById('admin-manage-btn');
+                if (adminBtn) adminBtn.classList.remove('hidden');
+                let rateBtn = document.getElementById('header-rate-btn');
+                if (rateBtn) rateBtn.classList.remove('hidden');
+                let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
+                if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
+                document.getElementById('license-status-badge').innerText = "🛡️ ສະຖານະ: ເຂົ້າລະບົບ Super Admin (Full Access)";
+                updateHeaderTitle();
+                return;
+            }
+
+            let formattedU = u.toUpperCase();
+            let storedPass = localStorage.getItem('pos_shop_pass_' + formattedU);
+
+            if (storedPass && storedPass === p) {
+                currentUsername = formattedU;
+                deviceId = formattedU;
+                localStorage.setItem('pos_current_username', currentUsername);
+                localStorage.setItem('pos_device_id', deviceId);
+                localStorage.setItem('pos_shop_owner', 'true');
+                localStorage.removeItem('pos_user_role');
+                localStorage.removeItem('pos_linked_admin_id');
+
+                document.getElementById('unified-login-modal').classList.add('hidden');
+                document.getElementById('role-select-modal').classList.add('hidden');
+                let adminBtn = document.getElementById('admin-manage-btn');
+                if (adminBtn) adminBtn.classList.add('hidden');
+                let rateBtn = document.getElementById('header-rate-btn');
+                if (rateBtn) rateBtn.classList.remove('hidden');
+                let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
+                if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
+                document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ເຈົ້າຂອງຮ້ານ [${currentUsername}] (Shop Owner Admin)`;
+                updateHeaderTitle();
+                return;
+            }
+
+            if (supabaseClient) {
+                try {
+                    let { data } = await supabaseClient.from('licenses').select('*').eq('device_id', formattedU).single();
+                    if (data && (!storedPass || p === formattedU || p === data.device_id)) {
+                        currentUsername = data.device_id;
+                        deviceId = data.device_id;
+                        localStorage.setItem('pos_current_username', currentUsername);
+                        localStorage.setItem('pos_device_id', deviceId);
+                        localStorage.setItem('pos_shop_owner', 'true');
+                        localStorage.removeItem('pos_user_role');
+                        localStorage.removeItem('pos_linked_admin_id');
+
+                        document.getElementById('unified-login-modal').classList.add('hidden');
+                        document.getElementById('role-select-modal').classList.add('hidden');
+                        let adminBtn = document.getElementById('admin-manage-btn');
+                        if (adminBtn) adminBtn.classList.add('hidden');
+                        let rateBtn = document.getElementById('header-rate-btn');
+                        if (rateBtn) rateBtn.classList.remove('hidden');
+                        let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
+                        if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
+                        document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ເຈົ້າຂອງຮ້ານ [${currentUsername}] (Shop Owner Admin)`;
+                        updateHeaderTitle();
+                        return;
+                    }
+                } catch (e) {}
+            }
+
+            showAlert("ຜິດພາດ", "Username ຫຼື Password ບໍ່ຖືກຕ້ອງ!", "❌");
         }
 
+        // 🌟 ຟັງຊັນອັບເດດຊື່ຮ້ານທີ່ Header (ແຖວທີ 2: ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ ຊື່ຮ້ານ - ບໍ່ມີວົງເລັບ)
         function updateHeaderTitle() {
             let headerTitle = document.getElementById('main-header-title');
             if (!headerTitle) return;
-            headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Pure Cloud Storage)`;
+            
+            let userRole = localStorage.getItem('pos_user_role');
+            if (userRole === 'admin') {
+                headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Smart Realtime Sync)`;
+                return;
+            }
+
+            let currentDev = localStorage.getItem('pos_device_id') || deviceId;
+            let shopName = localStorage.getItem('pos_shop_name_' + currentDev);
+            if (shopName && shopName.trim() !== '') {
+                headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ &nbsp; ${shopName}`;
+            } else {
+                headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ &nbsp; ${currentDev}`;
+            }
         }
 
         function handleUnifiedLoginKeydown(event) {
@@ -1309,12 +1495,17 @@
         }
 
         function adminLogout() {
-            localStorage.clear();
+            localStorage.removeItem('pos_user_role');
+            localStorage.removeItem('pos_license_status');
+            localStorage.removeItem('pos_current_username');
+            localStorage.removeItem('pos_shop_owner');
+            localStorage.removeItem('pos_linked_admin_id');
+            localStorage.removeItem('pos_device_id');
             location.reload();
         }
 
         function openMyDeviceModal() {
-            document.getElementById('my-device-id-text').innerText = "PURE-CLOUD-STORAGE";
+            document.getElementById('my-device-id-text').innerText = deviceId;
             document.getElementById('my-device-modal').classList.add('hidden');
             document.getElementById('my-device-modal').classList.remove('hidden');
         }
@@ -1324,7 +1515,7 @@
         }
 
         function copyMyDeviceId() {
-            navigator.clipboard.writeText("PURE-CLOUD-STORAGE").then(() => {}).catch(() => {});
+            navigator.clipboard.writeText(deviceId).then(() => {}).catch(() => {});
         }
 
         function openAdminQrModal() {
@@ -1332,7 +1523,7 @@
             let qrContainer = document.getElementById('admin-connect-qrcode');
             if (qrContainer && window.QRCode) {
                 qrContainer.innerHTML = "";
-                QRCode.toString("PURE-CLOUD-STORAGE", { type: 'svg', width: 160, margin: 1 }, function (err, svgString) {
+                QRCode.toString(deviceId, { type: 'svg', width: 160, margin: 1 }, function (err, svgString) {
                     if (!err && qrContainer) {
                         qrContainer.innerHTML = svgString;
                     }
@@ -1355,9 +1546,17 @@
                 { facingMode: "environment" },
                 { fps: 10, qrbox: 250 },
                 (decodedText) => {
-                    closeStaffScanner();
-                    showAlert("ສຳເລັດ", `ເຊື່ອມຕໍ່ລະບົບສຳເລັດຮຽບຮ້ອຍ!`, "🔗");
-                    setTimeout(() => { location.reload(); }, 1500);
+                    let cleanText = decodedText.trim();
+                    if (cleanText.startsWith('POS-') || cleanText.length <= 15) {
+                        localStorage.setItem('pos_linked_admin_id', cleanText);
+                        deviceId = cleanText;
+                        localStorage.setItem('pos_device_id', deviceId);
+                        closeStaffScanner();
+                        showAlert("ສຳເລັດ", `ເຊື່ອມຕໍ່ກັບຮ້ານ Admin [${cleanText}] ສຳເລັດຮຽບຮ້ອຍ!`, "🔗");
+                        setTimeout(() => { location.reload(); }, 1500);
+                    } else {
+                        showAlert("ແຈ້ງເຕືອນ", "QR Code ນີ້ບໍ່ແມ່ນຂອງຮ້ານ Admin POS!", "⚠️");
+                    }
                 },
                 (err) => {}
             ).catch(err => {});
@@ -1384,9 +1583,58 @@
 
         async function loadAllDevices() {
             let container = document.getElementById('device-list-container');
-            container.innerHTML = `<div class="p-3 bg-gray-50 border rounded-xl font-bold text-blue-800">🌐 ໂໝດ Pure Cloud Storage (ທຸກເຄື່ອງເຫັນຂໍ້ມູນກັນ 100% ຜ່ານ Supabase)</div>`;
+            container.innerHTML = `<p class="text-center py-4 text-gray-500">ກຳລັງໂຫຼດຂໍ້ມູນ...</p>`;
+            
+            let licenses = [];
+            if (supabaseClient) {
+                try {
+                    let { data, error } = await supabaseClient.from('licenses').select('*');
+                    if (!error && data) licenses = data;
+                } catch (e) {}
+            }
+
+            let datalist = document.getElementById('trial-devices-list');
+            if (datalist) datalist.innerHTML = '';
+
+            let currentDevId = localStorage.getItem('pos_device_id') || deviceId;
+            if (currentDevId && !licenses.some(l => l.device_id === currentDevId)) {
+                licenses.unshift({ device_id: currentDevId, status: 'trial' });
+            }
+
+            if (licenses.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-500 py-4">ຍັງບໍ່ມີບັນຊີໃນລະບົບ</p>`;
+                return;
+            }
+
+            let html = '';
+            licenses.forEach(lic => {
+                if (datalist) {
+                    let opt = document.createElement('option');
+                    opt.value = lic.device_id;
+                    datalist.appendChild(opt);
+                }
+
+                let username = lic.device_id;
+                let pass = localStorage.getItem('pos_shop_pass_' + username) || '-';
+                
+                let displayId = lic.device_id; 
+                let statusBadge = lic.status === 'deleted' ? `<span class="text-red-600 font-bold">[ລຶບຖາວອນ]</span>` : (lic.status === 'trial' ? `<span class="text-amber-600 font-bold">[ທົດລອງ]</span>` : `<span class="text-green-600 font-bold">[ຖາວອນ/Active]</span>`);
+
+                html += `
+                    <div class="flex justify-between items-center p-3 bg-gray-50 border rounded-xl gap-2">
+                        <div class="flex-1">
+                            <span class="font-bold text-blue-800">ID: ${displayId}</span> ${statusBadge}<br>
+                            Username: <span class="font-semibold text-gray-700">${username}</span> | 
+                            Password: <span class="font-mono text-green-700">${pass}</span>
+                        </div>
+                        <button onclick="promptEditUser('${lic.device_id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow">✏️ ແກ້ໄຂ</button>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
         }
 
+        // --- 🌟 ຟັງຊັນຈັດການອັບໂຫຼດຮູບ QR Code (Base64) ---
         function handleQrImageUpload(event, type) {
             let file = event.target.files[0];
             if (!file) return;
@@ -1404,19 +1652,91 @@
             reader.readAsDataURL(file);
         }
 
+        // --- 🌟 ຟັງຊັນປ໋ອບອັບແກ້ໄຂບັນຊີ ພ້ອມ ຂໍ້ມູນຮ້ານ ແລະ ອັບໂຫຼດ QR Code ຕົວຈິງ ---
         function promptEditUser(targetId) {
-            showAlert("ແຈ້ງເຕືອນ", "ໂໝດ Pure Cloud ບໍ່ຈຳເປັນຕ້ອງຈັດການບັນຊີແຍກເຄື່ອງ!", "ℹ️");
+            editingDeviceId = targetId;
+            document.getElementById('edit-modal-device-id').innerText = targetId;
+            document.getElementById('edit-modal-shop-name').value = localStorage.getItem('pos_shop_name_' + targetId) || '';
+            document.getElementById('edit-modal-username').value = targetId;
+            document.getElementById('edit-modal-password').value = localStorage.getItem('pos_shop_pass_' + targetId) || '';
+            document.getElementById('edit-modal-action-select').value = 'none';
+            document.getElementById('extend-days-container').classList.add('hidden');
+
+            window.tempLakQrBase64 = localStorage.getItem('pos_shop_lak_qr_' + targetId) || '';
+            window.tempThbQrBase64 = localStorage.getItem('pos_shop_thb_qr_' + targetId) || '';
+
+            document.getElementById('preview-lak-qr').innerHTML = window.tempLakQrBase64 ? `<span class="text-green-600 font-bold text-[10px]">✅ ມີຮູບ QR ກີບແລ້ວ</span>` : '';
+            document.getElementById('preview-thb-qr').innerHTML = window.tempThbQrBase64 ? `<span class="text-green-600 font-bold text-[10px]">✅ ມີຮູບ QR ບາດແລ້ວ</span>` : '';
+
+            document.getElementById('edit-user-modal').classList.remove('hidden');
         }
 
         function closeEditUserModal() {
             document.getElementById('edit-user-modal').classList.add('hidden');
         }
 
-        function handleActionSelectChange(selectElem) {}
+        function handleActionSelectChange(selectElem) {
+            let val = selectElem.value;
+            let extendContainer = document.getElementById('extend-days-container');
+            if (val === 'extend_trial') {
+                extendContainer.classList.remove('hidden');
+            } else {
+                extendContainer.classList.add('hidden');
+            }
+        }
 
         async function saveEditedUser() {
+            let shopName = document.getElementById('edit-modal-shop-name').value.trim();
+            let newPass = document.getElementById('edit-modal-password').value.trim();
+            let actionVal = document.getElementById('edit-modal-action-select').value;
+            let extendDaysInput = parseInt(document.getElementById('edit-modal-extend-days').value) || 15;
+
+            if (!newPass) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ Password!", "⚠️");
+                return;
+            }
+
+            localStorage.setItem('pos_shop_name_' + editingDeviceId, shopName);
+            localStorage.setItem('pos_shop_pass_' + editingDeviceId, newPass);
+
+            if (window.tempLakQrBase64) {
+                localStorage.setItem('pos_shop_lak_qr_' + editingDeviceId, window.tempLakQrBase64);
+            }
+            if (window.tempThbQrBase64) {
+                localStorage.setItem('pos_shop_thb_qr_' + editingDeviceId, window.tempThbQrBase64);
+            }
+
+            let updatePayload = {
+                device_id: editingDeviceId,
+                updated_at: new Date().toISOString()
+            };
+
+            if (actionVal === 'to_trial') {
+                let expiredDate = new Date();
+                expiredDate.setDate(expiredDate.getDate() - 1);
+                updatePayload.status = 'trial';
+                updatePayload.trial_until = expiredDate.toISOString();
+            } else if (actionVal === 'extend_trial') {
+                let extendDate = new Date();
+                extendDate.setDate(extendDate.getDate() + extendDaysInput);
+                updatePayload.status = 'trial';
+                updatePayload.trial_until = extendDate.toISOString();
+            } else if (actionVal === 'delete_permanent') {
+                updatePayload.status = 'deleted';
+            } else if (actionVal === 'restore_user') {
+                updatePayload.status = 'active';
+            }
+
+            if (supabaseClient) {
+                try {
+                    await supabaseClient.from('licenses').upsert([updatePayload], { onConflict: 'device_id' });
+                } catch (e) {}
+            }
+
             closeEditUserModal();
-            showAlert("ສຳເລັດ", "ບັນທຶກສຳເລັດ!", "✅");
+            updateHeaderTitle();
+            showAlert("ສຳເລັດ", "ບັນທຶກຂໍ້ມູນຮ້ານ ແລະ ບັນຊີສຳເລັດຮຽບຮ້ອຍ!", "✅");
+            loadAllDevices();
         }
 
         function toggleCustomDropdown(menuId, event) {
@@ -1516,6 +1836,9 @@
                     let today = new Date().toISOString().split('T')[0];
                     let parsedDate = dateVal ? parseDDMMYYYYToISO(dateVal) : today;
 
+                    let savedRows = localStorage.getItem('pos_saved_excel_rows');
+                    let existingRows = savedRows ? JSON.parse(savedRows) : [];
+
                     let newRows = [];
                     for (let i = 1; i < jsonData.length; i++) {
                         let r = jsonData[i];
@@ -1531,7 +1854,7 @@
 
                             newRows.push({
                                 id: 'ROW-' + Date.now() + '-' + i + '-' + Math.random().toString(36).substring(2, 4),
-                                device_id: 'SHARED',
+                                device_id: deviceId,
                                 code: code,
                                 cost: costLAK,
                                 originalCost: costLAK,
@@ -1545,7 +1868,9 @@
                         }
                     }
 
-                    excelRows = [...excelRows, ...newRows];
+                    excelRows = [...existingRows, ...newRows];
+                    localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
+                    
                     showAlert("ສຳເລັດ", `ນຳເຂົ້າຂໍ້ມູນ Excel ສຳເລັດ ${newRows.length} ລາຍການ!`, "📁");
                     openExcelGenerator();
                 } catch (err) {
@@ -1557,9 +1882,11 @@
 
         // --- CORE POS LOGIC ---
         async function openInventoryModal() {
+            let userRole = localStorage.getItem('pos_user_role');
             let deleteBtn = document.getElementById('admin-delete-inventory-btn');
             if (deleteBtn) {
-                deleteBtn.classList.remove('hidden');
+                if (userRole === 'admin') deleteBtn.classList.remove('hidden');
+                else deleteBtn.classList.add('hidden');
             }
             document.getElementById('inventory-modal').classList.remove('hidden');
             await loadInventory();
@@ -1569,47 +1896,14 @@
             document.getElementById('inventory-modal').classList.add('hidden');
         }
 
-        // 🌟 Pure Cloud Storage: ດຶງຂໍ້ມູນຈາກ Supabase Cloud 100% (ພ້ອມ Safe Hybrid Fallback ປ້ອງກັນຕາຕະລາງຫວ່າງເປົ່າ)
-        async function fetchProductsForGenerator() {
-            let cloudRows = [];
-            if (supabaseClient) {
-                try {
-                    let { data, error } = await supabaseClient.from('products').select('*').order('updated_at', { ascending: false });
-                    if (!error && data && data.length > 0) {
-                        cloudRows = data.map(item => ({
-                            id: item.id || ('ROW-' + Math.random().toString(36).substring(2, 6)),
-                            device_id: 'SHARED',
-                            code: item.code,
-                            cost: item.cost,
-                            originalCost: item.original_cost || item.cost,
-                            profitPct: item.profit_pct,
-                            price: item.price,
-                            qty: item.qty || 1,
-                            dateAdded: item.date_added || item.updated_at ? new Date(item.date_added || item.updated_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-                            mfgDate: item.mfg_date || '',
-                            expiryDate: item.expiry_date || ''
-                        }));
-                    }
-                } catch (e) {}
-            }
-
-            if (cloudRows.length > 0) {
-                excelRows = cloudRows;
-                localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
-            } else {
-                let savedRows = localStorage.getItem('pos_saved_excel_rows');
-                excelRows = savedRows ? JSON.parse(savedRows) : [];
-            }
-        }
-
         async function loadInventory() {
             let tbody = document.getElementById('inventory-tbody');
             tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
 
             await fetchProductsForGenerator();
 
-            let combinedSalesMap = new Map();
             let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            let combinedSalesMap = new Map();
             localHistory.forEach(tx => combinedSalesMap.set(tx.id || tx.created_at, tx));
 
             if (supabaseClient) {
@@ -1618,9 +1912,11 @@
                     if (cloudSales) {
                         cloudSales.forEach(tx => {
                             let key = tx.id || tx.created_at;
-                            combinedSalesMap.set(key, {
-                                id: tx.id, device_id: tx.device_id, created_at: tx.created_at, items: tx.items || []
-                            });
+                            if (!combinedSalesMap.has(key)) {
+                                combinedSalesMap.set(key, {
+                                    id: tx.id, device_id: tx.device_id, created_at: tx.created_at, items: tx.items || []
+                                });
+                            }
                         });
                     }
                 } catch (e) {}
@@ -1639,15 +1935,17 @@
             });
 
             if (excelRows.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ Cloud</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ</td></tr>`;
                 return;
             }
 
             let html = '';
             let countIndex = 1;
-            let canDelete = true;
+            let isShopOwner = localStorage.getItem('pos_shop_owner') === 'true';
+            let userRole = localStorage.getItem('pos_user_role');
+            let canDelete = (userRole === 'admin' || isShopOwner);
 
-            excelRows.forEach((row) => {
+            excelRows.forEach((row, index) => {
                 let codeKey = String(row.code || '').trim().toLowerCase();
                 let initialQty = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1;
                 let soldQty = soldQtyMap[codeKey] || 0;
@@ -1664,10 +1962,12 @@
                     `<button onclick="promptDeleteInventoryRow('${row.id}')" class="text-xs bg-red-100 text-red-600 px-2 py-1 rounded font-bold cursor-pointer hover:bg-red-200 transition">🗑️ ລຶບ</button>` : 
                     `<span class="text-gray-400 text-xs">-</span>`;
 
+                let ownerBadge = `<span class="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-mono">[${row.device_id || deviceId}]</span>`;
+
                 html += `
                     <tr class="hover:bg-gray-50 border-b">
                         <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
-                        <td class="p-3 border-r font-bold text-gray-900">${row.code || '-'}</td>
+                        <td class="p-3 border-r font-bold text-gray-900">${row.code || '-'} ${ownerBadge}</td>
                         <td class="p-3 border-r text-center font-semibold text-purple-700">${formattedDate}</td>
                         <td class="p-3 border-r text-center font-semibold text-gray-700">${formattedMfg}</td>
                         <td class="p-3 border-r text-center font-bold text-red-600">${expDateStr}</td>
@@ -1686,7 +1986,15 @@
             let targetRow = excelRows.find(r => r.id === rowId);
             if (!targetRow) return;
 
-            showCustomConfirm("ຢືນຢັນການລຶບສິນຄ້າ", `ທ່ານຕ້ອງການລຶບສິນຄ້າ [${targetRow.code}] ນີ້ອອກຈາກສາງແທ້ບໍ?`, async (confirmed) => {
+            let confirmModal = document.getElementById('custom-confirm-modal');
+            let confirmTitle = document.getElementById('confirm-title');
+            let confirmMsg = document.getElementById('confirm-message');
+
+            if (confirmTitle) confirmTitle.innerText = "ຢືນຢັນການລຶບສິນຄ້າ";
+            if (confirmMsg) confirmMsg.innerText = `ທ່ານຕ້ອງການລຶບສິນຄ້າ [${targetRow.code}] ນີ້ອອກຈາກສາງແທ້ບໍ?`;
+            if (confirmModal) confirmModal.classList.remove('hidden');
+
+            customConfirmCallback = async (confirmed) => {
                 if (!confirmed) return;
 
                 excelRows = excelRows.filter(r => r.id !== rowId);
@@ -1700,12 +2008,23 @@
 
                 loadInventory();
                 showAlert("ສຳເລັດ", "ລຶບສິນຄ້າອອກຈາກສາງສຳເລັດຮຽບຮ້ອຍ!", "🗑️");
-            });
+            };
         }
 
+        // --- 🌟 ຟັງຊັນຈັດການປ໋ອບອັບລຶບສິນຄ້າໃນສາງ (ເພີ່ມຊ່ອງ ຈຳນວນ ຕາມຄວາມຕ້ອງການ) ---
         function openDeleteInventoryModal() {
             let shopSelect = document.getElementById('del-inv-shop-select');
-            shopSelect.innerHTML = `<option value="all">-- ທຸກຮ້ານ / ທຸກຢູເຊີ --</option>`;
+            
+            let html = `<option value="all">-- ທຸກຮ້ານ / ທຸກຢູເຊີ --</option>`;
+            let uniqueShops = [...new Set(excelRows.map(r => r.device_id).filter(Boolean))];
+            
+            uniqueShops.forEach(s => {
+                let shopName = localStorage.getItem('pos_shop_name_' + s) || '';
+                let displayName = (shopName && shopName.trim() !== '') ? `${shopName} (${s})` : s;
+                html += `<option value="${s}">${displayName}</option>`;
+            });
+            shopSelect.innerHTML = html;
+
             document.getElementById('del-inv-date-input').value = '';
             renderDeleteInventoryTable();
             document.getElementById('delete-inventory-modal').classList.remove('hidden');
@@ -1717,33 +2036,37 @@
 
         function renderDeleteInventoryTable() {
             let tbody = document.getElementById('del-inv-table-tbody');
-            let targetDateVal = document.getElementById('del-inv-date-input').value;
+            let targetShop = document.getElementById('del-inv-shop-select').value;
+            let targetDateVal = document.getElementById('del-inv-date-input').value; // yyyy-mm-dd
 
             let html = '';
             let count = 1;
 
             excelRows.forEach((row) => {
-                let rowIsoDate = row.dateAdded || '';
-                if (targetDateVal && rowIsoDate !== targetDateVal) return;
+                if (targetShop === 'all' || row.device_id === targetShop) {
+                    let rowIsoDate = row.dateAdded || '';
+                    if (targetDateVal && rowIsoDate !== targetDateVal) return;
 
-                let dateStr = formatDateToDDMMYYYY(rowIsoDate);
-                let itemName = row.code || '-';
-                let itemQty = row.qty || 1;
-                let itemPrice = parseFloat(row.price || 0) || 0;
-                let uniqueKey = row.id;
+                    let dateStr = formatDateToDDMMYYYY(rowIsoDate);
+                    let itemName = row.code || '-';
+                    let itemQty = row.qty || 1;
+                    let itemPrice = parseFloat(row.price || 0) || 0;
+                    let uniqueKey = row.id;
 
-                html += `
-                    <tr class="hover:bg-gray-50 border-b">
-                        <td class="p-2 border-r text-center font-bold text-gray-500">${count++}</td>
-                        <td class="p-2 border-r text-center font-semibold text-purple-700">${dateStr}</td>
-                        <td class="p-2 border-r font-bold text-gray-900">${itemName}</td>
-                        <td class="p-2 border-r text-center font-bold text-blue-700">${itemQty}</td>
-                        <td class="p-2 border-r text-right font-bold text-green-600">${formatNumberWithCommas(itemPrice)} ກີບ</td>
-                        <td class="p-2 text-center">
-                            <input type="checkbox" name="del_inv_checkbox" value="${uniqueKey}" class="w-4 h-4 text-red-600 rounded cursor-pointer">
-                        </td>
-                    </tr>
-                `;
+                    html += `
+                        <tr class="hover:bg-gray-50 border-b">
+                            <td class="p-2 border-r text-center font-bold text-gray-500">${count++}</td>
+                            <td class="p-2 border-r text-center font-semibold text-purple-700">${dateStr}</td>
+                            <td class="p-2 border-r font-bold text-gray-900">${itemName}</td>
+                            <!-- 🌟 ສະແດງຈຳນວນສິນຄ້າໃນສາງ -->
+                            <td class="p-2 border-r text-center font-bold text-blue-700">${itemQty}</td>
+                            <td class="p-2 border-r text-right font-bold text-green-600">${formatNumberWithCommas(itemPrice)} ກີບ</td>
+                            <td class="p-2 text-center">
+                                <input type="checkbox" name="del_inv_checkbox" value="${uniqueKey}" class="w-4 h-4 text-red-600 rounded cursor-pointer">
+                            </td>
+                        </tr>
+                    `;
+                }
             });
 
             tbody.innerHTML = html || `<tr><td colspan="6" class="p-4 text-center text-gray-400">ບໍ່ພົບລາຍການສິນຄ້າໃນສາງຕາມເງື່ອນໄຂ</td></tr>`;
@@ -1763,7 +2086,7 @@
                 return;
             }
 
-            showCustomConfirm("ຢືນຢັນການລຶບສິນຄ້າ", `ທ່ານໝັ້ນໃຈບໍທີ່ຈະລຶບ ${checkedBoxes.length} ລາຍການທີ່ເລືອກນີ້ອອກຈາກສາງ?`, async (confirmed) => {
+            showCustomConfirm("ຢືນຢັນການລຶບສິນຄ້າ", `ທ່ານໝັ້ນໃຈບໍທີ່ຈະລຶບ ${checkedBoxes.length} ລາຍການສິນຄ້າທີ່ເລືອກນີ້ອອກຈາກສາງ?`, async (confirmed) => {
                 if (!confirmed) return;
 
                 let idsToDelete = Array.from(checkedBoxes).map(cb => cb.value);
@@ -1780,6 +2103,7 @@
                 }
 
                 showAlert("ສຳເລັດ", "ລຶບລາຍການສິນຄ້າໃນສາງທີ່ເລືອກສຳເລັດຮຽບຮ້ອຍ!", "🗑️");
+
                 closeDeleteInventoryModal();
                 loadInventory();
             });
@@ -1859,11 +2183,12 @@
 
                     let cost = parseFloat(String(row.cost || 0).replace(/,/g, '')) || 0;
                     let price = parseFloat(String(row.price || 0).replace(/,/g, '')) || 0;
+                    let ownerBadge = `<span class="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-mono">[${row.device_id || deviceId}]</span>`;
 
                     html += `
                         <tr class="hover:bg-gray-50 border-b">
                             <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
-                            <td class="p-3 border-r font-bold text-gray-900">${row.code || '-'}</td>
+                            <td class="p-3 border-r font-bold text-gray-900">${row.code || '-'} ${ownerBadge}</td>
                             <td class="p-3 border-r text-center font-semibold text-purple-700">${formattedDate}</td>
                             <td class="p-3 border-r text-center font-semibold text-gray-700">${formattedMfg}</td>
                             <td class="p-3 border-r text-center font-bold text-red-600">${formattedExpiry}</td>
@@ -2018,7 +2343,7 @@
 
             let newProductObj = {
                 id: newRowId,
-                device_id: 'SHARED',
+                device_id: deviceId,
                 code: currentStockInCode,
                 cost: costVal,
                 originalCost: costVal,
@@ -2037,7 +2362,7 @@
                 try {
                     await supabaseClient.from('products').insert([{
                         id: newRowId,
-                        device_id: 'SHARED',
+                        device_id: deviceId,
                         code: currentStockInCode,
                         cost: costVal,
                         original_cost: costVal,
@@ -2090,18 +2415,19 @@
             document.getElementById('modal-price').value = (price !== "" && price > 0) ? formatNumberWithCommas(price) : "";
             
             await fetchProductsForGenerator();
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
             
             let combinedSalesMap = new Map();
-            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
             localHistory.forEach(tx => combinedSalesMap.set(tx.id || tx.created_at, tx));
-
             if (supabaseClient) {
                 try {
                     let { data: cloudSales } = await supabaseClient.from('sales_history').select('*');
                     if (cloudSales) {
                         cloudSales.forEach(tx => {
                             let key = tx.id || tx.created_at;
-                            combinedSalesMap.set(key, { id: tx.id, device_id: tx.device_id, created_at: tx.created_at, items: tx.items || [] });
+                            if (!combinedSalesMap.has(key)) {
+                                combinedSalesMap.set(key, { id: tx.id, device_id: tx.device_id, created_at: tx.created_at, items: tx.items || [] });
+                            }
                         });
                     }
                 } catch (e) {}
@@ -2308,6 +2634,7 @@
             }
         }
 
+        // --- MULTI PRICE MODAL ---
         function openSelectPriceModal(code, items) {
             pendingMultiPriceItems = items;
             selectedPriceItem = items[0];
@@ -2365,14 +2692,19 @@
             }
 
             await fetchProductsForGenerator();
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            
             let combinedSalesMap = new Map();
+            localHistory.forEach(tx => combinedSalesMap.set(tx.id || tx.created_at, tx));
             if (supabaseClient) {
                 try {
                     let { data: cloudSales } = await supabaseClient.from('sales_history').select('*');
                     if (cloudSales) {
                         cloudSales.forEach(tx => {
                             let key = tx.id || tx.created_at;
-                            combinedSalesMap.set(key, { id: tx.id, device_id: tx.device_id, created_at: tx.created_at, items: tx.items || [] });
+                            if (!combinedSalesMap.has(key)) {
+                                combinedSalesMap.set(key, { id: tx.id, device_id: tx.device_id, created_at: tx.created_at, items: tx.items || [] });
+                            }
                         });
                     }
                 } catch (e) {}
@@ -2419,31 +2751,1115 @@
             renderCart();
         }
 
-        window.addEventListener('DOMContentLoaded', async () => {
-            try {
-                await initDeviceId();
-            } catch(e) {}
-            
-            try {
-                let userRole = localStorage.getItem('pos_user_role');
-                let shopOwner = localStorage.getItem('pos_shop_owner');
-                let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
-                if (userRole === 'admin' || shopOwner === 'true' || linkedAdminId) {
-                    let roleModal = document.getElementById('role-select-modal');
-                    if (roleModal) roleModal.classList.add('hidden');
-                    let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
-                    if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
-                    let rateBtn = document.getElementById('header-rate-btn');
-                    if (rateBtn) rateBtn.classList.remove('hidden');
-                }
-                updateHeaderTitle();
-            } catch(e) {}
+        function removeItem(index) { cart.splice(index, 1); renderCart(); }
 
-            try {
-                if (typeof checkTrialLicense === 'function') {
-                    checkTrialLicense();
+        function renderCart() {
+            let tbody = document.getElementById('cart-items');
+            if (cart.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ</td></tr>`;
+                document.getElementById('grand-total-cost').innerText = "0 ກີບ";
+                document.getElementById('grand-total').innerText = "0 ກີບ";
+                document.getElementById('custom-final-price').value = "";
+                document.getElementById('final-total').innerText = "0 ກີບ";
+                document.getElementById('grand-total-profit').innerText = "0 ກີບ";
+                document.getElementById('change-amount').innerText = "0 ກີບ (ຈ່າຍພໍດີ)";
+                return;
+            }
+            let html = '', grandTotal = 0, grandTotalCost = 0;
+            cart.forEach((item, index) => {
+                let total = item.price * item.qty, totalCost = item.cost * item.qty;
+                grandTotal += total; grandTotalCost += totalCost;
+                html += `
+                    <tr class="hover:bg-gray-50 border-b">
+                        <td class="p-3 font-medium text-gray-800">${item.name}</td>
+                        <td class="p-3 text-right text-gray-600">${formatNumberWithCommas(item.cost)}</td>
+                        <td class="p-3 text-right text-blue-600 font-semibold">${formatNumberWithCommas(item.price)}</td>
+                        <td class="p-3 text-center">
+                            <input type="number" min="1" value="${item.qty}" onchange="updateCartQtyDirect(${index}, this)" class="w-16 border rounded text-center px-2 py-1 font-bold text-gray-800 bg-white shadow-inner outline-none focus:ring-1 focus:ring-blue-500">
+                        </td>
+                        <td class="p-3 text-right font-bold text-gray-800">${formatNumberWithCommas(total)}</td>
+                        <td class="p-3 text-center"><button onclick="removeItem(${index})" class="text-red-500 font-bold cursor-pointer">ລຶບ</button></td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+            document.getElementById('grand-total-cost').innerText = formatNumberWithCommas(grandTotalCost) + " ກີບ";
+            document.getElementById('grand-total').innerText = formatNumberWithCommas(grandTotal) + " ກີບ";
+            
+            calculateChange();
+        }
+
+        function calculateChange() {
+            let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            let grandTotalCost = cart.reduce((sum, item) => sum + ((item.cost || 0) * item.qty), 0);
+            
+            let customPriceVal = document.getElementById('custom-final-price').value.replace(/,/g, '');
+            let finalTotal = customPriceVal !== "" ? (parseFloat(customPriceVal) || 0) : grandTotal;
+            if (finalTotal < 0) finalTotal = 0;
+
+            let grandTotalProfit = finalTotal - grandTotalCost;
+
+            document.getElementById('final-total').innerText = formatNumberWithCommas(finalTotal) + " ກີບ";
+            document.getElementById('grand-total-profit').innerText = formatNumberWithCommas(grandTotalProfit) + " ກີບ";
+
+            let cashInput = document.getElementById('cash-given').value.replace(/,/g, ''), changeElem = document.getElementById('change-amount');
+            if (!cashInput) { changeElem.innerText = "0 ກີບ (ຈ່າຍພໍດີ)"; return; }
+            let cashGiven = parseFloat(cashInput) || 0, change = cashGiven - finalTotal;
+            changeElem.innerText = change >= 0 ? formatNumberWithCommas(change) + " ກີບ" : "ເງິນຍັງບໍ່ພໍ";
+        }
+
+        function handleCustomPriceKeydown(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                document.getElementById('cash-given').focus();
+            }
+        }
+
+        function handleCashKeydown(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                openCheckoutMethodModal();
+            }
+        }
+
+        async function checkStockAvailability() {
+            await fetchProductsForGenerator();
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            
+            let combinedSalesMap = new Map();
+            localHistory.forEach(tx => combinedSalesMap.set(tx.id || tx.created_at, tx));
+            if (supabaseClient) {
+                try {
+                    let { data: cloudSales } = await supabaseClient.from('sales_history').select('*');
+                    if (cloudSales) {
+                        cloudSales.forEach(tx => {
+                            let key = tx.id || tx.created_at;
+                            if (!combinedSalesMap.has(key)) {
+                                combinedSalesMap.set(key, { id: tx.id, device_id: tx.device_id, created_at: tx.created_at, items: tx.items || [] });
+                            }
+                        });
+                    }
+                } catch (e) {}
+            }
+            let allSalesHistory = Array.from(combinedSalesMap.values());
+
+            let soldQtyMap = {};
+            allSalesHistory.forEach(tx => {
+                if (tx.items) {
+                    tx.items.forEach(it => {
+                        let cKey = String(it.code || '').trim().toLowerCase();
+                        soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
+                    });
                 }
-            } catch(e) {}
+            });
+
+            let stockMap = {};
+            excelRows.forEach(row => {
+                let cKey = String(row.code || '').trim().toLowerCase();
+                let initial = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1;
+                stockMap[cKey] = (stockMap[cKey] || 0) + initial;
+            });
+
+            for (let item of cart) {
+                let cKey = String(item.code || '').trim().toLowerCase();
+                let totalStock = stockMap[cKey] || 0;
+                let totalSold = soldQtyMap[cKey] || 0;
+                let remaining = totalStock - totalSold;
+                if (remaining < 0) remaining = 0;
+
+                if (item.qty > remaining) {
+                    return { ok: false, name: item.name, requested: item.qty, available: remaining };
+                }
+            }
+            return { ok: true };
+        }
+
+        // --- 🌟 ຟັງຊັນຈັດການປ໋ອບອັບຊຳລະເງິນ ແລະ ສະແດງຮູບ QR Code ຕາມໂໝດທີ່ເລືອກ ---
+        function openCheckoutMethodModal() {
+            if (cart.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າກ່ອນຊຳລະເງິນ!", "⚠️");
+                return;
+            }
+            let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            let customPriceVal = document.getElementById('custom-final-price').value.replace(/,/g, '');
+            let finalTotal = customPriceVal !== "" ? (parseFloat(customPriceVal) || 0) : grandTotal;
+
+            let currentRate = parseFloat(localStorage.getItem('pos_custom_manual_rate')) || 650;
+            let thbAmount = 0;
+            if (currentRate > 0) {
+                let rawThb = finalTotal / currentRate;
+                thbAmount = Math.ceil(rawThb / 10) * 10;
+            }
+
+            document.getElementById('popup-total-amount-text').innerText = formatNumberWithCommas(finalTotal) + " ກີບ";
+            document.getElementById('popup-total-thb-text').innerText = formatNumberWithCommas(thbAmount) + " ບາດ (Rate: " + currentRate + ")";
+            
+            let selectedRadio = document.querySelector('input[name="pay_mode"]:checked');
+            let currentMode = selectedRadio ? selectedRadio.value : 'cash';
+
+            let lakSection = document.getElementById('transfer-lak-qr-section');
+            let thbSection = document.getElementById('transfer-thb-qr-section');
+            lakSection.classList.add('hidden');
+            thbSection.classList.add('hidden');
+
+            if (currentMode === 'transfer_lak') {
+                lakSection.classList.remove('hidden');
+                renderShopQrImage('lak');
+            } else if (currentMode === 'transfer_thb') {
+                thbSection.classList.remove('hidden');
+                renderShopQrImage('thb');
+            }
+
+            document.getElementById('checkout-method-modal').classList.remove('hidden');
+        }
+
+        function closeCheckoutMethodModal() {
+            document.getElementById('checkout-method-modal').classList.add('hidden');
+        }
+
+        function selectPaymentMode(mode, labelElem) {
+            let labels = document.querySelectorAll('#checkout-method-modal .space-y-3 label');
+            labels.forEach(l => {
+                l.classList.remove('border-blue-600', 'bg-blue-50/50');
+                l.classList.add('border-gray-200');
+            });
+            labelElem.classList.remove('border-gray-200');
+            labelElem.classList.add('border-blue-600', 'bg-blue-50/50');
+            let radio = labelElem.querySelector('input[type="radio"]');
+            if (radio) radio.checked = true;
+
+            let lakSection = document.getElementById('transfer-lak-qr-section');
+            let thbSection = document.getElementById('transfer-thb-qr-section');
+
+            lakSection.classList.add('hidden');
+            thbSection.classList.add('hidden');
+
+            if (mode === 'transfer_lak') {
+                lakSection.classList.remove('hidden');
+                renderShopQrImage('lak');
+            } else if (mode === 'transfer_thb') {
+                thbSection.classList.remove('hidden');
+                renderShopQrImage('thb');
+            }
+        }
+
+        function renderShopQrImage(type) {
+            let currentDev = localStorage.getItem('pos_device_id') || deviceId;
+            let containerId = type === 'lak' ? 'modal-lak-qr-display' : 'modal-thb-qr-display';
+            let container = document.getElementById(containerId);
+            if (!container) return;
+
+            let qrBase64 = localStorage.getItem(type === 'lak' ? ('pos_shop_lak_qr_' + currentDev) : ('pos_shop_thb_qr_' + currentDev));
+            
+            if (qrBase64) {
+                container.innerHTML = `<img src="${qrBase64}" alt="Shop QR Code" class="max-w-[200px] max-h-[200px] rounded-xl border shadow mx-auto">`;
+            } else {
+                container.innerHTML = `<div class="text-red-500 font-semibold text-xs py-4 text-center">⚠️ ຍັງບໍ່ໄດ້ອັບໂຫຼດຮູບ QR Code ບັນຊີ${type === 'lak' ? 'ກີບ' : 'ບາດ'} <br>ກະລຸນາໄປທີ່ ⚙️ ຈັດການລະບົບ -> ✏️ ແກ້ໄຂ ເພື່ອອັບໂຫຼດຮູບ QR Code!</div>`;
+            }
+        }
+
+        async function confirmCheckoutPayment() {
+            let selectedRadio = document.querySelector('input[name="pay_mode"]:checked');
+            let payMode = selectedRadio ? selectedRadio.value : 'cash';
+
+            let stockCheck = await checkStockAvailability();
+            if (!stockCheck.ok) {
+                showAlert("ສິນຄ້າໃນສາງບໍ່ພໍ", `ສິນຄ້າ [${stockCheck.name}] ໃນສາງເຫຼືອພຽງ ${stockCheck.available} ອັນ ແຕ່ທ່ານຕ້ອງການຂາຍ ${stockCheck.requested} ອັນ! ບໍ່ສາມາດຂາຍເກີນຈຳນວນສາງໄດ້.`, "❌");
+                return;
+            }
+
+            let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            let totalCost = cart.reduce((sum, item) => sum + ((item.cost || 0) * item.qty), 0);
+            
+            let customPriceVal = document.getElementById('custom-final-price').value.replace(/,/g, '');
+            let finalTotal = customPriceVal !== "" ? (parseFloat(customPriceVal) || 0) : grandTotal;
+            let discount = grandTotal - finalTotal;
+            if (discount < 0) discount = 0;
+
+            let cashGivenInput = document.getElementById('cash-given').value.replace(/,/g, '');
+            let cashGiven = cashGivenInput ? (parseFloat(cashGivenInput) || 0) : finalTotal;
+
+            let txData = {
+                id: 'TX-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+                device_id: deviceId,
+                created_at: new Date().toISOString(),
+                items: cart,
+                total_items: cart.reduce((sum, item) => sum + item.qty, 0),
+                total_cost: totalCost,
+                sub_total: grandTotal,
+                discount: discount,
+                total: finalTotal,
+                cash: cashGiven,
+                change: cashGiven - finalTotal,
+                payment_method: payMode
+            };
+
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            localHistory.unshift(txData);
+            localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
+
+            if (supabaseClient) {
+                try {
+                    await supabaseClient.from('sales_history').insert([{
+                        device_id: deviceId,
+                        items: cart,
+                        total_items: txData.total_items,
+                        total_cost: totalCost,
+                        sub_total: grandTotal,
+                        discount: discount,
+                        total: finalTotal,
+                        cash: cashGiven,
+                        change: txData.change,
+                        payment_method: payMode,
+                        created_at: txData.created_at
+                    }]);
+                } catch (err) {}
+            }
+
+            closeCheckoutMethodModal();
+            let payLabel = payMode === 'cash' ? 'ເງິນສົດ' : (payMode === 'transfer_lak' ? 'ເງິນໂອນ (ກີບ)' : 'ເງິນໂອນ (ບາດ)');
+            showAlert("ສຳເລັດ", `ຊຳລະເງິນ (${payLabel}) ສຳເລັດຮຽບຮ້ອຍ!`, "✅");
+            
+            cart = []; 
+            document.getElementById('cash-given').value = ''; 
+            document.getElementById('custom-final-price').value = '';
+            document.getElementById('grand-total-cost').innerText = "0 ກີບ";
+            document.getElementById('grand-total').innerText = "0 ກີບ";
+            document.getElementById('final-total').innerText = "0 ກີບ";
+            document.getElementById('grand-total-profit').innerText = "0 ກີບ";
+            document.getElementById('change-amount').innerText = "0 ກີບ (ຈ່າຍພໍດີ)";
+            
+            renderCart();
+        }
+
+        // --- HISTORY & REPORT MODALS ---
+        function openHistory() { 
+            document.getElementById('history-modal').classList.remove('hidden'); 
+            let userRole = localStorage.getItem('pos_user_role');
+            let deleteBtn = document.getElementById('admin-delete-history-btn');
+            if (deleteBtn) {
+                if (userRole === 'admin') deleteBtn.classList.remove('hidden');
+                else deleteBtn.classList.add('hidden');
+            }
+            loadCloudHistory(); 
+        }
+
+        function closeHistory() { 
+            document.getElementById('history-modal').classList.add('hidden'); 
+        }
+
+        async function loadCloudHistory() {
+            let tbody = document.getElementById('history-table-tbody');
+            tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</td></tr>`;
+            document.getElementById('history-summary').classList.add('hidden');
+            globalHistoryList = [];
+
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            let combinedMap = new Map();
+
+            localHistory.forEach(tx => { combinedMap.set(tx.id || tx.created_at, tx); });
+
+            if (supabaseClient) {
+                try {
+                    let { data: cloudSales, error } = await supabaseClient
+                        .from('sales_history')
+                        .select('*')
+                        .order('created_at', { ascending: false });
+
+                    if (!error && cloudSales) {
+                        cloudSales.forEach(tx => {
+                            let key = tx.id || tx.created_at;
+                            if (!combinedMap.has(key)) {
+                                combinedMap.set(key, {
+                                    id: tx.id, source: 'cloud', device_id: tx.device_id, created_at: tx.created_at,
+                                    total_items: tx.total_items || 0, total_cost: tx.total_cost || 0,
+                                    discount: tx.discount || 0, total: tx.total, cash: tx.cash, change: tx.change, 
+                                    payment_method: tx.payment_method || 'cash', items: tx.items || []
+                                });
+                            }
+                        });
+                    }
+                } catch (err) {}
+            }
+
+            globalHistoryList = Array.from(combinedMap.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+            if (globalHistoryList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີປະຫວັດການຂາຍ.</td></tr>`;
+                return;
+            }
+
+            let flatRows = [];
+            globalHistoryList.forEach((tx) => {
+                let txDateObj = new Date(tx.created_at);
+                let dateStr = !isNaN(txDateObj.getTime()) ? formatDateToDDMMYYYY(txDateObj.toISOString().split('T')[0]) : '-';
+                let payMethod = tx.payment_method || 'cash';
+                let currencyLabel = (payMethod === 'transfer_thb') ? 'ບາດ' : 'ກີບ';
+
+                if (tx.items && Array.isArray(tx.items)) {
+                    tx.items.forEach((it, itemIdx) => {
+                        let itemName = it.name || it.code || '-';
+                        let itemCost = parseFloat(it.cost || 0) || 0;
+                        let itemPrice = parseFloat(it.price || 0) || 0;
+                        let itemQty = parseInt(it.qty || 1) || 1;
+                        let itemTotal = itemPrice * itemQty;
+                        let itemTotalCost = itemCost * itemQty;
+
+                        flatRows.push({
+                            txId: tx.id || tx.created_at,
+                            itemIndex: itemIdx,
+                            dateStr: dateStr,
+                            itemName: itemName,
+                            device_id: tx.device_id,
+                            cost: itemCost,
+                            price: itemPrice,
+                            qty: itemQty,
+                            total: itemTotal,
+                            totalCost: itemTotalCost,
+                            currency: currencyLabel
+                        });
+                    });
+                }
+            });
+
+            flatRows.sort((a, b) => b.qty - a.qty);
+
+            let html = '';
+            let countIndex = 1;
+            let sumCostTotal = 0;
+            let sumPriceTotal = 0;
+
+            flatRows.forEach(row => {
+                sumCostTotal += row.totalCost;
+                sumPriceTotal += row.total;
+
+                let ownerBadge = `<span class="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-mono">[${row.device_id || '-'}]</span>`;
+
+                html += `
+                    <tr class="hover:bg-gray-50 border-b">
+                        <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
+                        <td class="p-3 border-r text-center font-semibold text-purple-700">${row.dateStr}</td>
+                        <td class="p-3 border-r font-bold text-gray-900">${row.itemName} ${ownerBadge}</td>
+                        <td class="p-3 border-r text-right text-blue-600 font-semibold">${formatNumberWithCommas(row.cost)} ${row.currency}</td>
+                        <td class="p-3 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(row.price)} ${row.currency}</td>
+                        <td class="p-3 border-r text-center font-bold text-gray-800">${row.qty}</td>
+                        <td class="p-3 border-r text-right font-bold text-gray-900 bg-gray-50">${formatNumberWithCommas(row.total)} ${row.currency}</td>
+                        <td class="p-3 text-center text-xs font-semibold text-gray-600">-</td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+            let profitTotal = sumPriceTotal - sumCostTotal;
+
+            let defaultCurr = 'ກີບ';
+            document.getElementById('sum-total-cost').innerText = formatNumberWithCommas(sumCostTotal) + " " + defaultCurr;
+            document.getElementById('sum-total-price').innerText = formatNumberWithCommas(sumPriceTotal) + " " + defaultCurr;
+            document.getElementById('sum-total-profit').innerText = formatNumberWithCommas(profitTotal) + " " + defaultCurr;
+            document.getElementById('history-summary').classList.remove('hidden');
+        }
+
+        // --- 🌟 ຟັງຊັນຈັດການປ໋ອບອັບລຶບປະຫວັດ (ເພີ່ມຊ່ອງ ຈຳນວນ ຕາມຄວາມຕ້ອງການ) ---
+        function openDeleteHistoryModal() {
+            let shopSelect = document.getElementById('del-hist-shop-select');
+            
+            let html = `<option value="all">-- ທຸກຮ້ານ / ທຸກຢູເຊີ --</option>`;
+            let uniqueShops = [...new Set(globalHistoryList.map(tx => tx.device_id).filter(Boolean))];
+            
+            uniqueShops.forEach(s => {
+                let shopName = localStorage.getItem('pos_shop_name_' + s) || '';
+                let displayName = (shopName && shopName.trim() !== '') ? `${shopName} (${s})` : s;
+                html += `<option value="${s}">${displayName}</option>`;
+            });
+            shopSelect.innerHTML = html;
+
+            document.getElementById('del-hist-date-input').value = '';
+            renderDeleteHistoryTable();
+            document.getElementById('delete-history-modal').classList.remove('hidden');
+        }
+
+        function closeDeleteHistoryModal() {
+            document.getElementById('delete-history-modal').classList.add('hidden');
+        }
+
+        function renderDeleteHistoryTable() {
+            let tbody = document.getElementById('del-hist-table-tbody');
+            let targetShop = document.getElementById('del-hist-shop-select').value;
+            let targetDateVal = document.getElementById('del-hist-date-input').value; // yyyy-mm-dd
+
+            let html = '';
+            let count = 1;
+
+            globalHistoryList.forEach((tx) => {
+                if (targetShop === 'all' || tx.device_id === targetShop) {
+                    let txDateObj = new Date(tx.created_at);
+                    let txIsoDate = !isNaN(txDateObj.getTime()) ? txDateObj.toISOString().split('T')[0] : '';
+                    let dateStr = !isNaN(txDateObj.getTime()) ? formatDateToDDMMYYYY(txIsoDate) : '-';
+
+                    if (targetDateVal && txIsoDate !== targetDateVal) return;
+
+                    let payMethod = tx.payment_method || 'cash';
+                    let curr = (payMethod === 'transfer_thb') ? 'ບາດ' : 'ກີບ';
+
+                    if (tx.items && Array.isArray(tx.items)) {
+                        tx.items.forEach((it, itemIdx) => {
+                            let itemName = it.name || it.code || '-';
+                            let itemQty = parseInt(it.qty || 1) || 1;
+                            let itemPrice = parseFloat(it.price || 0) || 0;
+                            let itemTotal = itemPrice * itemQty;
+                            let uniqueKey = `${tx.id || ''}___${tx.created_at}___${itemIdx}___${tx.device_id}`;
+
+                            html += `
+                                <tr class="hover:bg-gray-50 border-b">
+                                    <td class="p-2 border-r text-center font-bold text-gray-500">${count++}</td>
+                                    <td class="p-2 border-r text-center font-semibold text-purple-700">${dateStr}</td>
+                                    <td class="p-2 border-r font-bold text-gray-900">${itemName}</td>
+                                    <!-- 🌟 ສະແດງຈຳນວນສິນຄ້າໃນປະຫວັດການຂາຍ -->
+                                    <td class="p-2 border-r text-center font-bold text-blue-700">${itemQty}</td>
+                                    <td class="p-2 border-r text-right font-bold text-green-600">${formatNumberWithCommas(itemTotal)} ${curr}</td>
+                                    <td class="p-2 text-center">
+                                        <input type="checkbox" name="del_hist_checkbox" value="${uniqueKey}" class="w-4 h-4 text-red-600 rounded cursor-pointer">
+                                    </td>
+                                </tr>
+                            `;
+                        });
+                    }
+                }
+            });
+
+            tbody.innerHTML = html || `<tr><td colspan="6" class="p-4 text-center text-gray-400">ບໍ່ພົບລາຍການປະຫວັດການຂາຍຕາມເງື່ອນໄຂ</td></tr>`;
+        }
+
+        function toggleSelectAllDelHistItems(btn) {
+            let checkboxes = document.querySelectorAll('input[name="del_hist_checkbox"]');
+            let allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            checkboxes.forEach(cb => cb.checked = !allChecked);
+            btn.innerText = allChecked ? "☑️ ເລືອກທັງໝົດ" : "☒ ຍົກເລີກເລືອກທັງໝົດ";
+        }
+
+        async function confirmExecuteDeleteHistory() {
+            let checkedBoxes = document.querySelectorAll('input[name="del_hist_checkbox"]:checked');
+            if (checkedBoxes.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາຕິກເລືອກລາຍການທີ່ຕ້ອງການລຶບຢ່າງໜ້ອຍ 1 ລາຍການ!", "⚠️");
+                return;
+            }
+
+            showCustomConfirm("ຢືນຢັນການລຶບປະຫວັດ", `ທ່ານໝັ້ນໃຈບໍທີ່ຈະລຶບ ${checkedBoxes.length} ລາຍການທີ່ເລືອກນີ້ອອກຈາກປະຫວັດ?`, async (confirmed) => {
+                if (!confirmed) return;
+
+                let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+                
+                let deleteMap = new Map();
+                checkedBoxes.forEach(cb => {
+                    let parts = cb.value.split('___');
+                    let txId = parts[0];
+                    let txCreated = parts[1];
+                    let itemIdx = parseInt(parts[2]);
+                    let devId = parts[3];
+
+                    let mapKey = txId && txId !== 'undefined' ? txId : txCreated;
+                    if (!deleteMap.has(mapKey)) deleteMap.set(mapKey, { indices: [], device_id: devId, created_at: txCreated, id: txId });
+                    deleteMap.get(mapKey).indices.push(itemIdx);
+                });
+
+                let updatedLocalHistory = [];
+                localHistory.forEach(tx => {
+                    let matchedKey = null;
+                    for (let [mKey, val] of deleteMap.entries()) {
+                        if (mKey === tx.id || mKey === tx.created_at || (val.created_at === tx.created_at && val.device_id === tx.device_id)) {
+                            matchedKey = mKey;
+                            break;
+                        }
+                    }
+
+                    if (matchedKey && tx.items) {
+                        let indicesToRemove = deleteMap.get(matchedKey).indices;
+                        indicesToRemove.sort((a, b) => b - a);
+                        indicesToRemove.forEach(idx => {
+                            tx.items.splice(idx, 1);
+                        });
+                    }
+
+                    if (!tx.items || tx.items.length > 0) {
+                        updatedLocalHistory.push(tx);
+                    }
+                });
+                localStorage.setItem('pos_local_history', JSON.stringify(updatedLocalHistory));
+
+                if (supabaseClient) {
+                    try {
+                        for (let [mKey, val] of deleteMap.entries()) {
+                            let query = supabaseClient.from('sales_history').select('*');
+                            if (val.id && val.id !== 'undefined') {
+                                query = query.or(`id.eq.${val.id},created_at.eq.${val.created_at}`);
+                            } else {
+                                query = query.eq('created_at', val.created_at).eq('device_id', val.device_id);
+                            }
+
+                            let { data: cloudTxList } = await query;
+                            if (cloudTxList && cloudTxList.length > 0) {
+                                for (let cTx of cloudTxList) {
+                                    if (cTx.items) {
+                                        let indicesToRemove = val.indices;
+                                        indicesToRemove.sort((a, b) => b - a);
+                                        indicesToRemove.forEach(idx => {
+                                            cTx.items.splice(idx, 1);
+                                        });
+
+                                        if (cTx.items.length === 0) {
+                                            await supabaseClient.from('sales_history').delete().eq('id', cTx.id);
+                                        } else {
+                                            await supabaseClient.from('sales_history').update({ items: cTx.items }).eq('id', cTx.id);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } catch (e) {}
+                }
+
+                showAlert("ສຳເລັດ", "ລຶບລາຍການປະຫວັດທີ່ເລືອກສຳເລັດຮຽບຮ້ອຍ!", "🗑️");
+
+                closeDeleteHistoryModal();
+                loadCloudHistory();
+            });
+        }
+
+        async function openReport() { 
+            document.getElementById('report-modal').classList.remove('hidden'); 
+            toggleReportFilter();
+        }
+
+        function closeReport() { 
+            document.getElementById('report-modal').classList.add('hidden'); 
+        }
+
+        function toggleReportFilter() {
+            let reportType = document.getElementById('report-type').value;
+            document.getElementById('filter-monthly').classList.add('hidden');
+            document.getElementById('filter-quarterly').classList.add('hidden');
+            document.getElementById('filter-duration').classList.add('hidden');
+
+            if (reportType === 'monthly') {
+                document.getElementById('filter-monthly').classList.remove('hidden');
+            } else if (reportType === 'quarterly') {
+                document.getElementById('filter-quarterly').classList.remove('hidden');
+            } else if (reportType === 'duration') {
+                document.getElementById('filter-duration').classList.remove('hidden');
+            }
+            calculateReport();
+        }
+
+        async function calculateReport() {
+            let reportType = document.getElementById('report-type').value;
+            let year = parseInt(document.getElementById('report-year').value);
+            
+            let totalCost = 0;
+            let totalPrice = 0;
+
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            let allSales = [...localHistory];
+
+            if (supabaseClient) {
+                try {
+                    let { data: cloudSales } = await supabaseClient.from('sales_history').select('*');
+                    if (cloudSales) {
+                        cloudSales.forEach(tx => {
+                            if (!allSales.some(s => (s.id === tx.id || s.created_at === tx.created_at))) {
+                                allSales.push({
+                                    device_id: tx.device_id,
+                                    total_cost: tx.total_cost || 0,
+                                    total: tx.total || 0,
+                                    created_at: tx.created_at
+                                });
+                            }
+                        });
+                    }
+                } catch (e) {}
+            }
+
+            allSales.forEach(tx => {
+                let txDate = new Date(tx.created_at);
+                if (isNaN(txDate)) return;
+
+                let txYear = txDate.getFullYear();
+                let txMonth = txDate.getMonth() + 1;
+
+                if (txYear === year) {
+                    let match = false;
+
+                    if (reportType === 'monthly') {
+                        let selectedMonth = parseInt(document.getElementById('report-month').value);
+                        if (txMonth === selectedMonth) match = true;
+                    } 
+                    else if (reportType === 'quarterly') {
+                        let quarter = parseInt(document.getElementById('report-quarter').value);
+                        let qMonths = { 1: [1,2,3], 2: [4,5,6], 3: [7,8,9], 4: [10,11,12] };
+                        if (qMonths[quarter].includes(txMonth)) match = true;
+                    } 
+                    else if (reportType === 'duration') {
+                        let durationMonths = parseInt(document.getElementById('report-duration-months').value);
+                        if (txMonth <= durationMonths) match = true;
+                    }
+
+                    if (match) {
+                        totalCost += parseFloat(tx.total_cost || 0);
+                        totalPrice += parseFloat(tx.total || 0);
+                    }
+                }
+            });
+
+            let profit = totalPrice - totalCost;
+
+            document.getElementById('rep-total-cost').innerText = formatNumberWithCommas(totalCost) + " ກີບ";
+            document.getElementById('rep-total-price').innerText = formatNumberWithCommas(totalPrice) + " ກີບ";
+            document.getElementById('rep-total-profit').innerText = formatNumberWithCommas(profit) + " ກີບ";
+        }
+
+        // --- EXCEL & QR CODE GENERATOR ---
+        async function openExcelGenerator() {
+            document.getElementById('excel-generator-modal').classList.remove('hidden');
+            let titleText = document.getElementById('excel-modal-title-text');
+            let printTitle = document.getElementById('print-area-title');
+            
+            if (currentCodeType === 'barcode') {
+                titleText.innerText = "📊 ຕາຕະລາງສ້າງ Barcode ສິນຄ້າ";
+                printTitle.innerText = "🖨️ ຕົວຢ່າງປ້າຍ Barcode ສິນຄ້າ";
+            } else {
+                titleText.innerText = "📱 ຕາຕະລາງສ້າງ QR Code ສິນຄ້າ";
+                printTitle.innerText = "🖨️ ຕົວຢ່າງປ້າຍ QR Code ສິນຄ້າ";
+            }
+
+            await fetchProductsForGenerator();
+            renderExcelTable();
+        }
+
+        function closeExcelGenerator() {
+            document.getElementById('excel-generator-modal').classList.add('hidden');
+            document.getElementById('excel-print-area').classList.add('hidden');
+        }
+
+        async function fetchProductsForGenerator() {
+            if (supabaseClient) {
+                try {
+                    let { data } = await supabaseClient.from('products').select('*');
+                    if (data && data.length > 0) {
+                        excelRows = data.map(item => ({
+                            id: item.id || ('ROW-' + Math.random().toString(36).substring(2, 6)),
+                            device_id: item.device_id || deviceId,
+                            code: item.code,
+                            cost: item.cost,
+                            originalCost: item.original_cost || item.cost,
+                            profitPct: item.profit_pct,
+                            price: item.price,
+                            qty: item.qty || 1,
+                            dateAdded: item.date_added || item.updated_at ? new Date(item.date_added || item.updated_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                            mfgDate: item.mfg_date || '',
+                            expiryDate: item.expiry_date || ''
+                        }));
+                        localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
+                        return;
+                    }
+                } catch (e) {}
+            }
+            let savedRows = localStorage.getItem('pos_saved_excel_rows');
+            excelRows = savedRows ? JSON.parse(savedRows) : [];
+        }
+
+        function renderExcelTable() {
+            let tbody = document.getElementById('excel-tbody');
+            let html = '';
+            
+            if (excelRows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400 font-semibold">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າ (ກະລຸນາກົດ "+ ເພີ່ມແຖວ" ຫຼື ນຳເຂົ້າ Excel)</td></tr>`;
+                return;
+            }
+
+            excelRows.forEach((row, index) => {
+                let costNum = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
+                let priceNum = parseFloat(String(row.price).replace(/,/g, '')) || 0;
+                let totalCost = costNum * (row.qty || 1);
+                
+                let mfgVal = row.mfgDate ? formatDateToDDMMYYYY(row.mfgDate) : '';
+                let expVal = row.expiryDate ? formatDateToDDMMYYYY(row.expiryDate) : '';
+                let dateDisplay = formatDateToDDMMYYYY(row.dateAdded);
+                if (mfgVal && expVal) {
+                    dateDisplay = `MFG:${mfgVal} | EXP:${expVal}`;
+                }
+
+                let ownerBadge = `<span class="text-[10px] bg-purple-100 text-purple-700 px-1 py-0.5 rounded font-mono mr-1">[${row.device_id || deviceId}]</span>`;
+
+                html += `
+                    <tr class="hover:bg-gray-50 border-b">
+                        <td class="p-2 border-r text-center font-bold text-gray-500">${index + 1}</td>
+                        <td class="p-2 border-r flex items-center">
+                            ${ownerBadge}
+                            <input type="text" value="${row.code || ''}" data-field="code" onkeydown="handleExcelCellKeydown(event, ${index}, 'code')" oninput="handleInputLive(${index}, 'code', this.value)" class="w-full bg-transparent border-none outline-none font-bold text-gray-900 px-2 uppercase" placeholder="ປ້ອນຊື່ສິນຄ້າ/ລະຫັດ">
+                        </td>
+                        <td class="p-2 border-r">
+                            <input type="text" value="${formatNumberWithCommas(costNum)}" data-field="cost" onkeydown="handleExcelCellKeydown(event, ${index}, 'cost')" oninput="formatInputMoney(this); handleInputLive(${index}, 'cost', this.value)" class="w-full bg-transparent border-none outline-none text-right font-bold text-blue-600 px-2" placeholder="0">
+                        </td>
+                        <td class="p-2 border-r">
+                            <input type="text" value="${row.profitPct || 20}" data-field="profitPct" onkeydown="handleExcelCellKeydown(event, ${index}, 'profitPct')" oninput="handleInputLive(${index}, 'profitPct', this.value)" class="w-full bg-transparent border-none outline-none text-center font-semibold text-gray-700 px-2" placeholder="20">
+                        </td>
+                        <td class="p-2 border-r">
+                            <input type="text" value="${formatNumberWithCommas(priceNum)}" data-field="price" onkeydown="handleExcelCellKeydown(event, ${index}, 'price')" oninput="formatInputMoney(this); handleInputLive(${index}, 'price', this.value)" class="w-full bg-transparent border-none outline-none text-right font-bold text-green-600 px-2" placeholder="0">
+                        </td>
+                        <td class="p-2 border-r">
+                            <input type="text" value="${row.qty || 1}" data-field="qty" onkeydown="handleExcelCellKeydown(event, ${index}, 'qty')" oninput="handleInputLive(${index}, 'qty', this.value)" class="w-full bg-transparent border-none outline-none text-center font-bold text-gray-800 px-2" placeholder="1">
+                        </td>
+                        <td class="p-2 border-r text-right font-bold text-gray-800 px-3 bg-gray-50">${formatNumberWithCommas(totalCost)}</td>
+                        <td class="p-2 border-r">
+                            <input type="text" value="${dateDisplay}" data-field="dateAdded" onkeydown="handleExcelCellKeydown(event, ${index}, 'dateAdded')" oninput="handleInputLive(${index}, 'dateAdded', this.value)" class="w-full bg-transparent border-none outline-none text-center text-xs font-semibold text-gray-600 px-1" placeholder="dd/mm/yyyy">
+                        </td>
+                        <td class="p-2 text-center">
+                            <button onclick="removeExcelRow(${index})" class="text-red-500 hover:text-red-700 font-bold px-2 py-1 rounded bg-red-50 hover:bg-red-100 transition cursor-pointer">ລຶບ</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        function addExcelRow(code = '', cost = '', profitPct = 20, price = '', qty = 1, dateAdded = '') {
+            syncTableInputsToData();
+            let today = new Date().toISOString().split('T')[0];
+            let newId = 'ROW-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
+            excelRows.push({ id: newId, device_id: deviceId, code: code, cost: cost, originalCost: cost || 0, profitPct: profitPct, price: price, qty: qty, dateAdded: dateAdded || today });
+            renderExcelTable();
+        }
+
+        function removeExcelRow(index) {
+            syncTableInputsToData();
+            excelRows.splice(index, 1);
+            renderExcelTable();
+        }
+
+        async function clearUnsavedRows() {
+            excelRows = [];
+            localStorage.removeItem('pos_saved_excel_rows');
+            if (supabaseClient) {
+                try { await supabaseClient.from('products').delete().neq('id', '0'); } catch (e) {}
+            }
+            renderExcelTable(); 
+            document.getElementById('excel-print-area').classList.add('hidden');
+            showAlert("ສຳເລັດ", "ລຶບຂໍ້ມູນສຳເລັດຮຽບຮ້ອຍແລ້ວ", "🧹");
+        }
+
+        function handleInputLive(index, field, value) {
+            if (field === 'code') {
+                excelRows[index].code = value;
+            } else if (field === 'cost') {
+                excelRows[index].cost = value;
+                excelRows[index].originalCost = value;
+            } else if (field === 'profitPct') {
+                excelRows[index].profitPct = value;
+            } else if (field === 'price') {
+                excelRows[index].price = value;
+            } else if (field === 'qty') {
+                excelRows[index].qty = value;
+            } else if (field === 'dateAdded') {
+                excelRows[index].dateAdded = value;
+            }
+        }
+
+        function handleExcelCellKeydown(event, rowIndex, fieldName) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                syncTableInputsToData();
+
+                if (rowIndex === excelRows.length - 1) {
+                    addExcelRow();
+                } else {
+                    renderExcelTable();
+                }
+
+                setTimeout(() => {
+                    let nextRowInputs = document.querySelectorAll(`#excel-tbody tr`);
+                    if (nextRowInputs[rowIndex + 1]) {
+                        let targetInput = nextRowInputs[rowIndex + 1].querySelector(`[data-field="${fieldName}"]`);
+                        if (targetInput) {
+                            targetInput.focus();
+                        }
+                    }
+                }, 50);
+            }
+        }
+
+        function syncTableInputsToData() {
+            let rowsInput = document.querySelectorAll('#excel-tbody tr');
+            rowsInput.forEach((tr, index) => {
+                if (excelRows[index]) {
+                    if (!excelRows[index].id) {
+                        excelRows[index].id = 'ROW-' + Date.now() + '-' + index;
+                    }
+                    if (!excelRows[index].device_id) {
+                        excelRows[index].device_id = deviceId;
+                    }
+                    let codeInput = tr.querySelector('input[data-field="code"]');
+                    let costInput = tr.querySelector('input[data-field="cost"]');
+                    let pctInput = tr.querySelector('input[data-field="profitPct"]');
+                    let priceInput = tr.querySelector('input[data-field="price"]');
+                    let qtyInput = tr.querySelector('input[data-field="qty"]');
+                    let dateInput = tr.querySelector('input[data-field="dateAdded"]');
+
+                    if (codeInput) excelRows[index].code = codeInput.value.trim();
+                    if (costInput) {
+                        let cVal = costInput.value.trim();
+                        excelRows[index].cost = cVal;
+                        if (!excelRows[index].originalCost) excelRows[index].originalCost = cVal;
+                    }
+                    if (pctInput) excelRows[index].profitPct = pctInput.value.trim();
+                    if (priceInput) excelRows[index].price = priceInput.value.trim();
+                    if (qtyInput) excelRows[index].qty = qtyInput.value.trim() === '' ? 1 : qtyInput.value.trim();
+                    if (dateInput) excelRows[index].dateAdded = dateInput.value;
+                }
+            });
+        }
+
+        function handleCalcPctDropdown(selectElem) {
+            let val = selectElem.value;
+            selectElem.value = "";
+            if (val === "calc") {
+                calculatePercentage();
+            } else if (val === "update") {
+                document.getElementById('update-pct-modal').classList.add('hidden');
+            }
+        }
+
+        function closeUpdatePctModal() {
+            document.getElementById('update-pct-modal').classList.add('hidden');
+        }
+
+        function confirmUpdateGlobalPct() {
+            let val = parseFloat(document.getElementById('input-global-pct').value);
+            if (isNaN(val)) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຕົວເລກເປີເຊັນທີ່ຖືກຕ້ອງ!", "⚠️");
+                return;
+            }
+            syncTableInputsToData();
+            excelRows.forEach(row => {
+                row.profitPct = val;
+            });
+            renderExcelTable();
+            closeUpdatePctModal();
+            showAlert("ສຳເລັດ", `ອັບເປີເຊັນ (%) ເປັນ ${val}% ທຸກລາຍການແລ້ວ!`, "📊");
+        }
+
+        function calculatePercentage() {
+            syncTableInputsToData();
+            excelRows.forEach(row => {
+                let cost = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
+                let price = parseFloat(String(row.price).replace(/,/g, '')) || 0;
+                if (cost > 0 && price > cost) {
+                    let pct = ((price - cost) / cost) * 100;
+                    row.profitPct = Math.round(pct);
+                }
+            });
+            renderExcelTable();
+            showAlert("ສຳເລັດ", "ຄຳນວນເປີເຊັນສຳເລັດ!", "🧮");
+        }
+
+        function calculateSalePrices() {
+            syncTableInputsToData();
+            excelRows.forEach(row => {
+                let cost = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
+                let pct = parseFloat(String(row.profitPct).replace(/,/g, '')) || 20;
+                if (cost > 0) {
+                    let rawPrice = cost * (1 + pct / 100);
+                    let roundedPrice = Math.ceil(rawPrice / 1000) * 1000;
+                    row.price = roundedPrice;
+                }
+            });
+            renderExcelTable();
+            showAlert("ສຳເລັດ", "ຄຳນວນລາຄາຂາຍຕາມສູດ ROUNDUP ສຳເລັດ!", "🏷️");
+        }
+
+        async function saveExcelData() {
+            syncTableInputsToData();
+            let validRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
+
+            if (validRows.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຂໍ້ມູນສິນຄ້າກ່ອນບັນທຶກ!", "⚠️");
+                return;
+            }
+
+            let today = new Date().toISOString().split('T')[0];
+
+            let payload = validRows.map(row => {
+                let isoDate = row.dateAdded || today;
+                if (row.dateAdded && row.dateAdded.includes('/')) {
+                    isoDate = parseDDMMYYYYToISO(row.dateAdded);
+                }
+                
+                return {
+                    id: row.id,
+                    device_id: row.device_id || deviceId,
+                    code: row.code,
+                    cost: parseFloat(String(row.cost).replace(/,/g, '')) || 0,
+                    original_cost: parseFloat(String(row.originalCost || row.cost).replace(/,/g, '')) || 0,
+                    profit_pct: parseFloat(String(row.profitPct).replace(/,/g, '')) || 20,
+                    price: parseFloat(String(row.price).replace(/,/g, '')) || 0,
+                    qty: parseInt(String(row.qty).replace(/,/g, '')) || 1,
+                    date_added: isoDate,
+                    mfg_date: row.mfgDate || null,
+                    expiry_date: row.expiryDate || null,
+                    updated_at: new Date().toISOString()
+                };
+            });
+
+            localStorage.setItem('pos_saved_excel_rows', JSON.stringify(validRows));
+            
+            if (supabaseClient) {
+                try {
+                    let { error } = await supabaseClient.from('products').upsert(payload, { onConflict: 'id' });
+                    if (error) throw error;
+                } catch (e) {}
+            }
+
+            showAlert("ສຳເລັດ", `ບັນທຶກຂໍ້ມູນ ${validRows.length} ລາຍການ ສຳເລັດຮຽບຮ້ອຍ!`, "💾");
+            generateExcelCodes();
+        }
+
+        function promptPrintDate() {
+            syncTableInputsToData();
+            let validRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
+            if (validRows.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຂໍ້ມູນສິນຄ້າກ່ອນສັ່ງພິມ!", "⚠️");
+                return;
+            }
+
+            let uniqueDates = [...new Set(validRows.map(r => r.dateAdded || new Date().toISOString().split('T')[0]))].sort().reverse();
+            let selectElem = document.getElementById('print-date-select');
+            let html = `<option value="all">🌟 ທຸກວັນ (ພິມທັງໝົດ)</option>`;
+            
+            uniqueDates.forEach(d => {
+                let count = validRows.filter(r => (r.dateAdded || new Date().toISOString().split('T')[0]) === d).length;
+                let parts = d.split('-');
+                let formattedDate = parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : d;
+                html += `<option value="${d}">📅 ວັນທີ: ${formattedDate} (${count} ລາຍການ)</option>`;
+            });
+
+            selectElem.innerHTML = html;
+            document.getElementById('print-date-modal').classList.remove('hidden');
+        }
+
+        function closePrintDateModal() {
+            document.getElementById('print-date-modal').classList.add('hidden');
+        }
+
+        function confirmAndPrintByDate() {
+            let selectedDate = document.getElementById('print-date-select').value;
+            closePrintDateModal();
+            generateExcelCodes(selectedDate);
+            setTimeout(() => {
+                window.print();
+            }, 500);
+        }
+
+        async function generateExcelCodes(filterDate = 'all') {
+            syncTableInputsToData();
+            
+            let validRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
+            
+            if (filterDate !== 'all') {
+                validRows = validRows.filter(r => (r.dateAdded || new Date().toISOString().split('T')[0]) === filterDate);
+            }
+
+            if (validRows.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ບໍ່ພົບຂໍ້ມູນສິນຄ້າໃນວັນທີເລືອກ!", "⚠️");
+                return;
+            }
+
+            duplicateRemovedList = validRows;
+
+            document.getElementById('excel-print-area').classList.remove('hidden');
+            let container = document.getElementById('excel-preview-cards');
+            container.innerHTML = '';
+
+            let promises = duplicateRemovedList.map((row, index) => {
+                return new Promise((resolve) => {
+                    let cleanCode = String(row.code).trim();
+                    let costVal = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
+                    let priceVal = parseFloat(String(row.price).replace(/,/g, '')) || 0;
+
+                    let payloadObj = {
+                        code: cleanCode,
+                        cost: costVal,
+                        price: priceVal
+                    };
+                    let payloadStr = JSON.stringify(payloadObj);
+
+                    let card = document.createElement('div');
+                    card.className = "bg-white p-4 rounded-xl shadow-lg border border-gray-200 text-center flex flex-col items-center justify-center relative";
+                    
+                    let headerHtml = `<div class="font-bold text-gray-800 text-sm mb-2 w-full truncate px-2" title="${cleanCode}">${cleanCode}</div>`;
+
+                    let codeContainerId = `ex-code-${index}-${Date.now()}`;
+                    
+                    let dateDisplay = '';
+                    if (row.mfgDate && row.expiryDate) {
+                        dateDisplay = `<div class="text-[9px] text-gray-500 mt-1 font-semibold">MFG: ${formatDateToDDMMYYYY(row.mfgDate)} | EXP: ${formatDateToDDMMYYYY(row.expiryDate)}</div>`;
+                    } else if (row.dateAdded) {
+                        dateDisplay = `<div class="text-[9px] text-gray-400 mt-1">ວັນນຳເຂົ້າ: ${formatDateToDDMMYYYY(row.dateAdded)}</div>`;
+                    }
+
+                    if (currentCodeType === 'qrcode') {
+                        card.innerHTML = `
+                            ${headerHtml}
+                            <div class="bg-gray-50 p-2 rounded-lg inline-block">
+                                <canvas id="${codeContainerId}"></canvas>
+                            </div>
+                            <div class="mt-2 text-xs font-semibold text-gray-600">ລະຫັດ: <span class="text-blue-600 font-mono">${cleanCode}</span></div>
+                            ${dateDisplay}
+                        `;
+                        container.appendChild(card);
+                        setTimeout(() => {
+                            QRCode.toCanvas(document.getElementById(codeContainerId), payloadStr, { width: 140, margin: 1 }, function (error) {
+                                resolve();
+                            });
+                        }, 50);
+                    } else {
+                        card.innerHTML = `
+                            ${headerHtml}
+                            <div class="bg-gray-50 p-2 rounded-lg w-full flex justify-center overflow-hidden">
+                                <svg id="${codeContainerId}" class="max-w-full"></svg>
+                            </div>
+                            ${dateDisplay}
+                        `;
+                        container.appendChild(card);
+                        setTimeout(() => {
+                            try {
+                                JsBarcode(`#${codeContainerId}`, cleanCode, {
+                                    format: "CODE128", width: 2, height: 50, displayValue: true, fontSize: 14, margin: 5
+                                });
+                            } catch (e) {
+                                document.getElementById(codeContainerId).outerHTML = `<div class="text-red-500 text-xs py-4">ລະຫັດ Barcode ບໍ່ຮອງຮັບຮູບແບບນີ້</div>`;
+                            }
+                            resolve();
+                        }, 50);
+                    }
+                });
+            });
+
+            await Promise.all(promises);
+        }
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            await initDeviceId();
+            let userRole = localStorage.getItem('pos_user_role');
+            let shopOwner = localStorage.getItem('pos_shop_owner');
+            let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
+            if (userRole === 'admin' || shopOwner === 'true' || linkedAdminId) {
+                let roleModal = document.getElementById('role-select-modal');
+                if (roleModal) roleModal.classList.add('hidden');
+                let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
+                if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
+                let rateBtn = document.getElementById('header-rate-btn');
+                if (rateBtn) rateBtn.classList.remove('hidden');
+            }
+            updateHeaderTitle();
+            checkRoleAndLicense();
         });
     </script>
 </body>
