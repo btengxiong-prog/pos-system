@@ -1569,14 +1569,22 @@
             document.getElementById('inventory-modal').classList.add('hidden');
         }
 
-        // 🌟 FIX 100%: ດຶງຂໍ້ມູນສິນຄ້າຈາກ Cloud ກ່ອນ ສະເໝີ, ຖ້າ Cloud ຕິດຂັດ/ຫວ່າງເປົ່າ ໃຫ້ດຶງ localStorage ມາສະແດງທັນທີ (ບໍ່ໃຫ້ຈໍຫວ່າງ)
+        // 🌟 FIX 100%: ດຶງຂໍ້ມູນສິນຄ້າຈາກ localStorage ກ່ອນສະເໝີ ເພື່ອໃຫ້ສະແດງຜົນທັນທີ 100%, ພ້ອມທັງ Sync ໄປ Cloud
         async function fetchProductsForGenerator() {
-            let cloudRows = [];
+            let savedRows = localStorage.getItem('pos_saved_excel_rows');
+            if (savedRows) {
+                try {
+                    excelRows = JSON.parse(savedRows);
+                } catch(e) {
+                    excelRows = [];
+                }
+            }
+
             if (supabaseClient) {
                 try {
                     let { data, error } = await supabaseClient.from('products').select('*').order('updated_at', { ascending: false });
                     if (!error && data && data.length > 0) {
-                        cloudRows = data.map(item => ({
+                        let cloudRows = data.map(item => ({
                             id: item.id || ('ROW-' + Math.random().toString(36).substring(2, 6)),
                             device_id: 'SHARED',
                             code: item.code,
@@ -1589,16 +1597,12 @@
                             mfgDate: item.mfg_date || '',
                             expiryDate: item.expiry_date || ''
                         }));
+                        if (cloudRows.length >= excelRows.length) {
+                            excelRows = cloudRows;
+                            localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
+                        }
                     }
                 } catch (e) {}
-            }
-
-            if (cloudRows.length > 0) {
-                excelRows = cloudRows;
-                localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
-            } else {
-                let savedRows = localStorage.getItem('pos_saved_excel_rows');
-                excelRows = savedRows ? JSON.parse(savedRows) : [];
             }
         }
 
