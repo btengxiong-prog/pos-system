@@ -236,7 +236,7 @@
         </div>
     </div>
 
-    <!-- Inventory Modal (ສິນຄ້າຄ້າງສາງ) - ຕັດປຸ່ມໂຫຼດໃໝ່ອອກແລ້ວ -->
+    <!-- Inventory Modal (ສິນຄ້າຄ້າງສາງ) -->
     <div id="inventory-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-xl max-w-5xl w-full p-6 max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl">
             <div class="flex justify-between items-center border-b pb-3">
@@ -1294,7 +1294,7 @@
             if (rateBtn) rateBtn.classList.remove('hidden');
             let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
             if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
-            document.getElementById('license-status-badge').innerText = "🛡️ ສະຖານະ: ໂໝດ Pure Cloud Shared";
+            document.getElementById('license-status-badge').innerText = "🛡️ ສະຖານະ: ໂໝດ Pure Cloud Storage";
             updateHeaderTitle();
         }
 
@@ -1314,7 +1314,7 @@
         }
 
         function openMyDeviceModal() {
-            document.getElementById('my-device-id-text').innerText = "PURE-CLOUD-SHARED";
+            document.getElementById('my-device-id-text').innerText = "PURE-CLOUD-STORAGE";
             document.getElementById('my-device-modal').classList.add('hidden');
             document.getElementById('my-device-modal').classList.remove('hidden');
         }
@@ -1324,7 +1324,7 @@
         }
 
         function copyMyDeviceId() {
-            navigator.clipboard.writeText("PURE-CLOUD-SHARED").then(() => {}).catch(() => {});
+            navigator.clipboard.writeText("PURE-CLOUD-STORAGE").then(() => {}).catch(() => {});
         }
 
         function openAdminQrModal() {
@@ -1332,7 +1332,7 @@
             let qrContainer = document.getElementById('admin-connect-qrcode');
             if (qrContainer && window.QRCode) {
                 qrContainer.innerHTML = "";
-                QRCode.toString("PURE-CLOUD-SHARED", { type: 'svg', width: 160, margin: 1 }, function (err, svgString) {
+                QRCode.toString("PURE-CLOUD-STORAGE", { type: 'svg', width: 160, margin: 1 }, function (err, svgString) {
                     if (!err && qrContainer) {
                         qrContainer.innerHTML = svgString;
                     }
@@ -1384,7 +1384,7 @@
 
         async function loadAllDevices() {
             let container = document.getElementById('device-list-container');
-            container.innerHTML = `<div class="p-3 bg-gray-50 border rounded-xl font-bold text-blue-800">🌐 ໂໝດ Pure Cloud Shared (ທຸກເຄື່ອງເຫັນຂໍ້ມູນກັນ 100% ຜ່ານ Supabase)</div>`;
+            container.innerHTML = `<div class="p-3 bg-gray-50 border rounded-xl font-bold text-blue-800">🌐 ໂໝດ Pure Cloud Storage (ທຸກເຄື່ອງເຫັນຂໍ້ມູນກັນ 100% ຜ່ານ Supabase)</div>`;
         }
 
         function handleQrImageUpload(event, type) {
@@ -1552,7 +1552,7 @@
                     showAlert("ຜິດພາດ", "ບໍ່ສາມາດອ່ານໄຟລ໌ Excel ນี้ໄດ້!", "❌");
                 }
             };
-            reader.readAsDataURL(file);
+            reader.readAsArrayBuffer(file);
         }
 
         // --- CORE POS LOGIC ---
@@ -1569,7 +1569,39 @@
             document.getElementById('inventory-modal').classList.add('hidden');
         }
 
-        // 🌟 ຟັງຊັນໂຫຼດສິນຄ້າໃນສາງ (Pure Cloud 100% ຜ່ານ Supabase Database)
+        // 🌟 Hybrid Safe Fallback: ດຶງ Cloud ກ່ອນ ຖ້າ Cloud ຫວ່າງເປົ່າ (ຫຼື ເນັດຂັດຂ້ອງ) ໃຫ້ດຶງ localStorage ມາສະແດງທັນທີ ຮັບປະກັນບໍ່ໃຫ້ຕາຕະລາງຫວ່າງເປົ່າ
+        async function fetchProductsForGenerator() {
+            let cloudRows = [];
+            if (supabaseClient) {
+                try {
+                    let { data, error } = await supabaseClient.from('products').select('*').order('updated_at', { ascending: false });
+                    if (!error && data && data.length > 0) {
+                        cloudRows = data.map(item => ({
+                            id: item.id || ('ROW-' + Math.random().toString(36).substring(2, 6)),
+                            device_id: 'SHARED',
+                            code: item.code,
+                            cost: item.cost,
+                            originalCost: item.original_cost || item.cost,
+                            profitPct: item.profit_pct,
+                            price: item.price,
+                            qty: item.qty || 1,
+                            dateAdded: item.date_added || item.updated_at ? new Date(item.date_added || item.updated_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                            mfgDate: item.mfg_date || '',
+                            expiryDate: item.expiry_date || ''
+                        }));
+                    }
+                } catch (e) {}
+            }
+
+            if (cloudRows.length > 0) {
+                excelRows = cloudRows;
+                localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
+            } else {
+                let savedRows = localStorage.getItem('pos_saved_excel_rows');
+                excelRows = savedRows ? JSON.parse(savedRows) : [];
+            }
+        }
+
         async function loadInventory() {
             let tbody = document.getElementById('inventory-tbody');
             tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
@@ -1577,6 +1609,9 @@
             await fetchProductsForGenerator();
 
             let combinedSalesMap = new Map();
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            localHistory.forEach(tx => combinedSalesMap.set(tx.id || tx.created_at, tx));
+
             if (supabaseClient) {
                 try {
                     let { data: cloudSales } = await supabaseClient.from('sales_history').select('*');
@@ -1604,7 +1639,7 @@
             });
 
             if (excelRows.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ Cloud</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ (ກະລຸນາເພີ່ມສິນຄ້າ)</td></tr>`;
                 return;
             }
 
@@ -1655,6 +1690,7 @@
                 if (!confirmed) return;
 
                 excelRows = excelRows.filter(r => r.id !== rowId);
+                localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
 
                 if (supabaseClient && rowId) {
                     try {
@@ -1733,6 +1769,7 @@
                 let idsToDelete = Array.from(checkedBoxes).map(cb => cb.value);
 
                 excelRows = excelRows.filter(r => !idsToDelete.includes(r.id));
+                localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
 
                 if (supabaseClient) {
                     try {
@@ -1994,6 +2031,7 @@
             };
 
             excelRows.push(newProductObj);
+            localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
 
             if (supabaseClient) {
                 try {
@@ -2054,6 +2092,9 @@
             await fetchProductsForGenerator();
             
             let combinedSalesMap = new Map();
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            localHistory.forEach(tx => combinedSalesMap.set(tx.id || tx.created_at, tx));
+
             if (supabaseClient) {
                 try {
                     let { data: cloudSales } = await supabaseClient.from('sales_history').select('*');
@@ -2995,13 +3036,13 @@
             document.getElementById('excel-print-area').classList.add('hidden');
         }
 
-        // 🌟 Pure Cloud Storage: ດຶງຂໍ້ມູນຈາກ Supabase Cloud 100% (ຕັດ localStorage ອອກໝົດ)
+        // 🌟 Pure Cloud Storage: ດຶງຂໍ້ມູນຈາກ Supabase Cloud 100% (Safety Fallback with localStorage)
         async function fetchProductsForGenerator() {
             let cloudRows = [];
             if (supabaseClient) {
                 try {
                     let { data, error } = await supabaseClient.from('products').select('*').order('updated_at', { ascending: false });
-                    if (!error && data) {
+                    if (!error && data && data.length > 0) {
                         cloudRows = data.map(item => ({
                             id: item.id || ('ROW-' + Math.random().toString(36).substring(2, 6)),
                             device_id: 'SHARED',
@@ -3018,7 +3059,14 @@
                     }
                 } catch (e) {}
             }
-            excelRows = cloudRows;
+
+            if (cloudRows.length > 0) {
+                excelRows = cloudRows;
+                localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
+            } else {
+                let savedRows = localStorage.getItem('pos_saved_excel_rows');
+                excelRows = savedRows ? JSON.parse(savedRows) : [];
+            }
         }
 
         function renderExcelTable() {
@@ -3026,7 +3074,7 @@
             let html = '';
             
             if (excelRows.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400 font-semibold">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນ Cloud (ກະລຸນາກົດ "+ ເພີ່ມແຖວ" ຫຼື ນຳເຂົ້າ Excel)</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400 font-semibold">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າในລະບົບ (ກະລຸນາກົດ "+ ເພີ່ມແຖວ" ຫຼື ນຳເຂົ້າ Excel)</td></tr>`;
                 return;
             }
 
@@ -3089,6 +3137,7 @@
 
         async function clearUnsavedRows() {
             excelRows = [];
+            localStorage.removeItem('pos_saved_excel_rows');
             if (supabaseClient) {
                 try { await supabaseClient.from('products').delete().neq('id', '0'); } catch (e) {}
             }
@@ -3226,7 +3275,6 @@
             showAlert("ສຳເລັດ", "ຄຳນວນລາຄາຂາຍຕາມສູດ ROUNDUP ສຳເລັດ!", "🏷️");
         }
 
-        // 🌟 Pure Cloud Storage: ບັນທຶກລົງ Supabase Cloud ໂດຍກົງ 100% ບໍ່ມີ localStorage
         async function saveExcelData() {
             syncTableInputsToData();
             let validRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
@@ -3260,6 +3308,8 @@
                 };
             });
 
+            localStorage.setItem('pos_saved_excel_rows', JSON.stringify(validRows));
+
             if (supabaseClient) {
                 try {
                     let { error } = await supabaseClient.from('products').upsert(payload, { onConflict: 'id' });
@@ -3267,7 +3317,7 @@
                 } catch (e) {}
             }
 
-            showAlert("ສຳເລັດ", `ບັນທຶກຂໍ້ມູນ ${validRows.length} ລາຍການ ໄປຍັງ Supabase Cloud ສຳເລັດຮຽບຮ້ອຍ!`, "💾");
+            showAlert("ສຳເລັດ", `ບັນທຶກຂໍ້ມູນ ${validRows.length} ລາຍການ ສຳເລັດຮຽບຮ້ອຍ!`, "💾");
             generateExcelCodes();
         }
 
