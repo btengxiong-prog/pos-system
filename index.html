@@ -135,13 +135,13 @@
             </div>
 
             <div class="space-y-2">
-                <h5 class="font-bold text-xs text-gray-700">📋 ລາຍຊື່ບັນຊີທັງໝົດໃນລະບົບ:</h5>
-                <div id="device-list-container" class="space-y-2 text-sm text-gray-700">
+                <h5 class="font-bold text-xs text-gray-700">📋 ລາຍຊື່ບັນຊີ ແລະ ເຄື່ອງທັງໝົດໃນລະບົບ:</h5>
+                <div id="device-list-container" class="space-y-2 text-sm text-gray-700 max-h-60 overflow-y-auto">
                     <p class="text-center py-4 text-gray-400">ກຳລັງໂຫຼດ...</p>
                 </div>
             </div>
 
-            <button onclick="closeAdminManager()" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ປิด</button>
+            <button onclick="closeAdminManager()" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ປິດ</button>
         </div>
     </div>
 
@@ -174,20 +174,6 @@
                 <div>
                     <label class="block font-bold text-gray-700 mb-1">Password ໃໝ່:</label>
                     <input type="text" id="edit-modal-password" class="w-full border rounded-lg px-3 py-2 font-semibold outline-none bg-white" placeholder="ປ້ອນ Password">
-                </div>
-                <div>
-                    <label class="block font-bold text-gray-700 mb-1">⚙️ ຈັດການສະຖານະບັນຊີ:</label>
-                    <select id="edit-modal-action-select" onchange="handleActionSelectChange(this)" class="w-full border rounded-lg px-3 py-2 font-semibold outline-none bg-blue-50 text-blue-900">
-                        <option value="none">-- ເລືອກຄຳສັ່ງຈັດການເພີ່ມເຕີມ --</option>
-                        <option value="to_trial">⏳ ປົດມາເປັນທົດລອງ 15 ວັນ</option>
-                        <option value="extend_trial">🔄 ຕໍ່ອາຍຸຢູເຊີທົດລອງ</option>
-                        <option value="delete_permanent">❌ ລົບບັນຊີຖາວອນ</option>
-                        <option value="restore_user">♻️ ແກ້ໄຂຢູເຊີຄືນ (ປົກກະຕິ)</option>
-                    </select>
-                </div>
-                <div id="extend-days-container" class="hidden">
-                    <label class="block font-bold text-purple-700 mb-1">📅 ກຳນົດຈຳນວນວັນຕໍ່ອາຍຸເພີ່ມ:</label>
-                    <input type="number" id="edit-modal-extend-days" value="15" min="1" class="w-full border rounded-lg px-3 py-2 font-bold text-purple-700 outline-none bg-purple-50" placeholder="ລະບຸຈຳນວນວັນ">
                 </div>
             </div>
 
@@ -1157,14 +1143,19 @@
         }
 
         async function initDeviceId() {
-            deviceId = 'POSXIONG';
-            localStorage.setItem('pos_device_id', 'POSXIONG');
+            let storedId = localStorage.getItem('pos_device_id');
+            if (!storedId) {
+                // 🌟 สร้าง ID ສະເພາະເຄື່ອງ (POS-XXXX) ສຳລັບເຄື່ອງໃໝ່ທີ່ເຂົ້າທົດລອງໃຊ້ 15 ວັນ
+                storedId = 'POS-' + Math.floor(1000 + Math.random() * 9000);
+                localStorage.setItem('pos_device_id', storedId);
+            }
+            deviceId = storedId;
         }
 
         function initFirebaseRealtime() {
             if (!db) return;
             try {
-                db.collection("products").where("device_id", "==", "POSXIONG")
+                db.collection("products").where("device_id", "==", deviceId)
                   .onSnapshot((snapshot) => {
                       excelRows = [];
                       snapshot.forEach((doc) => {
@@ -1194,7 +1185,7 @@
                       }
                   });
 
-                db.collection("sales_history").where("device_id", "==", "POSXIONG")
+                db.collection("sales_history").where("device_id", "==", deviceId)
                   .onSnapshot((snapshot) => {
                       if (!document.getElementById('history-modal').classList.contains('hidden')) {
                           loadCloudHistory();
@@ -1240,12 +1231,28 @@
             }
         }
 
-        function selectRole(role) {
+        // 🌟 ຟັງຊັນກົດເຂົ້າໂໝດທົດລອງ 15 ວັນ (ບັນທຶກ ID ເຄື່ອງລົງ Firestore ໃຫ້ Admin ໃຫຍ່ເຫັນ)
+        async function selectRole(role) {
             localStorage.setItem('pos_logged_in', 'true');
             let roleModal = document.getElementById('role-select-modal');
             let loginModal = document.getElementById('unified-login-modal');
             if (roleModal) roleModal.classList.add('hidden');
             if (loginModal) loginModal.classList.add('hidden');
+
+            // ບັນທຶກຂໍ້ມູນເຄື່ອງທົດລອງລົງ Firestore ໃຫ້ Admin ໃຫຍ່ເຫັນ
+            if (db && deviceId.startsWith('POS-')) {
+                try {
+                    let expiryDate = new Date();
+                    expiryDate.setDate(expiryDate.getDate() + 15);
+                    await db.collection("devices_registry").doc(deviceId).set({
+                        device_id: deviceId,
+                        type: 'trial',
+                        created_at: new Date().toISOString(),
+                        expiry_date: expiryDate.toISOString().split('T')[0]
+                    }, { merge: true });
+                } catch (e) {}
+            }
+
             checkRoleAndLicense();
         }
 
@@ -1282,6 +1289,8 @@
                 localStorage.setItem('pos_user_role', 'admin');
                 localStorage.setItem('pos_logged_in', 'true');
                 deviceId = 'POSXIONG';
+                localStorage.setItem('pos_device_id', 'POSXIONG');
+                
                 document.getElementById('unified-login-modal').classList.add('hidden');
                 document.getElementById('role-select-modal').classList.add('hidden');
                 
@@ -1352,7 +1361,7 @@
         }
 
         function openMyDeviceModal() {
-            document.getElementById('my-device-id-text').innerText = 'POSXIONG';
+            document.getElementById('my-device-id-text').innerText = deviceId;
             document.getElementById('my-device-modal').classList.add('hidden');
             document.getElementById('my-device-modal').classList.remove('hidden');
         }
@@ -1362,7 +1371,7 @@
         }
 
         function copyMyDeviceId() {
-            navigator.clipboard.writeText('POSXIONG').then(() => {}).catch(() => {});
+            navigator.clipboard.writeText(deviceId).then(() => {}).catch(() => {});
         }
 
         function openAdminQrModal() {
@@ -1370,7 +1379,7 @@
             let qrContainer = document.getElementById('admin-connect-qrcode');
             if (qrContainer && window.QRCode) {
                 qrContainer.innerHTML = "";
-                QRCode.toString('POSXIONG', { type: 'svg', width: 160, margin: 1 }, function (err, svgString) {
+                QRCode.toString(deviceId, { type: 'svg', width: 160, margin: 1 }, function (err, svgString) {
                     if (!err && qrContainer) {
                         qrContainer.innerHTML = svgString;
                     }
@@ -1393,13 +1402,13 @@
                 { facingMode: "environment" },
                 { fps: 10, qrbox: 250 },
                 (decodedText) => {
-                    deviceId = 'POSXIONG';
-                    localStorage.setItem('pos_device_id', 'POSXIONG');
+                    deviceId = decodedText.trim();
+                    localStorage.setItem('pos_device_id', deviceId);
                     localStorage.setItem('pos_logged_in', 'true');
                     closeStaffScanner();
                     let roleModal = document.getElementById('role-select-modal');
                     if (roleModal) roleModal.classList.add('hidden');
-                    showAlert("ສຳເລັດ", `ເຊື່ອມຕໍ່ກັບຮ້ານ Admin [POSXIONG] ສຳເລັດຮຽບຮ້ອຍ!`, "🔗");
+                    showAlert("ສຳເລັດ", `ເຊື່ອມຕໍ່ກັບຮ້ານ Admin [${deviceId}] ສຳເລັດຮຽບຮ້ອຍ!`, "🔗");
                 },
                 (err) => {}
             ).catch(err => {});
@@ -1424,10 +1433,45 @@
             document.getElementById('admin-manager-modal').classList.add('hidden');
         }
 
-        // 🌟 ຟັງຊັນໂຫຼດລາຍຊື່ເຄື່ອງ ແລະ ຈັດການສ້າງ User ໃຫ້ເຈົ້າຂອງຮ້ານ (Admin Manager)
+        // 🌟 ຟັງຊັນໂຫຼດລາຍຊື່ເຄື່ອງທັງໝົດທີ່ເຂົ້າມາໃນລະບົບ (Admin Manager)
         async function loadAllDevices() {
             let container = document.getElementById('device-list-container');
-            container.innerHTML = `<div class="p-3 bg-gray-50 border rounded-xl"><span class="font-bold text-blue-800">ID ປັດຈຸບັນ: POSXIONG (Super Admin)</span></div>`;
+            let datalist = document.getElementById('trial-devices-list');
+            container.innerHTML = `<div class="p-3 bg-gray-50 border rounded-xl"><span class="font-bold text-blue-800">ID ປັດຈຸບັນ: ${deviceId} (Super Admin)</span></div>`;
+            datalist.innerHTML = '';
+
+            if (db) {
+                try {
+                    let snapshot = await db.collection("devices_registry").get();
+                    let devicesHtml = `<div class="space-y-2">`;
+                    let datalistHtml = '';
+                    
+                    snapshot.forEach(doc => {
+                        let dev = doc.data();
+                        devicesHtml += `
+                            <div class="p-3 bg-white border rounded-xl flex justify-between items-center shadow-sm">
+                                <div>
+                                    <span class="font-mono font-bold text-blue-600">${dev.device_id}</span>
+                                    <span class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded ml-2 font-semibold">ທົດລອງ 15 ວັນ</span>
+                                    <div class="text-[11px] text-gray-500 mt-1">ວັນທີໝົດອາຍຸ: ${dev.expiry_date || '-'}</div>
+                                </div>
+                                <button onclick="document.getElementById('new-target-device').value='${dev.device_id}';" class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer">ເລືອກ ID ນີ້</button>
+                            </div>
+                        `;
+                        datalistHtml += `<option value="${dev.device_id}">`;
+                    });
+
+                    devicesHtml += `</div>`;
+                    if (snapshot.size > 0) {
+                        container.innerHTML = devicesHtml;
+                        datalist.innerHTML = datalistHtml;
+                    } else {
+                        container.innerHTML = `<div class="p-4 text-center text-gray-400">ຍັງບໍ່ມີເຄື່ອງໃໝ່ເຂົ້າມາທົດລອງໃຊ້ງານ</div>`;
+                    }
+                } catch (e) {
+                    container.innerHTML = `<div class="p-4 text-center text-red-500">ບໍ່ສາມາດໂຫຼດຂໍ້ມູນເຄື່ອງໄດ້</div>`;
+                }
+            }
         }
 
         async function adminCreateUser() {
@@ -1469,16 +1513,14 @@
         }
 
         function promptEditUser(targetId) {
-            editingDeviceId = 'POSXIONG';
-            document.getElementById('edit-modal-device-id').innerText = 'POSXIONG';
-            document.getElementById('edit-modal-shop-name').value = localStorage.getItem('pos_shop_name_POSXIONG') || '';
-            document.getElementById('edit-modal-username').value = 'POSXIONG';
-            document.getElementById('edit-modal-password').value = localStorage.getItem('pos_shop_pass_POSXIONG') || '';
-            document.getElementById('edit-modal-action-select').value = 'none';
-            document.getElementById('extend-days-container').classList.add('hidden');
+            editingDeviceId = deviceId;
+            document.getElementById('edit-modal-device-id').innerText = deviceId;
+            document.getElementById('edit-modal-shop-name').value = localStorage.getItem('pos_shop_name_' + deviceId) || '';
+            document.getElementById('edit-modal-username').value = deviceId;
+            document.getElementById('edit-modal-password').value = localStorage.getItem('pos_shop_pass_' + deviceId) || '';
 
-            window.tempLakQrBase64 = localStorage.getItem('pos_shop_lak_qr_POSXIONG') || '';
-            window.tempThbQrBase64 = localStorage.getItem('pos_shop_thb_qr_POSXIONG') || '';
+            window.tempLakQrBase64 = localStorage.getItem('pos_shop_lak_qr_' + deviceId) || '';
+            window.tempThbQrBase64 = localStorage.getItem('pos_shop_thb_qr_' + deviceId) || '';
 
             document.getElementById('preview-lak-qr').innerHTML = window.tempLakQrBase64 ? `<span class="text-green-600 font-bold text-[10px]">✅ ມີຮູບ QR ກີບແລ້ວ</span>` : '';
             document.getElementById('preview-thb-qr').innerHTML = window.tempThbQrBase64 ? `<span class="text-green-600 font-bold text-[10px]">✅ ມີຮູບ QR ບາດແລ້ວ</span>` : '';
@@ -1490,16 +1532,6 @@
             document.getElementById('edit-user-modal').classList.add('hidden');
         }
 
-        function handleActionSelectChange(selectElem) {
-            let val = selectElem.value;
-            let extendContainer = document.getElementById('extend-days-container');
-            if (val === 'extend_trial') {
-                extendContainer.classList.remove('hidden');
-            } else {
-                extendContainer.classList.add('hidden');
-            }
-        }
-
         async function saveEditedUser() {
             let shopName = document.getElementById('edit-modal-shop-name').value.trim();
             let newPass = document.getElementById('edit-modal-password').value.trim();
@@ -1509,14 +1541,14 @@
                 return;
             }
 
-            localStorage.setItem('pos_shop_name_POSXIONG', shopName);
-            localStorage.setItem('pos_shop_pass_POSXIONG', newPass);
+            localStorage.setItem('pos_shop_name_' + deviceId, shopName);
+            localStorage.setItem('pos_shop_pass_' + deviceId, newPass);
 
             if (window.tempLakQrBase64) {
-                localStorage.setItem('pos_shop_lak_qr_POSXIONG', window.tempLakQrBase64);
+                localStorage.setItem('pos_shop_lak_qr_' + deviceId, window.tempLakQrBase64);
             }
             if (window.tempThbQrBase64) {
-                localStorage.setItem('pos_shop_thb_qr_POSXIONG', window.tempThbQrBase64);
+                localStorage.setItem('pos_shop_thb_qr_' + deviceId, window.tempThbQrBase64);
             }
 
             closeEditUserModal();
@@ -1711,7 +1743,7 @@
                     if (!confirmed) return;
                     if (db) {
                         try {
-                            let snapshot = await db.collection("products").where("device_id", "==", "POSXIONG").get();
+                            let snapshot = await db.collection("products").where("device_id", "==", deviceId).get();
                             let batch = db.batch();
                             snapshot.forEach((doc) => { batch.delete(doc.ref); });
                             await batch.commit();
@@ -1733,7 +1765,7 @@
             let soldQtyMap = {};
             if (db) {
                 try {
-                    let snapshot = await db.collection("sales_history").where("device_id", "==", "POSXIONG").get();
+                    let snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
                     snapshot.forEach(doc => {
                         let tx = doc.data();
                         if (tx.items && Array.isArray(tx.items)) {
@@ -2102,7 +2134,7 @@
             let soldQtyMap = {};
             if (db) {
                 try {
-                    let snapshot = await db.collection("sales_history").where("device_id", "==", "POSXIONG").get();
+                    let snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
                     snapshot.forEach(doc => {
                         let tx = doc.data();
                         if (tx.items && Array.isArray(tx.items)) {
@@ -2365,7 +2397,7 @@
             let soldQtyMap = {};
             if (db) {
                 try {
-                    let snapshot = await db.collection("sales_history").where("device_id", "==", "POSXIONG").get();
+                    let snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
                     snapshot.forEach(doc => {
                         let tx = doc.data();
                         if (tx.items && Array.isArray(tx.items)) {
@@ -2484,7 +2516,7 @@
             let soldQtyMap = {};
             if (db) {
                 try {
-                    let snapshot = await db.collection("sales_history").where("device_id", "==", "POSXIONG").get();
+                    let snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
                     snapshot.forEach(doc => {
                         let tx = doc.data();
                         if (tx.items && Array.isArray(tx.items)) {
@@ -2591,7 +2623,7 @@
             let container = document.getElementById(containerId);
             if (!container) return;
 
-            let qrBase64 = localStorage.getItem(type === 'lak' ? ('pos_shop_lak_qr_POSXIONG') : ('pos_shop_thb_qr_POSXIONG'));
+            let qrBase64 = localStorage.getItem(type === 'lak' ? ('pos_shop_lak_qr_' + deviceId) : ('pos_shop_thb_qr_' + deviceId));
             
             if (qrBase64) {
                 container.innerHTML = `<img src="${qrBase64}" alt="Shop QR Code" class="max-w-[200px] max-h-[200px] rounded-xl border shadow mx-auto">`;
@@ -2623,7 +2655,7 @@
 
             let txData = {
                 id: 'TX-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
-                device_id: 'POSXIONG',
+                device_id: deviceId,
                 created_at: new Date().toISOString(),
                 items: cart,
                 total_items: cart.reduce((sum, item) => sum + item.qty, 0),
@@ -2639,7 +2671,7 @@
             if (db) {
                 try {
                     await db.collection("sales_history").add({
-                        device_id: 'POSXIONG',
+                        device_id: deviceId,
                         items: cart,
                         total_items: txData.total_items,
                         total_cost: totalCost,
@@ -2689,7 +2721,7 @@
 
             if (db) {
                 try {
-                    let snapshot = await db.collection("sales_history").where("device_id", "==", "POSXIONG").get();
+                    let snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
                     snapshot.forEach(doc => {
                         let tx = doc.data();
                         let key = doc.id || tx.created_at;
@@ -2790,7 +2822,7 @@
             let allSales = [];
             if (db) {
                 try {
-                    let snapshot = await db.collection("sales_history").where("device_id", "==", "POSXIONG").get();
+                    let snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
                     snapshot.forEach(doc => {
                         let tx = doc.data();
                         allSales.push({
@@ -2866,7 +2898,7 @@
         async function fetchProductsForGenerator() {
             if (db) {
                 try {
-                    let snapshot = await db.collection("products").where("device_id", "==", "POSXIONG").get();
+                    let snapshot = await db.collection("products").where("device_id", "==", deviceId).get();
                     excelRows = [];
                     snapshot.forEach(doc => {
                         let item = doc.data();
@@ -2962,7 +2994,7 @@
 
             if (db) {
                 try {
-                    let snapshot = await db.collection("products").where("device_id", "==", "POSXIONG").get();
+                    let snapshot = await db.collection("products").where("device_id", "==", deviceId).get();
                     let batch = db.batch();
                     snapshot.forEach((doc) => { batch.delete(doc.ref); });
                     await batch.commit();
@@ -3111,7 +3143,7 @@
 
             if (db) {
                 try {
-                    let snapshot = await db.collection("products").where("device_id", "==", "POSXIONG").get();
+                    let snapshot = await db.collection("products").where("device_id", "==", deviceId).get();
                     let batch = db.batch();
                     snapshot.forEach((doc) => { batch.delete(doc.ref); });
                     await batch.commit();
@@ -3124,7 +3156,7 @@
                         }
                         let docRef = db.collection("products").doc();
                         newBatch.set(docRef, {
-                            device_id: 'POSXIONG',
+                            device_id: deviceId,
                             code: row.code,
                             cost: parseFloat(String(row.cost).replace(/,/g, '')) || 0,
                             original_cost: parseFloat(String(row.originalCost || row.cost).replace(/,/g, '')) || 0,
