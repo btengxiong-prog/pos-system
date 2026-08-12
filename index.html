@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ລະບົບຂາຍເຄື່ອງ POS - Clean Main Code</title>
+    <title>ລະບົບຂາຍເຄື່ອງ POS - Safe Hybrid Storage</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Html5-qrcode CDN -->
@@ -362,7 +362,7 @@
 
             <div class="flex gap-2 pt-2">
                 <button onclick="window.print()" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">🖨️ ພິມລາຍງານ</button>
-                <button onclick="closeExpiryModal()" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ປິດ</button>
+                <button onclick="closeExpiryModal()" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ປิด</button>
             </div>
         </div>
     </div>
@@ -593,7 +593,7 @@
     <header class="bg-[#1e3a8a] text-white py-5 shadow-lg">
         <div class="container mx-auto px-4 text-center">
             <h1 id="main-header-title" class="text-2xl md:text-3xl font-bold flex items-center justify-center gap-2">
-                🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Clean Global Cloud Storage)
+                🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Safe Hybrid Storage)
             </h1>
             <div class="mt-1.5 text-xs md:text-sm text-yellow-300 font-semibold">
                 ✨ ວ່ອງໄວ ທັນໃຈ, ຍອດເງິນຖືກຕ້ອງ ຊັດເຈນ 100%, ບໍ່ເສຍເວລາ — ໃຜກໍ່ຂາຍເປັນ ບໍ່ມີພື້ນຖານໄອທີກໍ່ໃຊ້ໄດ້ສະບາຍ!
@@ -1443,7 +1443,7 @@
             
             let userRole = localStorage.getItem('pos_user_role');
             if (userRole === 'admin') {
-                headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Clean Global Cloud Storage)`;
+                headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Clean Main Code)`;
                 return;
             }
 
@@ -1856,6 +1856,7 @@
             document.getElementById('inventory-modal').classList.add('hidden');
         }
 
+        // 🌟 ຟັງຊັນໂຫຼດສິນຄ້າໃນສາງ ໂດຍດຶງຜ່ານ Hybrid Safe Fallback (Cloud First + LocalStorage Fallback)
         async function loadInventory() {
             let tbody = document.getElementById('inventory-tbody');
             tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
@@ -1863,6 +1864,9 @@
             await fetchProductsForGenerator();
 
             let combinedSalesMap = new Map();
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            localHistory.forEach(tx => combinedSalesMap.set(tx.id || tx.created_at, tx));
+
             if (supabaseClient) {
                 try {
                     let { data: cloudSales } = await supabaseClient.from('sales_history').select('*');
@@ -1953,6 +1957,7 @@
                 if (!confirmed) return;
 
                 excelRows = excelRows.filter(r => r.id !== rowId);
+                localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
 
                 if (supabaseClient && rowId) {
                     try {
@@ -2044,6 +2049,7 @@
                 let idsToDelete = Array.from(checkedBoxes).map(cb => cb.value);
 
                 excelRows = excelRows.filter(r => !idsToDelete.includes(r.id));
+                localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
 
                 if (supabaseClient) {
                     try {
@@ -2307,6 +2313,7 @@
             };
 
             excelRows.push(newProductObj);
+            localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
 
             if (supabaseClient) {
                 try {
@@ -2367,6 +2374,9 @@
             await fetchProductsForGenerator();
             
             let combinedSalesMap = new Map();
+            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
+            localHistory.forEach(tx => combinedSalesMap.set(tx.id || tx.created_at, tx));
+
             if (supabaseClient) {
                 try {
                     let { data: cloudSales } = await supabaseClient.from('sales_history').select('*');
@@ -2948,7 +2958,7 @@
             }
 
             closeCheckoutMethodModal();
-            let payLabel = payMode === 'cash' ? 'ເງິນສົດ' : (payMode === 'transfer_lak' ? 'ເງິນໂອນ (ກີບເຄື່ອງ)' : 'ເງິນໂອນ (ບາດ)');
+            let payLabel = payMode === 'cash' ? 'ເງິນສົດ' : (payMode === 'transfer_lak' ? 'ເງິນໂອນ (ກີບ)' : 'ເງິນໂອນ (ບາດ)');
             showAlert("ສຳເລັດ", `ຊຳລະເງິນ (${payLabel}) ສຳເລັດຮຽບຮ້ອຍ!`, "✅");
             
             cart = []; 
