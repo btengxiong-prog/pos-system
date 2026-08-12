@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ລະບົບຂາຍເຄື່ອງ POS - Fixed Stock Calculation</title>
+    <title>ລະບົບຂາຍເຄື່ອງ POS - Fixed Persistent Inventory</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Html5-qrcode CDN -->
@@ -1569,7 +1569,7 @@
             document.getElementById('inventory-modal').classList.add('hidden');
         }
 
-        // 🌟 Safe Hybrid Storage: ດຶງ Cloud ກ່ອນ ຖ້າ Cloud ຫວ່າງເປົ່າ ໃຫ້ດຶງ localStorage ມາສະແດງທັນທີ
+        // 🌟 ປັບປຸງ fetchProductsForGenerator ໃຫ້ດຶງຂໍ້ມູນຈາກ Cloud ແລະ Sync ລົງ localStorage ຢ່າງສະຖຽນ 100%
         async function fetchProductsForGenerator() {
             let cloudRows = [];
             if (supabaseClient) {
@@ -1602,7 +1602,7 @@
             }
         }
 
-        // 🌟 ປັບປຸງ loadInventory ໃຫ້ຫັກລົບຍອດຂາຍ (`soldQtyMap`) ຢ່າງຖືກຕ້ອງແມນຢຳ 100% ໃຫ້ຕົວເລກຊິງກັນກັບໜ້າຕ່າງກຳນົດຈຳນວນຂາຍ
+        // 🌟 ປັບປຸງ loadInventory ໃຫ້ກວດສອບປະຫວັດການຂາຍຈາກ sales_history ຢ່າງຖືກຕ້ອງແມນຢຳ ເພື່ອຕັດຍອດຄົງເຫຼືອໃນສາງໃຫ້ຊິງກັນ 100%
         async function loadInventory() {
             let tbody = document.getElementById('inventory-tbody');
             tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
@@ -1631,10 +1631,11 @@
 
             let soldQtyMap = {};
             allSalesHistory.forEach(tx => {
-                if (tx.items) {
+                if (tx.items && Array.isArray(tx.items)) {
                     tx.items.forEach(it => {
                         let cKey = String(it.code || '').trim().toLowerCase();
-                        soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
+                        let q = parseInt(it.qty) || 1;
+                        soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + q;
                     });
                 }
             });
@@ -1706,8 +1707,9 @@
 
         function openDeleteInventoryModal() {
             let shopSelect = document.getElementById('del-inv-shop-select');
-            shopSelect.innerHTML = `<option value="all">-- ທຸກຮ້ານ / ທຸກຢູເຊີ --</option>`;
-            document.getElementById('del-inv-date-input').value = '';
+            if (shopSelect) shopSelect.innerHTML = `<option value="all">-- ທຸກຮ້ານ / ທຸກຢູເຊີ --</option>`;
+            let dateInput = document.getElementById('del-inv-date-input');
+            if (dateInput) dateInput.value = '';
             renderDeleteInventoryTable();
             document.getElementById('delete-inventory-modal').classList.remove('hidden');
         }
@@ -2083,7 +2085,6 @@
             document.getElementById('stock-in-modal').classList.add('hidden');
         }
 
-        // 🌟 ປັບປຸງ showConfirmModalParsed ໃຫ້ຄຳນວນຈຳນວນຄົງເຫຼືອ (remainingStock) ຢ່າງຖືກຕ້ອງກົງກັນກັບ stock inventory
         async function showConfirmModalParsed(code, name, cost, price) {
             tempScannedCode = code;
             document.getElementById('modal-code').innerText = code;
@@ -2112,10 +2113,11 @@
 
             let soldQtyMap = {};
             allSalesHistory.forEach(tx => {
-                if (tx.items) {
+                if (tx.items && Array.isArray(tx.items)) {
                     tx.items.forEach(it => {
                         let cKey = String(it.code || '').trim().toLowerCase();
-                        soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
+                        let q = parseInt(it.qty) || 1;
+                        soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + q;
                     });
                 }
             });
@@ -2378,10 +2380,11 @@
 
             let soldQtyMap = {};
             allSalesHistory.forEach(tx => {
-                if (tx.items) {
+                if (tx.items && Array.isArray(tx.items)) {
                     tx.items.forEach(it => {
                         let cKey = String(it.code || '').trim().toLowerCase();
-                        soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
+                        let q = parseInt(it.qty) || 1;
+                        soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + q;
                     });
                 }
             });
