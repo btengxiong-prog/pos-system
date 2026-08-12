@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ລະບົບຂາຍເຄື່ອງ POS - Firebase Realtime Sync Fixed</title>
+    <title>ລະບົບຂາຍເຄື່ອງ POS - Firebase Realtime Sync</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Html5-qrcode CDN -->
@@ -1102,8 +1102,6 @@
         let currentStockInCode = "";
         let customConfirmCallback = null;
         let editingDeviceId = null;
-        
-        // 🌟 ບັງຄັບ deviceId ໃຫ້ເປັນ 'POSXIONG' ຖາວອນທຸກເຄື່ອງ 100%
         let deviceId = 'POSXIONG';
 
         function formatNumberWithCommas(num) {
@@ -1239,16 +1237,24 @@
             return `POS-${blockChar}${paddedSeq}`;
         }
 
-        async function checkTrialLicense() {
-            checkRoleAndLicense();
+        // 🌟 ກວດສອບສະຖານະການລັອກອິນ (ຖ້າເຄີຍລັອກອິນແລ້ວ ຈະບໍ່ສະແດງ Modal ເລືອກໂໝດຊ້ຳ)
+        function checkRoleAndLicense() {
+            let roleModal = document.getElementById('role-select-modal');
+            let isLogged = localStorage.getItem('pos_logged_in');
+            if (isLogged === 'true') {
+                if (roleModal) roleModal.classList.add('hidden');
+            } else {
+                if (roleModal) roleModal.classList.remove('hidden');
+            }
         }
 
         function selectRole(role) {
+            localStorage.setItem('pos_logged_in', 'true');
             let roleModal = document.getElementById('role-select-modal');
             let loginModal = document.getElementById('unified-login-modal');
             if (roleModal) roleModal.classList.add('hidden');
             if (loginModal) loginModal.classList.add('hidden');
-            checkTrialLicense();
+            checkRoleAndLicense();
         }
 
         function showUnifiedLoginModal() {
@@ -1282,6 +1288,7 @@
 
             if (u === "POSXIONG" && p === "POS@21082007") {
                 localStorage.setItem('pos_user_role', 'admin');
+                localStorage.setItem('pos_logged_in', 'true');
                 deviceId = 'POSXIONG';
                 document.getElementById('unified-login-modal').classList.add('hidden');
                 document.getElementById('role-select-modal').classList.add('hidden');
@@ -1293,7 +1300,6 @@
                 if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
                 document.getElementById('license-status-badge').innerText = "🛡️ ສະຖານະ: ເຂົ້າລະບົບ Super Admin (Full Access)";
                 updateHeaderTitle();
-                location.reload();
                 return;
             }
 
@@ -1302,6 +1308,7 @@
                 deviceId = 'POSXIONG';
                 localStorage.setItem('pos_device_id', 'POSXIONG');
                 localStorage.setItem('pos_shop_owner', 'true');
+                localStorage.setItem('pos_logged_in', 'true');
 
                 document.getElementById('unified-login-modal').classList.add('hidden');
                 document.getElementById('role-select-modal').classList.add('hidden');
@@ -1313,7 +1320,6 @@
                 if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
                 document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ເຈົ້າຂອງຮ້ານ [POSXIONG] (Shop Owner Admin)`;
                 updateHeaderTitle();
-                location.reload();
                 return;
             }
 
@@ -1392,9 +1398,11 @@
                 (decodedText) => {
                     deviceId = 'POSXIONG';
                     localStorage.setItem('pos_device_id', 'POSXIONG');
+                    localStorage.setItem('pos_logged_in', 'true');
                     closeStaffScanner();
+                    let roleModal = document.getElementById('role-select-modal');
+                    if (roleModal) roleModal.classList.add('hidden');
                     showAlert("ສຳເລັດ", `ເຊື່ອມຕໍ່ກັບຮ້ານ Admin [POSXIONG] ສຳເລັດຮຽບຮ້ອຍ!`, "🔗");
-                    setTimeout(() => { location.reload(); }, 1500);
                 },
                 (err) => {}
             ).catch(err => {});
