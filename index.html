@@ -593,7 +593,7 @@
     <header class="bg-[#1e3a8a] text-white py-5 shadow-lg">
         <div class="container mx-auto px-4 text-center">
             <h1 id="main-header-title" class="text-2xl md:text-3xl font-bold flex items-center justify-center gap-2">
-                🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Smart One-Time Sync)
+                🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Smart Hybrid Sync)
             </h1>
             <div class="mt-1.5 text-xs md:text-sm text-yellow-300 font-semibold">
                 ✨ ວ່ອງໄວ ທັນໃຈ, ຍອດເງິນຖືກຕ້ອງ ຊັດເຈນ 100%, ບໍ່ເສຍເວລາ — ໃຜກໍ່ຂາຍເປັນ ບໍ່ມີພື້ນຖານໄອທີກໍ່ໃຊ້ໄດ້ສະບາຍ!
@@ -1336,7 +1336,6 @@
             if (roleModal) roleModal.classList.add('hidden');
             if (loginModal) loginModal.classList.add('hidden');
             checkTrialLicense();
-            // 🌟 One-Time Auto-Sync ເມື່ອເລືອກໂໝດເຂົ້າໃຊ້ງານ
             performOneTimeStartupSync();
         }
 
@@ -1381,7 +1380,6 @@
                 if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
                 document.getElementById('license-status-badge').innerText = "🛡️ ສະຖານະ: ເຂົ້າລະບົບ Super Admin (Full Access)";
                 updateHeaderTitle();
-                // 🌟 One-Time Auto-Sync ເມື່ອ Admin Login สำເລັດ
                 performOneTimeStartupSync();
                 return;
             }
@@ -1408,7 +1406,6 @@
                 if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
                 document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ເຈົ້າຂອງຮ້ານ [${currentUsername}] (Shop Owner Admin)`;
                 updateHeaderTitle();
-                // 🌟 One-Time Auto-Sync ເມື່ອ Shop Owner Login สำເລັດ
                 performOneTimeStartupSync();
                 return;
             }
@@ -1435,7 +1432,6 @@
                         if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
                         document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ເຈົ້າຂອງຮ້ານ [${currentUsername}] (Shop Owner Admin)`;
                         updateHeaderTitle();
-                        // 🌟 One-Time Auto-Sync
                         performOneTimeStartupSync();
                         return;
                     }
@@ -1451,7 +1447,7 @@
             
             let userRole = localStorage.getItem('pos_user_role');
             if (userRole === 'admin') {
-                headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Smart One-Time Sync)`;
+                headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Smart Hybrid Sync)`;
                 return;
             }
 
@@ -1868,6 +1864,7 @@
             document.getElementById('inventory-modal').classList.add('hidden');
         }
 
+        // 🌟 ປັບປຸງ `loadInventory` ໃຫ້ມີ Hybrid Fallback (Cloud + LocalStorage Combined)
         async function loadInventory() {
             let tbody = document.getElementById('inventory-tbody');
             tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
@@ -1917,7 +1914,7 @@
             let userRole = localStorage.getItem('pos_user_role');
             let canDelete = (userRole === 'admin' || isShopOwner);
 
-            excelRows.forEach((row, index) => {
+            excelRows.forEach((row) => {
                 let codeKey = String(row.code || '').trim().toLowerCase();
                 let initialQty = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1;
                 let soldQty = soldQtyMap[codeKey] || 0;
@@ -3016,6 +3013,7 @@
             document.getElementById('history-modal').classList.add('hidden'); 
         }
 
+        // 🌟 ປັບປຸງ `loadCloudHistory` ໃຫ້ມີ Hybrid Fallback (Cloud + LocalStorage Combined)
         async function loadCloudHistory() {
             let tbody = document.getElementById('history-table-tbody');
             tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</td></tr>`;
@@ -3405,32 +3403,39 @@
             document.getElementById('excel-print-area').classList.add('hidden');
         }
 
-        // 🌟 ຟັງຊັນດຶງຂໍ້ມູນສິນຄ້າຈາກ Cloud 100%
+        // 🌟 ຟັງຊັນດຶງຂໍ້ມູນສິນຄ້າແບບ Hybrid (Cloud + LocalStorage Combined)
         async function fetchProductsForGenerator() {
+            let localRows = JSON.parse(localStorage.getItem('pos_saved_excel_rows') || '[]');
+            let combinedMap = new Map();
+
+            localRows.forEach(r => combinedMap.set(r.id, r));
+
             if (supabaseClient) {
                 try {
                     let { data, error } = await supabaseClient.from('products').select('*').order('updated_at', { ascending: false });
-                    if (!error && data) {
-                        excelRows = data.map(item => ({
-                            id: item.id || ('ROW-' + Math.random().toString(36).substring(2, 6)),
-                            device_id: item.device_id || deviceId,
-                            code: item.code,
-                            cost: item.cost,
-                            originalCost: item.original_cost || item.cost,
-                            profitPct: item.profit_pct,
-                            price: item.price,
-                            qty: item.qty || 1,
-                            dateAdded: item.date_added || item.updated_at ? new Date(item.date_added || item.updated_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-                            mfgDate: item.mfg_date || '',
-                            expiryDate: item.expiry_date || ''
-                        }));
-                        localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
-                        return;
+                    if (!error && data && data.length > 0) {
+                        data.forEach(item => {
+                            let mapped = {
+                                id: item.id || ('ROW-' + Math.random().toString(36).substring(2, 6)),
+                                device_id: item.device_id || deviceId,
+                                code: item.code,
+                                cost: item.cost,
+                                originalCost: item.original_cost || item.cost,
+                                profitPct: item.profit_pct,
+                                price: item.price,
+                                qty: item.qty || 1,
+                                dateAdded: item.date_added || item.updated_at ? new Date(item.date_added || item.updated_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                                mfgDate: item.mfg_date || '',
+                                expiryDate: item.expiry_date || ''
+                            };
+                            combinedMap.set(mapped.id, mapped);
+                        });
                     }
                 } catch (e) {}
             }
-            let savedRows = localStorage.getItem('pos_saved_excel_rows');
-            excelRows = savedRows ? JSON.parse(savedRows) : [];
+
+            excelRows = Array.from(combinedMap.values());
+            localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
         }
 
         function renderExcelTable() {
@@ -3812,7 +3817,6 @@
             await Promise.all(promises);
         }
 
-        // 🌟 One-Time Auto-Sync function (ດຶງຂໍ້ມູນອັດຕະໂນມັດ 1 ครั้งທັນທີເມື່ອ Login / Startup ສຳເລັດ)
         async function performOneTimeStartupSync() {
             await fetchProductsForGenerator();
             await loadCloudHistory();
@@ -3834,7 +3838,6 @@
             updateHeaderTitle();
             checkTrialLicense();
 
-            // 🌟 One-Time Auto-Sync ເມື່ອໂຫຼດໜ້າຈໍຄັ້ງທຳອິດ
             await performOneTimeStartupSync();
         });
     </script>
