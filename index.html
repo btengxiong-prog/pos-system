@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ລະບົບຂາຍເຄື່ອງ POS - True Realtime WebSocket Sync</title>
+    <title>ລະບົບຂາຍເຄື່ອງ POS - Clean & Optimized Main Code</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Html5-qrcode CDN -->
@@ -1804,9 +1804,6 @@
                     let today = new Date().toISOString().split('T')[0];
                     let parsedDate = dateVal ? parseDDMMYYYYToISO(dateVal) : today;
 
-                    let savedRows = localStorage.getItem('pos_saved_excel_rows');
-                    let existingRows = savedRows ? JSON.parse(savedRows) : [];
-
                     let newRows = [];
                     for (let i = 1; i < jsonData.length; i++) {
                         let r = jsonData[i];
@@ -1836,7 +1833,7 @@
                         }
                     }
 
-                    excelRows = [...existingRows, ...newRows];
+                    excelRows = [...excelRows, ...newRows];
                     localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
                     
                     showAlert("ສຳເລັດ", `ນຳເຂົ້າຂໍ້ມູນ Excel ສຳເລັດ ${newRows.length} ລາຍການ!`, "📁");
@@ -1864,27 +1861,23 @@
             document.getElementById('inventory-modal').classList.add('hidden');
         }
 
+        // 🌟 ປັບປຸງ `loadInventory` ໃຫ້ດຶງກົງຈາກ Cloud Database 100%
         async function loadInventory() {
             let tbody = document.getElementById('inventory-tbody');
             tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
 
             await fetchProductsForGenerator();
 
-            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
             let combinedSalesMap = new Map();
-            localHistory.forEach(tx => combinedSalesMap.set(tx.id || tx.created_at, tx));
-
             if (supabaseClient) {
                 try {
                     let { data: cloudSales } = await supabaseClient.from('sales_history').select('*');
                     if (cloudSales) {
                         cloudSales.forEach(tx => {
                             let key = tx.id || tx.created_at;
-                            if (!combinedSalesMap.has(key)) {
-                                combinedSalesMap.set(key, {
-                                    id: tx.id, device_id: tx.device_id, created_at: tx.created_at, items: tx.items || []
-                                });
-                            }
+                            combinedSalesMap.set(key, {
+                                id: tx.id, device_id: tx.device_id, created_at: tx.created_at, items: tx.items || []
+                            });
                         });
                     }
                 } catch (e) {}
@@ -2958,10 +2951,6 @@
                 payment_method: payMode
             };
 
-            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-            localHistory.unshift(txData);
-            localStorage.setItem('pos_local_history', JSON.stringify(localHistory));
-
             if (supabaseClient) {
                 try {
                     await supabaseClient.from('sales_history').insert([{
@@ -3012,16 +3001,14 @@
             document.getElementById('history-modal').classList.add('hidden'); 
         }
 
+        // 🌟 ປັບປຸງ `loadCloudHistory` ໃຫ້ດຶງກົງຈາກ Cloud Database 100% (True Cloud Storage)
         async function loadCloudHistory() {
             let tbody = document.getElementById('history-table-tbody');
             tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</td></tr>`;
             document.getElementById('history-summary').classList.add('hidden');
             globalHistoryList = [];
 
-            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
             let combinedMap = new Map();
-
-            localHistory.forEach(tx => { combinedMap.set(tx.id || tx.created_at, tx); });
 
             if (supabaseClient) {
                 try {
@@ -3033,14 +3020,12 @@
                     if (!error && cloudSales) {
                         cloudSales.forEach(tx => {
                             let key = tx.id || tx.created_at;
-                            if (!combinedMap.has(key)) {
-                                combinedMap.set(key, {
-                                    id: tx.id, source: 'cloud', device_id: tx.device_id, created_at: tx.created_at,
-                                    total_items: tx.total_items || 0, total_cost: tx.total_cost || 0,
-                                    discount: tx.discount || 0, total: tx.total, cash: tx.cash, change: tx.change, 
-                                    payment_method: tx.payment_method || 'cash', items: tx.items || []
-                                });
-                            }
+                            combinedMap.set(key, {
+                                id: tx.id, source: 'cloud', device_id: tx.device_id, created_at: tx.created_at,
+                                total_items: tx.total_items || 0, total_cost: tx.total_cost || 0,
+                                discount: tx.discount || 0, total: tx.total, cash: tx.cash, change: tx.change, 
+                                payment_method: tx.payment_method || 'cash', items: tx.items || []
+                            });
                         });
                     }
                 } catch (err) {}
@@ -3209,8 +3194,6 @@
             showCustomConfirm("ຢືນຢັນການລຶບປະຫວັດ", `ທ່ານໝັ້ນໃຈບໍທີ່ຈະລຶບ ${checkedBoxes.length} ລາຍການທີ່ເລືອກນີ້ອອກຈາກປະຫວັດ?`, async (confirmed) => {
                 if (!confirmed) return;
 
-                let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-                
                 let deleteMap = new Map();
                 checkedBoxes.forEach(cb => {
                     let parts = cb.value.split('___');
@@ -3223,30 +3206,6 @@
                     if (!deleteMap.has(mapKey)) deleteMap.set(mapKey, { indices: [], device_id: devId, created_at: txCreated, id: txId });
                     deleteMap.get(mapKey).indices.push(itemIdx);
                 });
-
-                let updatedLocalHistory = [];
-                localHistory.forEach(tx => {
-                    let matchedKey = null;
-                    for (let [mKey, val] of deleteMap.entries()) {
-                        if (mKey === tx.id || mKey === tx.created_at || (val.created_at === tx.created_at && val.device_id === tx.device_id)) {
-                            matchedKey = mKey;
-                            break;
-                        }
-                    }
-
-                    if (matchedKey && tx.items) {
-                        let indicesToRemove = deleteMap.get(matchedKey).indices;
-                        indicesToRemove.sort((a, b) => b - a);
-                        indicesToRemove.forEach(idx => {
-                            tx.items.splice(idx, 1);
-                        });
-                    }
-
-                    if (!tx.items || tx.items.length > 0) {
-                        updatedLocalHistory.push(tx);
-                    }
-                });
-                localStorage.setItem('pos_local_history', JSON.stringify(updatedLocalHistory));
 
                 if (supabaseClient) {
                     try {
@@ -3318,24 +3277,13 @@
             
             let totalCost = 0;
             let totalPrice = 0;
-
-            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-            let allSales = [...localHistory];
+            let allSales = [];
 
             if (supabaseClient) {
                 try {
                     let { data: cloudSales } = await supabaseClient.from('sales_history').select('*');
                     if (cloudSales) {
-                        cloudSales.forEach(tx => {
-                            if (!allSales.some(s => (s.id === tx.id || s.created_at === tx.created_at))) {
-                                allSales.push({
-                                    device_id: tx.device_id,
-                                    total_cost: tx.total_cost || 0,
-                                    total: tx.total || 0,
-                                    created_at: tx.created_at
-                                });
-                            }
-                        });
+                        allSales = cloudSales;
                     }
                 } catch (e) {}
             }
@@ -3401,7 +3349,7 @@
             document.getElementById('excel-print-area').classList.add('hidden');
         }
 
-        // 🌟 ຟັງຊັນດຶງຂໍ້ມູນສິນຄ້າຈາກ Cloud ໂດຍກົງ 100% (True Cloud Storage First)
+        // 🌟 ຟັງຊັນດຶງຂໍ້ມູນສິນຄ້າຈາກ Cloud 100% (True Cloud Storage)
         async function fetchProductsForGenerator() {
             let cloudRows = [];
             if (supabaseClient) {
@@ -3425,13 +3373,7 @@
                 } catch (e) {}
             }
 
-            if (cloudRows.length > 0) {
-                excelRows = cloudRows;
-                localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
-            } else {
-                let savedRows = localStorage.getItem('pos_saved_excel_rows');
-                excelRows = savedRows ? JSON.parse(savedRows) : [];
-            }
+            excelRows = cloudRows;
         }
 
         function renderExcelTable() {
@@ -3505,7 +3447,6 @@
 
         async function clearUnsavedRows() {
             excelRows = [];
-            localStorage.removeItem('pos_saved_excel_rows');
             if (supabaseClient) {
                 try { await supabaseClient.from('products').delete().neq('id', '0'); } catch (e) {}
             }
@@ -3675,8 +3616,6 @@
                     updated_at: new Date().toISOString()
                 };
             });
-
-            localStorage.setItem('pos_saved_excel_rows', JSON.stringify(validRows));
             
             if (supabaseClient) {
                 try {
@@ -3834,7 +3773,7 @@
             updateHeaderTitle();
             checkTrialLicense();
 
-            // 🌟 One-Time Auto-Sync ດຶງຂໍ້ມູນຈາກ Cloud 100% ທັນທີທີ່ເປີດໜ້າຈໍ
+            // 🌟 ດຶງຂໍ້ມູນຈາກ Cloud ໂດຍກົງ 100% ເມື່ອເປີດໜ້າຈໍ
             await performOneTimeStartupSync();
         });
     </script>
