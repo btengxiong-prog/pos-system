@@ -1267,7 +1267,7 @@
             openStaffScanner();
         }
 
-        // 🌟 ປັບປຸງການກວດສອບການລັອກອິນ ໃຫ້ອ່ານຈາກທັງ LocalStorage ແລະ Firestore Cloud ຢ່າງแม่ນยຳ 100%
+        // 🌟 ປັບປຸງການກວດສອບ Username ແລະ Password ໃຫ້ຮອງຮັບການລັອກອິນດ້ວຍ Username ທີ່ Admin ຕັ້ງໃຫ້ຢ່າງຖືກຕ້ອງ 100%
         async function verifyUnifiedLogin() {
             let u = document.getElementById('unified-login-username').value.trim();
             let p = document.getElementById('unified-login-password').value.trim();
@@ -1322,16 +1322,16 @@
                 return;
             }
 
-            // ກວດສອບຈາກ Firestore Cloud ຖ້າມີການເຊື່ອມຕໍ່
             let loginSuccess = false;
             let matchedDevId = '';
 
             if (db) {
                 try {
-                    let snapshot = await db.collection("devices_registry").where("username", "==", formattedU).get();
+                    let snapshot = await db.collection("devices_registry").get();
                     snapshot.forEach(doc => {
                         let dev = doc.data();
-                        if (dev.password === p) {
+                        let regUser = (dev.username || '').trim().toUpperCase();
+                        if (regUser === formattedU && dev.password === p) {
                             loginSuccess = true;
                             matchedDevId = dev.device_id;
                         }
@@ -1339,7 +1339,6 @@
                 } catch (e) {}
             }
 
-            // ຖ້າບໍ່ພบบົນ Cloud ໃຫ້ທຽບຈາກ LocalStorage ເປັນທາງເລືອກສຳຮອງ
             if (!loginSuccess) {
                 let shopPass = localStorage.getItem('pos_shop_pass_' + formattedU);
                 let shopDevId = localStorage.getItem('pos_shop_dev_' + formattedU);
@@ -1474,7 +1473,7 @@
             document.getElementById('admin-manager-modal').classList.add('hidden');
         }
 
-        // 🌟 ໂຫຼດລາຍຊື່ເຄື່ອງ: ວາງ Checkbox ໄວ້ທາງໜ້າ (ດ້ານຊ້າຍ) ເພື່ອກົດເລືອກແລ້ວເອົາ ID ໄປຕື່ມໃສ່ຊ່ອງ "ID ເຄື່ອງ" ດ້ານເທິງອັດຕະໂນມັດ
+        // 🌟 ໂຫຼດລາຍຊື່ເຄື່ອງ: Checkbox อยู่ທາງໜ້າ (ດ້ານຊ້າຍ) ເພື່ອກົດເລືອກແລ້ວເອົາ ID ໄປຕື່ມໃສ່ຟອມດ້ານເທິງ
         async function loadAllDevices() {
             let container = document.getElementById('device-list-container');
             container.innerHTML = `<div class="p-3 bg-gray-50 border rounded-xl"><span class="font-bold text-blue-800">ID ປັດຈຸບັນ: ${deviceId} (Super Admin)</span></div>`;
@@ -1494,7 +1493,7 @@
                         devicesHtml += `
                             <div class="p-3 bg-white border rounded-xl flex justify-between items-center shadow-sm">
                                 <div class="flex items-center gap-3">
-                                    <!-- 🌟 Checkbox อยู่ທາງໜ້າ (ດ້ານຊ້າຍ) -->
+                                    <!-- 🌟 Checkbox ຢູ່ທາງໜ້າ (ດ້ານຊ້າຍ) -->
                                     <input type="checkbox" data-id="${dev.device_id}" onchange="handleAdminDeviceCheckboxChange(this, '${dev.device_id}')" class="admin-device-checkbox w-4 h-4 cursor-pointer accent-blue-600" title="ເລືອກຢູເຊີນີ້">
                                     <div>
                                         <span class="font-mono font-bold text-blue-600">${dev.device_id}</span>
@@ -1605,7 +1604,7 @@
             showAlert("ສຳເລັດ", "ບັນທຶກ ແລະ ແກ້ໄຂຂໍ້ມູນຢູເຊີສຳເລັດຮຽບຮ້ອຍ!", "✅");
         }
 
-        // 🌟 ຟັງຊັນສ້າງ Username/Password ພ້ອມອັບເດດສະຖານະເປັນ "ຖາວອນ" (Permanent)
+        // 🌟 ຟັງຊັນສ້າງ Username/Password ພ້ອມອັບເດດສະຖານະເປັນ "ຖາວອນ" (Permanent) ແລະ ບັນທຶກ Username/Password ທີ່ຖືກຕ້ອງ
         async function adminCreateUser() {
             let targetDev = document.getElementById('new-target-device').value.trim().toUpperCase();
             let userU = document.getElementById('new-admin-user').value.trim().toUpperCase();
@@ -1617,6 +1616,7 @@
             }
 
             localStorage.setItem('pos_shop_name_' + targetDev, userU);
+            localStorage.setItem('pos_shop_user_' + targetDev, userU);
             localStorage.setItem('pos_shop_pass_' + userU, userP);
             localStorage.setItem('pos_shop_pass_' + targetDev, userP);
             localStorage.setItem('pos_shop_dev_' + userU, targetDev);
@@ -1639,7 +1639,7 @@
             document.getElementById('new-admin-pass').value = '';
 
             await loadAllDevices();
-            showAlert("ສຳເລັດ", `ອັບເດດຢູເຊີ [${targetDev}] ເປັນຖາວອນສຳເລັດຮຽບຮ້ອຍ!`, "✅");
+            showAlert("ສຳເລັດ", `ສ້າງ Username ແລະ ປ່ຽນສະຖານະ [${targetDev}] ເປັນຖາວອນສຳເລັດຮຽບຮ້ອຍ!`, "✅");
         }
 
         function toggleCustomDropdown(menuId, event) {
