@@ -1165,22 +1165,23 @@
             return new Date().toISOString().split('T')[0];
         }
 
-        // 🌟 ບັງຄັບໃຫ້ທຸກເຄື່ອງໃຊ້ ID ຫຼັກໂຕດຽວກັນ (Shared Store ID = POSXIONG) ເພື່ອໃຫ້ 3 ເຄື່ອງເຫັນຂໍ້ມູນກົງກັນ 100%
-        let deviceId = localStorage.getItem('pos_current_username') || localStorage.getItem('pos_linked_admin_id') || localStorage.getItem('pos_shared_store_id') || 'POSXIONG';
+        // 🌟 ບັງຄັບໃຫ້ທຸກເຄື່ອງໃຊ້ ID ຫຼັກໂຕດຽວກັນ (Shared Store ID) ເພື່ອແກ້ໄຂບັນຫາເປີດ 3 ເຄື່ອງແລ້ວ ID ຕ່າງກັນ
+        let deviceId = localStorage.getItem('pos_linked_admin_id') || localStorage.getItem('pos_current_username') || localStorage.getItem('pos_shared_store_id') || 'POS-SHOP-MASTER';
 
         async function initDeviceId() {
-            let currentUsr = localStorage.getItem('pos_current_username');
             let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
+            let currentUsr = localStorage.getItem('pos_current_username');
             let sharedStoreId = localStorage.getItem('pos_shared_store_id');
             
-            if (currentUsr) {
-                deviceId = currentUsr;
-            } else if (linkedAdminId) {
+            if (linkedAdminId) {
                 deviceId = linkedAdminId;
+            } else if (currentUsr) {
+                deviceId = currentUsr;
             } else if (sharedStoreId) {
                 deviceId = sharedStoreId;
             } else {
-                deviceId = 'POSXIONG'; // ບັງຄັບໃຊ້ ID ໂຕດຽວກັນເປັນຄ່າເລີ່ມຕົ້ນຂອງທຸກເຄື່ອງ
+                // ຖ້າຫາກຍັງບໍ່ທັນມີ ID ໃດໆ ໃຫ້ກຳນົດເປັນ Shared ID ຫຼັກມາດຕະຖານໂຕດຽວກັນທັນທີ
+                deviceId = 'POS-SHOP-MASTER';
                 localStorage.setItem('pos_shared_store_id', deviceId);
             }
             localStorage.setItem('pos_device_id', deviceId);
@@ -1190,7 +1191,7 @@
                     let { data: existing } = await supabaseClient.from('licenses').select('*').eq('device_id', deviceId).single();
                     if (!existing) {
                         let trialUntil = new Date();
-                        trialUntil.setFullYear(trialUntil.getFullYear() + 5);
+                        trialUntil.setFullYear(trialUntil.getFullYear() + 5); // ໃຫ້ໃຊ້ງານຍາວໆ
                         await supabaseClient.from('licenses').insert({
                             device_id: deviceId,
                             status: 'active',
@@ -1305,10 +1306,6 @@
 
             if (u === "POSXIONG" && p === "POS@21082007") {
                 localStorage.setItem('pos_user_role', 'admin');
-                localStorage.setItem('pos_current_username', 'POSXIONG');
-                localStorage.setItem('pos_shared_store_id', 'POSXIONG');
-                localStorage.setItem('pos_device_id', 'POSXIONG');
-                deviceId = 'POSXIONG';
                 document.getElementById('unified-login-modal').classList.add('hidden');
                 document.getElementById('role-select-modal').classList.add('hidden');
                 let adminBtn = document.getElementById('admin-manage-btn');
@@ -1319,7 +1316,6 @@
                 if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
                 document.getElementById('license-status-badge').innerText = "🛡️ ສະຖານະ: ເຂົ້າລະບົບ Super Admin (Full Access)";
                 updateHeaderTitle();
-                location.reload();
                 return;
             }
 
