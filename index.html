@@ -1,4 +1,1140 @@
-<!-- JavaScript Logic -->
+<!DOCTYPE html>
+<html lang="lo">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ລະບົບຂາຍເຄື່ອງ POS - Pure Cloud Storage</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Html5-qrcode CDN -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <!-- Supabase JS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- SheetJS (xlsx) for Excel Import -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- JsBarcode & QRCode CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+    <!-- Google Fonts -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Lao:wght@400;700&display=swap');
+        body {
+            font-family: 'Phetsarath OT', 'Saysettha OT', 'Noto Serif Lao', 'Times New Roman', Times, serif;
+        }
+        .has-submenu {
+            position: relative;
+        }
+        .has-submenu .submenu {
+            display: none;
+            position: absolute;
+            left: 100%;
+            top: 0;
+            min-width: 240px;
+            z-index: 1000;
+        }
+        .has-submenu:hover .submenu {
+            display: block !important;
+        }
+        @media print {
+            body * {
+                visibility: hidden !important;
+            }
+            #excel-generator-modal, #excel-generator-modal *,
+            #stock-in-modal, #stock-in-modal *,
+            #rate-input-modal, #rate-input-modal *,
+            #inventory-modal, #inventory-modal *,
+            #expiry-modal, #expiry-modal *,
+            #history-modal, #history-modal * {
+                visibility: visible !important;
+            }
+            #inventory-modal, #expiry-modal, #history-modal {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                height: auto !important;
+                background: white !important;
+                z-index: 999999 !important;
+                overflow: visible !important;
+                max-height: none !important;
+            }
+            @page {
+                size: auto;
+                margin: 5mm;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen pb-10">
+
+    <!-- Role Selection Modal -->
+    <div id="role-select-modal" class="fixed inset-0 bg-black/80 z-[300] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
+            <div class="text-4xl">🔐</div>
+            <h3 class="text-xl font-bold text-gray-800">ກະລຸນາເລືອກ ປະເພດການເຂົ້າໃຊ້ງານ</h3>
+            <p class="text-gray-600 text-xs">ກະລຸນາເລືອກໂໝດທີ່ທ່ານຕ້ອງການເຂົ້າສູ່ລະບົບ POS</p>
+            <div class="space-y-3 pt-2">
+                <button onclick="selectRole('trial')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition cursor-pointer shadow flex items-center justify-center gap-2">
+                    ⏳ ທົດລອງໃຊ້ 15 ວັນ / ພະນັກງານຂາຍ
+                </button>
+                <button onclick="openStaffScannerFromRole()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-xl transition cursor-pointer shadow flex items-center justify-center gap-2">
+                    📷 ສະແກນ QR ເຊື່ອມຕໍ່ຮ້ານ Admin
+                </button>
+                <button onclick="showUnifiedLoginModal()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl transition cursor-pointer shadow flex items-center justify-center gap-2">
+                    🔑 ລັອກອິນເຂົ້າລະບົບ (ເຈົ້າຂອງຮ້ານ / Admin)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unified Login Modal -->
+    <div id="unified-login-modal" class="hidden fixed inset-0 bg-black/80 z-[300] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
+            <div class="text-4xl">🔑</div>
+            <h3 class="text-xl font-bold text-gray-800">ລັອກອິນເຂົ້າລະບົບ</h3>
+            <p class="text-xs text-gray-600">ປ້ອນ Username ແລະ Password ຂອງເຈົ້າຂອງຮ້ານ</p>
+            <div class="space-y-3 text-left">
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">Username:</label>
+                    <input type="text" id="unified-login-username" class="w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-emerald-500 font-semibold uppercase" placeholder="ປ້ອນ Username">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">Password:</label>
+                    <input type="password" id="unified-login-password" onkeydown="handleUnifiedLoginKeydown(event)" class="w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-emerald-500 font-semibold" placeholder="ປ້ອນ Password">
+                </div>
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button onclick="backToRoleSelectFromUnified()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
+                <button onclick="verifyUnifiedLogin()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">ລັອກອິນ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Device Manager & User Creator Modal -->
+    <div id="admin-manager-modal" class="hidden fixed inset-0 bg-black/60 z-[250] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-3xl w-full p-6 max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                    <span>📋 ຈັດການບັນຊີ ແລະ ລະບົບ POS (Admin)</span>
+                </h3>
+                <button onclick="loadAllDevices()" class="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg cursor-pointer font-bold">🔄 ໂຫຼດຂໍ້ມູນໃໝ່</button>
+            </div>
+            
+            <div class="bg-blue-50 p-4 rounded-xl border border-blue-200 space-y-3">
+                <h4 class="font-bold text-blue-900 text-sm">➕ ສ້າງ Username ແລະ Password ໃຫ້ເຈົ້າຂອງຮ້ານ</h4>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <input type="text" id="new-target-device" list="trial-devices-list" placeholder="ID ເຄື່ອງ (ເລືອກ ຫຼື ພິມ)" class="border rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none bg-white">
+                    <datalist id="trial-devices-list"></datalist>
+                    <input type="text" id="new-admin-user" placeholder="USERNAME (ເຊັ່ນ: SHOP001)" class="border rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none bg-white">
+                    <input type="text" id="new-admin-pass" placeholder="Password" class="border rounded-lg px-3 py-2 text-xs font-semibold outline-none bg-white">
+                </div>
+                <button onclick="adminCreateUser()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg text-xs transition cursor-pointer shadow">
+                    💾 ບັນທຶກ ແລະ ສ້າງບັນຊີເຈົ້າຂອງຮ້ານ
+                </button>
+            </div>
+
+            <div class="space-y-2">
+                <h5 class="font-bold text-xs text-gray-700">📋 ລາຍຊື່ບັນຊີທັງໝົດໃນລະບົບ:</h5>
+                <div id="device-list-container" class="space-y-2 text-sm text-gray-700">
+                    <p class="text-center py-4">ກຳລັງໂຫຼດ...</p>
+                </div>
+            </div>
+
+            <button onclick="closeAdminManager()" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ປິດ</button>
+        </div>
+    </div>
+
+    <!-- Modal ແກ້ໄຂ Username / Password & ຂໍ້ມູນຮ້ານ -->
+    <div id="edit-user-modal" class="hidden fixed inset-0 bg-black/60 z-[350] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 max-h-[90vh] overflow-y-auto shadow-2xl space-y-3 text-left">
+            <div class="text-2xl text-center">✏️</div>
+            <h3 class="text-base font-bold text-blue-900 text-center">ແກ້ໄຂ Username / Password & ຂໍ້ມູນຮ້ານ</h3>
+            <p class="text-xs text-gray-600 text-center">ID ເຄື່ອງ: <span id="edit-modal-device-id" class="font-mono font-bold text-blue-600"></span></p>
+            
+            <div class="space-y-2.5 text-left text-xs">
+                <div>
+                    <label class="block font-bold text-gray-700 mb-0.5">🏪 ຊື່ຮ້ານ:</label>
+                    <input type="text" id="edit-modal-shop-name" class="w-full border rounded-lg px-3 py-2 font-semibold outline-none bg-white" placeholder="ປ້ອນຊື່ຮ້ານ">
+                </div>
+                <div>
+                    <label class="block font-bold text-gray-700 mb-0.5">🏦 ອັບໂຫຼດຮູບ QR ບັນຊີ (ກີບ):</label>
+                    <input type="file" id="edit-modal-lak-qr-file" accept="image/*" onchange="handleQrImageUpload(event, 'lak')" class="w-full border rounded-lg p-1 text-xs bg-gray-50 cursor-pointer">
+                    <div id="preview-lak-qr" class="mt-1 text-center"></div>
+                </div>
+                <div>
+                    <label class="block font-bold text-gray-700 mb-0.5">🇹🇭 ອັບໂຫຼດຮູບ QR ບັນຊີ (ບາດ):</label>
+                    <input type="file" id="edit-modal-thb-qr-file" accept="image/*" onchange="handleQrImageUpload(event, 'thb')" class="w-full border rounded-lg p-1 text-xs bg-gray-50 cursor-pointer">
+                    <div id="preview-thb-qr" class="mt-1 text-center"></div>
+                </div>
+                <div>
+                    <label class="block font-bold text-gray-700 mb-0.5">Username ໃໝ່:</label>
+                    <input type="text" id="edit-modal-username" class="w-full border rounded-lg px-3 py-2 font-semibold uppercase outline-none bg-white" placeholder="ປ້ອນ Username">
+                </div>
+                <div>
+                    <label class="block font-bold text-gray-700 mb-1">Password ໃໝ່:</label>
+                    <input type="text" id="edit-modal-password" class="w-full border rounded-lg px-3 py-2 font-semibold outline-none bg-white" placeholder="ປ້ອນ Password">
+                </div>
+                <div>
+                    <label class="block font-bold text-gray-700 mb-1">⚙️ ຈັດການສະຖານະບັນຊີ:</label>
+                    <select id="edit-modal-action-select" onchange="handleActionSelectChange(this)" class="w-full border rounded-lg px-3 py-2 font-semibold outline-none bg-blue-50 text-blue-900">
+                        <option value="none">-- ເລືອກຄຳສັ່ງຈັດການເພີ່ມເຕີມ --</option>
+                        <option value="to_trial">⏳ ປົດມາເປັນທົດລອງ 15 ວັນ</option>
+                        <option value="extend_trial">🔄 ຕໍ່ອາຍຸຢູເຊີທົດລອງ</option>
+                        <option value="delete_permanent">❌ ລົບບັນຊີຖາວອນ</option>
+                        <option value="restore_user">♻️ ແກ້ໄຂຢູເຊີຄືນ (ປົກກະຕິ)</option>
+                    </select>
+                </div>
+                <div id="extend-days-container" class="hidden">
+                    <label class="block font-bold text-purple-700 mb-1">📅 ກຳນົດຈຳນວນວັນຕໍ່ອາຍຸເພີ່ມ:</label>
+                    <input type="number" id="edit-modal-extend-days" value="15" min="1" class="w-full border rounded-lg px-3 py-2 font-bold text-purple-700 outline-none bg-purple-50" placeholder="ລະບຸຈຳນວນວັນ">
+                </div>
+            </div>
+
+            <div class="flex gap-2 pt-2 border-t">
+                <button onclick="closeEditUserModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer text-sm">ຍົກເລີກ</button>
+                <button onclick="saveEditedUser()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">💾 ບັນທຶກ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Connect QR Code Modal -->
+    <div id="admin-qr-modal" class="hidden fixed inset-0 bg-black/70 z-[350] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
+            <div class="text-3xl">📱</div>
+            <h3 class="text-lg font-bold text-purple-900">QR Code ເຊື່ອມຕໍ່ພະນັກງານຂາຍ</h3>
+            <p class="text-xs text-gray-600">ໃຫ້ພະນັກງານຂາຍໃຊ້ໂທລະສັບສະແກນ QR ນີ້ເພື່ອຜູກຮ້ານ</p>
+            <div class="bg-purple-50 p-4 rounded-xl border flex justify-center items-center my-2">
+                <div id="admin-connect-qrcode" class="bg-white p-3 rounded-xl border inline-block min-h-[160px]"></div>
+            </div>
+            <button onclick="closeAdminQrModal()" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer">ປິດໜ້າຈໍ</button>
+        </div>
+    </div>
+
+    <!-- Show My Device ID & Connect QR Scanner Modal -->
+    <div id="my-device-modal" class="hidden fixed inset-0 bg-black/60 z-[250] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
+            <div class="text-4xl">🆔</div>
+            <h3 class="text-lg font-bold text-gray-800">ລະຫັດ ID ເຄື່ອງຂອງທ່ານ</h3>
+            <p class="text-xs text-gray-600">ສະແກນ QR Code ເພື່ອເຊື່ອມຕໍ່ກັບເຈົ້າຂອງຮ້ານ (Admin)</p>
+            <div class="bg-gray-50 p-3 rounded-xl border">
+                <p id="my-device-id-text" class="font-mono font-bold text-blue-600 text-sm break-all"></p>
+            </div>
+            <div class="space-y-2">
+                <button onclick="openStaffScanner()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">📷 ສະແກນ QR ເຊື່ອມຕໍ່ຮ້ານ Admin</button>
+                <button onclick="copyMyDeviceId()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">📋 ກ໋ອບປີ ID</button>
+                <button onclick="closeMyDeviceModal()" class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl text-sm transition cursor-pointer">ປິດ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Staff QR Scanner Container Modal -->
+    <div id="staff-scanner-modal" class="hidden fixed inset-0 bg-black/80 z-[350] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-5 text-center space-y-3 shadow-2xl">
+            <h3 class="font-bold text-base text-purple-700">📷 ສະແກນ QR Code ເຊື່ອມຕໍ່ຮ້ານ Admin</h3>
+            <div id="staff-reader" class="w-full max-w-sm mx-auto"></div>
+            <button onclick="closeStaffScanner()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl w-full font-bold cursor-pointer text-sm">ປິດກ້ອງ</button>
+        </div>
+    </div>
+
+    <!-- Inventory Modal (ສິນຄ້າຄ້າງສາງ) - ຕັດປຸ່ມໂຫຼດໃໝ່ອອກແລ້ວ -->
+    <div id="inventory-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl max-w-5xl w-full p-6 max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-xl font-bold text-cyan-800 flex items-center gap-2">
+                    <span>📦 ສິນຄ້າຄ້າງສາງ (Inventory Stock)</span>
+                </h3>
+                <div class="flex gap-2 items-center">
+                    <button id="admin-delete-inventory-btn" onclick="openDeleteInventoryModal()" class="hidden text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg cursor-pointer font-bold shadow transition">🗑️ ລຶບສິນຄ້າ</button>
+                    <button onclick="closeInventoryModal()" class="text-gray-500 hover:text-gray-700 font-bold text-lg cursor-pointer px-2">✕</button>
+                </div>
+            </div>
+            
+            <div class="overflow-x-auto border rounded-xl">
+                <table class="w-full text-left border-collapse bg-white min-w-[750px]">
+                    <thead>
+                        <tr class="bg-cyan-800 text-white text-xs uppercase">
+                            <th class="p-3 border-r text-center w-12">ລ/ດ</th>
+                            <th class="p-3 border-r">ຊື່ສິນຄ້າ</th>
+                            <th class="p-3 border-r text-center">ວັນນຳເຂົ້າສິນຄ້າ</th>
+                            <th class="p-3 border-r text-center">ວັນຜະລິດ</th>
+                            <th class="p-3 border-r text-center">ວັນໝົດອາຍຸ</th>
+                            <th class="p-3 border-r text-right">ລາຄາຊື້ (ກີບ)</th>
+                            <th class="p-3 border-r text-right">ລາຄາຂາຍ (ກີບ)</th>
+                            <th class="p-3 border-r text-center">ໝາຍເຫດ</th>
+                            <th class="p-3 text-center">ຈັດການ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventory-tbody" class="divide-y divide-gray-200 text-sm">
+                        <tr><td colspan="9" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="flex gap-2 pt-2">
+                <button onclick="window.print()" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">🖨️ ພິມລາຍງານ</button>
+                <button onclick="closeInventoryModal()" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ປິດ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🌟 Popup ລຶບສິນຄ້າໃນສາງ -->
+    <div id="delete-inventory-modal" class="hidden fixed inset-0 bg-black/70 z-[500] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto space-y-4 text-left shadow-2xl">
+            <div class="text-3xl text-center">🗑️</div>
+            <h3 class="text-lg font-bold text-red-700 text-center">ຈັດການລຶບສິນຄ້າໃນສາງ</h3>
+            <p class="text-xs text-gray-600 text-center">ກະລຸນາເລືອກວັນທີ ແລະ ຕິກເລືອກສິນຄ້າທີ່ຕ້ອງການລຶບ:</p>
+
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-bold text-gray-700 mb-1">📅 ເລືອກ ວັນ/ເດືອນ/ປີ (ຖ້າບໍ່ເລືອກຈະສະແດງທັງໝົດ):</label>
+                    <input type="date" id="del-inv-date-input" onchange="renderDeleteInventoryTable()" class="w-full border rounded-lg px-3 py-2 font-semibold outline-none bg-white text-purple-700 cursor-pointer">
+                </div>
+
+                <div class="space-y-2 border-t pt-2">
+                    <div class="flex justify-between items-center">
+                        <label class="font-bold text-gray-700">📦 ລາຍການສິນຄ້າໃນສາງ:</label>
+                        <button type="button" onclick="toggleSelectAllDelInvItems(this)" class="text-[11px] bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold px-2.5 py-1 rounded cursor-pointer transition">☑️ ເລືອກທັງໝົດ</button>
+                    </div>
+
+                    <div class="overflow-x-auto border rounded-xl max-h-60 overflow-y-auto">
+                        <table class="w-full text-left border-collapse bg-white text-xs">
+                            <thead>
+                                <tr class="bg-gray-100 text-gray-700 uppercase sticky top-0 border-b">
+                                    <th class="p-2 border-r text-center w-12">ລ/ດ</th>
+                                    <th class="p-2 border-r text-center">ວັນນຳເຂົ້າ</th>
+                                    <th class="p-2 border-r">ຊື່ສິນຄ້າ</th>
+                                    <th class="p-2 border-r text-center">ຈຳນວນ</th>
+                                    <th class="p-2 border-r text-right">ລາຄາຂາຍ</th>
+                                    <th class="p-2 text-center w-16">ເລືອກ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="del-inv-table-tbody" class="divide-y divide-gray-200">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex gap-2 pt-3 border-t">
+                <button onclick="closeDeleteInventoryModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer text-sm">ຍົກເລີກ</button>
+                <button onclick="confirmExecuteDeleteInventory()" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">🗑️ ຢືນຢັນລຶບ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Expiry Modal (ວັນໝົດອາຍຸສິນຄ້າ) -->
+    <div id="expiry-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl max-w-5xl w-full p-6 max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-xl font-bold text-teal-700 flex items-center gap-2">
+                    <span>⏳ ວັນໝົດອາຍຸສິນຄ້າ (Expiry Check - ໃກ້ໝົດອາຍຸ 60 ວັນ)</span>
+                </h3>
+                <button onclick="loadExpiryCheck()" class="text-xs bg-teal-100 text-teal-800 px-3 py-1.5 rounded-lg cursor-pointer font-bold">🔄 ໂຫຼດໃໝ່</button>
+            </div>
+            
+            <div class="overflow-x-auto border rounded-xl">
+                <table class="w-full text-left border-collapse bg-white min-w-[750px]">
+                    <thead>
+                        <tr class="bg-teal-800 text-white text-xs uppercase">
+                            <th class="p-3 border-r text-center w-12">ລ/ດ</th>
+                            <th class="p-3 border-r">ຊື່ສິນຄ້າ</th>
+                            <th class="p-3 border-r text-center">ວັນນຳເຂົ້າສິນຄ້າ</th>
+                            <th class="p-3 border-r text-center">ວັນຜະລິດ (dd/mm/yyyy)</th>
+                            <th class="p-3 border-r text-center">ວັນໝົດອາຍຸ (dd/mm/yyyy)</th>
+                            <th class="p-3 border-r text-right">ລາຄາຊື້ (ກີບ)</th>
+                            <th class="p-3 border-r text-right">ລາຄາຂາຍ (ກີບ)</th>
+                            <th class="p-3 text-center">ໝາຍເຫດ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="expiry-tbody" class="divide-y divide-gray-200 text-sm">
+                        <tr><td colspan="8" class="p-6 text-center text-gray-400">ກຳລັງກວດສອບວັນໝົດອາຍຸ...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="flex gap-2 pt-2">
+                <button onclick="window.print()" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">🖨️ ພິມລາຍງານ</button>
+                <button onclick="closeExpiryModal()" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ປິດ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Registration & Payment Modal -->
+    <div id="register-payment-modal" class="hidden fixed inset-0 bg-black/70 z-[1050] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
+            <div class="text-4xl">💳</div>
+            <h3 class="text-lg font-bold text-gray-800">ລົງທະບຽນ / ຊຳລະຄ່າບໍລິການ</h3>
+            <p class="text-xs text-gray-600">ກະລຸນາໂອນເງິນຜ່ານບັນຊີທະນາຄານດ້ານລ່າງນີ້</p>
+            
+            <div class="bg-gray-50 p-4 rounded-xl border text-left space-y-2">
+                <div class="flex items-center gap-2 text-xs font-bold text-gray-700">
+                    <span>🏦</span>
+                    <span>ທະນາຄານ: <span class="text-green-700">ພົງສະຫວັນ (Phongsavanh Bank)</span></span>
+                </div>
+                <div class="flex items-center gap-2 text-xs font-bold text-gray-700">
+                    <span>🔢</span>
+                    <span>ເລກບັນຊີ: <span class="font-mono text-blue-600 font-extrabold text-sm">1006000000470</span></span>
+                </div>
+                <div class="flex items-center gap-2 text-xs font-bold text-gray-700">
+                    <span>👤</span>
+                    <span>ຊື່ບັນຊີ: <span class="text-gray-900">BOUNTENG XIONGTONGMUA</span></span>
+                </div>
+            </div>
+
+            <div class="space-y-2">
+                <button onclick="copyBankAccount()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">📋 ກ໋ອບປີເລກບັນຊີ</button>
+                <button onclick="closeRegisterModal()" class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl text-sm transition cursor-pointer">ປິດ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Manual Modal -->
+    <div id="user-manual-modal" class="hidden fixed inset-0 bg-black/70 z-[1050] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-2xl w-full p-6 max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl text-left">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-lg font-bold text-blue-900 flex items-center gap-2">
+                    <span>📖 ຄູ່ມືການນຳໃຊ້ລະບົບຂາຍເຄື່ອງ POS</span>
+                </h3>
+                <button onclick="closeUserManual()" class="text-gray-500 hover:text-gray-700 font-bold text-lg cursor-pointer">✕</button>
+            </div>
+
+            <div class="space-y-3 text-sm text-gray-700">
+                <div class="bg-blue-50 p-3 rounded-xl border border-blue-100 text-xs text-blue-900 font-semibold">
+                    ✨ ສ້າງ ແລະ ພັດທະນາໂດຍ: ອາຈານ ບຸນແຕ່ງ ຊົ່ງຕົງມົວ | ສາຍດ່ວນ: 020 59456999, 020 99444448
+                </div>
+
+                <h4 class="font-bold text-gray-900 mt-2">1. ການເລືອກໂໝດເຂົ້າໃຊ້ງານ & License</h4>
+                <p class="text-xs text-gray-600 leading-relaxed">
+                    - <b>⏳ ທົດລອງໃຊ້ 15 ວັນ / ພະນັກງານຂາຍ:</b> ໃຊ້ສຳລັບພະນັກງານຂາຍ (ສາມາດສະແກນ QR ເຊື່ອມຕໍ່ກັບ Admin ຮ້ານໄດ້).<br>
+                    - <b>🔑 ລັອກອິນເຂົ້າລະບົບ:</b> ສໍາລັບເຈົ້າຂອງຮ້ານ ແລະ Super Admin ປ້ອນ Username ແລະ Password.
+                </p>
+            </div>
+
+            <div class="pt-2 border-t">
+                <button onclick="closeUserManual()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">ປິດຄູ່ມື</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🌟 Popup ເລືອກວິທີຊຳລະເງິນ -->
+    <div id="checkout-method-modal" class="hidden fixed inset-0 bg-black/70 z-[340] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
+            <div class="text-4xl">💰</div>
+            <h3 class="text-lg font-bold text-blue-900">ເລືອກວິທີຊຳລະເງິນ</h3>
+            
+            <div class="bg-blue-50 p-3 rounded-xl border text-center space-y-1">
+                <div class="text-xs text-gray-600 font-semibold">ຍອດເງິນລວມທັງໝົດ:</div>
+                <div class="text-xl font-extrabold text-green-600" id="popup-total-amount-text">0 ກີບ</div>
+                <div class="text-sm font-bold text-purple-700" id="popup-total-thb-text">0 ບາດ</div>
+            </div>
+
+            <div class="space-y-3 text-left">
+                <label class="flex items-center gap-3 p-3 border-2 rounded-xl cursor-pointer hover:bg-gray-50 border-blue-600 bg-blue-50/50" onclick="selectPaymentMode('cash', this)">
+                    <input type="radio" name="pay_mode" value="cash" checked class="w-4 h-4 text-blue-600">
+                    <span class="font-bold text-gray-800 text-sm">💵 ຈ່າຍເງິນສົດ</span>
+                </label>
+
+                <label class="flex items-center gap-3 p-3 border-2 rounded-xl cursor-pointer hover:bg-gray-50 border-gray-200" onclick="selectPaymentMode('transfer_lak', this)">
+                    <input type="radio" name="pay_mode" value="transfer_lak" class="w-4 h-4 text-blue-600">
+                    <span class="font-bold text-gray-800 text-sm">📱 ຈ່າຍເງິນໂອນ (QR ບັນຊີກີບ)</span>
+                </label>
+
+                <label class="flex items-center gap-3 p-3 border-2 rounded-xl cursor-pointer hover:bg-gray-50 border-gray-200" onclick="selectPaymentMode('transfer_thb', this)">
+                    <input type="radio" name="pay_mode" value="transfer_thb" class="w-4 h-4 text-blue-600">
+                    <span class="font-bold text-gray-800 text-sm">🇹🇭 ຈ່າຍເງິນໂອນ (QR ບັນຊີບາດ)</span>
+                </label>
+            </div>
+
+            <div id="transfer-lak-qr-section" class="hidden space-y-3 pt-2 border-t">
+                <div id="modal-lak-qr-display" class="flex justify-center items-center my-2 min-h-[160px]"></div>
+            </div>
+
+            <div id="transfer-thb-qr-section" class="hidden space-y-3 pt-2 border-t">
+                <div id="modal-thb-qr-display" class="flex justify-center items-center my-2 min-h-[160px]"></div>
+            </div>
+
+            <div class="flex gap-2 pt-2 border-t">
+                <button onclick="closeCheckoutMethodModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer text-sm">ຍົກເລີກ</button>
+                <button onclick="confirmCheckoutPayment()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">ຕົກລົງ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal ເລືອກເກຣດ/ລາຄາສິນຄ້າ -->
+    <div id="select-price-modal" class="hidden fixed inset-0 bg-black/70 z-[320] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 text-left">
+            <div class="text-center">
+                <div class="text-4xl mb-1">🏷️</div>
+                <h3 class="text-lg font-bold text-gray-800">ພົບສິນຄ້າມີຫຼາຍລາຄາ</h3>
+                <p class="text-xs text-gray-500">ລະຫັດ: <span id="multi-price-code" class="font-mono font-bold text-blue-600"></span></p>
+            </div>
+            
+            <p class="text-xs font-semibold text-gray-700">ກະລຸນາເລືອກເກຣດ/ລາຄາສິນຄ້າ ທີ່ຕ້ອງການນຳອອກ:</p>
+            
+            <div id="multi-price-list" class="space-y-2 max-h-60 overflow-y-auto p-1">
+            </div>
+
+            <div class="flex gap-2 pt-2 border-t">
+                <button onclick="closeSelectPriceModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer text-sm">ຍົກເລີກ</button>
+                <button onclick="confirmSelectedPriceOption()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">ຕົກລົງ (ເລືອກລາຄານີ້)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Date Selection Modal for Printing -->
+    <div id="print-date-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[350]">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-lg font-bold text-purple-900 flex items-center gap-2">
+                    <span>📅 ເລືອກວັນ/ເດືອນ/ປີ ທີ່ຕ້ອງການພິມ</span>
+                </h3>
+                <button onclick="closePrintDateModal()" class="text-gray-500 hover:text-gray-700 font-bold text-lg cursor-pointer">✕</button>
+            </div>
+            <p class="text-xs text-gray-600">ກະລຸນາເລືອກວັນທີ່ປ້ອນຂໍ້ມູນເຂົ້າລະບົບ ເພື່ອພິມສະເພາະລະຫັດຂອງວັນນັ້ນ:</p>
+            <div>
+                <label class="block text-xs font-bold text-gray-700 mb-1">ເລືອກວັນທີ:</label>
+                <select id="print-date-select" class="w-full border rounded-lg px-3 py-2 text-sm font-semibold outline-none focus:ring-2 focus:ring-purple-500 bg-gray-50">
+                </select>
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button onclick="closePrintDateModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer text-sm">ຍົກເລີກ</button>
+                <button onclick="confirmAndPrintByDate()" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">🖨️ ຢືນຢັນພິມ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal ປ້ອນຄ່າເປີເຊັນ (%) -->
+    <div id="update-pct-modal" class="hidden fixed inset-0 bg-black/60 z-[360] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4">
+            <div class="text-3xl text-center">📊</div>
+            <h3 class="text-xl font-bold text-indigo-700 text-center">ອັບເປີເຊັນ (%) ທັງໝົດ</h3>
+            <p class="text-xs text-gray-600 text-center">ປ້ອນເປີເຊັນກຳໄລທີ່ຕ້ອງການນຳໃຊ້ໄປຍັງທຸກແຖວ:</p>
+            <div>
+                <input type="number" id="input-global-pct" placeholder="ຕົວຢ່າງ: 20" class="w-full border rounded-lg px-3 py-2.5 text-center text-lg font-bold text-indigo-600 outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-50" value="20">
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button onclick="closeUpdatePctModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer text-sm">ຍົກເລີກ</button>
+                <button onclick="confirmUpdateGlobalPct()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">ຕົກລົງ / ຢືນຢັນ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal ຈັດການ Rate ປະຈຳວັນ -->
+    <div id="rate-input-modal" class="hidden fixed inset-0 bg-black/60 z-[370] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 text-left">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-lg font-bold text-orange-600 flex items-center gap-2">
+                    <span>💱 ຈັດການ Rate ອັດຕາແລກປ່ຽນ</span>
+                </h3>
+                <button onclick="closeRateInputModal()" class="text-gray-500 hover:text-gray-700 font-bold text-lg cursor-pointer">✕</button>
+            </div>
+            <p class="text-xs text-gray-600">ກະລຸນາປ້ອນວັນທີ (ຖ້າບໍ່ປ້ອນຈະຖືເອົາມື້ນີ້ເປັນວັນນຳເຂົ້າ) ແລະ Rate ເພື່ອຄຳນວນລາຄາຊື້-ຂາຍ:</p>
+            
+            <div class="space-y-3 bg-gray-50 p-4 rounded-xl border">
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">ວັນນຳເຂົ້າສິນຄ້າ (dd/mm/yyyy):</label>
+                    <input type="text" id="input-custom-rate-date" inputmode="numeric" oninput="autoSlashDateInput(this)" maxlength="10" class="w-full border rounded-lg px-3 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-orange-500 bg-white text-purple-700" placeholder="dd/mm/yyyy (ຖ້າຫວ່າງໄວ້ ຈະຖືເອົາມື້ນີ້)">
+                </div>
+
+                <div class="flex items-center justify-between gap-3">
+                    <label class="text-sm font-bold text-gray-800 w-24">Rate:</label>
+                    <input type="text" id="input-custom-rate" placeholder="ຕົວຢ່າງ: 650" class="flex-1 border rounded-lg px-3 py-2.5 text-right text-base font-bold text-blue-600 outline-none focus:ring-2 focus:ring-orange-500 bg-white">
+                </div>
+
+                <!-- ປຸ່ມອັບໂຫຼດຂໍ້ມູນ Excel -->
+                <div class="border-2 border-dashed border-orange-300 bg-orange-50/50 p-3 rounded-xl text-center">
+                    <label class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold cursor-pointer inline-flex items-center gap-2 shadow transition w-full justify-center">
+                        📁 ເຂົ້າຂໍ້ມູນ (Excel)
+                        <input type="file" id="modal-excel-file-input" accept=".xlsx, .xls, .csv" class="hidden" onchange="handleExcelUploadFromModal(event)">
+                    </label>
+                    <p class="text-[10px] text-gray-500 mt-1.5">ອັບໂຫລດໄຟລ໌ Excel ຈາກຄອມພິວເຕີ ໄປສູ່ຕາຕະລາງສ້າງ QR/Barcode ອັດຕະໂນມັດ</p>
+                </div>
+            </div>
+
+            <div class="flex gap-2 pt-2">
+                <button onclick="closeRateInputModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer text-sm">ຍົກເລີກ</button>
+                <button type="button" onclick="applyCustomRateToTable()" class="flex-1 bg-orange-600 hover:bg-orange-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">💾 ບັນທຶກ Rate</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Confirm Modal -->
+    <div id="custom-confirm-modal" class="hidden fixed inset-0 bg-black/60 z-[600] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
+            <div class="text-4xl">⚠️</div>
+            <h3 id="confirm-title" class="text-xl font-bold text-gray-800">ຢືນຢັນການລຶບ</h3>
+            <p id="confirm-message" class="text-gray-600 text-sm leading-relaxed"></p>
+            <div class="flex gap-2 pt-2">
+                <button onclick="resolveCustomConfirm(false)" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
+                <button onclick="resolveCustomConfirm(true)" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ຕົກລົງ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Beautiful Alert Modal -->
+    <div id="custom-alert-modal" class="hidden fixed inset-0 bg-black/70 z-[700] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
+            <div id="alert-icon" class="text-4xl">✅</div>
+            <h3 id="alert-title" class="text-xl font-bold text-gray-800">ແຈ້ງເຕືອນ</h3>
+            <p id="alert-message" class="text-gray-600 text-sm leading-relaxed"></p>
+            <button onclick="closeCustomAlert()" class="w-full bg-[#1e3a8a] hover:bg-blue-900 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">ຕົກລົງ</button>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="bg-[#1e3a8a] text-white py-5 shadow-lg">
+        <div class="container mx-auto px-4 text-center">
+            <h1 id="main-header-title" class="text-2xl md:text-3xl font-bold flex items-center justify-center gap-2">
+                🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Pure Cloud Storage)
+            </h1>
+            <div class="mt-1.5 text-xs md:text-sm text-yellow-300 font-semibold">
+                ✨ ວ່ອງໄວ ທັນໃຈ, ຍອດເງິນຖືກຕ້ອງ ຊັດເຈນ 100%, ບໍ່ເສຍເວລາ — ໃຜກໍ່ຂາຍເປັນ ບໍ່ມີພື້ນຖານໄອທີກໍ່ໃຊ້ໄດ້ສະບາຍ!
+            </div>
+            <div id="license-status-badge" class="mt-1 text-xs text-cyan-200 font-semibold"></div>
+            
+            <div class="mt-4 grid grid-cols-2 sm:flex sm:flex-wrap justify-center gap-2 sm:gap-3 items-center max-w-4xl mx-auto">
+                <div class="relative inline-block text-left w-full sm:w-auto">
+                    <button type="button" onclick="toggleCustomDropdown('import-export-menu', event)" class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
+                        📦 ນຳເຂົ້າ/ສົ່ງອອກສິນຄ້າ <span class="text-xs">▼</span>
+                    </button>
+                    <div id="import-export-menu" class="hidden absolute left-0 sm:left-auto mt-2 w-60 rounded-xl bg-blue-600 shadow-2xl ring-1 ring-black/10 z-[100] text-left py-1">
+                        <div class="has-submenu relative">
+                            <button type="button" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-blue-700 flex items-center justify-between text-left cursor-default transition">
+                                <span>📦 ນຳເຂົ້າສິນຄ້າ</span>
+                                <span class="text-xs">▶</span>
+                            </button>
+                            <div class="submenu rounded-xl bg-blue-600 shadow-2xl ring-1 ring-black/10 py-1 z-[110]">
+                                <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); openStockInScannerWithExpiry(true);" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-blue-700 flex items-center gap-2 text-left cursor-pointer transition">
+                                    📅 ສິນຄ້າມີກຳນົດ (ມີວັນໝົດອາຍຸ)
+                                </button>
+                                <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); openStockInScannerWithExpiry(false);" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-blue-700 flex items-center gap-2 text-left cursor-pointer transition">
+                                    📦 ສິນຄ້າບໍ່ມີກຳນົດ
+                                </button>
+                            </div>
+                        </div>
+                        <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); openScanner();" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-blue-700 flex items-center gap-2 text-left cursor-pointer transition border-t border-blue-500">
+                            📦 ນຳອອກສິນຄ້າ
+                        </button>
+                    </div>
+                </div>
+
+                <button onclick="openInventoryModal()" class="w-full sm:w-auto bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
+                    📦 ສິນຄ້າຄ້າງສາງ
+                </button>
+
+                <button onclick="openExpiryModal()" class="w-full sm:w-auto bg-teal-600 hover:bg-teal-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
+                    ⏳ ວັນໝົດອາຍຸສິນຄ້າ
+                </button>
+
+                <button id="header-rate-btn" onclick="openRateInputModal()" class="w-full sm:w-auto bg-orange-600 hover:bg-orange-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
+                    💱 ເຂົ້າຂໍ້ມູນ (Ex/Rate)
+                </button>
+
+                <div class="relative inline-block text-left w-full sm:w-auto">
+                    <button type="button" onclick="toggleCustomDropdown('history-id-menu', event)" class="w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
+                        📊 ປະຫວັດ ແລະ ID ເຄື່ອງ <span class="text-xs">▼</span>
+                    </button>
+                    <div id="history-id-menu" class="hidden absolute left-0 sm:left-auto mt-2 w-56 rounded-xl bg-gray-600 shadow-2xl ring-1 ring-black/10 z-[100] text-left py-1">
+                        <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); openHistory();" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-gray-700 flex items-center gap-2 text-left cursor-pointer transition">
+                            📊 ປະຫວັດການຂາຍ
+                        </button>
+                        <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); openMyDeviceModal();" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-gray-700 flex items-center gap-2 text-left cursor-pointer transition">
+                            🆔 ລະຫັດ ID ເຄື່ອງຂ້ອຍ
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="relative inline-block text-left w-full sm:w-auto">
+                    <button type="button" onclick="toggleCustomDropdown('create-code-menu', event)" class="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
+                        📱 ສ້າງ QR Code/Barcode <span class="text-xs">▼</span>
+                    </button>
+                    <div id="create-code-menu" class="hidden absolute left-0 sm:left-auto mt-2 w-56 rounded-xl bg-purple-600 shadow-2xl ring-1 ring-black/10 z-[100] text-left py-1">
+                        <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); currentCodeType='qrcode'; openExcelGenerator();" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-purple-700 flex items-center gap-2 text-left cursor-pointer transition">
+                            📱 ສ້າງ QR Code
+                        </button>
+                        <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); currentCodeType='barcode'; openExcelGenerator();" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-purple-700 flex items-center gap-2 text-left cursor-pointer transition">
+                            📊 ສ້າງ Barcode
+                        </button>
+                    </div>
+                </div>
+
+                <div class="relative inline-block text-left w-full sm:w-auto">
+                    <button type="button" onclick="toggleCustomDropdown('report-menu', event)" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
+                        📋 ຂໍ້ມູນ ແລະ ລະບົບ <span class="text-xs">▼</span>
+                    </button>
+                    <div id="report-menu" class="hidden absolute left-0 sm:left-auto mt-2 w-56 rounded-xl bg-emerald-600 shadow-2xl ring-1 ring-black/10 z-[100] text-left py-1">
+                        <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); openReport();" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-emerald-700 flex items-center gap-2 text-left cursor-pointer transition">
+                            📈 ລາຍງານ
+                        </button>
+                        <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); openRegisterModal();" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-emerald-700 flex items-center gap-2 text-left cursor-pointer transition">
+                            📝 ລົງທະບຽນ
+                        </button>
+                        <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); openUserManual();" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-emerald-700 flex items-center gap-2 text-left cursor-pointer transition">
+                            📖 ຄູ່ມືການໃຊ້ງານ
+                        </button>
+                    </div>
+                </div>
+
+                <button id="admin-manage-btn" onclick="openAdminManager()" class="hidden w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
+                    ⚙️ ຈັດການລະບົບ
+                </button>
+
+                <button id="header-connect-qr-btn" onclick="openAdminQrModal()" class="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
+                    📱 QR Code ເຊື່ອມຕໍ່ພະນັກງານ
+                </button>
+
+                <button onclick="adminLogout()" class="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
+                    🚪 ປ່ຽນໂໝດ / ອອກລະບົບ
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 mt-6 max-w-4xl">
+        
+        <div id="scanner-container" class="hidden mb-6 bg-white p-4 rounded-xl shadow border">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="font-bold text-lg text-gray-700">📷 ກຳລັງສະແກນ QR / ບາໂຄດ (ຂາຍສິນຄ້າ)</h3>
+                <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold">ກຳລັງເປີດກ້ອງ...</span>
+            </div>
+            <div id="reader" class="w-full max-w-md mx-auto"></div>
+            
+            <div class="mt-4 p-3 bg-blue-50 rounded-xl border border-blue-200 text-left space-y-2">
+                <label class="block text-xs font-bold text-blue-900">⌨️ ຫຼື ພິມ/ຍິງບາໂຄດດ້ວຍມື ແລ້ວກົດ Enter:</label>
+                <div class="flex gap-2">
+                    <input type="text" id="scan-barcode-input" onkeydown="handleScanBarcodeInput(event)" placeholder="ປ້ອນລະຫັດ Barcode..." class="flex-1 border rounded-lg px-3 py-2 text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                    <button onclick="submitScanBarcode()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold cursor-pointer shadow">ຕົກລົງ</button>
+                </div>
+            </div>
+
+            <button onclick="closeScanner()" class="mt-3 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded w-full font-bold cursor-pointer">ປິດກ້ອງ</button>
+        </div>
+
+        <div id="stock-in-scanner-container" class="hidden mb-6 bg-white p-4 rounded-xl shadow border">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="font-bold text-lg text-pink-700">📷 ສະແກນ Barcode ສິນຄ້າ (ນຳເຂົ້າ)</h3>
+                <span class="text-xs bg-pink-100 text-pink-700 px-2 py-1 rounded font-semibold">ກຳລັງເປີດກ້ອງ...</span>
+            </div>
+            <div id="stock-in-reader" class="w-full max-w-md mx-auto"></div>
+            
+            <div class="mt-4 p-3 bg-pink-50 rounded-xl border border-pink-200 text-left space-y-2">
+                <label class="block text-xs font-bold text-pink-900">⌨️ ຫຼື ພິມ/ຍິງບາໂຄດດ້ວຍມື ແລ້ວກົດ Enter:</label>
+                <div class="flex gap-2">
+                    <input type="text" id="manual-barcode-input" onkeydown="handleManualBarcodeInput(event)" placeholder="ປ້ອນລະຫັດ Barcode..." class="flex-1 border rounded-lg px-3 py-2 text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-pink-500 bg-white">
+                    <button type="button" onclick="submitManualBarcode()" class="bg-pink-600 hover:bg-pink-700 text-white px-4 py-2 rounded-lg text-xs font-bold cursor-pointer shadow">ຕົກລົງ</button>
+                </div>
+            </div>
+
+            <button onclick="closeStockInScanner()" class="mt-3 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded w-full font-bold cursor-pointer">ປິດກ້ອງ</button>
+        </div>
+
+        <div id="confirm-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+                <div class="text-3xl text-center">📦</div>
+                <h3 class="text-xl font-bold text-gray-800 text-center">ກຳນົດຂໍ້ມູນສິນຄ້າ</h3>
+                <div id="confirm-details" class="bg-gray-50 p-4 rounded-xl text-left text-sm space-y-3 border">
+                    <p><b>ຂໍ້ມູນດິບຈາກ QR/Barcode:</b> <span id="modal-code" class="text-blue-600 font-bold text-xs break-all"></span></p>
+                    <div>
+                        <label class="block font-semibold text-gray-700 mb-1">ຊື່ສິນຄ້າ:</label>
+                        <input type="text" id="modal-name" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-gray-800" placeholder="ປ້ອນຊື່ສິນຄ້າ">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-gray-700 mb-1">ລາຄາຊື້ (ກີບ):</label>
+                        <input type="text" id="modal-cost" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-right font-bold text-blue-600 text-lg" placeholder="ຕົວຢ່າງ: 0">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-gray-700 mb-1">ລາຄາຂາຍ (ກີບ):</label>
+                        <input type="text" id="modal-price" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-right font-bold text-green-600 text-lg" placeholder="ຕົວຢ່າງ: 0">
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-gray-700 mb-1">ຈຳນວນສິນຄ້າຄ້າງສາງ & ຕ້ອງການຂາຍ:</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <span class="block text-[10px] font-bold text-gray-500 mb-0.5">📦 ສາງຄົງເຫຼືອ:</span>
+                                <input type="text" id="modal-stock-remaining" readonly class="w-full border rounded-lg px-3 py-2 text-center font-bold text-cyan-800 text-base bg-cyan-50" value="0">
+                            </div>
+                            <div>
+                                <span class="block text-[10px] font-bold text-gray-500 mb-0.5">🛒 ຈຳນວນຂາຍ:</span>
+                                <input type="number" id="modal-qty" value="1" min="1" class="w-full border rounded-lg px-3 py-2 text-center font-bold text-gray-900 text-base bg-white focus:ring-2 focus:ring-blue-500 outline-none" placeholder="ປ້ອນຈຳນວນ">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex gap-2 pt-2">
+                    <button onclick="cancelScannedItem()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
+                    <button onclick="confirmScannedItem()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ຕົກລົງ (ເພີ່ມລົງຕາຕະລາງ)</button>
+                </div>
+            </div>
+        </div>
+
+    <!-- Stock-In Input Modal -->
+        <div id="stock-in-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+                <div class="text-3xl text-center">📥</div>
+                <h3 id="stock-in-title" class="text-xl font-bold text-pink-700 text-center">ນຳເຂົ້າສິນຄ້າ</h3>
+                <div class="bg-gray-50 p-4 rounded-xl text-left text-sm space-y-3 border">
+                    <p><b>ລະຫັດ Barcode/QR:</b> <span id="stock-in-code" class="text-pink-600 font-bold text-xs break-all"></span></p>
+                    <div>
+                        <label class="block font-semibold text-gray-700 mb-1">ລາຄາຊື້ (ກີບ):</label>
+                        <input type="text" id="stock-in-cost" oninput="formatInputMoney(this)" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 text-right font-bold text-blue-600 text-lg" placeholder="ປ້ອນລາຄາຊື້">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-gray-700 mb-1">ຈຳນວນສິນຄ້ານຳເຂົ້າ (Quantity):</label>
+                        <input type="number" id="stock-in-qty" value="1" min="1" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 font-bold text-gray-800 text-lg bg-white" placeholder="ປ້ອນຈຳນວນ">
+                    </div>
+                    <div id="expiry-input-group" class="hidden space-y-3">
+                        <div>
+                            <label class="block font-semibold text-gray-700 mb-1">ວັນຜະລິດ (MFG Date):</label>
+                            <input type="text" id="stock-in-mfg-date" inputmode="numeric" oninput="autoSlashDateInput(this)" maxlength="10" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 font-semibold text-purple-700 bg-white" placeholder="dd/mm/yyyy (ຕົວຢ່າງ: 22/05/2025)">
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-gray-700 mb-1">ວັນໝົດອາຍຸ (EXP Date):</label>
+                            <input type="text" id="stock-in-exp-date" inputmode="numeric" oninput="autoSlashDateInput(this)" maxlength="10" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 font-semibold text-red-600 bg-white" placeholder="dd/mm/yyyy (ຕົວຢ່າງ: 21/05/2028)">
+                        </div>
+                    </div>
+                </div>
+                <div class="flex gap-2 pt-2">
+                    <button onclick="closeStockInModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
+                    <button onclick="confirmStockIn()" class="flex-1 bg-pink-600 hover:bg-pink-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">ຕົກລົງ / ຢືນຢັນ</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cart Section -->
+        <div class="bg-white rounded-xl shadow overflow-hidden mb-6">
+            <div class="bg-[#1e3a8a] text-white px-4 py-3 font-semibold flex items-center gap-2">
+                📄 ລາຍການສິນຄ້າທີ່ເລືອກ (ລຽງລົງໄປ)
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-blue-900 text-white text-sm">
+                            <th class="p-3">ຊື່ສິນຄ້າ</th>
+                            <th class="p-3 text-right">ລາຄາຊື້ (ກີບ)</th>
+                            <th class="p-3 text-right">ລາຄາຂາຍ (ກີບ)</th>
+                            <th class="p-3 text-center">ຈຳນວນ</th>
+                            <th class="p-3 text-right">ລວມ (ກີບ)</th>
+                            <th class="p-3 text-center">ຈັດການ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cart-items" class="divide-y divide-gray-200 text-sm">
+                        <tr>
+                            <td colspan="6" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ (ກະລຸນາກົດສະແກນສິນຄ້າ)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Summary & Calculation -->
+        <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 shadow mb-6 space-y-3">
+            <div class="flex justify-between items-center text-base font-semibold text-gray-700">
+                <span>ລວມຍອດຊື້:</span>
+                <span id="grand-total-cost" class="text-blue-700 text-lg">0 ກີບ</span>
+            </div>
+            <div class="flex justify-between items-center text-base font-semibold text-gray-700">
+                <span>ລວມຍອດຂາຍ (ກ່ອນຫຼຸດ):</span>
+                <span id="grand-total" class="text-gray-800 text-lg">0 ກີບ</span>
+            </div>
+            <div class="flex justify-between items-center text-gray-700 border-t pt-2">
+                <span class="font-medium text-red-600">ລາຄາຂາຍຕົວຈິງ (ພິມແກ້ໄຂໄດ້):</span>
+                <input type="text" id="custom-final-price" oninput="formatInputMoney(this); calculateChange();" onkeydown="handleCustomPriceKeydown(event)" placeholder="ປ້ອນລາຄາຂາຍຕົວຈິງ" class="border rounded-lg px-3 py-1.5 text-right w-52 focus:ring-2 focus:ring-red-500 outline-none font-bold text-red-600 bg-white">
+            </div>
+            <div class="flex justify-between items-center text-lg font-bold text-gray-800 border-t pt-2">
+                <span>ລາຄາຂາຍຕົວຈິງ (ສະແດງຜົນ):</span>
+                <span id="final-total" class="text-green-600 text-xl">0 ກີບ</span>
+            </div>
+            <div class="flex justify-between items-center text-base font-bold text-gray-800 border-t pt-2">
+                <span>ກຳໄລເບື້ອງຕົ້ນ (ຂາຍຕົວຈິງ - ຊື້):</span>
+                <span id="grand-total-profit" class="text-emerald-700 text-lg">0 ກີບ</span>
+            </div>
+            <div class="flex justify-between items-center text-gray-700 border-t pt-2">
+                <span class="font-medium">ເງິນລູກຄ້າຈ່າຍ (ຖ້າມີທອນ):</span>
+                <input type="text" id="cash-given" oninput="formatInputMoney(this); calculateChange();" onkeydown="handleCashKeydown(event)" placeholder="ບໍ່ຈຳເປັນຕ້ອງປ້ອນ ຖ້າຈ່າຍພໍດີ" class="border rounded-lg px-3 py-1.5 text-right w-52 focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+            </div>
+            <div class="flex justify-between items-center text-lg font-bold text-gray-800 border-t pt-2">
+                <span>ເງິນທອນ:</span>
+                <span id="change-amount" class="text-orange-600 text-xl">0 ກີບ</span>
+            </div>
+        </div>
+
+        <!-- Checkout Buttons -->
+        <div class="w-full">
+            <button onclick="openCheckoutMethodModal()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-base font-bold py-3.5 rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
+                💰 ຊຳລະເງິນ / ພິມບິນ
+            </button>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-12 bg-[#1e3a8a] text-white py-3 text-center text-xs">
+        ✨ ສ້າງ ແລະ ພັດທະນາໂດຍ: <span class="text-yellow-400 font-semibold">ອາຈານ ບຸນແຕ່ງ ຊົ່ງຕົງມົວ</span> | 📞 ໂທ: 020 59456999, 020 99444448
+    </footer>
+
+    <!-- History Modal -->
+    <div id="history-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl max-w-5xl w-full p-6 max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                    <span>📊 ປະຫວັດການຂາຍ</span>
+                </h3>
+                <div class="flex gap-2 items-center">
+                    <button id="admin-delete-history-btn" onclick="openDeleteHistoryModal()" class="hidden text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg cursor-pointer font-bold shadow transition">🗑️ ລຶບປະຫວັດ</button>
+                    <button onclick="closeHistory()" class="text-gray-500 hover:text-gray-700 font-bold text-lg cursor-pointer px-2">✕</button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto border rounded-xl">
+                <table class="w-full text-left border-collapse bg-white min-w-[750px]">
+                    <thead>
+                        <tr class="bg-blue-900 text-white text-xs uppercase">
+                            <th class="p-3 border-r text-center w-12">ລ/ດ</th>
+                            <th class="p-3 border-r text-center">ວັນ/ເດືອນ/ປີ</th>
+                            <th class="p-3 border-r">ຊື່ສິນຄ້າ</th>
+                            <th class="p-3 border-r text-right">ລາຄາຊື້</th>
+                            <th class="p-3 border-r text-right">ລາຄາຂາຍ</th>
+                            <th class="p-3 border-r text-center">ຈໍານວນ</th>
+                            <th class="p-3 border-r text-right">ລວມ</th>
+                            <th class="p-3 text-center">ໝາຍເຫດ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-table-tbody" class="divide-y divide-gray-200 text-sm">
+                        <tr><td colspan="8" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="history-summary" class="bg-blue-50 border border-blue-200 p-4 rounded-xl space-y-2 hidden">
+                <div class="flex justify-between text-xs font-semibold text-gray-700">
+                    <span>ລວມລາຄາຊື້ທັງໝົດ:</span>
+                    <span id="sum-total-cost" class="text-blue-700 text-sm font-bold">0 ກີບ</span>
+                </div>
+                <div class="flex justify-between text-xs font-semibold text-gray-700">
+                    <span>ລວມຍອດຂາຍຕົວຈິງທັງໝົດ:</span>
+                    <span id="sum-total-price" class="text-green-600 text-sm font-bold">0 ກີບ</span>
+                </div>
+                <div class="flex justify-between text-sm font-bold text-gray-900 border-t border-blue-200 pt-2">
+                    <span>ລວມກຳໄລເບື້ອງຕົ້ນ:</span>
+                    <span id="sum-total-profit" class="text-emerald-700 text-base">0 ກີບ</span>
+                </div>
+            </div>
+
+            <button onclick="closeHistory()" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm">ປິດ</button>
+        </div>
+    </div>
+
+    <!-- Popup ລຶບປະຫວັດ -->
+    <div id="delete-history-modal" class="hidden fixed inset-0 bg-black/70 z-[500] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto space-y-4 text-left shadow-2xl">
+            <div class="text-3xl text-center">🗑️</div>
+            <h3 class="text-lg font-bold text-red-700 text-center">ຈັດການລຶບປະຫວັດການຂາຍ</h3>
+            <p class="text-xs text-gray-600 text-center">ກະລຸນາເລືອກວັນທີ ແລະ ຕິກເລືອກລາຍການທີ່ຕ້ອງການລຶບ:</p>
+
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-bold text-gray-700 mb-1">📅 ເລືອກ ວັນ/ເດືອນ/ປີ (ຖ້າບໍ່ເລືອກຈະສະແດງທັງໝົດ):</label>
+                    <input type="date" id="del-hist-date-input" onchange="renderDeleteHistoryTable()" class="w-full border rounded-lg px-3 py-2 font-semibold outline-none bg-white text-purple-700 cursor-pointer">
+                </div>
+
+                <div class="space-y-2 border-t pt-2">
+                    <div class="flex justify-between items-center">
+                        <label class="font-bold text-gray-700">📦 ລາຍການປະຫວັດການຂາຍ:</label>
+                        <button type="button" onclick="toggleSelectAllDelHistItems(this)" class="text-[11px] bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold px-2.5 py-1 rounded cursor-pointer transition">☑️ ເລືອກທັງໝົດ</button>
+                    </div>
+
+                    <div class="overflow-x-auto border rounded-xl max-h-60 overflow-y-auto">
+                        <table class="w-full text-left border-collapse bg-white text-xs">
+                            <thead>
+                                <tr class="bg-gray-100 text-gray-700 uppercase sticky top-0 border-b">
+                                    <th class="p-2 border-r text-center w-12">ລ/ດ</th>
+                                    <th class="p-2 border-r text-center">ວັນ/ເດືອນ/ປີ</th>
+                                    <th class="p-2 border-r">ຊື່ສິນຄ້າ</th>
+                                    <th class="p-2 border-r text-center">ຈຳນວນ</th>
+                                    <th class="p-2 border-r text-right">ລວມ</th>
+                                    <th class="p-2 text-center w-16">ເລືອກ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="del-hist-table-tbody" class="divide-y divide-gray-200">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex gap-2 pt-3 border-t">
+                <button onclick="closeDeleteHistoryModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer text-sm">ຍົກເລີກ</button>
+                <button onclick="confirmExecuteDeleteHistory()" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">🗑️ ຢືນຢັນລຶບ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Modal -->
+    <div id="report-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl max-w-lg w-full p-6 max-h-[85vh] overflow-y-auto space-y-4">
+            <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2 border-b pb-3">
+                <span>📈 ລະບົບລາຍງານຍອດຂາຍ</span>
+            </h3>
+            
+            <div class="space-y-3">
+                <label class="block font-semibold text-gray-700 text-sm">ເລືອກປະເພດລາຍງານ:</label>
+                <select id="report-type" onchange="toggleReportFilter()" class="w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 font-medium text-gray-800 bg-gray-50">
+                    <option value="monthly">1) ປະຈຳເດືອນ (ເລືອກເດືອນລາວ)</option>
+                    <option value="quarterly">2) ປະຈຳໄຕມາດ</option>
+                    <option value="duration">3) ປະຈຳ 3, 6, 9, 12 ເດືອນ (ປີ)</option>
+                </select>
+            </div>
+
+            <div id="filter-container" class="bg-blue-50 p-4 rounded-xl border border-blue-100 space-y-3">
+                <div class="space-y-1.5 pb-2 border-b border-blue-200">
+                    <label class="block text-xs font-bold text-gray-700">ເລືອກປະຈຳປີ:</label>
+                    <select id="report-year" onchange="calculateReport()" class="w-full border rounded-lg px-3 py-2 bg-white outline-none font-medium">
+                        <option value="2026">2026</option>
+                        <option value="2025">2025</option>
+                        <option value="2024">2024</option>
+                        <option value="2023">2023</option>
+                    </select>
+                </div>
+
+                <div id="filter-monthly" class="report-filter-group space-y-1.5">
+                    <label class="block text-xs font-bold text-gray-700">ເລືອກເດືອນ:</label>
+                    <select id="report-month" onchange="calculateReport()" class="w-full border rounded-lg px-3 py-2 bg-white outline-none">
+                        <option value="1">ມັງກອນ</option>
+                        <option value="2">ກຸມພາ</option>
+                        <option value="3">ມີນາ</option>
+                        <option value="4">ເມສາ</option>
+                        <option value="5">ພຶດສະພາ</option>
+                        <option value="6">ມິຖຸນາ</option>
+                        <option value="7">ກໍລະກົດ</option>
+                        <option value="8" selected>ສິງຫາ</option>
+                        <option value="9">ກັນຍາ</option>
+                        <option value="10">ຕຸລາ</option>
+                        <option value="11">ພະຈິກ</option>
+                        <option value="12">ທັນວາ</option>
+                    </select>
+                </div>
+
+                <div id="filter-quarterly" class="report-filter-group space-y-1.5 hidden">
+                    <label class="block text-xs font-bold text-gray-700">ເລືອກໄຕມາດ:</label>
+                    <select id="report-quarter" onchange="calculateReport()" class="w-full border rounded-lg px-3 py-2 bg-white outline-none">
+                        <option value="1">ໄຕມາດ 1 (ເດືອນ 1 - 3)</option>
+                        <option value="2">ໄຕມາດ 2 (ເດືອນ 4 - 6)</option>
+                        <option value="3">ໄຕມາດ 3 (ເດືອນ 7 - 9)</option>
+                        <option value="4">ໄຕມາດ 4 (ເດືອນ 10 - 12)</option>
+                    </select>
+                </div>
+
+                <div id="filter-duration" class="report-filter-group space-y-1.5 hidden">
+                    <label class="block text-xs font-bold text-gray-700">ເລືອກຊ່ວງໄລຍະເວລາ (ເດືອນ):</label>
+                    <select id="report-duration-months" onchange="calculateReport()" class="w-full border rounded-lg px-3 py-2 bg-white outline-none font-semibold text-blue-700">
+                        <option value="3">3 ເດືອນ</option>
+                        <option value="6">6 ເດືອນ</option>
+                        <option value="9">9 ເດືອນ</option>
+                        <option value="12">12 ເດືອນ (ປີ)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="bg-gray-50 p-4 rounded-xl border space-y-2">
+                <h4 class="font-bold text-gray-700 text-sm">📊 ຜົນການລວມຍອດ:</h4>
+                <div class="flex justify-between text-xs font-semibold text-gray-600">
+                    <span>ລວມຍອດຊື້:</span>
+                    <span id="rep-total-cost" class="text-blue-700">0 ກີບ</span>
+                </div>
+                <div class="flex justify-between text-xs font-semibold text-gray-600">
+                    <span>ລວມຍອດຂາຍຕົວຈິງ:</span>
+                    <span id="rep-total-price" class="text-green-600">0 ກີບ</span>
+                </div>
+                <div class="flex justify-between text-sm font-bold text-gray-800 border-t pt-1">
+                    <span>ກຳໄລເບື້ອງຕົ້ນ:</span>
+                    <span id="rep-total-profit" class="text-emerald-700">0 ກີບ</span>
+                </div>
+            </div>
+
+            <div class="flex gap-2 pt-2">
+                <button onclick="closeReport()" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ປິດ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Excel-like Table Code Generator Modal -->
+    <div id="excel-generator-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl max-w-5xl w-full p-6 max-h-[90vh] overflow-y-auto space-y-4">
+            <div class="flex justify-between items-center border-b pb-3 flex-wrap gap-2">
+                <h3 id="excel-modal-title" class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                    <span id="excel-modal-title-text">📱 ຕາຕະລາງສ້າງ QR Code ສິນຄ້າ</span>
+                </h3>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button onclick="clearUnsavedRows()" class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow flex items-center gap-1 transition">
+                        🧹 ລຶບຂໍ້ມູນທີ່ຍັງບໍ່ທັນບັນທຶກ
+                    </button>
+                    <button onclick="addExcelRow()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow flex items-center gap-1 transition">
+                        + ເພີ່ມແຖວ
+                    </button>
+                    
+                    <select id="calc-pct-dropdown" onchange="handleCalcPctDropdown(this)" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow outline-none transition">
+                        <option value="" disabled selected>📊 ຄຳນວນ/ອັບ (%)</option>
+                        <option value="calc">🧮 ຄຳນວນເປີເຊັນ</option>
+                        <option value="update">📈 ອັບເປີເຊັນ (%)</option>
+                    </select>
+
+                    <button onclick="calculateSalePrices()" class="bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow flex items-center gap-1 transition">
+                        🏷️ ຄຳນວນລາຄາຂາຍ
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-blue-50 border border-blue-200 text-blue-800 text-xs p-2.5 rounded-lg">
+                💡 <b>ຄຳແນະນຳ:</b> ທ່ານສາມາດພິມ, ລຶບດ້ວຍ Backspace, ແກ້ໄຂຂໍ້ມູນໃນຕາຕະລາງໄດ້ຢ່າງອິດສະຫຼະ ແລ້ວກົດປຸ່ມ <b>"💾 ບັນທຶກຂໍ້ມູນ"</b> ດ້ານລຸ່ມເພື່ອບັນທຶກ!
+            </div>
+
+            <div class="overflow-x-auto border rounded-xl shadow-inner max-h-[50vh]">
+                <table class="w-full border-collapse bg-white min-w-[820px]">
+                    <thead>
+                        <tr class="bg-gray-100 text-gray-700 text-xs uppercase sticky top-0 border-b">
+                            <th class="p-2.5 border-r text-center align-middle w-12">ລ/ດ</th>
+                            <th class="p-2.5 border-r text-center align-middle min-w-[180px]">ຊື່ສິນຄ້າ (ລະຫັດ)</th>
+                            <th class="p-2.5 border-r text-center align-middle min-w-[120px]">ລາຄາຊື້ (ກີບ)</th>
+                            <th class="p-2.5 border-r text-center align-middle w-28">ເປີເຊັນ (%)</th>
+                            <th class="p-2.5 border-r text-center align-middle min-w-[120px]">ລາຄາຂາຍ (ກີບ)</th>
+                            <th class="p-2.5 border-r text-center align-middle w-20">ຈຳນວນ</th>
+                            <th class="p-2.5 border-r text-center align-middle min-w-[120px]">ລວມ (ກີບ)</th>
+                            <th class="p-2.5 border-r text-center align-middle min-w-[130px]">ວັນ/ເດືອນ/ປີ</th>
+                            <th class="p-2.5 text-center align-middle w-24">ຈັດການ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="excel-tbody" class="divide-y divide-gray-200 text-sm">
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="excel-print-area" class="bg-gray-50 p-4 rounded-xl border space-y-4 hidden">
+                <h4 id="print-area-title" class="font-bold text-gray-800 text-sm text-center">🖨️ ຕົວຢ່າງປ້າຍລະຫັດສິນຄ້າ</h4>
+                <div id="excel-preview-cards" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                </div>
+                <div id="print-btn-element">
+                    <button onclick="promptPrintDate()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">
+                        🖨️ ພິມປ້າຍທັງໝົດ (ເລືອກວັນທີ)
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex gap-2 pt-2 flex-wrap">
+                <button onclick="saveExcelData()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">
+                    💾 ບັນທຶກຂໍ້ມູນ
+                </button>
+                <button onclick="generateExcelCodes()" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">
+                    ⚙️ ສ້າງລະຫັດທັງໝົດ
+                </button>
+                <button onclick="closeExcelGenerator()" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 px-6 rounded-xl transition cursor-pointer">ປິດ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Logic -->
     <script>
         const SUPABASE_URL = "https://omvrghcnswikqxixgcza.supabase.co"; 
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9tdnJnaGNuc3dpa3F4aXhnY3phIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3ODgyNDEsImV4cCI6MjEwMTM2NDI0MX0.JpYhfe_c_AWPAcuMjQ2rXIZTc1KKbimPyupzV0fYelE";
@@ -104,11 +1240,12 @@
 
         async function initDeviceId() {
             deviceId = "SHARED-STORE";
-            localStorage.setItem('pos_device_id', deviceId);
         }
 
         async function checkTrialLicense() {
-            checkRoleAndLicense();
+            if (typeof checkRoleAndLicense === 'function') {
+                checkRoleAndLicense();
+            }
         }
 
         function selectRole(role) {
@@ -415,7 +1552,7 @@
                     showAlert("ຜິດພາດ", "ບໍ່ສາມາດອ່ານໄຟລ໌ Excel ນี้ໄດ້!", "❌");
                 }
             };
-            reader.readAsArrayBuffer(file);
+            reader.readAsDataURL(file);
         }
 
         // --- CORE POS LOGIC ---
@@ -432,39 +1569,7 @@
             document.getElementById('inventory-modal').classList.add('hidden');
         }
 
-        // 🌟 Safe Hybrid Fallback: ດຶງ Cloud ກ່ອນ ຖ້າ Cloud ຫວ່າງເປົ່າ ໃຫ້ດຶງ localStorage ມາສະແດງທັນທີ (ບໍ່ໃຫ້ໜ້າຕາຕະລາງຫວ່າງເປົ່າ)
-        async function fetchProductsForGenerator() {
-            let cloudRows = [];
-            if (supabaseClient) {
-                try {
-                    let { data, error } = await supabaseClient.from('products').select('*').order('updated_at', { ascending: false });
-                    if (!error && data && data.length > 0) {
-                        cloudRows = data.map(item => ({
-                            id: item.id || ('ROW-' + Math.random().toString(36).substring(2, 6)),
-                            device_id: 'SHARED',
-                            code: item.code,
-                            cost: item.cost,
-                            originalCost: item.original_cost || item.cost,
-                            profitPct: item.profit_pct,
-                            price: item.price,
-                            qty: item.qty || 1,
-                            dateAdded: item.date_added || item.updated_at ? new Date(item.date_added || item.updated_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-                            mfgDate: item.mfg_date || '',
-                            expiryDate: item.expiry_date || ''
-                        }));
-                    }
-                } catch (e) {}
-            }
-
-            if (cloudRows.length > 0) {
-                excelRows = cloudRows;
-                localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
-            } else {
-                let savedRows = localStorage.getItem('pos_saved_excel_rows');
-                excelRows = savedRows ? JSON.parse(savedRows) : [];
-            }
-        }
-
+        // 🌟 ຟັງຊັນໂຫຼດສິນຄ້າໃນສາງ (Pure Cloud 100% ຜ່ານ Supabase Database)
         async function loadInventory() {
             let tbody = document.getElementById('inventory-tbody');
             tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
@@ -472,9 +1577,6 @@
             await fetchProductsForGenerator();
 
             let combinedSalesMap = new Map();
-            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-            localHistory.forEach(tx => combinedSalesMap.set(tx.id || tx.created_at, tx));
-
             if (supabaseClient) {
                 try {
                     let { data: cloudSales } = await supabaseClient.from('sales_history').select('*');
@@ -502,7 +1604,7 @@
             });
 
             if (excelRows.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ Cloud</td></tr>`;
                 return;
             }
 
@@ -553,7 +1655,6 @@
                 if (!confirmed) return;
 
                 excelRows = excelRows.filter(r => r.id !== rowId);
-                localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
 
                 if (supabaseClient && rowId) {
                     try {
@@ -632,7 +1733,6 @@
                 let idsToDelete = Array.from(checkedBoxes).map(cb => cb.value);
 
                 excelRows = excelRows.filter(r => !idsToDelete.includes(r.id));
-                localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
 
                 if (supabaseClient) {
                     try {
@@ -894,7 +1994,6 @@
             };
 
             excelRows.push(newProductObj);
-            localStorage.setItem('pos_saved_excel_rows', JSON.stringify(excelRows));
 
             if (supabaseClient) {
                 try {
@@ -955,9 +2054,6 @@
             await fetchProductsForGenerator();
             
             let combinedSalesMap = new Map();
-            let localHistory = JSON.parse(localStorage.getItem('pos_local_history') || '[]');
-            localHistory.forEach(tx => combinedSalesMap.set(tx.id || tx.created_at, tx));
-
             if (supabaseClient) {
                 try {
                     let { data: cloudSales } = await supabaseClient.from('sales_history').select('*');
@@ -1930,7 +3026,7 @@
             let html = '';
             
             if (excelRows.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400 font-semibold">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າ (ກະລຸນາກົດ "+ ເພີ່ມແຖວ" ຫຼື ນຳເຂົ້າ Excel)</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400 font-semibold">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນ Cloud (ກະລຸນາກົດ "+ ເພີ່ມແຖວ" ຫຼື ນຳເຂົ້າ Excel)</td></tr>`;
                 return;
             }
 
@@ -2300,20 +3396,30 @@
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
-            await initDeviceId();
-            let userRole = localStorage.getItem('pos_user_role');
-            let shopOwner = localStorage.getItem('pos_shop_owner');
-            let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
-            if (userRole === 'admin' || shopOwner === 'true' || linkedAdminId) {
-                let roleModal = document.getElementById('role-select-modal');
-                if (roleModal) roleModal.classList.add('hidden');
-                let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
-                if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
-                let rateBtn = document.getElementById('header-rate-btn');
-                if (rateBtn) rateBtn.classList.remove('hidden');
-            }
-            updateHeaderTitle();
-            checkTrialLicense();
+            try {
+                await initDeviceId();
+            } catch(e) {}
+            
+            try {
+                let userRole = localStorage.getItem('pos_user_role');
+                let shopOwner = localStorage.getItem('pos_shop_owner');
+                let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
+                if (userRole === 'admin' || shopOwner === 'true' || linkedAdminId) {
+                    let roleModal = document.getElementById('role-select-modal');
+                    if (roleModal) roleModal.classList.add('hidden');
+                    let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
+                    if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
+                    let rateBtn = document.getElementById('header-rate-btn');
+                    if (rateBtn) rateBtn.classList.remove('hidden');
+                }
+                updateHeaderTitle();
+            } catch(e) {}
+
+            try {
+                if (typeof checkTrialLicense === 'function') {
+                    checkTrialLicense();
+                }
+            } catch(e) {}
         });
     </script>
 </body>
