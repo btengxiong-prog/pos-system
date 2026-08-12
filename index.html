@@ -1267,6 +1267,7 @@
             openStaffScanner();
         }
 
+        // 🌟 ປັບປຸງການກວດສອບການລັອກອິນ ໃຫ້ອ່ານຈາກທັງ LocalStorage ແລະ Firestore Cloud ຢ່າງแม่ນยຳ 100%
         async function verifyUnifiedLogin() {
             let u = document.getElementById('unified-login-username').value.trim();
             let p = document.getElementById('unified-login-password').value.trim();
@@ -1321,10 +1322,35 @@
                 return;
             }
 
-            let shopPass = localStorage.getItem('pos_shop_pass_' + formattedU);
-            let shopDevId = localStorage.getItem('pos_shop_dev_' + formattedU);
-            if (shopPass && shopPass === p && shopDevId) {
-                deviceId = shopDevId;
+            // ກວດສອບຈາກ Firestore Cloud ຖ້າມີການເຊື່ອມຕໍ່
+            let loginSuccess = false;
+            let matchedDevId = '';
+
+            if (db) {
+                try {
+                    let snapshot = await db.collection("devices_registry").where("username", "==", formattedU).get();
+                    snapshot.forEach(doc => {
+                        let dev = doc.data();
+                        if (dev.password === p) {
+                            loginSuccess = true;
+                            matchedDevId = dev.device_id;
+                        }
+                    });
+                } catch (e) {}
+            }
+
+            // ຖ້າບໍ່ພบบົນ Cloud ໃຫ້ທຽບຈາກ LocalStorage ເປັນທາງເລືອກສຳຮອງ
+            if (!loginSuccess) {
+                let shopPass = localStorage.getItem('pos_shop_pass_' + formattedU);
+                let shopDevId = localStorage.getItem('pos_shop_dev_' + formattedU);
+                if (shopPass && shopPass === p && shopDevId) {
+                    loginSuccess = true;
+                    matchedDevId = shopDevId;
+                }
+            }
+
+            if (loginSuccess) {
+                deviceId = matchedDevId;
                 localStorage.setItem('pos_device_id', deviceId);
                 localStorage.setItem('pos_shop_owner', 'true');
                 localStorage.setItem('pos_logged_in', 'true');
@@ -1448,7 +1474,7 @@
             document.getElementById('admin-manager-modal').classList.add('hidden');
         }
 
-        // 🌟 ໂຫຼດລາຍຊື່ເຄື່ອງ: ວາງ Checkbox ໄວ້ທາງໜ້າ (ດ້ານຊ້າຍ) ເພື່ອກົດເລືອກແລ້ວເອົາ ID ໄປຕື່ມໃສ່ຟອມດ້ານເທິງ
+        // 🌟 ໂຫຼດລາຍຊື່ເຄື່ອງ: ວາງ Checkbox ໄວ້ທາງໜ້າ (ດ້ານຊ້າຍ) ເພື່ອກົດເລືອກແລ້ວເອົາ ID ໄປຕື່ມໃສ່ຊ່ອງ "ID ເຄື່ອງ" ດ້ານເທິງອັດຕະໂນມັດ
         async function loadAllDevices() {
             let container = document.getElementById('device-list-container');
             container.innerHTML = `<div class="p-3 bg-gray-50 border rounded-xl"><span class="font-bold text-blue-800">ID ປັດຈຸບັນ: ${deviceId} (Super Admin)</span></div>`;
@@ -1468,7 +1494,7 @@
                         devicesHtml += `
                             <div class="p-3 bg-white border rounded-xl flex justify-between items-center shadow-sm">
                                 <div class="flex items-center gap-3">
-                                    <!-- 🌟 Checkbox ຢູ່ທາງໜ້າ (ດ້ານຊ້າຍ) -->
+                                    <!-- 🌟 Checkbox อยู่ທາງໜ້າ (ດ້ານຊ້າຍ) -->
                                     <input type="checkbox" data-id="${dev.device_id}" onchange="handleAdminDeviceCheckboxChange(this, '${dev.device_id}')" class="admin-device-checkbox w-4 h-4 cursor-pointer accent-blue-600" title="ເລືອກຢູເຊີນີ້">
                                     <div>
                                         <span class="font-mono font-bold text-blue-600">${dev.device_id}</span>
@@ -1736,7 +1762,8 @@
                                 qty: qty,
                                 dateAdded: parsedDate,
                                 mfgDate: parsedDate,
-                                expiryDate: ''
+                                expiryDate: '',
+                                currency: 'ກີບ'
                             });
                         }
                     }
