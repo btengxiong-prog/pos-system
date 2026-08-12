@@ -1165,24 +1165,24 @@
             return new Date().toISOString().split('T')[0];
         }
 
-        // 🌟 ຈັດການ ID ໃຫ້ເປັນ Shared ID ດຽວກັນທົ່ວທຸກເຄື່ອງ (ຖ້າຜູກແລ້ວ ຫຼື ລັອກອິນແລ້ວ ຈະໃຊ້ ID ດຽວກັນ)
-        let deviceId = localStorage.getItem('pos_linked_admin_id') || localStorage.getItem('pos_current_username') || localStorage.getItem('pos_device_id');
+        // 🌟 ບັງຄັບໃຫ້ທຸກເຄື່ອງໃຊ້ ID ຫຼັກໂຕດຽວກັນ (Shared Store ID) ເພື່ອແກ້ໄຂບັນຫາເປີດ 3 ເຄື່ອງແລ້ວ ID ຕ່າງກັນ
+        let deviceId = localStorage.getItem('pos_linked_admin_id') || localStorage.getItem('pos_current_username') || localStorage.getItem('pos_shared_store_id') || 'POS-SHOP-MASTER';
 
         async function initDeviceId() {
             let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
             let currentUsr = localStorage.getItem('pos_current_username');
+            let sharedStoreId = localStorage.getItem('pos_shared_store_id');
             
             if (linkedAdminId) {
                 deviceId = linkedAdminId;
             } else if (currentUsr) {
                 deviceId = currentUsr;
+            } else if (sharedStoreId) {
+                deviceId = sharedStoreId;
             } else {
-                let uniqueDeviceKey = localStorage.getItem('pos_unique_device_id');
-                if (!uniqueDeviceKey) {
-                    uniqueDeviceKey = 'POS-T' + Math.random().toString(36).substring(2, 8).toUpperCase();
-                    localStorage.setItem('pos_unique_device_id', uniqueDeviceKey);
-                }
-                deviceId = uniqueDeviceKey;
+                // ຖ້າຫາກຍັງບໍ່ທັນມີ ID ໃດໆ ໃຫ້ກຳນົດເປັນ Shared ID ຫຼັກມາດຕະຖານໂຕດຽວກັນທັນທີ
+                deviceId = 'POS-SHOP-MASTER';
+                localStorage.setItem('pos_shared_store_id', deviceId);
             }
             localStorage.setItem('pos_device_id', deviceId);
 
@@ -1191,10 +1191,10 @@
                     let { data: existing } = await supabaseClient.from('licenses').select('*').eq('device_id', deviceId).single();
                     if (!existing) {
                         let trialUntil = new Date();
-                        trialUntil.setDate(trialUntil.getDate() + 15);
+                        trialUntil.setFullYear(trialUntil.getFullYear() + 5); // ໃຫ້ໃຊ້ງານຍາວໆ
                         await supabaseClient.from('licenses').insert({
                             device_id: deviceId,
-                            status: 'trial',
+                            status: 'active',
                             trial_until: trialUntil.toISOString(),
                             created_at: new Date().toISOString()
                         });
@@ -1261,15 +1261,6 @@
                             document.body.innerHTML = `<div style="text-align:center; margin-top:20vh; font-family:sans-serif;"><h2>❌ ບັນຊີນີ້ຖືກລະງັບ/ລຶບຖາວອນ</h2><p>ກະລຸນາຕິດຕໍ່ຜູ້ພັດທະນາ</p></div>`;
                             return;
                         }
-                        if (data.status === 'trial' && data.trial_until) {
-                            let now = new Date();
-                            let expiry = new Date(data.trial_until);
-                            if (now > expiry) {
-                                alert("⏳ ໝົດອາຍຸທົດລອງໃຊ້ 15 ວັນແລ້ວ! ກະລຸນາຕິດຕໍ່ Admin ເພື່ອຕໍ່ອາຍຸ ຫຼື ລົງທະບຽນ.");
-                                document.body.innerHTML = `<div style="text-align:center; margin-top:20vh; font-family:sans-serif;"><h2>⏳ ເວລາທົດລອງໃຊ້ໝົດແລ້ວ</h2><p>ກະລຸນາຕິດຕໍ່ 020 59456999 ເພື່ອຕໍ່ອາຍຸ</p></div>`;
-                                return;
-                            }
-                        }
                     }
                 } catch (e) {}
             }
@@ -1335,6 +1326,7 @@
                 currentUsername = formattedU;
                 deviceId = formattedU;
                 localStorage.setItem('pos_current_username', currentUsername);
+                localStorage.setItem('pos_shared_store_id', deviceId);
                 localStorage.setItem('pos_device_id', deviceId);
                 localStorage.setItem('pos_shop_owner', 'true');
                 localStorage.removeItem('pos_user_role');
@@ -1361,6 +1353,7 @@
                         currentUsername = data.device_id;
                         deviceId = data.device_id;
                         localStorage.setItem('pos_current_username', currentUsername);
+                        localStorage.setItem('pos_shared_store_id', deviceId);
                         localStorage.setItem('pos_device_id', deviceId);
                         localStorage.setItem('pos_shop_owner', 'true');
                         localStorage.removeItem('pos_user_role');
@@ -1416,6 +1409,7 @@
             localStorage.removeItem('pos_shop_owner');
             localStorage.removeItem('pos_linked_admin_id');
             localStorage.removeItem('pos_device_id');
+            localStorage.removeItem('pos_shared_store_id');
             location.reload();
         }
 
@@ -1464,6 +1458,7 @@
                     let cleanText = decodedText.trim();
                     if (cleanText.startsWith('POS-') || cleanText.length <= 15) {
                         localStorage.setItem('pos_linked_admin_id', cleanText);
+                        localStorage.setItem('pos_shared_store_id', cleanText);
                         deviceId = cleanText;
                         localStorage.setItem('pos_device_id', deviceId);
                         closeStaffScanner();
