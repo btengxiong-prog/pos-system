@@ -1214,7 +1214,18 @@
             
             let headerTitle = document.getElementById('main-header-title');
             if (headerTitle) {
-                headerTitle.innerHTML = `🛒 ${t.title} &nbsp; (${deviceId})`;
+                // 🌟 ປັບປຸງ: ຕັດ ID ວົງເລັບອອກຈາກ Header Title ຕາມຄວາມຕ້ອງການ
+                let userRole = localStorage.getItem('pos_user_role');
+                if (userRole === 'admin') {
+                    headerTitle.innerHTML = `🛒 ${t.title} (Admin)`;
+                } else {
+                    let shopName = localStorage.getItem('pos_shop_name_' + deviceId);
+                    if (shopName && shopName.trim() !== '') {
+                        headerTitle.innerHTML = `🛒 ${t.title} &nbsp; ${shopName}`;
+                    } else {
+                        headerTitle.innerHTML = `🛒 ${t.title}`;
+                    }
+                }
             }
             let subTitle = document.getElementById('main-subtitle');
             if (subTitle) subTitle.innerText = t.subtitle;
@@ -1378,7 +1389,6 @@
         function initFirebaseRealtime() {
             if (!db) return;
             try {
-                // 🌟 Admin ໃຫຍ່ເຫັນຂໍ້ມູນສິນຄ້າທັງໝົດຂອງທຸກຢູເຊີ
                 let userRole = localStorage.getItem('pos_user_role');
                 let productQuery = (userRole === 'admin' || deviceId === 'POSXIONG') ? 
                     db.collection("products") : 
@@ -1563,7 +1573,7 @@
                 if (rateBtn) rateBtn.classList.remove('hidden');
                 let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
                 if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
-                document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ເຈົ້າຂອງຮ້ານ [POSXIONG] (Shop Owner Admin)`;
+                document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ເຈົ້າຂອງຮ້ານ [${deviceId}] (Shop Owner Admin)`;
                 updateHeaderTitle();
                 checkAdminButtonVisibility();
                 return;
@@ -1621,21 +1631,22 @@
             showAlert("ຜິດພາດ", "Username ຫຼື Password ບໍ່ຖືກຕ້ອງ!", "❌");
         }
 
+        // 🌟 ປັບປຸງ: ຕັດ ID ວົງເລັບອອກຈາກ Header Title ຢ່າງສົມບູນ
         function updateHeaderTitle() {
             let headerTitle = document.getElementById('main-header-title');
             if (!headerTitle) return;
             
             let userRole = localStorage.getItem('pos_user_role');
             if (userRole === 'admin') {
-                headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ (Firebase Realtime Sync)`;
+                headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ`;
                 return;
             }
 
             let shopName = localStorage.getItem('pos_shop_name_' + deviceId);
             if (shopName && shopName.trim() !== '') {
-                headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ &nbsp; ${shopName} (${deviceId})`;
+                headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ &nbsp; ${shopName}`;
             } else {
-                headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ &nbsp; ${deviceId}`;
+                headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ`;
             }
         }
 
@@ -1741,7 +1752,6 @@
                             `<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded ml-2 font-semibold">✅ ຖາວອນ</span>` : 
                             `<span class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded ml-2 font-semibold">⏳ ທົດລອງ 15 ວັນ</span>`;
 
-                        // 🌟 ຖ້າຮ້ານມີຊື່ຮ້ານແລ້ວ ໃຫ້ສະແດງ "ຊື່ຮ້ານ" ໂດດເດັ່ນຂຶ້ນມາແທນ ID ເຄື່ອງ ຕາມທີ່ອາຈານຕ້ອງການ
                         let displayName = (dev.shop_name && dev.shop_name.trim() !== '' && dev.shop_name !== dev.device_id) ? 
                             `<span class="font-bold text-gray-900 text-base">${dev.shop_name}</span> <span class="font-mono text-xs text-blue-600">(${dev.device_id})</span>` : 
                             `<span class="font-mono font-bold text-blue-600">${dev.device_id}</span>`;
@@ -2049,7 +2059,6 @@
             }
         }
 
-        // 🌟 ປັບປຸງ loadInventory ໃຫ້ Admin ໃຫຍ່ເຫັນຂໍ້ມູນສິນຄ້າທັງໝົດຂອງທຸກຢູເຊີ (ແຍກຫັກສາງຕາມ device_id ແລະ row.id ຢ່າງຖືກຕ້ອງ)
         async function loadInventory() {
             let tbody = document.getElementById('inventory-tbody');
             tbody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
@@ -3019,10 +3028,10 @@
             lakSection.classList.add('hidden');
             thbSection.classList.add('hidden');
 
-            if (currentMode === 'transfer_lak') {
+            if (mode === 'transfer_lak') {
                 lakSection.classList.remove('hidden');
                 renderShopQrImage('lak');
-            } else if (currentMode === 'transfer_thb') {
+            } else if (mode === 'transfer_thb') {
                 thbSection.classList.remove('hidden');
                 renderShopQrImage('thb');
             }
