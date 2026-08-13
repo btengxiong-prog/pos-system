@@ -697,14 +697,14 @@
                     </div>
                     <div>
                         <label class="block font-semibold text-gray-700 mb-1">ລາຄາຊື້ (ກີບ):</label>
-                        <input type="text" id="modal-cost" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-right font-bold text-blue-600 text-lg" placeholder="ຕົວຢ່າງ: 0">
+                        <input type="text" id="modal-cost" oninput="formatInputMoney(this)" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-right font-bold text-blue-600 text-lg" placeholder="ຕົວຢ່າງ: 0">
                     </div>
                     <div>
                         <label class="block font-semibold text-gray-700 mb-1">ລາຄາຂາຍ (ກີບ):</label>
-                        <input type="text" id="modal-price" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-right font-bold text-green-600 text-lg" placeholder="ຕົວຢ່າງ: 0">
+                        <input type="text" id="modal-price" oninput="formatInputMoney(this)" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-right font-bold text-green-600 text-lg" placeholder="ຕົວຢ່າງ: 0">
                     </div>
 
-                    <!-- 🌟 1) ເພີ່ມປຸ່ມ ຂາຍສົ່ງ ແລະ ຂາຍຍ່ອຍ ໄວ້ບ່ອນນີ້ -->
+                    <!-- 🌟 1) ປຸ່ມ ຂາຍສົ່ງ ແລະ ຂາຍຍ່ອຍ -->
                     <div class="flex gap-2 pt-1">
                         <button type="button" id="btn-wholesale" onclick="setSaleType('wholesale')" class="flex-1 bg-red-600 text-white font-bold py-2 rounded-xl text-xs transition shadow cursor-pointer">📦 ຂາຍສົ່ງ (ຫໍ່, ແພັກ, ລາງ...)</button>
                         <button type="button" id="btn-retail" onclick="setSaleType('retail')" class="flex-1 bg-gray-200 text-gray-700 font-bold py-2 rounded-xl text-xs transition shadow cursor-pointer">🥤 ຂາຍຍ່ອຍ (ແກ້ວ, ວດ...)</button>
@@ -714,11 +714,11 @@
                         <label class="block font-semibold text-gray-700 mb-1">ຈຳນວນສິນຄ້າຄ້າງສາງ & ຕ້ອງການຂາຍ:</label>
                         <div class="grid grid-cols-2 gap-2">
                             <div>
-                                <span id="lbl-stock-title" class="block text-[10px] font-bold text-gray-500 mb-0.5">📦 ສາງຄົງເຫຼືອ (ລາງ):</span>
+                                <span id="lbl-stock-title" class="block text-[10px] font-bold text-gray-500 mb-0.5">📦 ສາງຄົງເຫຼືອ:</span>
                                 <input type="text" id="modal-stock-remaining" readonly class="w-full border rounded-lg px-3 py-2 text-center font-bold text-cyan-800 text-base bg-cyan-50" value="0">
                             </div>
                             <div>
-                                <span id="lbl-qty-title" class="block text-[10px] font-bold text-gray-500 mb-0.5">🛒 ຈຳນວນຂາຍ (ລາງ):</span>
+                                <span id="lbl-qty-title" class="block text-[10px] font-bold text-gray-500 mb-0.5">🛒 ຈຳນວນຂາຍ:</span>
                                 <input type="text" id="modal-qty" value="1" oninput="formatInputMoney(this)" class="w-full border rounded-lg px-3 py-2 text-center font-bold text-gray-900 text-base bg-white focus:ring-2 focus:ring-blue-500 outline-none" placeholder="ປ້ອນຈຳນວນ">
                             </div>
                         </div>
@@ -1110,7 +1110,8 @@
         let customConfirmCallback = null;
         let editingDeviceId = null;
         let deviceId = 'POSXIONG';
-        let currentSaleType = 'wholesale'; // 🌟 ຕົວແປເກັບສະຖານະ ຂາຍສົ່ງ (wholesale) ຫຼື ຂາຍຍ່ອຍ (retail)
+        let currentSaleType = 'wholesale'; // 'wholesale' (ຂາຍສົ່ງ) ຫຼື 'retail' (ຂາຍຍ່ອຍ)
+        let activeScannedItem = null; // ເກັບຂໍ້ມູນສິນຄ້າທີ່ກຳລັງເຮັດລາຍການ
 
         const translations = {
             lo: {
@@ -2400,6 +2401,8 @@
             
             await fetchProductsForGenerator();
             let soldQtyMap = {};
+            let totalImportQtyMap = {};
+
             if (db) {
                 try {
                     let snapshot = await db.collection("sales_history").get();
@@ -2417,9 +2420,13 @@
 
             let cKey = String(code || '').trim().toLowerCase();
             let totalStock = 0;
+            let totalOriginalImportQty = 0; // 🌟 ເກັບຈຳນວນນຳເຂົ້າຕົວຈິງທັງໝົດ (ລວມຫົວໜ່ວຍຍ່ອຍຂ້າງໃນ)
+            
             excelRows.forEach(row => {
                 if (String(row.code || '').trim().toLowerCase() === cKey) {
-                    totalStock += parseInt(String(row.qty || 1).replace(/,/g, '')) || 1;
+                    let q = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1;
+                    totalStock += q;
+                    totalOriginalImportQty += q;
                 }
             });
 
@@ -2432,13 +2439,14 @@
             let finalAvailable = remainingStock - inCartQty;
             if (finalAvailable < 0) finalAvailable = 0;
 
-            document.getElementById('modal-stock-remaining').value = formatNumberWithCommas(finalAvailable);
-
-            let qtyElem = document.getElementById('modal-qty');
-            if (qtyElem) {
-                qtyElem.value = "1";
-                qtyElem.max = finalAvailable;
-            }
+            activeScannedItem = {
+                code: code,
+                name: name,
+                baseCost: cost,
+                basePrice: price,
+                totalImport: totalOriginalImportQty > 0 ? totalOriginalImportQty : 1,
+                remainingStock: finalAvailable
+            };
 
             // 🌟 ຕັ້ງຄ່າເລີ່ມຕົ້ນເປັນ ຂາຍສົ່ງ (Wholesale)
             setSaleType('wholesale');
@@ -2447,24 +2455,52 @@
             document.getElementById('confirm-modal').classList.remove('hidden');
         }
 
-        // 🌟 ຟັງຊັນສະຫຼັບລະຫວ່າງ ຂາຍສົ່ງ ແລະ ຂາຍຍ່ອຍ
+        // 🌟 ຟັງຊັນສະຫຼັບລະຫວ່າງ ຂາຍສົ່ງ ແລະ ຂາຍຍ່ອຍ (ຄຳນວນລາຄາ ແລະ ສາງຕາມເງື່ອນໄຂ)
         function setSaleType(type) {
             currentSaleType = type;
             let btnWholesale = document.getElementById('btn-wholesale');
             let btnRetail = document.getElementById('btn-retail');
             let lblStockTitle = document.getElementById('lbl-stock-title');
             let lblQtyTitle = document.getElementById('lbl-qty-title');
+            
+            let costInput = document.getElementById('modal-cost');
+            let priceInput = document.getElementById('modal-price');
+            let stockRemainingInput = document.getElementById('modal-stock-remaining');
+
+            if (!activeScannedItem) return;
+
+            let conversionFactor = activeScannedItem.totalImport > 1 ? activeScannedItem.totalImport : 10; // ຕົວຢ່າງອັດຕາແປງຖ້າມີ
 
             if (type === 'wholesale') {
                 btnWholesale.className = "flex-1 bg-red-600 text-white font-bold py-2 rounded-xl text-xs transition shadow cursor-pointer";
                 btnRetail.className = "flex-1 bg-gray-200 text-gray-700 font-bold py-2 rounded-xl text-xs transition shadow cursor-pointer";
                 if (lblStockTitle) lblStockTitle.innerText = "📦 ສາງຄົງເຫຼືອ (ຫໍ່, ແພັກ, ລາງ...):";
                 if (lblQtyTitle) lblQtyTitle.innerText = "🛒 ຈຳນວນຂາຍ (ຫໍ່, ແພັກ, ລາງ...):";
+
+                // 🌟 ກ່ອງສີແດງ 1 ຂາຍສົ່ງ ຖືກຕ້ອງຕາມປົກກະຕິ
+                costInput.value = formatNumberWithCommas(activeScannedItem.baseCost);
+                priceInput.value = formatNumberWithCommas(activeScannedItem.basePrice);
+                stockRemainingInput.value = formatNumberWithCommas(activeScannedItem.remainingStock);
             } else {
                 btnRetail.className = "flex-1 bg-red-600 text-white font-bold py-2 rounded-xl text-xs transition shadow cursor-pointer";
                 btnWholesale.className = "flex-1 bg-gray-200 text-gray-700 font-bold py-2 rounded-xl text-xs transition shadow cursor-pointer";
                 if (lblStockTitle) lblStockTitle.innerText = "🥤 ສາງຄົງເຫຼືອ (ແກ້ວ, ວດ...):";
                 if (lblQtyTitle) lblQtyTitle.innerText = "🛒 ຈຳນວນຂາຍ (ແກ້ວ, ວດ...):";
+
+                // 🌟 ຂາຍຍ່ອຍ: ປັບລາຄາຫານດ້ວຍຈຳນວນຍ່ອຍ (ຕົວຢ່າງ 200,000 / 12 = 16,666.66 ປັບເປັນ 17,000)
+                let unitCost = activeScannedItem.baseCost / (conversionFactor > 1 ? conversionFactor : 12);
+                let unitPrice = activeScannedItem.basePrice / (conversionFactor > 1 ? conversionFactor : 12);
+
+                // ປັບປັດເປັນເລກມົນ (ເຊັ່ນ: 17,000 ແລະ 20,000)
+                unitCost = Math.ceil(unitCost / 1000) * 1000;
+                unitPrice = Math.ceil(unitPrice / 1000) * 1000;
+
+                costInput.value = formatNumberWithCommas(unitCost);
+                priceInput.value = formatNumberWithCommas(unitPrice);
+                
+                // 🌟 ຂາຍຍ່ອຍ: ສາງຄົງເຫຼືອຕ້ອງຄູນດ້ວຍຈຳນວນຍ່ອຍຂ້າງໃນ (ຕົວຢ່າງ 100 ແພັກ * 12 = 1,200 ອັນ)
+                let totalRetailStock = activeScannedItem.remainingStock * (conversionFactor > 1 ? conversionFactor : 12);
+                stockRemainingInput.value = formatNumberWithCommas(totalRetailStock);
             }
         }
 
