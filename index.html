@@ -2034,7 +2034,7 @@
             }
         }
 
-        // 🌟 ປັບປຸງຕາຕະລາງສິນຄ້າຄ້າງສາງ ໃຫ້ສະແດງຈຳນວນເປັນຫໍ່ໃຫຍ່ (qty) ຢ່າງຖືກຕ້ອງ
+        // 🌟 ປັບປຸງຕາຕະລາງສິນຄ້າຄ້າງສາງ ໃຫ້ສະແດງຈຳນວນເປັນຫໍ່ໃຫຍ່ ແລະ ໝາຍເຫດເປັນ ເຫຼືອ: 99/2
         async function loadInventory() {
             let tbody = document.getElementById('inventory-tbody');
             tbody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
@@ -2069,23 +2069,22 @@
 
             excelRows.forEach((row) => {
                 let codeKey = String(row.code || '').trim().toLowerCase();
-                let initialPackQty = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1; // ຫໍ່ໃຫຍ່ (ຕົວຢ່າງ: 100)
+                let initialPackQty = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1; // ຫໍ່ໃຫຍ່
                 let unitPerPack = parseInt(row.unitPerPack || 12);
-                let totalSubUnits = initialPackQty * unitPerPack; // 1,200
+                let totalSubUnits = initialPackQty * unitPerPack; 
 
-                let soldSubUnits = soldQtyMap[codeKey] || 0; // ຈຳນວນຂາຍອອກ (ຍ່ອຍ)
+                let soldSubUnits = soldQtyMap[codeKey] || 0; 
                 let remainingSubUnits = totalSubUnits - soldSubUnits;
                 if (remainingSubUnits < 0) remainingSubUnits = 0;
 
-                // ຄຳນວນຫໍ່ໃຫຍ່ທີ່ເຫຼືອ
-                let remainingPacks = Math.floor(remainingSubUnits / unitPerPack);
+                let remainingFullPacks = Math.floor(remainingSubUnits / unitPerPack);
                 let leftoverUnits = remainingSubUnits % unitPerPack;
 
                 let cost = parseFloat(String(row.cost || 0).replace(/,/g, '')) || 0;
                 let price = parseFloat(String(row.price || 0).replace(/,/g, '')) || 0;
                 
-                let totalCostAmount = cost * remainingPacks;
-                let totalPriceAmount = price * remainingPacks;
+                let totalCostAmount = cost * remainingFullPacks;
+                let totalPriceAmount = price * remainingFullPacks;
 
                 let currency = row.currency || 'ກີບ'; 
                 let costStr = formatNumberWithCommas(cost) + " " + currency;
@@ -2095,22 +2094,21 @@
 
                 let formattedDate = formatDateToDDMMYYYY(row.dateAdded || new Date().toISOString().split('T')[0]);
 
-                let noteStr = `ເຫຼືອຫໍ່ໃຫຍ່: ${formatNumberWithCommas(remainingPacks)}`;
-                if (leftoverUnits > 0) noteStr += ` (ເສດ: ${formatNumberWithCommas(leftoverUnits)} ຍ່ອຍ)`;
-                noteStr += ` | ລວມຍ່ອຍ: ${formatNumberWithCommas(remainingSubUnits)}`;
+                // 🌟 ຕາມຄວາມຕ້ອງການ: ໃຫ້ສະແດງຜົນໃນໝາຍເຫດເປັນ ເຫຼືອ: 99/2
+                let noteStr = `ເຫຼືອ: ${formatNumberWithCommas(remainingFullPacks)}/${leftoverUnits}`;
 
                 html += `
                     <tr class="hover:bg-gray-50 border-b">
                         <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
                         <td class="p-3 border-r font-bold text-gray-900">${row.code || '-'}</td>
                         <td class="p-3 border-r text-center font-semibold text-purple-700">${formattedDate}</td>
-                        <!-- 🌟 ສະແດງເປັນຫໍ່ໃຫຍ່ທີ່ເຫຼືອ (ຕົວຢ່າງ: 100) -->
-                        <td class="p-3 border-r text-right font-bold text-cyan-800">${formatNumberWithCommas(remainingPacks)}</td>
+                        <!-- 🌟 ຄໍລຳຈຳນວນ ສະແດງເປັນຫໍ່ໃຫຍ່ທີ່ເຫຼືອເຕັມ -->
+                        <td class="p-3 border-r text-right font-bold text-cyan-800">${formatNumberWithCommas(remainingFullPacks)}</td>
                         <td class="p-3 border-r text-right text-blue-600 font-semibold">${costStr}</td>
                         <td class="p-3 border-r text-right text-green-600 font-semibold">${priceStr}</td>
                         <td class="p-3 border-r text-right font-bold text-blue-800 bg-blue-50/30">${totalCostStr}</td>
                         <td class="p-3 border-r text-right font-bold text-green-800 bg-green-50/30">${totalPriceStr}</td>
-                        <td class="p-3 border-r text-center text-xs font-bold text-gray-600">${noteStr}</td>
+                        <td class="p-3 border-r text-center text-xs font-extrabold text-amber-600">${noteStr}</td>
                         <td class="p-3 text-center">
                             <input type="checkbox" data-id="${row.id}" class="inventory-row-checkbox w-4 h-4 cursor-pointer accent-cyan-600">
                         </td>
@@ -2319,8 +2317,9 @@
 
         async function confirmStockIn() {
             let costVal = parseFloat(String(document.getElementById('stock-in-cost').value).replace(/,/g, '')) || 0;
-            let qtyVal = parseInt(document.getElementById('stock-in-qty').value) || 1; // ຫໍ່ໃຫຍ່ (ຕົວຢ່າງ: 100)
-            let unitPerPack = parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12; // ຫໍ່ຍ່ອຍຕໍ່ຫໍ່ໃຫຍ່
+            let qtyVal = parseInt(document.getElementById('stock-in-qty').value) || 1; 
+            let unitPerPack = parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12; 
+            let finalTotalQty = unitPerPack > 0 ? (qtyVal * unitPerPack) : qtyVal;
 
             let importDateInput = document.getElementById('stock-in-import-date').value.trim();
             let isoImportDate = importDateInput ? parseDDMMYYYYToISO(importDateInput) : new Date().toISOString().split('T')[0];
@@ -2360,7 +2359,6 @@
             let priceVal = Math.ceil(rawPrice / 1000) * 1000;
             let newRowId = 'ROW-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
 
-            // 🌟 ບັນທຶກສະເພາະຈຳນວນຫໍ່ໃຫຍ່ (qtyVal) ແລະ unitPerPack ລົງໃນฐานข้อมูล
             excelRows.push({
                 id: newRowId,
                 code: currentStockInCode,
@@ -2368,8 +2366,8 @@
                 originalCost: costVal,
                 profitPct: 20,
                 price: priceVal,
-                qty: qtyVal, // ຫໍ່ໃຫຍ່ (100)
-                unitPerPack: unitPerPack, // 12
+                qty: qtyVal, 
+                unitPerPack: unitPerPack,
                 dateAdded: isoImportDate,
                 mfgDate: isExpiryMode ? isoMfgDate : isoImportDate,
                 expiryDate: calculatedExpiryDate,
@@ -2379,7 +2377,7 @@
             saveExcelData();
 
             closeStockInModal();
-            showAlert("ສຳເລັດ", `ນຳເຂົ້າສິນຄ້າ [ຫໍ່ໃຫຍ່: ${formatNumberWithCommas(qtyVal)} | ລວມຍ່ອຍ: ${formatNumberWithCommas(qtyVal * unitPerPack)}] ສຳເລັດຮຽບຮ້ອຍ!`, "✅");
+            showAlert("ສຳເລັດ", `ນຳເຂົ້າສິນຄ້າ [ຫໍ່ໃຫຍ່: ${formatNumberWithCommas(qtyVal)} | ລວມຍ່ອຍ: ${formatNumberWithCommas(finalTotalQty)}] ສຳເລັດຮຽບຮ້ອຍ!`, "✅");
         }
 
         function openStockInModal(code, defaultCost = null) {
@@ -2966,7 +2964,7 @@
                 renderShopQrImage('thb');
             }
 
-            document.getElementById('checkout-method-modal').classList.remove('hidden');
+            document.getElementById('checkout-method-modal').classList.add('hidden');
         }
 
         function closeCheckoutMethodModal() {
