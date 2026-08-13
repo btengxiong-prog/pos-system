@@ -877,7 +877,8 @@
                             <th class="p-3 border-r text-center">ຈໍານວນ</th>
                             <th class="p-3 border-r text-right">ລວມ (ກ/ບ)</th>
                             <th class="p-3 border-r text-center">ໝາຍເຫດ</th>
-                            <th class="p-3 text-center w-16">
+                            <!-- 🌟 ປັບປຸງ: ສະແດງຄໍລຳ Checkbox ສະເພາະ Admin ໃຫຍ່ເທົ່ານັ້ນ -->
+                            <th id="history-col-checkbox-header" class="p-3 text-center w-16">
                                 <input type="checkbox" id="select-all-history-checkbox" onclick="toggleSelectAllHistory(this)" class="w-4 h-4 cursor-pointer accent-blue-600" title="ເລືອກທັງໝົດ">
                             </th>
                         </tr>
@@ -2034,7 +2035,6 @@
             }
         }
 
-        // 🌟 ປັບປຸງຕາຕະລາງສິນຄ້າຄ້າງສາງ ໃຫ້ສະແດງຈຳນວນເປັນຫໍ່ໃຫຍ່ ແລະ ໝາຍເຫດເປັນ ເຫຼືອ: 99/2
         async function loadInventory() {
             let tbody = document.getElementById('inventory-tbody');
             tbody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
@@ -2523,7 +2523,7 @@
             let qtyInput = parseInt(String(document.getElementById('modal-qty').value).replace(/,/g, '')) || 1;
             let stockRemainingInputVal = parseInt(String(document.getElementById('modal-stock-remaining').value).replace(/,/g, '')) || 0;
 
-            if (!nameInput) { showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຊື່ສິນຄ້າ!", "⚠️"); return; }
+            if (!nameInput) { showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຊື່ສິນຄ້າໃຫ້ຖືກຕ້ອງ!", "⚠️"); return; }
             if (qtyInput <= 0) { showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຈຳນວນໃຫ້ຖືກຕ້ອງ!", "⚠️"); return; }
 
             if (qtyInput > stockRemainingInputVal) {
@@ -2720,6 +2720,7 @@
                 </label>`;
             });
             listContainer.innerHTML = html;
+            document.getElementById('select-price-modal').classList.hidden = false;
             document.getElementById('select-price-modal').classList.remove('hidden');
         }
 
@@ -3094,6 +3095,7 @@
             document.getElementById('alert-message').innerText = message;
             document.getElementById('alert-icon').innerText = icon;
             customAlertCallback = callback;
+            document.getElementById('custom-alert-modal').classList.hidden = false;
             document.getElementById('custom-alert-modal').classList.remove('hidden');
         }
 
@@ -3108,6 +3110,7 @@
 
         // --- 🌟 ປະຫວັດການຂາຍ (Admin ໃຫຍ່ POSXIONG ເຫັນທັງໝົດ, ລຶບຂໍ້ມູນໄດ້, ສະແດງລຳດັບຂາຍດີ) ---
         function openHistory() { 
+            document.getElementById('history-modal').classList.hidden = false;
             document.getElementById('history-modal').classList.remove('hidden'); 
             loadCloudHistory(); 
         }
@@ -3190,6 +3193,15 @@
 
             globalHistoryList = Array.from(combinedMap.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
+            // 🌟 ຈັດການສິດສະແດງຄໍລຳ Checkbox ປະຫວັດการຂາຍ (ສະເພາະ ADMIN ໃຫຍ່)
+            let userRole = localStorage.getItem('pos_user_role');
+            let colHeader = document.getElementById('history-col-checkbox-header');
+            if (userRole === 'admin' || deviceId === 'POSXIONG') {
+                if (colHeader) colHeader.classList.remove('hidden');
+            } else {
+                if (colHeader) colHeader.classList.add('hidden');
+            }
+
             if (globalHistoryList.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີປະຫວັດການຂາຍ.</td></tr>`;
                 return;
@@ -3235,6 +3247,12 @@
                         sumCostTotal += itemTotalCost;
                         sumPriceTotal += itemTotal;
 
+                        let checkboxCellHtml = (userRole === 'admin' || deviceId === 'POSXIONG') ? `
+                            <td class="p-3 text-center">
+                                <input type="checkbox" data-id="${tx.id}" class="history-row-checkbox w-4 h-4 cursor-pointer accent-blue-600">
+                            </td>
+                        ` : '';
+
                         html += `
                             <tr class="hover:bg-gray-50 border-b">
                                 <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
@@ -3245,9 +3263,7 @@
                                 <td class="p-3 border-r text-center font-bold text-gray-800">${formatNumberWithCommas(itemQty)}</td>
                                 <td class="p-3 border-r text-right font-bold text-gray-900 bg-gray-50">${formatNumberWithCommas(itemTotal)} ກີບ</td>
                                 <td class="p-3 border-r text-center font-extrabold text-amber-600 bg-amber-50/30">ອັນດັບ ${rankNum}</td>
-                                <td class="p-3 text-center">
-                                    <input type="checkbox" data-id="${tx.id}" class="history-row-checkbox w-4 h-4 cursor-pointer accent-blue-600">
-                                </td>
+                                ${checkboxCellHtml}
                             </tr>
                         `;
                     });
@@ -3264,6 +3280,7 @@
         }
 
         async function openReport() { 
+            document.getElementById('report-modal').classList.hidden = false;
             document.getElementById('report-modal').classList.remove('hidden'); 
             toggleReportFilter();
         }
@@ -3350,6 +3367,7 @@
 
         // --- EXCEL & QR CODE GENERATOR ---
         async function openExcelGenerator() {
+            document.getElementById('excel-generator-modal').classList.hidden = false;
             document.getElementById('excel-generator-modal').classList.remove('hidden');
             let titleText = document.getElementById('excel-modal-title-text');
             let printTitle = document.getElementById('print-area-title');
@@ -3555,6 +3573,7 @@
             if (val === "calc") {
                 calculatePercentage();
             } else if (val === "update") {
+                document.getElementById('update-pct-modal').classList.hidden = false;
                 document.getElementById('update-pct-modal').classList.remove('hidden');
             }
         }
@@ -3676,6 +3695,7 @@
             });
 
             selectElem.innerHTML = html;
+            document.getElementById('print-date-modal').classList.hidden = false;
             document.getElementById('print-date-modal').classList.remove('hidden');
         }
 
