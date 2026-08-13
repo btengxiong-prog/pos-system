@@ -373,7 +373,7 @@
             <div class="bg-blue-50 p-3 rounded-xl border text-center space-y-1">
                 <div class="text-xs text-gray-600 font-semibold">ຍອດເງິນລວມທັງໝົດ:</div>
                 <div class="text-xl font-extrabold text-green-600" id="popup-total-amount-text">0 ກີບ</div>
-                <div class="text-sm font-bold text-purple-700" id="popup-total-thb-text">0 ບາດ</div>
+                <div class="text-sm font-bold text-purple-700" id="popup-total-thb-text">0 ບາດ (Rate: 650)</div>
             </div>
 
             <div class="space-y-3 text-left">
@@ -382,7 +382,6 @@
                     <span class="font-bold text-gray-800 text-sm">💵 ຈ່າຍເງິນສົດ (ກີບ)</span>
                 </label>
 
-                <!-- 🌟 ເພີ່ມວິທີຊຳລະເງິນ: ຈ່າຍເງິນສົດ (ບາດ) ຕາມຮູບ -->
                 <label class="flex items-center gap-3 p-3 border-2 rounded-xl cursor-pointer hover:bg-gray-50 border-gray-200" onclick="selectPaymentMode('cash_thb', this)">
                     <input type="radio" name="pay_mode" value="cash_thb" class="w-4 h-4 text-blue-600">
                     <span class="font-bold text-gray-800 text-sm">💵 ຈ່າຍເງິນສົດ (ບາດ)</span>
@@ -3135,7 +3134,6 @@
                 thbAmount = Math.ceil(rawThb / 10) * 10;
             }
 
-            // 🌟 ປັບປຸງ: ເພີ່ມຄຳວ່າ "(ກີບ)" ຕໍ່ທາງທ້າຍຍອດເງິນລວມທັງໝົດ
             document.getElementById('popup-total-amount-text').innerText = formatNumberWithCommas(finalTotal) + " ກີບ";
             document.getElementById('popup-total-thb-text').innerText = formatNumberWithCommas(thbAmount) + " ບາດ (Rate: " + currentRate + ")";
             
@@ -3224,23 +3222,53 @@
             let cashGivenInput = document.getElementById('cash-given').value.replace(/,/g, '');
             let cashGiven = cashGivenInput ? (parseFloat(cashGivenInput) || 0) : finalTotal;
 
+            // 🌟 ປັບປຸງ: ຖ້າເລືອກຈ່າຍເງິນສົດ (ບາດ) ໃຫ້ປ່ຽນລາຄາ/ຍອດເງິນທັງໝົດເປັນເງິນບາດ ຕາມຕົວເລກລຸ່ມ
+            let currencyType = 'ກີບ';
+            let finalPaidAmount = finalTotal;
+
+            if (payMode === 'cash_thb') {
+                currencyType = 'ບາດ';
+                let currentRate = parseFloat(localStorage.getItem('pos_custom_manual_rate')) || 650;
+                let rawThb = finalTotal / currentRate;
+                finalPaidAmount = Math.ceil(rawThb / 10) * 10;
+            } else if (payMode === 'transfer_thb') {
+                currencyType = 'ບາດ';
+                let currentRate = parseFloat(localStorage.getItem('pos_custom_manual_rate')) || 650;
+                let rawThb = finalTotal / currentRate;
+                finalPaidAmount = Math.ceil(rawThb / 10) * 10;
+            }
+
             let dbItemsToSave = cart.map(item => {
                 let actualSubUnitQty = item.qty;
                 if (item.saleType === 'wholesale') {
                     actualSubUnitQty = item.qty * (parseInt(item.unitPerPack) || 12);
                 }
+                
+                let itemPrice = item.price;
+                let itemCost = item.cost;
+                if (payMode === 'cash_thb' || payMode === 'transfer_thb') {
+                    let currentRate = parseFloat(localStorage.getItem('pos_custom_manual_rate')) || 650;
+                    if (currentRate > 0) {
+                        itemPrice = Math.round((item.price / currentRate) * 100) / 100;
+                        itemCost = Math.round(((item.cost || 0) / currentRate) * 100) / 100;
+                    }
+                }
+
                 return {
                     product_row_id: item.rowId || '',
                     code: item.code,
                     name: item.name,
-                    cost: item.cost,
-                    price: item.price,
+                    cost: itemCost,
+                    price: itemPrice,
                     qty: actualSubUnitQty, 
                     originalSaleType: item.saleType,
                     originalQty: item.qty,
-                    payment_method: payMode
+                    payment_method: payMode,
+                    currency: currencyType
                 };
             });
+
+            let totalCostToSave = (payMode === 'cash_thb' || payMode === 'transfer_thb') ? dbItemsToSave.reduce((sum, it) => sum + (it.cost * it.originalQty), 0) : totalCost;
 
             let txData = {
                 id: 'TX-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
@@ -3248,13 +3276,14 @@
                 created_at: new Date().toISOString(),
                 items: dbItemsToSave,
                 total_items: cart.reduce((sum, item) => sum + item.qty, 0),
-                total_cost: totalCost,
-                sub_total: grandTotal,
-                discount: discount,
-                total: finalTotal,
+                total_cost: totalCostToSave,
+                sub_total: finalPaidAmount,
+                discount: 0,
+                total: finalPaidAmount,
                 cash: cashGiven,
-                change: cashGiven - finalTotal,
-                payment_method: payMode
+                change: 0,
+                payment_method: payMode,
+                currency: currencyType
             };
 
             if (db) {
@@ -3263,13 +3292,14 @@
                         device_id: deviceId,
                         items: dbItemsToSave,
                         total_items: txData.total_items,
-                        total_cost: totalCost,
-                        sub_total: grandTotal,
-                        discount: discount,
-                        total: finalTotal,
+                        total_cost: totalCostToSave,
+                        sub_total: finalPaidAmount,
+                        discount: 0,
+                        total: finalPaidAmount,
                         cash: cashGiven,
-                        change: txData.change,
+                        change: 0,
                         payment_method: payMode,
+                        currency: currencyType,
                         created_at: txData.created_at
                     });
                 } catch (err) {}
@@ -3382,6 +3412,7 @@
                             id: doc.id, created_at: tx.created_at,
                             total_cost: tx.total_cost || 0, total: tx.total, 
                             payment_method: tx.payment_method || 'cash',
+                            currency: tx.currency || 'ກີບ',
                             items: tx.items || []
                         });
                     });
@@ -3444,23 +3475,21 @@
                         let itemCodeKey = String(it.code || it.name || '').trim();
                         let rankNum = rankMap[itemCodeKey] || '-';
                         let itPayment = it.payment_method || tx.payment_method || 'cash';
+                        let itCurr = it.currency || tx.currency || 'ກີບ';
 
-                        if (itPayment === 'transfer_thb' || itPayment === 'cash_thb') {
+                        if (itCurr === 'ບາດ' || itPayment === 'transfer_thb' || itPayment === 'cash_thb') {
                             sumCostThb += itemTotalCost;
                             sumPriceThb += itemTotal;
                             if (itPayment === 'cash_thb') cashThb += itemTotal;
                             else transferThb += itemTotal;
-                        } else if (itPayment === 'transfer_lak') {
-                            sumCostLak += itemTotalCost;
-                            sumPriceLak += itemTotal;
-                            transferLak += itemTotal;
                         } else {
                             sumCostLak += itemTotalCost;
                             sumPriceLak += itemTotal;
-                            cashLak += itemTotal;
+                            if (itPayment === 'transfer_lak') transferLak += itemTotal;
+                            else cashLak += itemTotal;
                         }
 
-                        let currencyLabel = (itPayment === 'transfer_thb' || itPayment === 'cash_thb') ? ' ບາດ' : ' ກີບ';
+                        let currencyLabel = (itCurr === 'ບາດ') ? ' ບາດ' : ' ກີບ';
 
                         let checkboxCellHtml = (userRole === 'admin' || deviceId === 'POSXIONG') ? `
                             <td class="p-3 text-center">
