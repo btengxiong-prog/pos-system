@@ -684,7 +684,7 @@
             <button onclick="closeStockInScanner()" class="mt-3 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded w-full font-bold cursor-pointer">ປິດກ້ອງ</button>
         </div>
 
-        <!-- Modal ກຳນົດຂໍ້ມູນສິນຄ້າ (ຮູບ 1) -->
+        <!-- Modal ກຳນົດຂໍ້ມູນສິນຄ້າ -->
         <div id="confirm-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
                 <div class="text-3xl text-center">📦</div>
@@ -704,16 +704,21 @@
                         <input type="text" id="modal-price" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-right font-bold text-green-600 text-lg" placeholder="ຕົວຢ່າງ: 0">
                     </div>
 
+                    <!-- 🌟 1) ເພີ່ມປຸ່ມ ຂາຍສົ່ງ ແລະ ຂາຍຍ່ອຍ ໄວ້ບ່ອນນີ້ -->
+                    <div class="flex gap-2 pt-1">
+                        <button type="button" id="btn-wholesale" onclick="setSaleType('wholesale')" class="flex-1 bg-red-600 text-white font-bold py-2 rounded-xl text-xs transition shadow cursor-pointer">📦 ຂາຍສົ່ງ (ຫໍ່, ແພັກ, ລາງ...)</button>
+                        <button type="button" id="btn-retail" onclick="setSaleType('retail')" class="flex-1 bg-gray-200 text-gray-700 font-bold py-2 rounded-xl text-xs transition shadow cursor-pointer">🥤 ຂາຍຍ່ອຍ (ແກ້ວ, ວດ...)</button>
+                    </div>
+
                     <div>
                         <label class="block font-semibold text-gray-700 mb-1">ຈຳນວນສິນຄ້າຄ້າງສາງ & ຕ້ອງການຂາຍ:</label>
                         <div class="grid grid-cols-2 gap-2">
                             <div>
-                                <span class="block text-[10px] font-bold text-gray-500 mb-0.5">📦 ສາງຄົງເຫຼືອ:</span>
+                                <span id="lbl-stock-title" class="block text-[10px] font-bold text-gray-500 mb-0.5">📦 ສາງຄົງເຫຼືອ (ລາງ):</span>
                                 <input type="text" id="modal-stock-remaining" readonly class="w-full border rounded-lg px-3 py-2 text-center font-bold text-cyan-800 text-base bg-cyan-50" value="0">
                             </div>
                             <div>
-                                <span class="block text-[10px] font-bold text-gray-500 mb-0.5">🛒 ຈຳນວນຂາຍ:</span>
-                                <!-- 🌟 ຕອນກຳລັງປ້ອນ ໃຫ້ຟໍແມັດ #,##0 ໄປພ້ອມໆກັນ -->
+                                <span id="lbl-qty-title" class="block text-[10px] font-bold text-gray-500 mb-0.5">🛒 ຈຳນວນຂາຍ (ລາງ):</span>
                                 <input type="text" id="modal-qty" value="1" oninput="formatInputMoney(this)" class="w-full border rounded-lg px-3 py-2 text-center font-bold text-gray-900 text-base bg-white focus:ring-2 focus:ring-blue-500 outline-none" placeholder="ປ້ອນຈຳນວນ">
                             </div>
                         </div>
@@ -721,7 +726,6 @@
                 </div>
                 <div class="flex gap-2 pt-2">
                     <button onclick="cancelScannedItem()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
-                    <!-- 🌟 ຕັດຂັ້ນຕອນປ໊ອບອັບຮູບ 2 ແລະ ຮູບ 3 ອອກ ເພີ່ມລົງຕາຕະລາງທັນທີ -->
                     <button onclick="confirmScannedItemDirect()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">ຕົກລົງ (ເພີ່ມລົງຕາຕະລາງ)</button>
                 </div>
             </div>
@@ -1106,6 +1110,7 @@
         let customConfirmCallback = null;
         let editingDeviceId = null;
         let deviceId = 'POSXIONG';
+        let currentSaleType = 'wholesale'; // 🌟 ຕົວແປເກັບສະຖານະ ຂາຍສົ່ງ (wholesale) ຫຼື ຂາຍຍ່ອຍ (retail)
 
         const translations = {
             lo: {
@@ -2435,8 +2440,32 @@
                 qtyElem.max = finalAvailable;
             }
 
+            // 🌟 ຕັ້ງຄ່າເລີ່ມຕົ້ນເປັນ ຂາຍສົ່ງ (Wholesale)
+            setSaleType('wholesale');
+
             document.getElementById('confirm-modal').classList.add('hidden');
             document.getElementById('confirm-modal').classList.remove('hidden');
+        }
+
+        // 🌟 ຟັງຊັນສະຫຼັບລະຫວ່າງ ຂາຍສົ່ງ ແລະ ຂາຍຍ່ອຍ
+        function setSaleType(type) {
+            currentSaleType = type;
+            let btnWholesale = document.getElementById('btn-wholesale');
+            let btnRetail = document.getElementById('btn-retail');
+            let lblStockTitle = document.getElementById('lbl-stock-title');
+            let lblQtyTitle = document.getElementById('lbl-qty-title');
+
+            if (type === 'wholesale') {
+                btnWholesale.className = "flex-1 bg-red-600 text-white font-bold py-2 rounded-xl text-xs transition shadow cursor-pointer";
+                btnRetail.className = "flex-1 bg-gray-200 text-gray-700 font-bold py-2 rounded-xl text-xs transition shadow cursor-pointer";
+                if (lblStockTitle) lblStockTitle.innerText = "📦 ສາງຄົງເຫຼືອ (ຫໍ່, ແພັກ, ລາງ...):";
+                if (lblQtyTitle) lblQtyTitle.innerText = "🛒 ຈຳນວນຂາຍ (ຫໍ່, ແພັກ, ລາງ...):";
+            } else {
+                btnRetail.className = "flex-1 bg-red-600 text-white font-bold py-2 rounded-xl text-xs transition shadow cursor-pointer";
+                btnWholesale.className = "flex-1 bg-gray-200 text-gray-700 font-bold py-2 rounded-xl text-xs transition shadow cursor-pointer";
+                if (lblStockTitle) lblStockTitle.innerText = "🥤 ສາງຄົງເຫຼືອ (ແກ້ວ, ວດ...):";
+                if (lblQtyTitle) lblQtyTitle.innerText = "🛒 ຈຳນວນຂາຍ (ແກ້ວ, ວດ...):";
+            }
         }
 
         async function confirmScannedItem() {
