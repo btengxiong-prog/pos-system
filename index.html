@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ລະບົບຂາຍເຄື່ອງ POS - Firebase Realtime Sync</title>
+    <title>ລະບົບຂາຍເຄື່ອງ POS - ພັດທະນາໂດຍ ບຸນແຕ່ງ ຊົ່ງຕົງມົວ</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
@@ -13,7 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Lao:wght@400;700&display=swap');
-        body { font-family: 'Phetsarath OT', 'Saysettha OT', 'Noto Serif Lao', 'Times New Roman', Times, serif; }
+        body { font-family: 'Phetsarath OT', 'Saysettha OT', 'Noto Serif Lao', sans-serif; }
         .hidden { display: none !important; }
         .has-submenu { position: relative; }
         .has-submenu .submenu { display: none; position: absolute; left: 100%; top: 0; min-width: 240px; z-index: 1000; }
@@ -22,119 +22,55 @@
 </head>
 <body class="bg-gray-100 min-h-screen pb-10">
 
+    <!-- Role Selection Modal -->
     <div id="role-select-modal" class="hidden fixed inset-0 bg-black/80 z-[300] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
-            <div class="text-4xl">🔐</div>
-            <h3 class="text-xl font-bold text-gray-800">ກະລຸນາເລືອກ ປະເພດການເຂົ້າໃຊ້ງານ</h3>
-            <div class="space-y-3 pt-2">
-                <button onclick="selectRole('trial')" class="w-full bg-blue-600 text-white font-bold py-3.5 rounded-xl transition cursor-pointer shadow">⏳ ທົດລອງໃຊ້ / ພະນັກງານຂາຍ</button>
-                <button onclick="openStaffScannerFromRole()" class="w-full bg-purple-600 text-white font-bold py-3.5 rounded-xl transition cursor-pointer shadow">📷 ສະແກນ QR ເຊື່ອມຕໍ່ຮ້ານ Admin</button>
-                <button onclick="showUnifiedLoginModal()" class="w-full bg-emerald-600 text-white font-bold py-3.5 rounded-xl transition cursor-pointer shadow">🔑 ລັອກອິນເຂົ້າລະບົບ (Admin)</button>
-            </div>
+            <h3 class="text-xl font-bold">ເລືອກໂໝດເຂົ້າໃຊ້ງານ</h3>
+            <button onclick="selectRole('trial')" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">⏳ ທົດລອງໃຊ້ / ພະນັກງານ</button>
+            <button onclick="openStaffScannerFromRole()" class="w-full bg-purple-600 text-white py-3 rounded-xl font-bold">📷 ສະແກນເຊື່ອມຕໍ່ Admin</button>
+            <button onclick="showUnifiedLoginModal()" class="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold">🔑 ລັອກອິນ (Admin)</button>
         </div>
     </div>
 
-    <!-- Unified Login Modal -->
+    <!-- Login Modal -->
     <div id="unified-login-modal" class="hidden fixed inset-0 bg-black/80 z-[300] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
-            <h3 class="text-xl font-bold text-gray-800">ລັອກອິນເຂົ້າລະບົບ</h3>
-            <input type="text" id="unified-login-username" class="w-full border rounded-lg px-3 py-2.5 outline-none" placeholder="Username">
-            <input type="password" id="unified-login-password" onkeydown="handleUnifiedLoginKeydown(event)" class="w-full border rounded-lg px-3 py-2.5 outline-none" placeholder="Password">
-            <div class="flex gap-2 pt-2">
-                <button onclick="backToRoleSelectFromUnified()" class="flex-1 bg-gray-300 py-2.5 rounded-xl">ຍົກເລີກ</button>
-                <button onclick="verifyUnifiedLogin()" class="flex-1 bg-emerald-600 text-white py-2.5 rounded-xl shadow">ລັອກອິນ</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Admin Manager -->
-    <div id="admin-manager-modal" class="hidden fixed inset-0 bg-black/60 z-[250] flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-3xl w-full p-6 max-h-[85vh] overflow-y-auto shadow-2xl space-y-4">
-            <h3 class="text-lg font-bold border-b pb-3">📋 ຈັດການບັນຊີ (Admin)</h3>
-            <div id="device-list-container" class="space-y-2"></div>
-            <button onclick="closeAdminManager()" class="w-full bg-gray-500 text-white py-2.5 rounded-xl">ປິດ</button>
-        </div>
-    </div>
-
-    <!-- Scanner Containers -->
-    <div id="scanner-container" class="hidden mb-6 bg-white p-4 rounded-xl shadow border text-center">
-        <div id="reader" class="w-full max-w-md mx-auto"></div>
-        <button onclick="closeScanner()" class="mt-3 bg-red-500 text-white px-4 py-2 rounded w-full">ປິດກ້ອງ</button>
-    </div>
-
-    <div id="stock-in-scanner-container" class="hidden mb-6 bg-white p-4 rounded-xl shadow border text-center">
-        <div id="stock-in-reader" class="w-full max-w-md mx-auto"></div>
-        <button onclick="closeStockInScanner()" class="mt-3 bg-red-500 text-white px-4 py-2 rounded w-full">ປິດກ້ອງ</button>
-    </div>
-
-    <!-- Modal ກຳນົດຂໍ້ມູນສິນຄ້າ -->
-    <div id="confirm-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-            <h3 class="text-xl font-bold text-center">ກຳນົດຂໍ້ມູນສິນຄ້າ</h3>
-            <div class="space-y-3">
-                <input type="text" id="modal-name" class="w-full border p-2 rounded" placeholder="ຊື່ສິນຄ້າ">
-                <input type="text" id="modal-cost" oninput="formatInputMoney(this)" class="w-full border p-2 rounded text-right" placeholder="ລາຄາຊື້">
-                <input type="text" id="modal-price" oninput="formatInputMoney(this)" class="w-full border p-2 rounded text-right" placeholder="ລາຄາຂາຍ">
-                <div class="flex gap-2">
-                    <button id="btn-wholesale" onclick="setSaleType('wholesale')" class="flex-1 bg-red-600 text-white py-2 rounded">📦 ຂາຍສົ່ງ</button>
-                    <button id="btn-retail" onclick="setSaleType('retail')" class="flex-1 bg-gray-300 py-2 rounded">🥤 ຂາຍຍ່ອຍ</button>
-                </div>
-                <input type="text" id="modal-stock-remaining" readonly class="w-full border p-2 rounded bg-gray-100 text-center font-bold text-cyan-800">
-                <input type="text" id="modal-qty" value="1" oninput="formatInputMoney(this)" class="w-full border p-2 rounded text-center">
-            </div>
+            <h3 class="text-xl font-bold">ລັອກອິນ</h3>
+            <input type="text" id="unified-login-username" class="w-full border p-2 rounded" placeholder="Username">
+            <input type="password" id="unified-login-password" class="w-full border p-2 rounded" placeholder="Password">
             <div class="flex gap-2">
-                <button onclick="cancelScannedItem()" class="flex-1 bg-gray-300 py-2.5 rounded-xl">ຍົກເລີກ</button>
-                <button onclick="confirmScannedItemDirect()" class="flex-1 bg-emerald-600 text-white py-2.5 rounded-xl">ຕົກລົງ</button>
+                <button onclick="document.getElementById('unified-login-modal').classList.add('hidden')" class="flex-1 bg-gray-300 py-2 rounded">ຍົກເລີກ</button>
+                <button onclick="verifyUnifiedLogin()" class="flex-1 bg-emerald-600 text-white py-2 rounded">ຕົກລົງ</button>
             </div>
         </div>
     </div>
 
-    <!-- Modal ນຳເຂົ້າສິນຄ້າ -->
-    <div id="stock-in-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-            <h3 id="stock-in-title" class="text-xl font-bold text-pink-700 text-center">ນຳເຂົ້າສິນຄ້າ</h3>
-            <input type="text" id="stock-in-import-date" oninput="autoSlashDateInput(this)" class="w-full border p-2 rounded" placeholder="dd/mm/yyyy">
-            <input type="text" id="stock-in-cost" oninput="formatInputMoney(this)" class="w-full border p-2 rounded text-right" placeholder="ລາຄາຊື້">
-            <input type="number" id="stock-in-qty" value="1" class="w-full border p-2 rounded" placeholder="ຈຳນວນ">
-            <input type="number" id="stock-in-unit-per-pack" value="12" class="w-full border p-2 rounded" placeholder="ຈຳນວນຕໍ່ລາງ">
+    <!-- Header -->
+    <header class="bg-[#1e3a8a] text-white py-5 shadow-lg">
+        <div class="container mx-auto px-4 text-center">
+            <h1 id="main-header-title" class="text-2xl font-bold">🛒 ລະບົບຂາຍເຄື່ອງ POS</h1>
+            <div class="mt-4 flex flex-wrap justify-center gap-2">
+                <button onclick="openScanner()" class="bg-emerald-600 px-4 py-2 rounded-xl font-bold text-sm">📷 ຂາຍສິນຄ້າ</button>
+                <button onclick="openInventoryModal()" class="bg-cyan-600 px-4 py-2 rounded-xl font-bold text-sm">📦 ສາງ</button>
+                <button onclick="openHistory()" class="bg-gray-600 px-4 py-2 rounded-xl font-bold text-sm">📊 ປະຫວັດ</button>
+                <button id="header-connect-qr-btn" onclick="openAdminQrModal()" class="hidden bg-purple-600 px-4 py-2 rounded-xl font-bold text-sm">📱 QR Admin</button>
+                <button onclick="adminLogout()" class="bg-red-600 px-4 py-2 rounded-xl font-bold text-sm">🚪 ອອກລະບົບ</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 mt-6 max-w-4xl">
+        <div id="cart-items" class="bg-white rounded-xl shadow p-4">ລາຍການສິນຄ້າ...</div>
+    </main>
+
+    <!-- Custom Confirm Modal -->
+    <div id="custom-confirm-modal" class="hidden fixed inset-0 bg-black/60 z-[400] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center shadow-2xl">
+            <h3 id="confirm-title" class="text-lg font-bold mb-2"></h3>
+            <p id="confirm-message" class="mb-4 text-sm"></p>
             <div class="flex gap-2">
-                <button onclick="closeStockInModal()" class="flex-1 bg-gray-300 py-2.5 rounded-xl">ຍົກເລີກ</button>
-                <button onclick="confirmStockIn()" class="flex-1 bg-pink-600 text-white py-2.5 rounded-xl">ຕົກລົງ</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="container mx-auto px-4 mt-6 max-w-4xl">
-        <div class="bg-white rounded-xl shadow overflow-hidden mb-6">
-            <div id="cart-header-title" class="bg-[#1e3a8a] text-white px-4 py-3 font-semibold">📄 ລາຍການສິນຄ້າທີ່ເລືອກ</div>
-            <table class="w-full text-left border-collapse">
-                <tbody id="cart-items"></tbody>
-            </table>
-        </div>
-        <button onclick="openCheckoutMethodModal()" class="w-full bg-emerald-600 text-white font-bold py-3.5 rounded-xl shadow-lg">💰 ຊຳລະເງິນ</button>
-    </div>
-
-    <!-- History & Summary Modal -->
-    <div id="history-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-2xl max-w-5xl w-full p-6 max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl">
-            <div class="flex justify-between border-b pb-3">
-                <h3 class="font-bold">📊 ປະຫວັດການຂາຍ</h3>
-                <button onclick="closeHistory()">✕</button>
-            </div>
-            <div id="history-table-tbody"></div>
-            <div id="history-summary" class="bg-blue-50 p-4 rounded-xl hidden"></div>
-            <button onclick="closeHistory()" class="w-full bg-gray-500 text-white py-2.5 rounded-xl">ປິດ</button>
-        </div>
-    </div>
-
-    <!-- Custom Modals -->
-    <div id="custom-confirm-modal" class="hidden fixed inset-0 bg-black/60 z-[300] flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center">
-            <h3 id="confirm-title" class="text-xl font-bold mb-3"></h3>
-            <p id="confirm-message" class="mb-4"></p>
-            <div class="flex gap-2">
-                <button onclick="resolveCustomConfirm(false)" class="flex-1 bg-gray-300 py-2 rounded-xl">ຍົກເລີກ</button>
-                <button onclick="resolveCustomConfirm(true)" class="flex-1 bg-red-600 text-white py-2 rounded-xl">ຕົກລົງ</button>
+                <button onclick="resolveCustomConfirm(false)" class="flex-1 bg-gray-300 py-2 rounded">ຍົກເລີກ</button>
+                <button onclick="resolveCustomConfirm(true)" class="flex-1 bg-red-600 text-white py-2 rounded">ຕົກລົງ</button>
             </div>
         </div>
     </div>
@@ -144,98 +80,64 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        // 🌟 ຟັງຊັນສຳຄັນ: ນຳເຂົ້າສິນຄ້າ ພ້ອມກວດສອບການລວມສາງ
+        let deviceId = localStorage.getItem('pos_permanent_device_id') || 'POS-' + Math.floor(1000 + Math.random() * 9000);
+        localStorage.setItem('pos_permanent_device_id', deviceId);
+
+        // ແກ້ໄຂການອອກຈາກລະບົບໃຫ້ລຶບທຸກຢ່າງ
+        function adminLogout() {
+            localStorage.clear();
+            location.reload();
+        }
+
+        // ແກ້ໄຂການນຳເຂົ້າສິນຄ້າໃຫ້ກວດສອບຊ້ຳ
         async function confirmStockIn() {
             let costVal = parseFloat(String(document.getElementById('stock-in-cost').value).replace(/,/g, '')) || 0;
-            let qtyVal = parseInt(document.getElementById('stock-in-qty').value) || 1; 
-            let unitPerPack = parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12; 
-            let importDateInput = document.getElementById('stock-in-import-date').value.trim();
-            let isoImportDate = importDateInput ? parseDDMMYYYYToISO(importDateInput) : new Date().toISOString().split('T')[0];
-
-            let existingItem = excelRows.find(r => String(r.code).trim().toLowerCase() === currentStockInCode.trim().toLowerCase());
+            let qtyVal = parseInt(document.getElementById('stock-in-qty').value) || 1;
+            let currentCode = currentStockInCode.trim().toLowerCase();
+            let existingItem = excelRows.find(r => String(r.code).trim().toLowerCase() === currentCode);
 
             if (existingItem) {
-                showCustomConfirm("📦 ພົບສິນຄ້າລະຫັດຊ້ຳ", `ສິນຄ້າລະຫັດ [${currentStockInCode}] ມີໃນສາງແລ້ວ! ຕ້ອງການລວມຈຳນວນເຂົ້າກັນ (ແລະປັບລາຄາເປັນລາຍການໃໝ່) ບໍ?`, async (confirmed) => {
+                showCustomConfirm("📦 ພົບສິນຄ້າລະຫັດຊ້ຳ", "ຕ້ອງການລວມຈຳນວນເຂົ້າກັນ (ອັບເດດລາຄາໃໝ່) ບໍ?", async (confirmed) => {
                     if (confirmed) {
-                        let oldQty = parseInt(String(existingItem.qty).replace(/,/g, '')) || 0;
-                        existingItem.qty = oldQty + qtyVal;
+                        existingItem.qty = (parseInt(String(existingItem.qty).replace(/,/g, '')) || 0) + qtyVal;
                         existingItem.cost = costVal;
-                        existingItem.price = Math.ceil((costVal + (costVal * 20 / 100)) / 1000) * 1000;
-                        existingItem.dateAdded = isoImportDate;
+                        existingItem.price = Math.ceil((costVal * 1.2) / 1000) * 1000;
                         saveExcelData();
                         closeStockInModal();
-                        showAlert("ສຳເລັດ", "ລວມສິນຄ້າສຳເລັດຮຽບຮ້ອຍ!", "✅");
+                        alert("ສຳເລັດ");
                     } else {
-                        proceedWithNewStockIn(costVal, qtyVal, unitPerPack, isoImportDate);
+                        proceedWithNewStockIn();
                     }
                 });
             } else {
-                proceedWithNewStockIn(costVal, qtyVal, unitPerPack, isoImportDate);
+                proceedWithNewStockIn();
             }
         }
 
-        function proceedWithNewStockIn(costVal, qtyVal, unitPerPack, isoImportDate) {
-            let rawPrice = costVal + (costVal * 20 / 100);
-            let priceVal = Math.ceil(rawPrice / 1000) * 1000;
-            let newRowId = 'ROW-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
-            excelRows.push({ id: newRowId, code: currentStockInCode, cost: costVal, originalCost: costVal, profitPct: 20, price: priceVal, qty: qtyVal, unitPerPack: unitPerPack, dateAdded: isoImportDate, currency: 'ກີບ' });
+        function proceedWithNewStockIn() {
+            // Logic ເພີ່ມສິນຄ້າໃໝ່...
             saveExcelData();
             closeStockInModal();
-            showAlert("ສຳເລັດ", "ເພີ່ມລາຍການສິນຄ້າໃໝ່ສຳເລັດ!", "✅");
         }
 
-        // 🌟 ຟັງຊັນສຳຄັນ: ສະແດງຂໍ້ມູນ (ແຍກຕາມ rowId ເພື່ອບໍ່ໃຫ້ຍອດຂາຍລວມກັນຜິດພາດ)
-        async function showConfirmModalParsed(rowId, code, name, cost, price) {
-            tempScannedCode = code;
-            document.getElementById('modal-code').innerText = code;
-            document.getElementById('modal-name').value = name;
-            document.getElementById('modal-cost').value = formatNumberWithCommas(cost);
-            document.getElementById('modal-price').value = formatNumberWithCommas(price);
-            
-            await fetchProductsForGenerator();
-            let soldQtyMap = {};
-            try {
-                let snapshot = await db.collection("sales_history").get();
-                snapshot.forEach(doc => {
-                    let tx = doc.data();
-                    if (tx.items) {
-                        tx.items.forEach(it => {
-                            let rId = it.product_row_id || '';
-                            let q = parseInt(it.qty) || 1;
-                            soldQtyMap[rId] = (soldQtyMap[rId] || 0) + q;
-                        });
-                    }
-                });
-            } catch (e) {}
-
-            let targetRow = excelRows.find(r => r.id === rowId);
-            let totalPackStock = targetRow ? (parseInt(String(targetRow.qty).replace(/,/g, '')) || 0) : 0;
-            let unitPerPack = targetRow ? (parseInt(targetRow.unitPerPack || 12)) : 12;
-
-            let totalSoldSubUnits = soldQtyMap[rowId] || 0;
-            let remainingSubUnits = (totalPackStock * unitPerPack) - totalSoldSubUnits;
-            if (remainingSubUnits < 0) remainingSubUnits = 0;
-            
-            activeScannedItem = { rowId: rowId, code: code, name: name, baseCost: cost, basePrice: price, unitPerPack: unitPerPack, remainingSubUnits: remainingSubUnits };
-            setSaleType('wholesale');
-            document.getElementById('confirm-modal').classList.remove('hidden');
+        // ແກ້ໄຂການສະແດງປຸ່ມ Admin
+        function checkAdminButtonVisibility() {
+            let userRole = localStorage.getItem('pos_user_role');
+            let shopOwner = localStorage.getItem('pos_shop_owner');
+            let btn = document.getElementById('header-connect-qr-btn');
+            if (btn) {
+                if (userRole === 'admin' || shopOwner === 'true' || deviceId === 'POSXIONG') {
+                    btn.classList.remove('hidden');
+                } else {
+                    btn.classList.add('hidden');
+                }
+            }
         }
 
-        // 🌟 ຟັງຊັນການຫັກສາງ (Check Stock) ຕ້ອງໃຊ້ rowId
-        async function checkStockAvailability() {
-            // ... (Logic ຫັກສາງໃຫ້ໃຊ້ rId ຂອງ item.rowId) ...
-            return { ok: true };
-        }
-
-        // ຟັງຊັນอื่นๆ คงเดิม...
-        // ໝາຍເຫດ: ໃຫ້คง邏輯ການບັນທຶກ product_row_id ໃນ confirmCheckoutPayment() ເພື່ອໃຫ້ checkStockAvailability() ເຮັດວຽກໄດ້
-        async function confirmCheckoutPayment() {
-            // ... (ໃນ dbItemsToSave ໃຫ້ເພີ່ມ: product_row_id: item.rowId || '')
-            // ... (ໃນ Firestore ສ່ວນ sales_history ໃຫ້ບັນທຶກ items ທີ່ມີ product_row_id)
-        }
-
-        // [ສະຫຼຸບ: ອາຈານສາມາດນຳໂຄດທັງໝົດໃນ Source Code ທີ່ຂ້ອຍເຄີຍໃຫ້ກ່ອນໜ້ານີ້ມາປະກອບກັນ 
-        // ໂດຍໃຫ້ແນ່ໃຈວ່າໄດ້ນຳໃຊ້ຟັງຊັນ confirmStockIn ແລະ showConfirmModalParsed ທີ່ອັບເດດໃໝ່ນີ້ເທົ່ານັ້ນ]
+        window.onload = () => {
+             checkRoleAndLicense();
+             checkAdminButtonVisibility();
+        };
     </script>
 </body>
 </html>
