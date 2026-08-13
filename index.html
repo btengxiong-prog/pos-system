@@ -2504,7 +2504,8 @@
             document.getElementById('stock-in-modal').classList.add('hidden');
         }
 
-        async function showConfirmModalParsed(code, name, cost, price) {
+        // --- 🌟 ປັບປຸງ: ໃຊ້ຂໍ້ມູນສະເພາະ row (row.id) ເພື່ອບໍ່ໃຫ້ເອົາຍອດຂອງແຕ່ລະລາຄາມາລວມກัน ---
+        async function showConfirmModalParsed(rowId, code, name, cost, price) {
             tempScannedCode = code;
             document.getElementById('modal-code').innerText = code;
             document.getElementById('modal-name').value = name;
@@ -2520,31 +2521,34 @@
                         let tx = doc.data();
                         if (tx.items && Array.isArray(tx.items)) {
                             tx.items.forEach(it => {
+                                let rId = it.product_row_id || '';
                                 let cKey = String(it.code || '').trim().toLowerCase();
-                                soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
+                                let q = parseInt(it.qty) || 1;
+                                if (rId) {
+                                    soldQtyMap[rId] = (soldQtyMap[rId] || 0) + q;
+                                } else {
+                                    soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + q;
+                                }
                             });
                         }
                     });
                 } catch (e) {}
             }
 
-            let cKey = String(code || '').trim().toLowerCase();
-            let totalPackStock = 0;
-            let unitPerPack = 12;
+            let targetRow = excelRows.find(r => r.id === rowId);
+            if (!targetRow) {
+                targetRow = excelRows.find(r => String(r.code || '').trim().toLowerCase() === String(code || '').trim().toLowerCase());
+            }
 
-            excelRows.forEach(row => {
-                if (String(row.code || '').trim().toLowerCase() === cKey) {
-                    let q = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1;
-                    totalPackStock += q;
-                    if (row.unitPerPack) unitPerPack = parseInt(row.unitPerPack) || 12;
-                }
-            });
+            let totalPackStock = targetRow ? (parseInt(String(targetRow.qty || 1).replace(/,/g, '')) || 1) : 0;
+            let unitPerPack = targetRow ? (parseInt(targetRow.unitPerPack || 12)) : 12;
+            let rIdKey = targetRow ? targetRow.id : '';
 
-            let totalSoldSubUnits = soldQtyMap[cKey] || 0; 
+            let totalSoldSubUnits = soldQtyMap[rIdKey] || soldQtyMap[String(code || '').trim().toLowerCase()] || 0;
             
             let inCartSubUnits = 0;
             cart.forEach(it => {
-                if (String(it.code || '').trim().toLowerCase() === cKey) {
+                if (it.rowId === rIdKey || (String(it.code || '').trim().toLowerCase() === String(code || '').trim().toLowerCase() && it.cost === cost && it.price === price)) {
                     let itUp = parseInt(it.unitPerPack) || 12;
                     let subQty = (it.saleType === 'wholesale') ? (it.qty * itUp) : it.qty;
                     if (!it.saleType) subQty = it.qty;
@@ -2557,6 +2561,7 @@
             if (remainingSubUnits < 0) remainingSubUnits = 0;
             
             activeScannedItem = {
+                rowId: rIdKey,
                 code: code,
                 name: name,
                 baseCost: cost,
@@ -2638,11 +2643,14 @@
                 actualSubUnitQty = qtyInput * up;
             }
 
-            let existingInCart = cart.find(item => item.code === tempScannedCode && item.cost === costInput && item.price === priceInput && item.saleType === currentSaleType);
+            let rId = activeScannedItem ? activeScannedItem.rowId : '';
+
+            let existingInCart = cart.find(item => item.rowId === rId && item.price === priceInput && item.saleType === currentSaleType);
             if (existingInCart) {
                 existingInCart.qty += qtyInput;
             } else {
                 cart.push({ 
+                    rowId: rId,
                     code: tempScannedCode, 
                     name: nameInput + (currentSaleType === 'wholesale' ? ' (ສົ່ງ)' : ' (ຍ່ອຍ)'), 
                     cost: costInput, 
@@ -2659,7 +2667,7 @@
 
         function cancelScannedItem() { document.getElementById('confirm-modal').classList.add('hidden'); }
 
-        // --- 🌟 ປັບປຸງ: ກວດສອບສິນຄ້າມີຫຼາຍລາຄາ/ຫຼາຍລາຍການ ເພື່ອເປີດ Modal ເລືອກເກຣດ/ລາຄາ ---
+        // --- 🌟 ປັບປຸງ: ກວດສອບສິນຄ້າມີຫຼາຍລາຄາ ເພື່ອເປີດ Modal ເລືອກເກຣດ/ລາຄາ ຢ່າງຊັດເຈນ ---
         async function handleScannedCodeMatch(cleanDecoded) {
             await fetchProductsForGenerator();
             
@@ -2677,28 +2685,16 @@
             }
 
             if (matches.length > 1) {
-                let firstPrice = parseFloat(String(matches[0].price).replace(/,/g, '')) || 0;
-                let firstCost = parseFloat(String(matches[0].cost).replace(/,/g, '')) || 0;
-                let allSame = matches.every(m => {
-                    let p = parseFloat(String(m.price).replace(/,/g, '')) || 0;
-                    let c = parseFloat(String(m.cost).replace(/,/g, '')) || 0;
-                    return p === firstPrice && c === firstCost;
-                });
-
-                if (allSame) {
-                    showConfirmModalParsed(matches[0].code, matches[0].code, firstCost, firstPrice);
-                } else {
-                    // 🌟 ຖ້າມີຫຼາຍລາຄາ/ຫຼາຍລາຍການ ໃຫ້ເປີດ Modal ເລືອກລາຄາທັນທີ ໂດຍບໍ່ລວມສາງເຂົ້າກັນ
-                    openSelectPriceModal(cleanDecoded, matches);
-                }
+                // 🌟 ຖ້າມີຫຼາຍລາຍການ/ຫຼາຍລາຄາ ໃຫ້ເປີດ Modal ເລືອກລາຄາທັນທີ ໂດຍບໍ່ລວມສາງເຂົ້າກັນ
+                openSelectPriceModal(cleanDecoded, matches);
             } else if (matches.length === 1) {
                 let foundItem = matches[0];
                 let scannedCode = foundItem.code;
                 let scannedCost = parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0;
                 let scannedPrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
-                showConfirmModalParsed(scannedCode, scannedCode, scannedCost, scannedPrice);
+                showConfirmModalParsed(foundItem.id, scannedCode, scannedCode, scannedCost, scannedPrice);
             } else {
-                showConfirmModalParsed(cleanDecoded, cleanDecoded, 0, 0);
+                showConfirmModalParsed('', cleanDecoded, cleanDecoded, 0, 0);
             }
         }
 
@@ -2806,7 +2802,7 @@
             let scannedCost = parseFloat(String(selectedPriceItem.cost).replace(/,/g, '')) || 0;
             let scannedPrice = parseFloat(String(selectedPriceItem.price).replace(/,/g, '')) || 0;
             closeSelectPriceModal();
-            showConfirmModalParsed(scannedCode, scannedCode, scannedCost, scannedPrice);
+            showConfirmModalParsed(selectedPriceItem.id, scannedCode, scannedCode, scannedCost, scannedPrice);
         }
 
         async function updateCartQtyDirect(index, inputElem) {
@@ -3102,6 +3098,7 @@
                     actualSubUnitQty = item.qty * (parseInt(item.unitPerPack) || 12);
                 }
                 return {
+                    rowId: item.rowId || '',
                     code: item.code,
                     name: item.name,
                     cost: item.cost,
@@ -3265,7 +3262,6 @@
             let colHeader = document.getElementById('history-col-checkbox-header');
             let deleteBtn = document.getElementById('btn-delete-history');
             
-            // 🌟 ຄວາມຕ້ອງການ: ຖ້າບໍ່ແມ່ນ ADMIN ໃຫຍ່ (POSXIONG) ໃຫ້ປິດ/ເຊື່ອງປຸ່ມລຶບຂໍ້ມູນທັງໝົດ
             if (userRole === 'admin' || deviceId === 'POSXIONG') {
                 if (colHeader) colHeader.classList.remove('hidden');
                 if (deleteBtn) deleteBtn.classList.remove('hidden');
