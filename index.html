@@ -373,7 +373,7 @@
             <div class="bg-blue-50 p-3 rounded-xl border text-center space-y-1">
                 <div class="text-xs text-gray-600 font-semibold">ຍອດເງິນລວມທັງໝົດ:</div>
                 <div class="text-xl font-extrabold text-green-600" id="popup-total-amount-text">0 ກີບ</div>
-                <!-- 🌟 ປັບປຸງ: 4 ລ່ຽມສີແດງ 2 ຄຳນວນຈາກ 4 ລ່ຽມສີແດງ 1 ຫານໃຫ້ Rate ຊື້ -->
+                <!-- 🌟 ປັບປຸງ: 4 ລ່ຽມສີແດງ 2 (ຍອດເງິນບາດ) ຫານດ້ວຍ Rate ຊື້ ແລະ ປັດເສດດ້ວຍ ROUNDUP(0) -> Math.ceil -->
                 <div class="text-sm font-bold text-purple-700" id="popup-total-thb-text">0 ບາດ (Rate ຊື້: 650)</div>
             </div>
 
@@ -475,7 +475,7 @@
         </div>
     </div>
 
-    <!-- Modal ຈັດການ Rate ອັດຕາແລກປ່ຽນປະຈຳວັນ (🌟 Rate ຊື້ ແລະ Rate ຂາຍ) -->
+    <!-- Modal ປັບປຸງ Rate ປະຈຳວັນ -->
     <div id="rate-input-modal" class="hidden fixed inset-0 bg-black/60 z-[370] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 text-left">
             <div class="flex justify-between items-center border-b pb-3">
@@ -946,7 +946,7 @@
                         </div>
                     </div>
 
-                    <!-- ເງິນບາດໄທ (ບາດ) -> 🌟 ສະແດງສະເພາະທຸລະກຳທີ່ຈ່າຍເປັນບາດເທົ່ານັ້ນ -->
+                    <!-- ເງິນບາດໄທ (ບາດ) -->
                     <div class="space-y-1.5 bg-white p-3 rounded-lg border border-purple-100 shadow-sm">
                         <div class="text-xs font-bold text-purple-900 border-b pb-1">ລາຄາ & ຍອດຂາຍ (ເງິນບາດໄທ)</div>
                         <div class="flex justify-between text-xs font-semibold text-gray-700">
@@ -2036,7 +2036,6 @@
             if (m) m.classList.add('hidden');
         }
 
-        // 🌟 ປັບປຸງ: ເປີດ Modal Rate ໃຫ້ໂຫຼດ Rate ຊື້ ແລະ Rate ຂາຍ ມາສະແດງ
         function openRateInputModal() {
             let savedBuyRate = localStorage.getItem('pos_custom_buy_rate') || localStorage.getItem('pos_custom_manual_rate') || '650';
             let savedSellRate = localStorage.getItem('pos_custom_sell_rate') || localStorage.getItem('pos_custom_manual_rate') || '690';
@@ -2052,7 +2051,6 @@
             document.getElementById('rate-input-modal').classList.add('hidden');
         }
 
-        // 🌟 ປັບປຸງ: ບັນທຶກ Rate ຊື້ ແລະ Rate ຂາຍ ພ້ອມຟໍແມັດ #,##0 ລົງ LocalStorage
         async function applyCustomRateToTable() {
             let buyRateVal = parseFloat(document.getElementById('input-custom-buy-rate').value.replace(/,/g, '')) || 0;
             let sellRateVal = parseFloat(document.getElementById('input-custom-sell-rate').value.replace(/,/g, '')) || 0;
@@ -3131,7 +3129,7 @@
             return { ok: true };
         }
 
-        // 🌟 ປັບປຸງ: 4 ລ່ຽມສີແດງ 2 (ຍອດເງິນບາດໃນປ໊ອບອັບ) ຫານດ້ວຍ "Rate ຊື້"
+        // 🌟 ປັບປຸງ: 4 ລ່ຽມສີແດງ 2 (ຍອດເງິນບາດໃນປ໊ອບອັບ) ຫານດ້ວຍ Rate ຊື້ ແລະ ປັດເສດດ້ວຍ Math.ceil (ROUNDUP 0)
         function openCheckoutMethodModal() {
             if (cart.length === 0) {
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າກ່ອນຊຳລະເງິນ!", "⚠️");
@@ -3141,12 +3139,11 @@
             let customPriceVal = document.getElementById('custom-final-price').value.replace(/,/g, '');
             let finalTotal = customPriceVal !== "" ? (parseFloat(customPriceVal) || 0) : grandTotal;
 
-            // ດึง Rate ຊື້ (buy_rate) มาคำนวณเงินบาทตามความต้องการ
             let currentBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || parseFloat(localStorage.getItem('pos_custom_manual_rate')) || 650;
             let thbAmount = 0;
             if (currentBuyRate > 0) {
                 let rawThb = finalTotal / currentBuyRate;
-                thbAmount = Math.ceil(rawThb / 10) * 10;
+                thbAmount = Math.ceil(rawThb); // ROUNDUP(0)
             }
 
             document.getElementById('popup-total-amount-text').innerText = formatNumberWithCommas(finalTotal) + " ກີບ";
@@ -3246,7 +3243,7 @@
                 currencyType = 'ບາດ';
                 if (currentBuyRate > 0) {
                     let rawThb = finalTotal / currentBuyRate;
-                    finalPaidAmount = Math.ceil(rawThb / 10) * 10;
+                    finalPaidAmount = Math.ceil(rawThb); // ROUNDUP(0)
                 }
             }
 
@@ -3259,9 +3256,10 @@
                 let itemPrice = item.price;
                 let itemCost = item.cost;
                 if (payMode === 'cash_thb' || payMode === 'transfer_thb') {
-                    if (currentBuyRate > 0) {
-                        itemPrice = Math.round((item.price / currentBuyRate) * 100) / 100;
-                        itemCost = Math.round(((item.cost || 0) / currentBuyRate) * 100) / 100;
+                    let currentSellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate')) || currentBuyRate;
+                    if (currentSellRate > 0) {
+                        itemPrice = Math.ceil(item.price / currentSellRate); // ROUNDUP(0)
+                        itemCost = Math.ceil((item.cost || 0) / currentBuyRate); // ROUNDUP(0)
                     }
                 }
 
@@ -3456,6 +3454,7 @@
             let sumCostThb = 0, sumPriceThb = 0, cashThb = 0, transferThb = 0;
 
             let currentBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || parseFloat(localStorage.getItem('pos_custom_manual_rate')) || 650;
+            let currentSellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate')) || currentBuyRate;
 
             globalHistoryList.forEach((tx) => {
                 let txDateObj = new Date(tx.created_at);
@@ -3476,19 +3475,18 @@
                         let displayPrice = itemPrice;
                         let displayCurrency = itCurr;
 
-                        // 🌟 4 ລ່ຽມສີແດງ 1 ໃນປະຫວັດ: ຖ້າຈ່າຍເປັນບາດ ໃຫ້ຫານດ້ວຍ Rate ຊື້ (currentBuyRate)
+                        // 🌟 ປັບປຸງ: ຖ້າຈ່າຍເປັນບາດ ໃຫ້ໃຊ້ Math.ceil (ROUNDUP 0) ບໍ່ໃຫ້ມີເສດ
                         if (itPayment === 'cash_thb' || itPayment === 'transfer_thb') {
                             displayCurrency = 'ບາດ';
                         } else if (itCurr === 'ກີບ' && (itPayment === 'cash_thb' || itPayment === 'transfer_thb')) {
-                            displayCost = currentBuyRate > 0 ? Math.round((itemCost / currentBuyRate) * 100) / 100 : itemCost;
-                            displayPrice = currentBuyRate > 0 ? Math.round((itemPrice / currentBuyRate) * 100) / 100 : itemPrice;
+                            displayCost = currentBuyRate > 0 ? Math.ceil(itemCost / currentBuyRate) : itemCost;
+                            displayPrice = currentSellRate > 0 ? Math.ceil(itemPrice / currentSellRate) : itemPrice;
                             displayCurrency = 'ບາດ';
                         }
 
                         let itemTotal = displayPrice * itemQty;
                         let itemTotalCost = displayCost * itemQty;
 
-                        // 🌟 4 ລ່ຽມສີແດງ 2 (ສະຫຼຸບເງິນບາດໄທ): ສະແດງສະເພາະທຸລະກຳທີ່ຈ່າຍເປັນບາດເທົ່ານັ້ນ (ຖ້າບໍ່ມີ ໃຫ້ເປັນ 0)
                         if (displayCurrency === 'ບາດ') {
                             sumCostThb += itemTotalCost;
                             sumPriceThb += itemTotal;
