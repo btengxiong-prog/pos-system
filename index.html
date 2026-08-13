@@ -976,7 +976,7 @@
         </div>
     </div>
 
-    <!-- Report Modal (🌟 ປັບປຸງ: ແຍກລາຍງານຊັດເຈນທັງເງິນກີບ ແລະ ເງິນບາດ) -->
+    <!-- Report Modal -->
     <div id="report-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-xl max-w-2xl w-full p-6 max-h-[85vh] overflow-y-auto space-y-4">
             <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2 border-b pb-3">
@@ -1042,7 +1042,7 @@
                 </div>
             </div>
 
-            <!-- 🌟 ປັບປຸງ: ກ່ອງລາຍງານ (ແຍກ 2 ຝ່າຍ: ເງິນກີບ ແລະ ເງິນບາດ) -->
+            <!-- 🌟 ປັບປຸງ: ລາຍລະອຽດການຊື້/ຂາຍ ແຍກສະກຸນເງິນ ພ້ອມເງິນສົດ/ເງິນໂອນ -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <!-- ຝ່າຍເງິນກີບ -->
                 <div class="bg-gray-50 p-4 rounded-xl border space-y-2">
@@ -1058,6 +1058,14 @@
                     <div class="flex justify-between text-xs font-bold text-gray-800 border-t pt-1">
                         <span>ກຳໄລເບື້ອງຕົ້ນ:</span>
                         <span id="rep-total-profit-lak" class="text-emerald-700 font-bold">0 ກີບ</span>
+                    </div>
+                    <div class="flex justify-between text-[11px] font-semibold text-gray-600 pt-1 border-t">
+                        <span>- ເງິນສົດຮັບ (ກີບ):</span>
+                        <span id="rep-cash-lak" class="text-gray-800 font-bold">0 ກີບ</span>
+                    </div>
+                    <div class="flex justify-between text-[11px] font-semibold text-gray-600">
+                        <span>- ເງິນໂອນ (ກີບ):</span>
+                        <span id="rep-transfer-lak" class="text-gray-800 font-bold">0 ກີບ</span>
                     </div>
                 </div>
 
@@ -1075,6 +1083,14 @@
                     <div class="flex justify-between text-xs font-bold text-gray-800 border-t pt-1">
                         <span>ກຳໄລເບື້ອງຕົ້ນ:</span>
                         <span id="rep-total-profit-thb" class="text-emerald-700 font-bold">0 ບາດ</span>
+                    </div>
+                    <div class="flex justify-between text-[11px] font-semibold text-gray-600 pt-1 border-t">
+                        <span>- ເງິນສົດຮັບ (ບາດ):</span>
+                        <span id="rep-cash-thb" class="text-gray-800 font-bold">0 ບາດ</span>
+                    </div>
+                    <div class="flex justify-between text-[11px] font-semibold text-gray-600">
+                        <span>- ເງິນໂອນ (ບາດ):</span>
+                        <span id="rep-transfer-thb" class="text-gray-800 font-bold">0 ບາດ</span>
                     </div>
                 </div>
             </div>
@@ -1295,7 +1311,7 @@
                 thCost: "Giá mua",
                 thPrice: "Giá bán",
                 thQty: "Số lượng",
-                thTotal: "Tổng",
+                thTổng: "Tổng",
                 thAction: "Thao tác"
             }
         };
@@ -3500,11 +3516,9 @@
                             displayCurrency = 'ບາດ';
                         }
 
-                        // 🌟 4 ລ່ຽມສີແດງ 1: ປະໃຫ້ເປັນເລກເສດ 2 ຕຳແຫນ່ງ (#,##0.00)
                         let formattedCost = (displayCurrency === 'ບາດ') ? displayCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : formatNumberWithCommas(displayCost);
                         let formattedPrice = (displayCurrency === 'ບາດ') ? displayPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : formatNumberWithCommas(displayPrice);
 
-                        // 🌟 4 ລ່ຽມສີແດງ 2: ໃຫ້ເສດອອກໂດຍໃຊ້ ROUNDUP(0) (Math.ceil)
                         let itemTotal = (displayCurrency === 'ບາດ') ? Math.ceil(displayPrice * itemQty) : (displayPrice * itemQty);
                         let itemTotalCost = (displayCurrency === 'ບາດ') ? (displayCost * itemQty) : (displayCost * itemQty);
 
@@ -3590,13 +3604,13 @@
             calculateReport();
         }
 
-        // 🌟 ປັບປຸງ: ຟັງຊັນຄຳນວນລາຍງານ (ແຍກສະກຸນເງິນ ກີບ ແລະ ບາດ ຢ່າງຊັດເຈນ)
+        // 🌟 ປັບປຸງ: ລາຍງານລວມຍອດ ແຍກສະກຸນເງິນ ແລະ ແຍກປະເພດ ເງິນສົດ/ເງິນໂອນ ຢ່າງລະອຽດ
         async function calculateReport() {
             let reportType = document.getElementById('report-type').value;
             let year = parseInt(document.getElementById('report-year').value);
             
-            let totalCostLak = 0, totalPriceLak = 0;
-            let totalCostThb = 0, totalPriceThb = 0;
+            let totalCostLak = 0, totalPriceLak = 0, cashLak = 0, transferLak = 0;
+            let totalCostThb = 0, totalPriceThb = 0, cashThb = 0, transferThb = 0;
 
             let allSales = [];
             if (db) {
@@ -3674,9 +3688,13 @@
                             if (displayCurrency === 'ບາດ') {
                                 totalCostThb += itemTotalCost;
                                 totalPriceThb += itemTotal;
+                                if (itPayment === 'cash_thb') cashThb += itemTotal;
+                                else transferThb += itemTotal;
                             } else {
                                 totalCostLak += itemTotalCost;
                                 totalPriceLak += itemTotal;
+                                if (itPayment === 'transfer_lak') transferLak += itemTotal;
+                                else cashLak += itemTotal;
                             }
                         });
                     }
@@ -3689,10 +3707,14 @@
             document.getElementById('rep-total-cost-lak').innerText = formatNumberWithCommas(totalCostLak) + " ກີບ";
             document.getElementById('rep-total-price-lak').innerText = formatNumberWithCommas(totalPriceLak) + " ກີບ";
             document.getElementById('rep-total-profit-lak').innerText = formatNumberWithCommas(profitLak) + " ກີບ";
+            document.getElementById('rep-cash-lak').innerText = formatNumberWithCommas(cashLak) + " ກີບ";
+            document.getElementById('rep-transfer-lak').innerText = formatNumberWithCommas(transferLak) + " ກີບ";
 
             document.getElementById('rep-total-cost-thb').innerText = formatNumberWithCommas(Math.ceil(totalCostThb)) + " ບາດ";
             document.getElementById('rep-total-price-thb').innerText = formatNumberWithCommas(Math.ceil(totalPriceThb)) + " ບາດ";
             document.getElementById('rep-total-profit-thb').innerText = formatNumberWithCommas(Math.ceil(profitThb)) + " ບາດ";
+            document.getElementById('rep-cash-thb').innerText = formatNumberWithCommas(Math.ceil(cashThb)) + " ບາດ";
+            document.getElementById('rep-transfer-thb').innerText = formatNumberWithCommas(Math.ceil(transferThb)) + " ບາດ";
         }
 
         // --- EXCEL & QR CODE GENERATOR ---
