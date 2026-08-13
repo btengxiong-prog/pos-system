@@ -2659,10 +2659,52 @@
 
         function cancelScannedItem() { document.getElementById('confirm-modal').classList.add('hidden'); }
 
+        // --- 🌟 ປັບປຸງ: ກວດສອບສິນຄ້າມີຫຼາຍລາຄາ/ຫຼາຍລາຍການ ເພື່ອເປີດ Modal ເລືອກເກຣດ/ລາຄາ ---
+        async function handleScannedCodeMatch(cleanDecoded) {
+            await fetchProductsForGenerator();
+            
+            let matches = excelRows.filter(r => {
+                let itemCode = String(r.code || '').trim();
+                return itemCode.toLowerCase() === cleanDecoded.toLowerCase();
+            });
+
+            if (matches.length === 0) {
+                let cleanDecodedDigits = cleanDecoded.replace(/\D/g, '');
+                matches = excelRows.filter(r => {
+                    let itemCodeDigits = String(r.code || '').replace(/\D/g, '');
+                    return itemCodeDigits !== '' && cleanDecodedDigits !== '' && itemCodeDigits === cleanDecodedDigits;
+                });
+            }
+
+            if (matches.length > 1) {
+                let firstPrice = parseFloat(String(matches[0].price).replace(/,/g, '')) || 0;
+                let firstCost = parseFloat(String(matches[0].cost).replace(/,/g, '')) || 0;
+                let allSame = matches.every(m => {
+                    let p = parseFloat(String(m.price).replace(/,/g, '')) || 0;
+                    let c = parseFloat(String(m.cost).replace(/,/g, '')) || 0;
+                    return p === firstPrice && c === firstCost;
+                });
+
+                if (allSame) {
+                    showConfirmModalParsed(matches[0].code, matches[0].code, firstCost, firstPrice);
+                } else {
+                    // 🌟 ຖ້າມີຫຼາຍລາຄາ/ຫຼາຍລາຍການ ໃຫ້ເປີດ Modal ເລືອກລາຄາທັນທີ ໂດຍບໍ່ລວມສາງເຂົ້າກັນ
+                    openSelectPriceModal(cleanDecoded, matches);
+                }
+            } else if (matches.length === 1) {
+                let foundItem = matches[0];
+                let scannedCode = foundItem.code;
+                let scannedCost = parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0;
+                let scannedPrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
+                showConfirmModalParsed(scannedCode, scannedCode, scannedCost, scannedPrice);
+            } else {
+                showConfirmModalParsed(cleanDecoded, cleanDecoded, 0, 0);
+            }
+        }
+
         async function openScanner() {
             document.getElementById('scanner-container').classList.hidden = false;
             document.getElementById('scanner-container').classList.remove('hidden');
-            await fetchProductsForGenerator();
 
             if (!html5QrCode) {
                 try { html5QrCode = new Html5Qrcode("reader"); } catch(err) { return; }
@@ -2677,60 +2719,15 @@
                     lastScanTime = currentTime;
                     
                     let cleanDecoded = String(decodedText).trim();
-                    let scannedCode = cleanDecoded;
-                    let scannedCost = 0;
-                    let scannedPrice = 0;
-                    let scannedName = cleanDecoded;
-
                     try {
                         let parsedJson = JSON.parse(cleanDecoded);
                         if (parsedJson && parsedJson.code) {
-                            scannedCode = parsedJson.code;
-                            scannedCost = parseFloat(parsedJson.cost) || 0;
-                            scannedPrice = parseFloat(parsedJson.price) || 0;
-                            scannedName = parsedJson.code;
-                            showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
-                            return;
+                            cleanDecoded = parsedJson.code;
                         }
                     } catch (e) {}
 
-                    let matches = excelRows.filter(r => {
-                        let itemCode = String(r.code || '').trim();
-                        return itemCode.toLowerCase() === cleanDecoded.toLowerCase();
-                    });
-
-                    if (matches.length === 0) {
-                        let cleanDecodedDigits = cleanDecoded.replace(/\D/g, '');
-                        matches = excelRows.filter(r => {
-                            let itemCodeDigits = String(r.code || '').replace(/\D/g, '');
-                            return itemCodeDigits !== '' && cleanDecodedDigits !== '' && itemCodeDigits === cleanDecodedDigits;
-                        });
-                    }
-
-                    if (matches.length > 1) {
-                        let firstPrice = parseFloat(String(matches[0].price).replace(/,/g, '')) || 0;
-                        let firstCost = parseFloat(String(matches[0].cost).replace(/,/g, '')) || 0;
-                        let allSame = matches.every(m => {
-                            let p = parseFloat(String(m.price).replace(/,/g, '')) || 0;
-                            let c = parseFloat(String(m.cost).replace(/,/g, '')) || 0;
-                            return p === firstPrice && c === firstCost;
-                        });
-
-                        if (allSame) {
-                            showConfirmModalParsed(matches[0].code, matches[0].code, firstCost, firstPrice);
-                        } else {
-                            openSelectPriceModal(cleanDecoded, matches);
-                        }
-                    } else if (matches.length === 1) {
-                        let foundItem = matches[0];
-                        scannedCode = foundItem.code;
-                        scannedCost = parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0;
-                        scannedPrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
-                        scannedName = foundItem.code;
-                        showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
-                    } else {
-                        showConfirmModalParsed(scannedCode, scannedName, 0, 0);
-                    }
+                    closeScanner();
+                    handleScannedCodeMatch(cleanDecoded);
                 },
                 (errorMessage) => {}
             ).catch(err => {});
@@ -2758,42 +2755,7 @@
             }
             inputElem.value = "";
             closeScanner();
-
-            await fetchProductsForGenerator();
-            let scannedCode = cleanDecoded;
-            let scannedCost = 0;
-            let scannedPrice = 0;
-            let scannedName = cleanDecoded;
-
-            let matches = excelRows.filter(r => {
-                let itemCode = String(r.code || '').trim();
-                return itemCode.toLowerCase() === cleanDecoded.toLowerCase();
-            });
-
-            if (matches.length > 1) {
-                let firstPrice = parseFloat(String(matches[0].price).replace(/,/g, '')) || 0;
-                let firstCost = parseFloat(String(matches[0].cost).replace(/,/g, '')) || 0;
-                let allSame = matches.every(m => {
-                    let p = parseFloat(String(m.price).replace(/,/g, '')) || 0;
-                    let c = parseFloat(String(m.cost).replace(/,/g, '')) || 0;
-                    return p === firstPrice && c === firstCost;
-                });
-
-                if (allSame) {
-                    showConfirmModalParsed(matches[0].code, matches[0].code, firstCost, firstPrice);
-                } else {
-                    openSelectPriceModal(cleanDecoded, matches);
-                }
-            } else if (matches.length === 1) {
-                let foundItem = matches[0];
-                scannedCode = foundItem.code;
-                scannedCost = parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0;
-                scannedPrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
-                scannedName = foundItem.code;
-                showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
-            } else {
-                showConfirmModalParsed(scannedCode, scannedName, 0, 0);
-            }
+            handleScannedCodeMatch(cleanDecoded);
         }
 
         function openSelectPriceModal(code, items) {
@@ -2807,12 +2769,13 @@
                 let priceNum = parseFloat(String(item.price).replace(/,/g, '')) || 0;
                 let profitPct = item.profitPct || 20;
                 let dateStr = item.dateAdded || '-';
+                let stockQty = item.qty || 1;
                 html += `<label class="flex items-center justify-between p-3 border-2 rounded-xl cursor-pointer hover:bg-blue-50 transition ${idx === 0 ? 'border-blue-600 bg-blue-50/50' : 'border-gray-200'}" onclick="selectPriceOption(${idx}, this)">
                     <div class="flex items-center gap-3">
                         <input type="radio" name="price_option" value="${idx}" ${idx === 0 ? 'checked' : ''} class="w-4 h-4 text-blue-600">
                         <div>
-                            <div class="text-xs font-bold text-gray-800">ເກຣດ/ຕົວເລືອກທີ #${idx + 1} <span class="text-[10px] text-gray-400">(${dateStr})</span></div>
-                            <div class="text-xs font-semibold text-blue-700">ລາຄາຊື້: ${formatNumberWithCommas(costNum)} ກີບ</div>
+                            <div class="text-xs font-bold text-gray-800">ລາຍການນຳເຂົ້າວັນທີ: <span class="text-purple-700">${dateStr}</span></div>
+                            <div class="text-xs font-semibold text-blue-700">ລາຄາຊື້: ${formatNumberWithCommas(costNum)} ກີບ | ສາງ: ${formatNumberWithCommas(stockQty)}</div>
                         </div>
                     </div>
                     <div class="text-right">
@@ -2840,11 +2803,10 @@
         function confirmSelectedPriceOption() {
             if (!selectedPriceItem) return;
             let scannedCode = selectedPriceItem.code;
-            let scannedName = selectedPriceItem.code;
             let scannedCost = parseFloat(String(selectedPriceItem.cost).replace(/,/g, '')) || 0;
             let scannedPrice = parseFloat(String(selectedPriceItem.price).replace(/,/g, '')) || 0;
             closeSelectPriceModal();
-            showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
+            showConfirmModalParsed(scannedCode, scannedCode, scannedCost, scannedPrice);
         }
 
         async function updateCartQtyDirect(index, inputElem) {
