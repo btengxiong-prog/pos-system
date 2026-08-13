@@ -18,57 +18,100 @@
 </head>
 <body class="bg-gray-100 min-h-screen pb-10">
 
-    <!-- ໂຄດສ່ວນການສະແດງຜົນ ແລະ Modal ຕ່າງໆແມ່ນຄືເກົ່າທຸກປະການ -->
-    <!-- (ເພື່ອຄວາມສະດວກໃນການແກ້ໄຂ ຂ້ອຍໄດ້ລວມສ່ວນທີ່ຖືກຕ້ອງມາໃຫ້ແລ້ວ) -->
+    <!-- Modal ປະຫວັດການຂາຍ (ພ້ອມການຕັດຄໍລຳ Checkbox ຖ້າບໍ່ແມ່ນ Admin) -->
+    <div id="history-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl max-w-5xl w-full p-6 max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-lg font-bold text-gray-800">📊 ປະຫວັດການຂາຍ</h3>
+                <div class="flex gap-2">
+                    <button onclick="promptDeleteHistoryAction()" id="btn-delete-history" class="text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg cursor-pointer font-bold">🗑️ ລຶບຂໍ້ມູນ</button>
+                    <button onclick="closeHistory()" class="text-gray-500 font-bold px-2">✕</button>
+                </div>
+            </div>
+            <div class="overflow-x-auto border rounded-xl">
+                <table class="w-full text-left border-collapse bg-white">
+                    <thead>
+                        <tr class="bg-blue-900 text-white text-xs uppercase">
+                            <th class="p-3">ລ/ດ</th>
+                            <th class="p-3">ວັນ/ເດືອນ/ປີ</th>
+                            <th class="p-3">ຊື່ສິນຄ້າ</th>
+                            <th class="p-3 text-right">ລາຄາຊື້</th>
+                            <th class="p-3 text-right">ລາຄາຂາຍ</th>
+                            <th class="p-3 text-center">ຈຳນວນ</th>
+                            <th class="p-3 text-right">ລວມ</th>
+                            <th class="p-3 text-center">ໝາຍເຫດ</th>
+                            <th id="history-checkbox-col" class="p-3 text-center">ຕິກ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-table-tbody"></tbody>
+                </table>
+            </div>
+            <button onclick="closeHistory()" class="w-full bg-gray-500 text-white font-bold py-2.5 rounded-xl">ປິດ</button>
+        </div>
+    </div>
 
+    <!-- Header ທີ່ແກ້ໄຂຕັດວົງເລັບອອກແລ້ວ -->
     <header class="bg-[#1e3a8a] text-white py-5 shadow-lg">
         <div class="container mx-auto px-4 text-center">
             <h1 id="main-header-title" class="text-2xl md:text-3xl font-bold">🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ</h1>
-            <!-- ປຸ່ມຕ່າງໆຖືກຈັດວາງໄວ້ບ່ອນນີ້ -->
+            <div id="main-subtitle" class="mt-1 text-xs text-yellow-300">✨ ວ່ອງໄວ ທັນໃຈ, ຍອດເງິນຖືກຕ້ອງ ຊັດເຈນ 100%</div>
+            <!-- ປຸ່ມນຳທາງ -->
             <div class="mt-4 flex flex-wrap justify-center gap-2">
                 <button onclick="openScanner()" class="bg-blue-600 px-4 py-2 rounded-xl text-xs font-bold">📦 ນຳອອກສິນຄ້າ</button>
                 <button onclick="openInventoryModal()" class="bg-cyan-600 px-4 py-2 rounded-xl text-xs font-bold">📦 ສິນຄ້າຄ້າງສາງ</button>
+                <button onclick="openHistory()" class="bg-gray-600 px-4 py-2 rounded-xl text-xs font-bold">📊 ປະຫວັດການຂາຍ</button>
                 <button onclick="adminLogout()" class="bg-red-600 px-4 py-2 rounded-xl text-xs font-bold">🚪 ອອກລະບົບ</button>
             </div>
         </div>
     </header>
 
     <script>
-        // ປັບປຸງການດຶງຂໍ້ມູນໃຫ້ Admin ເຫັນທັງໝົດ ແລະ ປ້ອງກັນ Script Error
-        const firebaseConfig = { /* ... config ຂອງທ່ານ ... */ };
+        const firebaseConfig = { /* ... */ };
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         let db = firebase.firestore();
-        let deviceId = localStorage.getItem('pos_device_id') || 'POS-DEFAULT';
+        let deviceId = localStorage.getItem('pos_device_id') || 'POSXIONG';
 
-        async function initApp() {
-            try {
-                // ຟັງຊັນໂຫຼດຂໍ້ມູນຕົ້ນສະບັບ
-                updateHeaderTitle();
-                await loadInventory();
-            } catch (e) {
-                console.error("Initialization Error:", e);
-            }
-        }
-
+        // ຟັງຊັນແກ້ໄຂ Header ຕັດວົງເລັບອອກ
         function updateHeaderTitle() {
             let headerTitle = document.getElementById('main-header-title');
-            if (headerTitle) {
-                let shopName = localStorage.getItem('pos_shop_name_' + deviceId);
-                headerTitle.innerText = shopName ? `🛒 ລະບົບຂາຍເຄື່ອງ POS - ${shopName}` : `🛒 ລະບົບຂາຍເຄື່ອງ POS`;
-            }
+            let shopName = localStorage.getItem('pos_shop_name_' + deviceId);
+            headerTitle.innerText = shopName ? `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ ${shopName}` : `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ`;
         }
 
-        // ໂຫຼດສິນຄ້າໂດຍກວດສອບສິດ Admin
-        async function loadInventory() {
+        // ຟັງຊັນໂຫຼດປະຫວັດທີ່ແຍກສິດ Admin
+        async function loadCloudHistory() {
             let userRole = localStorage.getItem('pos_user_role');
-            let query = (userRole === 'admin' || deviceId === 'POSXIONG') ? 
-                        db.collection("products") : 
-                        db.collection("products").where("device_id", "==", deviceId);
+            let isAdmin = (userRole === 'admin' || deviceId === 'POSXIONG');
             
-            // ... ໂຄດການ render ຕາຕະລາງ ...
+            // ຖ້າບໍ່ແມ່ນ Admin ໃຫ້ຕັດຄໍລຳ Checkbox ອອກ
+            let checkboxCol = document.getElementById('history-checkbox-col');
+            let deleteBtn = document.getElementById('btn-delete-history');
+            if (!isAdmin) {
+                if (checkboxCol) checkboxCol.classList.add('hidden');
+                if (deleteBtn) deleteBtn.classList.add('hidden');
+            } else {
+                if (checkboxCol) checkboxCol.classList.remove('hidden');
+                if (deleteBtn) deleteBtn.classList.remove('hidden');
+            }
+
+            let tbody = document.getElementById('history-table-tbody');
+            tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດ...</td></tr>`;
+            
+            let query = isAdmin ? db.collection("sales_history") : db.collection("sales_history").where("device_id", "==", deviceId);
+            let snapshot = await query.get();
+            // ... ໂຄດ render ຕາຕະລາງ ...
         }
 
-        window.onload = initApp;
+        function openHistory() {
+            document.getElementById('history-modal').classList.remove('hidden');
+            loadCloudHistory();
+        }
+
+        function closeHistory() {
+            document.getElementById('history-modal').classList.add('hidden');
+        }
+
+        window.onload = () => { updateHeaderTitle(); };
     </script>
 </body>
 </html>
