@@ -191,7 +191,7 @@
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
             <div class="text-3xl">📱</div>
             <h3 class="text-lg font-bold text-purple-900">QR Code ເຊື່ອມຕໍ່ພະນັກງານຂາຍ</h3>
-            <p class="text-xs text-gray-600">ໃຫ້ພະນັກງານຂາຍໃຊ້ໂທລະສັບສະແກນ QR ນี้เพื่อຜູກຮ້ານ</p>
+            <p class="text-xs text-gray-600">ໃຫ້ພະນັກງານຂາຍໃຊ້ໂທລະສັບສະແກນ QR ນີ້ເພື່ອຜູກຮ້ານ</p>
             <div class="bg-purple-50 p-4 rounded-xl border flex justify-center items-center my-2">
                 <div id="admin-connect-qrcode" class="bg-white p-3 rounded-xl border inline-block min-h-[160px]"></div>
             </div>
@@ -245,7 +245,7 @@
                         <tr class="bg-cyan-800 text-white text-xs uppercase">
                             <th class="p-3 border-r text-center w-12">ລ/ດ</th>
                             <th class="p-3 border-r">ຊື່ສິນຄ້າ</th>
-                            <th class="p-3 border-r text-center">ວັນນໍາເຂົ້າສິນຄ້າ</th>
+                            <th class="p-3 border-r text-center">ວັນນຳເຂົ້າສິນຄ້າ</th>
                             <th class="p-3 border-r text-right">ຈຳນວນ</th>
                             <th class="p-3 border-r text-right">ລາຄາຊື້/ໜ່ວຍ</th>
                             <th class="p-3 border-r text-right">ລາຄາຂາຍ/ໜ່ວຍ</th>
@@ -286,7 +286,7 @@
                         <tr class="bg-teal-800 text-white text-xs uppercase">
                             <th class="p-3 border-r text-center w-12">ລ/ດ</th>
                             <th class="p-3 border-r">ຊື່ສິນຄ້າ</th>
-                            <th class="p-3 border-r text-center">ວັນນໍາເຂົ້າສິນຄ້າ</th>
+                            <th class="p-3 border-r text-center">ວັນນຳເຂົ້າສິນຄ້າ</th>
                             <th class="p-3 border-r text-center">ວັນຜະລິດ</th>
                             <th class="p-3 border-r text-center">ວັນໝົດອາຍຸ</th>
                             <th class="p-3 border-r text-right">ລາຄາຊື້</th>
@@ -1172,7 +1172,6 @@
         let currentSaleType = 'wholesale'; 
         let activeScannedItem = null; 
         
-        // 🌟 ຕົວແປຊົ່ວຄາວສຳລັບຈັດການກໍລະນີນຳເຂົ້າສິນຄ້າຊ້ຳກັນ
         let pendingDuplicateStockData = null;
 
         const translations = {
@@ -1277,7 +1276,8 @@
             let headerTitle = document.getElementById('main-header-title');
             if (headerTitle) {
                 let shopName = localStorage.getItem('pos_shop_name_' + deviceId);
-                headerTitle.innerHTML = shopName ? `🛒 ${t.title} &nbsp; ${shopName}` : `🛒 ${t.title}`;
+                let displayTitleName = (shopName && shopName.trim() !== '') ? shopName : deviceId;
+                headerTitle.innerHTML = `🛒 ${t.title} &nbsp; <span class="text-yellow-300 font-extrabold">[ ${displayTitleName} ]</span>`;
             }
             let subTitle = document.getElementById('main-subtitle');
             if (subTitle) subTitle.innerText = t.subtitle;
@@ -1422,6 +1422,9 @@
                     let docSnap = await docRef.get();
                     if (docSnap.exists) {
                         let data = docSnap.data();
+                        if (data.shop_name) {
+                            localStorage.setItem('pos_shop_name_' + deviceId, data.shop_name);
+                        }
                         if (data.type === 'permanent') {
                             localStorage.setItem('pos_shop_owner', 'true');
                         } else if (data.type === 'trial' && data.expiry_date) {
@@ -1645,6 +1648,9 @@
                         if (regUser === formattedU && dev.password === p) {
                             loginSuccess = true;
                             matchedDevId = dev.device_id;
+                            if (dev.shop_name) {
+                                localStorage.setItem('pos_shop_name_' + dev.device_id, dev.shop_name);
+                            }
                         }
                     });
                 } catch (e) {}
@@ -1689,18 +1695,20 @@
             let headerTitle = document.getElementById('main-header-title');
             if (!headerTitle) return;
             
+            let currentLang = localStorage.getItem('pos_current_lang') || 'lo';
+            let t = translations[currentLang] || translations['lo'];
+
             let userRole = localStorage.getItem('pos_user_role');
             if (userRole === 'admin') {
-                headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ`;
+                headerTitle.innerHTML = `🛒 ${t.title}`;
                 return;
             }
 
+            // 🌟 ດຶງຊື່ຮ້ານ ຖ້າບໍ່ມີໃຫ້ເອົາ ID ເຄື່ອງ (deviceId) ມາສະແດງແທນ
             let shopName = localStorage.getItem('pos_shop_name_' + deviceId);
-            if (shopName && shopName.trim() !== '') {
-                headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ &nbsp; ${shopName}`;
-            } else {
-                headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ`;
-            }
+            let displayName = (shopName && shopName.trim() !== '') ? shopName : deviceId;
+
+            headerTitle.innerHTML = `🛒 ${t.title} &nbsp; <span class="text-yellow-300 font-extrabold">[ ${displayName} ]</span>`;
         }
 
         function handleUnifiedLoginKeydown(event) {
@@ -2435,7 +2443,6 @@
             document.getElementById('stock-in-total-calculated').value = formatNumberWithCommas(total);
         }
 
-        // 🌟 ຟັງຊັນຢືນຢັນນຳເຂົ້າສິນຄ້າ (ພ້ອມລະບົບກວດສອບ ແລະ ປ໊ອບອັບຖາມລວມສິນຄ້າຊ້ຳ)
         async function confirmStockIn() {
             let costVal = parseFloat(String(document.getElementById('stock-in-cost').value).replace(/,/g, '')) || 0;
             let qtyVal = parseInt(document.getElementById('stock-in-qty').value) || 1; 
@@ -2475,7 +2482,6 @@
                 }
             }
 
-            // ດຶງຂໍ້ມູນສິນຄ້າໃນສາງປັດຈຸບັນມາເຊັກວ່າມີລະຫັດນີ້ແລ້ວບໍ?
             await fetchProductsForGenerator();
             let cleanCode = currentStockInCode.trim().toLowerCase();
             let existingProductIndex = excelRows.findIndex(r => String(r.code || '').trim().toLowerCase() === cleanCode);
@@ -2492,16 +2498,13 @@
             };
 
             if (existingProductIndex !== -1) {
-                // ພົບສິນຄ້າຊ້ຳກັນ! ເປີດ Popup ຖາມຜູ້ໃຊ້
                 document.getElementById('duplicate-stock-msg').innerHTML = `ພົບສິນຄ້າລະຫັດ <b>[${currentStockInCode}]</b> ມີຢູ່ແລ້ວໃນສາງ.<br>ທ່ານຕ້ອງການລວມຈຳນວນເຂົ້າກັນ ແລະ ໃຊ້ລາຄາຊື້ທີ່ສູງກວ່າ ຫຼື ບໍ່?`;
                 document.getElementById('duplicate-stock-modal').classList.remove('hidden');
             } else {
-                // ບໍ່ຊ້ຳ - ບັນທຶກເປັນແຖວໃໝ່ປົກກະຕິ
                 executeSaveStockIn(false);
             }
         }
 
-        // ຈັດການການຕອບຮັບຈາກ Popup ຖາມລວມສິນຄ້າຊ້ຳ (true = ຕ້ອງການລວມ, false = ບໍ່ຕ້ອງການລວມ/ແຍກແຖວ)
         async function resolveDuplicateStock(shouldMerge) {
             document.getElementById('duplicate-stock-modal').classList.add('hidden');
             if (!pendingDuplicateStockData) return;
@@ -2520,14 +2523,12 @@
                 let oldQty = parseInt(String(oldRow.qty || 1).replace(/,/g, '')) || 1;
                 let mergedQty = oldQty + data.qty;
 
-                // ປຽບທຽບລາຄາຊື້: ເອົາລາຄາທີ່ສູງກວ່າ
                 let oldCost = parseFloat(String(oldRow.cost || 0).replace(/,/g, '')) || 0;
                 let finalCost = data.cost > oldCost ? data.cost : oldCost;
                 
                 let finalRawPrice = finalCost + (finalCost * 20 / 100);
                 let finalPrice = Math.ceil(finalRawPrice / 1000) * 1000;
 
-                // ອັບເດດຂໍ້ມູນໃນ Array
                 excelRows[data.existingIndex].qty = mergedQty;
                 excelRows[data.existingIndex].cost = finalCost;
                 excelRows[data.existingIndex].price = finalPrice;
@@ -2540,7 +2541,6 @@
                 closeStockInModal();
                 showAlert("ສຳເລັດ", `ລວມສິນຄ້າ [${data.code}] ສຳເລັດ! ຈຳນວນລວມ: ${formatNumberWithCommas(mergedQty)} (ລາຄາຊື້: ${formatNumberWithCommas(finalCost)} ກີບ)`, "✅");
             } else {
-                // ບໍ່ລວມ (ສ້າງແຖວໃໝ່ແຍກຕ່າງຫາກ)
                 let newRowId = 'ROW-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
                 excelRows.push({
                     id: newRowId,
@@ -3812,7 +3812,7 @@
             });
             renderExcelTable();
             closeUpdatePctModal();
-            showAlert("ສຳເລັດ", `ອັບເດດເປີເຊັນ (%) ເเป็น ${val}% ທຸກລາຍການແລ້ວ!`, "📊");
+            showAlert("ສຳເລັດ", `ອັບເດດເປີເຊັນ (%) ເປັນ ${val}% ທຸກລາຍການແລ້ວ!`, "📊");
         }
 
         function calculatePercentage() {
