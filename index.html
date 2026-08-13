@@ -684,6 +684,7 @@
             <button onclick="closeStockInScanner()" class="mt-3 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded w-full font-bold cursor-pointer">ປິດກ້ອງ</button>
         </div>
 
+        <!-- Modal ກຳນົດຂໍ້ມູນສິນຄ້າ (ຮູບ 1) -->
         <div id="confirm-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
                 <div class="text-3xl text-center">📦</div>
@@ -708,6 +709,7 @@
                         <div class="grid grid-cols-2 gap-2">
                             <div>
                                 <span class="block text-[10px] font-bold text-gray-500 mb-0.5">📦 ສາງຄົງເຫຼືອ:</span>
+                                <!-- 🌟 1) ຟໍແມັດຕົວເລກສາງຄົງເຫຼືອເປັນ 2,400 ແບບອໍໂຕ -->
                                 <input type="text" id="modal-stock-remaining" readonly class="w-full border rounded-lg px-3 py-2 text-center font-bold text-cyan-800 text-base bg-cyan-50" value="0">
                             </div>
                             <div>
@@ -719,8 +721,8 @@
                 </div>
                 <div class="flex gap-2 pt-2">
                     <button onclick="cancelScannedItem()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
-                    <!-- 🌟 ປຸ່ມຕົກລົງໃນຮູບ 1: ເມື່ອກົດຈະມີປ໊ອບອັບຢືນຢັນ -->
-                    <button onclick="promptConfirmAddCart()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">ຕົກລົງ (ເພີ່ມລົງຕາຕະລາງ)</button>
+                    <!-- 🌟 2 & 3) ຕັດຂັ້ນຕອນປ໊ອບອັບຮູບ 2 ແລະ ຮູບ 3 ອອກ ເພີ່ມລົງຕາຕະລາງທັນທີ -->
+                    <button onclick="confirmScannedItemDirect()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">ຕົກລົງ (ເພີ່ມລົງຕາຕະລາງ)</button>
                 </div>
             </div>
         </div>
@@ -2425,7 +2427,8 @@
             let finalAvailable = remainingStock - inCartQty;
             if (finalAvailable < 0) finalAvailable = 0;
 
-            document.getElementById('modal-stock-remaining').value = finalAvailable;
+            // 🌟 1) ຟໍແມັດຕົວເລກສາງຄົງເຫຼືອເປັນ 2,400 ແບບອໍໂຕ
+            document.getElementById('modal-stock-remaining').value = formatNumberWithCommas(finalAvailable);
 
             let qtyElem = document.getElementById('modal-qty');
             if (qtyElem) {
@@ -2438,38 +2441,39 @@
         }
 
         async function confirmScannedItem() {
-            promptConfirmAddCart();
+            confirmScannedItemDirect();
         }
 
-        function promptConfirmAddCart() {
+        // 🌟 2 & 3) ຕັດຂັ້ນຕອນປ໊ອບອັບຮູບ 2 ແລະ ຮູບ 3 ອອກ ເພີ່ມລົງຕາຕະລາງທັນທີແບບລຽບງ່າຍ
+        function confirmScannedItemDirect() {
             let nameInput = document.getElementById('modal-name').value.trim();
             let costInput = parseFloat(String(document.getElementById('modal-cost').value).replace(/,/g, '')) || 0;
             let priceInput = parseFloat(String(document.getElementById('modal-price').value).replace(/,/g, '')) || 0;
             let qtyInput = parseInt(document.getElementById('modal-qty').value) || 1;
-            let stockRemaining = parseInt(document.getElementById('modal-stock-remaining').value) || 0;
+            let stockRemaining = parseInt(String(document.getElementById('modal-stock-remaining').value).replace(/,/g, '')) || 0;
 
             if (!nameInput) { showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຊື່ສິນຄ້າ!", "⚠️"); return; }
             if (qtyInput <= 0) { showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຈຳນວນໃຫ້ຖືກຕ້ອງ!", "⚠️"); return; }
 
             if (qtyInput > stockRemaining) {
-                showAlert("ສິນຄ້າໃນສາງບໍ່ພໍ", `ສິນຄ້າ [${nameInput}] ໃນສາງເຫຼືອພຽງ ${stockRemaining} ອັນເທົ່ານັ້ນ!`, "❌");
+                showAlert("ສິນຄ້າໃນສາງບໍ່ພໍ", `ສິນຄ້າ [${nameInput}] ໃນສາງເຫຼືອພຽງ ${formatNumberWithCommas(stockRemaining)} ອັນເທົ່ານັ້ນ!`, "❌");
                 return;
             }
 
-            showCustomConfirm("📦 ຢືນຢັນການເພີ່ມສິນຄ້າ", `ທ່ານຕ້ອງການຢືນຢັນເພີ່ມສິນຄ້າ [${nameInput}] ຈຳນວນ ${qtyInput} ລົງໃນຕາຕະລາງຂາຍແທ້ບໍ?`, (confirmed) => {
-                if (!confirmed) return;
-
-                let existingInCart = cart.find(item => item.code === tempScannedCode && item.cost === costInput && item.price === priceInput);
-                if (existingInCart) {
-                    existingInCart.qty += qtyInput;
-                } else {
-                    cart.push({ code: tempScannedCode, name: nameInput, cost: costInput, price: priceInput, qty: qtyInput });
+            let existingInCart = cart.find(item => item.code === tempScannedCode && item.cost === costInput && item.price === priceInput);
+            if (existingInCart) {
+                let totalNewQty = existingInCart.qty + qtyInput;
+                if (totalNewQty > (stockRemaining + existingInCart.qty)) {
+                    showAlert("ສິນຄ້າໃນສາງບໍ່ພໍ", `ສິນຄ້າໃນສາງເຫຼືອພຽງ ${formatNumberWithCommas(stockRemaining)} ອັນເທົ່ານັ້ນ!`, "❌");
+                    return;
                 }
+                existingInCart.qty = totalNewQty;
+            } else {
+                cart.push({ code: tempScannedCode, name: nameInput, cost: costInput, price: priceInput, qty: qtyInput });
+            }
 
-                renderCart();
-                document.getElementById('confirm-modal').classList.add('hidden');
-                showAlert("ສຳເລັດ", "ເພີ່ມສິນຄ້າລົງໃນຕາຕະລາງຂາຍຮຽບຮ້ອຍ!", "✅");
-            });
+            renderCart();
+            document.getElementById('confirm-modal').classList.add('hidden');
         }
 
         function cancelScannedItem() { document.getElementById('confirm-modal').classList.add('hidden'); }
@@ -2503,13 +2507,6 @@
                             scannedCost = parseFloat(parsedJson.cost) || 0;
                             scannedPrice = parseFloat(parsedJson.price) || 0;
                             scannedName = parsedJson.code;
-                            
-                            // 🌟 1) ລະຫັດຄືກັນ ແລະ ລາຄາຄືກັນ ບໍ່ໃຫ້ສະແດງປ໊ອບອັບ (Auto ເລືອກເລີຍ)
-                            let matchSame = excelRows.find(r => String(r.code || '').trim().toLowerCase() === scannedCode.toLowerCase() && (parseFloat(r.price) || 0) === scannedPrice);
-                            if (matchSame) {
-                                showConfirmModalParsed(scannedCode, scannedCode, parseFloat(matchSame.cost) || 0, scannedPrice);
-                                return;
-                            }
                             showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
                             return;
                         }
@@ -2540,7 +2537,6 @@
                         if (allSame) {
                             showConfirmModalParsed(matches[0].code, matches[0].code, firstCost, firstPrice);
                         } else {
-                            // 🌟 2) ລະຫັດຄືກັນ ແຕ່ລາຄາບໍ່ຄືກັນ ຈຶ່ງສະແດງປ໊ອບອັບເລືອກ
                             openSelectPriceModal(cleanDecoded, matches);
                         }
                     } else if (matches.length === 1) {
@@ -2712,7 +2708,7 @@
             if (remainingStock < 0) remainingStock = 0;
 
             if (val > remainingStock) {
-                showAlert("ສິນຄ້າໃນສາງບໍ່ພໍ", `ສິນຄ້າ [${targetItem.name}] ໃນສາງເຫຼືອພຽງ ${remainingStock} ອັນເທົ່ານັ້ນ!`, "⚠️");
+                showAlert("ສິນຄ້າໃນສາງບໍ່ພໍ", `ສິນຄ້າ [${targetItem.name}] ໃນສາງເຫຼືອພຽງ ${formatNumberWithCommas(remainingStock)} ອັນເທົ່ານັ້ນ!`, "⚠️");
                 inputElem.value = remainingStock;
                 cart[index].qty = remainingStock;
             } else {
@@ -2921,7 +2917,7 @@
 
             let stockCheck = await checkStockAvailability();
             if (!stockCheck.ok) {
-                showAlert("ສິນຄ້າໃນສາງບໍ່ພໍ", `ສິນຄ້າ [${stockCheck.name}] ໃນສາງເຫຼືອພຽງ ${stockCheck.available} ອັນ ແຕ່ທ່ານຕ້ອງການຂາຍ ${stockCheck.requested} ອັນ! ບໍ່ສາມາດຂາຍເກີນຈຳນວນສາງໄດ້.`, "❌");
+                showAlert("ສິນຄ້າໃນສາງບໍ່ພໍ", `ສິນຄ້າ [${stockCheck.name}] ໃນສາງເຫຼືອພຽງ ${formatNumberWithCommas(stockCheck.available)} ອັນ ແຕ່ທ່ານຕ້ອງການຂາຍ ${formatNumberWithCommas(stockCheck.requested)} ອັນ! ບໍ່ສາມາດຂາຍເກີນຈຳນວນສາງໄດ້.`, "❌");
                 return;
             }
 
@@ -2969,7 +2965,7 @@
             }
 
             closeCheckoutMethodModal();
-            let payLabel = payMode === 'cash' ? 'ເງິນສົດ' : (payMode === 'transfer_lak' ? 'ເງິນໂອນ (ບັນຊີກີບ)' : 'ເງິນໂອນ (ບັນຊີບາດ)');
+            let payLabel = payMode === 'cash' ? 'ເງິນສົດ' : (payMode === 'transfer_lak' ? 'ເງິນໂອນ (ບັນຊີກີບເຄື່ອງ)' : 'ເງິນໂອນ (ບັນຊີບາດ)');
             
             showAlert("ສຳເລັດ", `ຊຳລະເງິນ (${payLabel}) ສຳເລັດຮຽບຮ້ອຍ!`, "✅", () => {
                 location.reload();
@@ -3061,7 +3057,6 @@
                 try {
                     let userRole = localStorage.getItem('pos_user_role');
                     let snapshot;
-                    // 🌟 ADMIN ໃຫຍ່ (POSXIONG) ເຫັນທັງໝົດຂອງທຸກຢູເຊີ
                     if (userRole === 'admin' || deviceId === 'POSXIONG') {
                         snapshot = await db.collection("sales_history").get();
                     } else {
@@ -3085,7 +3080,6 @@
                 return;
             }
 
-            // 🌟 ວິເຄາະຈັດລຳດັບຂາຍດີ (Best Sellers Ranking)
             let itemSoldCountMap = {};
             globalHistoryList.forEach(tx => {
                 if (tx.items && Array.isArray(tx.items)) {
@@ -3100,7 +3094,7 @@
             let sortedBestSellers = Object.keys(itemSoldCountMap).sort((a, b) => itemSoldCountMap[b] - itemSoldCountMap[a]);
             let rankMap = {};
             sortedBestSellers.forEach((code, index) => {
-                rankMap[code] = index + 1; // ອັນດັບ 1, 2, 3...
+                rankMap[code] = index + 1;
             });
 
             let html = '';
