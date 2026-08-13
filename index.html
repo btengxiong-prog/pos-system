@@ -2503,6 +2503,13 @@
                             scannedCost = parseFloat(parsedJson.cost) || 0;
                             scannedPrice = parseFloat(parsedJson.price) || 0;
                             scannedName = parsedJson.code;
+                            
+                            // 🌟 1) ລະຫັດຄືກັນ ແລະ ລາຄາຄືກັນ ບໍ່ໃຫ້ສະແດງປ໊ອບອັບ (Auto ເລືອກເລີຍ)
+                            let matchSame = excelRows.find(r => String(r.code || '').trim().toLowerCase() === scannedCode.toLowerCase() && (parseFloat(r.price) || 0) === scannedPrice);
+                            if (matchSame) {
+                                showConfirmModalParsed(scannedCode, scannedCode, parseFloat(matchSame.cost) || 0, scannedPrice);
+                                return;
+                            }
                             showConfirmModalParsed(scannedCode, scannedName, scannedCost, scannedPrice);
                             return;
                         }
@@ -2533,6 +2540,7 @@
                         if (allSame) {
                             showConfirmModalParsed(matches[0].code, matches[0].code, firstCost, firstPrice);
                         } else {
+                            // 🌟 2) ລະຫັດຄືກັນ ແຕ່ລາຄາບໍ່ຄືກັນ ຈຶ່ງສະແດງປ໊ອບອັບເລືອກ
                             openSelectPriceModal(cleanDecoded, matches);
                         }
                     } else if (matches.length === 1) {
@@ -2585,7 +2593,19 @@
             });
 
             if (matches.length > 1) {
-                openSelectPriceModal(cleanDecoded, matches);
+                let firstPrice = parseFloat(String(matches[0].price).replace(/,/g, '')) || 0;
+                let firstCost = parseFloat(String(matches[0].cost).replace(/,/g, '')) || 0;
+                let allSame = matches.every(m => {
+                    let p = parseFloat(String(m.price).replace(/,/g, '')) || 0;
+                    let c = parseFloat(String(m.cost).replace(/,/g, '')) || 0;
+                    return p === firstPrice && c === firstCost;
+                });
+
+                if (allSame) {
+                    showConfirmModalParsed(matches[0].code, matches[0].code, firstCost, firstPrice);
+                } else {
+                    openSelectPriceModal(cleanDecoded, matches);
+                }
             } else if (matches.length === 1) {
                 let foundItem = matches[0];
                 scannedCode = foundItem.code;
@@ -2992,7 +3012,7 @@
 
         function promptDeleteHistoryAction() {
             let userRole = localStorage.getItem('pos_user_role');
-            if (userRole !== 'admin') {
+            if (userRole !== 'admin' && deviceId !== 'POSXIONG') {
                 showAlert("ບໍ່ມີສິດທິ", "ມີແຕ່ ADMIN ໃຫຍ່ ເທົ່ານັ້ນທີ່ສາມາດລຶບປະຫວັດການຂາຍໄດ້!", "🔒");
                 return;
             }
