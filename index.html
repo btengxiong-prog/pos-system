@@ -1390,7 +1390,7 @@
                               originalCost: item.original_cost || item.cost,
                               profitPct: item.profit_pct,
                               price: item.price,
-                              qty: item.qty || 1,
+                              qty: item.qty || 1, // ຈຳນວນຫໍ່ໃຫຍ່
                               unitPerPack: item.unit_per_pack || 12,
                               dateAdded: item.date_added || new Date().toISOString().split('T')[0],
                               mfgDate: item.mfg_date || '',
@@ -2034,31 +2034,30 @@
             }
         }
 
-        // 🌟 ປັບປຸງ loadInventory ໃຫ້ກັ່ນຕອງຍອດຂາຍສະເພາະ device_id ຂອງໃຜຂອງມັນ (ບໍ່ໃຫ້ Admin ໄປດຶງຍອດຂາຍຮ້ານອື່ນມາຫັກສາງ)
+        // 🌟 ປັບປຸງການຄຳນວນໃນ loadInventory ໃຫ້ແຍກຫັກສາງສະເພາະຕາມແຕ່ລະແຖວ/ລາຍການນຳເຂົ້າ (Row ID) ແບບອິດສະຫຼະ
         async function loadInventory() {
             let tbody = document.getElementById('inventory-tbody');
             tbody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
 
             await fetchProductsForGenerator();
 
-            let soldQtyMap = {};
+            let rowSoldMap = {}; // ເກັບຈຳນວນຂາຍແຍກຕາມ ID ຂອງແຖວສິນຄ້າ
             if (db) {
                 try {
-                    let userRole = localStorage.getItem('pos_user_role');
-                    let snapshot;
-                    // ຖ້າເປັນ Admin ໃຫຍ່ POSXIONG ໃຫ້ເຫັນສະເພາະການຂາຍຂອງ POSXIONG (ບໍ່ໃຫ້ໄປດຶງຍອດຂາຍຮ້ານອື່ນມາຫັກສາງ)
-                    if (userRole === 'admin' || deviceId === 'POSXIONG') {
-                        snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
-                    } else {
-                        snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
-                    }
-
+                    let snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
                     snapshot.forEach(doc => {
                         let tx = doc.data();
                         if (tx.items && Array.isArray(tx.items)) {
                             tx.items.forEach(it => {
+                                let rowId = it.product_row_id || ''; // ຖ້າມີການຜູກ Row ID
                                 let cKey = String(it.code || '').trim().toLowerCase();
-                                soldQtyMap[cKey] = (soldQtyMap[cKey] || 0) + (parseInt(it.qty) || 1);
+                                let qty = parseInt(it.qty) || 1;
+                                if (rowId) {
+                                    rowSoldMap[rowId] = (rowSoldMap[rowId] || 0) + qty;
+                                } else {
+                                    // Fallback: ຖ້າບໍ່ມີ rowId ໃຫ້ແຈກຢາຍຕາມ code
+                                    rowSoldMap[cKey] = (rowSoldMap[cKey] || 0) + qty;
+                                }
                             });
                         }
                     });
@@ -2077,11 +2076,16 @@
 
             excelRows.forEach((row) => {
                 let codeKey = String(row.code || '').trim().toLowerCase();
-                let initialPackQty = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1; 
+                let initialPackQty = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1; // ຫໍ່ໃຫຍ່
                 let unitPerPack = parseInt(row.unitPerPack || 12);
                 let totalSubUnits = initialPackQty * unitPerPack; 
 
-                let soldSubUnits = soldQtyMap[codeKey] || 0; 
+                // 🌟 ດຶງຍອດຂາຍສະເພາະແຖວ (Row ID) ນັ້ນໆ
+                let soldSubUnits = rowSoldMap[row.id] || rowSoldMap[codeKey] || 0;
+                
+                // ປ້ອງກັນບໍ່ໃຫ້ຍອດຂາຍຂອງແຖວອື່ນມາຫັກລົບເກີນຈຳນວນຂອງແຖວນີ້
+                if (soldSubUnits > totalSubUnits) soldSubUnits = totalSubUnits;
+
                 let remainingSubUnits = totalSubUnits - soldSubUnits;
                 if (remainingSubUnits < 0) remainingSubUnits = 0;
 
@@ -2101,7 +2105,6 @@
                 let totalPriceStr = formatNumberWithCommas(totalPriceAmount) + " " + currency;
 
                 let formattedDate = formatDateToDDMMYYYY(row.dateAdded || new Date().toISOString().split('T')[0]);
-
                 let noteStr = `ເຫຼືອ: ${formatNumberWithCommas(remainingFullPacks)}/${leftoverUnits}`;
 
                 html += `
@@ -2141,11 +2144,13 @@
 
             if (confirmTitle) confirmTitle.innerText = title;
             if (confirmMsg) confirmMsg.innerText = message;
+            if (confirmModal) confirmModal.classList.hidden = false;
             if (confirmModal) confirmModal.classList.remove('hidden');
             customConfirmCallback = callback;
         }
 
         async function openExpiryModal() {
+            document.getElementById('expiry-modal').classList.hidden = false;
             document.getElementById('expiry-modal').classList.remove('hidden');
             await loadExpiryCheck();
         }
@@ -2253,6 +2258,7 @@
         }
 
         async function openStockInScanner() {
+            document.getElementById('stock-in-scanner-container').classList.hidden = false;
             document.getElementById('stock-in-scanner-container').classList.remove('hidden');
 
             if (!stockInQrCode) {
@@ -2398,13 +2404,13 @@
             document.getElementById('stock-in-import-date').value = todayFormatted;
 
             document.getElementById('stock-in-cost').value = "";
-            document.getElementById('stock-in-modal').classList.add('hidden');
+            document.getElementById('stock-in-modal').classList.hidden = false;
+            document.getElementById('stock-in-modal').classList.remove('hidden');
             document.getElementById('stock-in-qty').value = "100";
             document.getElementById('stock-in-unit-per-pack').value = "12";
             document.getElementById('stock-in-total-calculated').value = "1,200";
             document.getElementById('stock-in-mfg-date').value = "";
             document.getElementById('stock-in-exp-date').value = "";
-            document.getElementById('stock-in-modal').classList.remove('hidden');
         }
 
         function closeStockInModal() {
@@ -2422,7 +2428,7 @@
             let soldQtyMap = {};
             if (db) {
                 try {
-                    let snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
+                    let snapshot = await db.collection("sales_history").get();
                     snapshot.forEach(doc => {
                         let tx = doc.data();
                         if (tx.items && Array.isArray(tx.items)) {
@@ -2474,7 +2480,7 @@
 
             setSaleType('wholesale');
 
-            document.getElementById('confirm-modal').classList.add('hidden');
+            document.getElementById('confirm-modal').classList.hidden = false;
             document.getElementById('confirm-modal').classList.remove('hidden');
         }
 
@@ -2567,6 +2573,7 @@
         function cancelScannedItem() { document.getElementById('confirm-modal').classList.add('hidden'); }
 
         async function openScanner() {
+            document.getElementById('scanner-container').classList.hidden = false;
             document.getElementById('scanner-container').classList.remove('hidden');
             await fetchProductsForGenerator();
 
@@ -2763,7 +2770,7 @@
             let soldQtyMap = {};
             if (db) {
                 try {
-                    let snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
+                    let snapshot = await db.collection("sales_history").get();
                     snapshot.forEach(doc => {
                         let tx = doc.data();
                         if (tx.items && Array.isArray(tx.items)) {
@@ -2897,7 +2904,7 @@
             let soldQtyMap = {};
             if (db) {
                 try {
-                    let snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
+                    let snapshot = await db.collection("sales_history").get();
                     snapshot.forEach(doc => {
                         let tx = doc.data();
                         if (tx.items && Array.isArray(tx.items)) {
@@ -3061,7 +3068,7 @@
                 device_id: deviceId,
                 created_at: new Date().toISOString(),
                 items: dbItemsToSave,
-                let_total_items: cart.reduce((sum, item) => sum + item.qty, 0),
+                total_items: cart.reduce((sum, item) => sum + item.qty, 0),
                 total_cost: totalCost,
                 sub_total: grandTotal,
                 discount: discount,
@@ -3076,13 +3083,13 @@
                     await db.collection("sales_history").add({
                         device_id: deviceId,
                         items: dbItemsToSave,
-                        total_items: cart.reduce((sum, item) => sum + item.qty, 0),
+                        total_items: txData.total_items,
                         total_cost: totalCost,
                         sub_total: grandTotal,
                         discount: discount,
                         total: finalTotal,
                         cash: cashGiven,
-                        change: cashGiven - finalTotal,
+                        change: txData.change,
                         created_at: txData.created_at
                     });
                 } catch (err) {}
@@ -3201,7 +3208,6 @@
 
             globalHistoryList = Array.from(combinedMap.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-            // 🌟 ຈັດການສິດສະແດງຄໍລຳ Checkbox ປະຫວັດການຂາຍ (ສະເພາະ ADMIN ໃຫຍ່ເທົ່ານັ້ນ)
             let userRole = localStorage.getItem('pos_user_role');
             let colHeader = document.getElementById('history-col-checkbox-header');
             if (userRole === 'admin' || deviceId === 'POSXIONG') {
