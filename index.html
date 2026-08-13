@@ -3228,11 +3228,8 @@
             if (payMode === 'cash_thb' || payMode === 'transfer_thb') {
                 currencyType = 'ບາດ';
                 let currentRate = parseFloat(localStorage.getItem('pos_custom_manual_rate')) || 650;
-                if (currentRate > 0) {
-                    let rawThb = finalTotal / currentRate;
-                    // 🌟 ປັບປຸງ: ปັດเศษขึ้นเต็มจำนวนตามกฎที่กำหนด (ເຊັ່ນ 230.77 -> 231, 269.23 -> 270, 2769.23 -> 2770)
-                    finalPaidAmount = Math.ceil(rawThb);
-                }
+                let rawThb = finalTotal / currentRate;
+                finalPaidAmount = Math.ceil(rawThb / 10) * 10;
             }
 
             let dbItemsToSave = cart.map(item => {
@@ -3246,9 +3243,8 @@
                 if (payMode === 'cash_thb' || payMode === 'transfer_thb') {
                     let currentRate = parseFloat(localStorage.getItem('pos_custom_manual_rate')) || 650;
                     if (currentRate > 0) {
-                        // 🌟 ປັບປຸງ: ปັດเศษขึ้นเต็มจำนวนสำหรับລາຄາຊື້ ແລະ ລາຄາຂາຍເມື່ອຈ่ายເປັນບາດ
-                        itemPrice = Math.ceil(item.price / currentRate);
-                        itemCost = Math.ceil((item.cost || 0) / currentRate);
+                        itemPrice = Math.round((item.price / currentRate) * 100) / 100;
+                        itemCost = Math.round(((item.cost || 0) / currentRate) * 100) / 100;
                     }
                 }
 
@@ -3268,28 +3264,12 @@
 
             let totalCostToSave = (payMode === 'cash_thb' || payMode === 'transfer_thb') ? dbItemsToSave.reduce((sum, it) => sum + (it.cost * it.originalQty), 0) : totalCost;
 
-            let txData = {
-                id: 'TX-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
-                device_id: deviceId,
-                created_at: new Date().toISOString(),
-                items: dbItemsToSave,
-                total_items: cart.reduce((sum, item) => sum + item.qty, 0),
-                total_cost: totalCostToSave,
-                sub_total: finalPaidAmount,
-                discount: 0,
-                total: finalPaidAmount,
-                cash: cashGiven,
-                change: 0,
-                payment_method: payMode,
-                currency: currencyType
-            };
-
             if (db) {
                 try {
                     await db.collection("sales_history").add({
                         device_id: deviceId,
                         items: dbItemsToSave,
-                        total_items: txData.total_items,
+                        total_items: cart.reduce((sum, item) => sum + item.qty, 0),
                         total_cost: totalCostToSave,
                         sub_total: finalPaidAmount,
                         discount: 0,
@@ -3298,7 +3278,7 @@
                         change: 0,
                         payment_method: payMode,
                         currency: currencyType,
-                        created_at: txData.created_at
+                        created_at: new Date().toISOString()
                     });
                 } catch (err) {}
             }
@@ -3458,6 +3438,8 @@
             let sumCostLak = 0, sumPriceLak = 0, cashLak = 0, transferLak = 0;
             let sumCostThb = 0, sumPriceThb = 0, cashThb = 0, transferThb = 0;
 
+            let currentRate = parseFloat(localStorage.getItem('pos_custom_manual_rate')) || 650;
+
             globalHistoryList.forEach((tx) => {
                 let txDateObj = new Date(tx.created_at);
                 let dateStr = !isNaN(txDateObj.getTime()) ? formatDateToDDMMYYYY(txDateObj.toISOString().split('T')[0]) : '-';
@@ -3468,20 +3450,32 @@
                         let itemCost = parseFloat(it.cost || 0) || 0;
                         let itemPrice = parseFloat(it.price || 0) || 0;
                         let itemQty = parseInt(it.originalQty || it.qty || 1) || 1;
-                        let itemTotal = itemPrice * itemQty;
-                        let itemTotalCost = itemCost * itemQty;
                         let itemCodeKey = String(it.code || it.name || '').trim();
                         let rankNum = rankMap[itemCodeKey] || '-';
                         let itPayment = it.payment_method || tx.payment_method || 'cash';
                         let itCurr = it.currency || tx.currency || 'ກີບ';
 
-                        // 🌟 ປັບປຸງ: ຈັດແຍກສະກຸນເງິນໃຫ້ຖືກຕ້ອງຕາມເງື່ອນໄຂ (ຈ່າຍບາດເຂົ້າກ່ອງບາດ, ເງິນກີບເຂົ້າກ່ອງກີບ)
-                        if (itCurr === 'ບາດ' || itPayment === 'transfer_thb' || itPayment === 'cash_thb') {
+                        // 🌟 ຖ້າລາຍການນີ້ບັນທຶກເປັນກີບ ແຕ່ຢາກສະແດງໃນຕາຕະລາງປະຫວັດເປັນບາດ (ສຳລັບລາຍການທີ 3 ທີ່ຈ່າຍເປັນບາດ)
+                        let displayCost = itemCost;
+                        let displayPrice = itemPrice;
+                        let displayCurrency = itCurr;
+
+                        if (itPayment === 'cash_thb' || itPayment === 'transfer_thb') {
+                            displayCurrency = 'ບາດ';
+                        } else if (itCurr === 'ກີບ' && currentRate > 0 && (itPayment === 'cash_thb' || itPayment === 'transfer_thb')) {
+                            displayCost = Math.round((itemCost / currentRate) * 100) / 100;
+                            displayPrice = Math.round((itemPrice / currentRate) * 100) / 100;
+                            displayCurrency = 'ບາດ';
+                        }
+
+                        let itemTotal = displayPrice * itemQty;
+                        let itemTotalCost = displayCost * itemQty;
+
+                        if (displayCurrency === 'ບາດ') {
                             sumCostThb += itemTotalCost;
                             sumPriceThb += itemTotal;
                             if (itPayment === 'cash_thb') cashThb += itemTotal;
-                            else if (itPayment === 'transfer_thb') transferThb += itemTotal;
-                            else cashThb += itemTotal;
+                            else transferThb += itemTotal;
                         } else {
                             sumCostLak += itemTotalCost;
                             sumPriceLak += itemTotal;
@@ -3489,7 +3483,7 @@
                             else cashLak += itemTotal;
                         }
 
-                        let currencyLabel = (itCurr === 'ບາດ') ? ' ບາດ' : ' ກີບ';
+                        let currencyLabel = (displayCurrency === 'ບາດ') ? ' ບາດ' : ' ກີບ';
 
                         let checkboxCellHtml = (userRole === 'admin' || deviceId === 'POSXIONG') ? `
                             <td class="p-3 text-center">
@@ -3502,8 +3496,8 @@
                                 <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
                                 <td class="p-3 border-r text-center font-semibold text-purple-700">${dateStr}</td>
                                 <td class="p-3 border-r font-bold text-gray-900">${itemName}</td>
-                                <td class="p-3 border-r text-right text-blue-600 font-semibold">${formatNumberWithCommas(itemCost)}${currencyLabel}</td>
-                                <td class="p-3 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(itemPrice)}${currencyLabel}</td>
+                                <td class="p-3 border-r text-right text-blue-600 font-semibold">${formatNumberWithCommas(displayCost)}${currencyLabel}</td>
+                                <td class="p-3 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(displayPrice)}${currencyLabel}</td>
                                 <td class="p-3 border-r text-center font-bold text-gray-800">${formatNumberWithCommas(itemQty)}</td>
                                 <td class="p-3 border-r text-right font-bold text-gray-900 bg-gray-50">${formatNumberWithCommas(itemTotal)}${currencyLabel}</td>
                                 <td class="p-3 border-r text-center font-extrabold text-amber-600 bg-amber-50/30">ອັນດັບ ${rankNum}</td>
