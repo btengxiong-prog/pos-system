@@ -191,7 +191,7 @@
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
             <div class="text-3xl">📱</div>
             <h3 class="text-lg font-bold text-purple-900">QR Code ເຊື່ອມຕໍ່ພະນັກງານຂາຍ</h3>
-            <p class="text-xs text-gray-600">ໃຫ້ພະນັກງານຂາຍໃຊ້ໂທລະສັບສະແກນ QR ນີ້ເພື່ອຜູກຮ້ານ</p>
+            <p class="text-xs text-gray-600">ໃຫ້ພະນັກງານຂາຍໃຊ້ໂທລະສັບສະແກນ QR ນี้เพื่อຜູກຮ້ານ</p>
             <div class="bg-purple-50 p-4 rounded-xl border flex justify-center items-center my-2">
                 <div id="admin-connect-qrcode" class="bg-white p-3 rounded-xl border inline-block min-h-[160px]"></div>
             </div>
@@ -286,7 +286,7 @@
                         <tr class="bg-teal-800 text-white text-xs uppercase">
                             <th class="p-3 border-r text-center w-12">ລ/ດ</th>
                             <th class="p-3 border-r">ຊື່ສິນຄ້າ</th>
-                            <th class="p-3 border-r text-center">ວັນນຳເຂົ້າສິນຄ້າ</th>
+                            <th class="p-3 border-r text-center">ວັນນໍາເຂົ້າສິນຄ້າ</th>
                             <th class="p-3 border-r text-center">ວັນຜະລິດ</th>
                             <th class="p-3 border-r text-center">ວັນໝົດອາຍຸ</th>
                             <th class="p-3 border-r text-right">ລາຄາຊື້</th>
@@ -495,6 +495,25 @@
             <div class="flex gap-2 pt-2">
                 <button onclick="closeRateInputModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer text-sm">ຍົກເລີກ</button>
                 <button type="button" onclick="applyCustomRateToTable()" class="flex-1 bg-orange-600 hover:bg-orange-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">💾 ບັນທຶກ Rate</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🌟 Popup ແຈ້ງເຕືອນສິນຄ້າຊ້ຳກັນເວລາສັ່ງນຳເຂົ້າ -->
+    <div id="duplicate-stock-modal" class="hidden fixed inset-0 bg-black/70 z-[450] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
+            <div class="text-4xl">⚠️</div>
+            <h3 class="text-lg font-bold text-amber-600">ພົບສິນຄ້າຊ້ຳກັນໃນລະບົບ!</h3>
+            <p class="text-xs text-gray-600 leading-relaxed" id="duplicate-stock-msg">
+                ລະຫັດສິນຄ້ານີ້ມີຢູ່ແລ້ວໃນສາງ. ທ່ານຕ້ອງການລວມຈຳນວນເຂົ້າກັນ ແລະ ໃຊ້ລາຄາຊື້ໃໝ່ ຫຼື ບໍ່?
+            </p>
+            <div class="space-y-2 pt-2">
+                <button onclick="resolveDuplicateStock(true)" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">
+                    ✅ ຕ້ອງການລວມ (ບວກຈຳນວນ & ໃຊ້ລາຄາສູງກວ່າ)
+                </button>
+                <button onclick="resolveDuplicateStock(false)" class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer text-sm">
+                    ❌ ບໍ່ຕ້ອງການ (ແຍກເປັນອີກແຖວຕ່າງຫາກ)
+                </button>
             </div>
         </div>
     </div>
@@ -751,7 +770,7 @@
                     </div>
                     
                     <div>
-                        <label class="block font-semibold text-gray-700 mb-1">📦 ຈຳນວນນຳເຂົ້າ (ລາງ / ຫໍ່):</label>
+                        <label class="block font-semibold text-gray-700 mb-1">📦 ຈຳນວນນຳເຂົ້າ (ລາງ / ຫໍ່ / ແພັກ):</label>
                         <input type="number" id="stock-in-qty" value="1" min="1" oninput="calculateTotalUnit()" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 font-bold text-gray-800 text-lg bg-white" placeholder="ປ້ອນຈຳນວນ">
                     </div>
 
@@ -1152,6 +1171,9 @@
         let deviceId = localStorage.getItem('pos_permanent_device_id') || localStorage.getItem('pos_device_id') || 'POSXIONG';
         let currentSaleType = 'wholesale'; 
         let activeScannedItem = null; 
+        
+        // 🌟 ຕົວແປຊົ່ວຄາວສຳລັບຈັດການກໍລະນີນຳເຂົ້າສິນຄ້າຊ້ຳກັນ
+        let pendingDuplicateStockData = null;
 
         const translations = {
             lo: {
@@ -1425,8 +1447,8 @@
                     db.collection("products").where("device_id", "==", deviceId);
 
                 productQuery.onSnapshot((snapshot) => {
-                      excelRows = [];
-                      snapshot.forEach((doc) => {
+                     excelRows = [];
+                     snapshot.forEach((doc) => {
                           let item = doc.data();
                           excelRows.push({
                               id: doc.id,
@@ -1443,27 +1465,27 @@
                               currency: item.currency || 'ກີບ',
                               device_id: item.device_id || '-'
                           });
-                      });
-                      if (!document.getElementById('inventory-modal').classList.contains('hidden')) {
-                          loadInventory();
-                      }
-                      if (!document.getElementById('expiry-modal').classList.contains('hidden')) {
-                          loadExpiryCheck();
-                      }
-                      if (!document.getElementById('excel-generator-modal').classList.contains('hidden')) {
-                          renderExcelTable();
-                      }
-                  });
+                     });
+                     if (!document.getElementById('inventory-modal').classList.contains('hidden')) {
+                         loadInventory();
+                     }
+                     if (!document.getElementById('expiry-modal').classList.contains('hidden')) {
+                         loadExpiryCheck();
+                     }
+                     if (!document.getElementById('excel-generator-modal').classList.contains('hidden')) {
+                         renderExcelTable();
+                     }
+                 });
 
                 let historyQuery = (userRole === 'admin' || deviceId === 'POSXIONG') ?
                     db.collection("sales_history") :
                     db.collection("sales_history").where("device_id", "==", deviceId);
 
                 historyQuery.onSnapshot((snapshot) => {
-                      if (!document.getElementById('history-modal').classList.contains('hidden')) {
-                          loadCloudHistory();
-                      }
-                  });
+                     if (!document.getElementById('history-modal').classList.contains('hidden')) {
+                         loadCloudHistory();
+                     }
+                 });
             } catch (e) {
                 console.error("Firebase Realtime error:", e);
             }
@@ -2088,7 +2110,6 @@
             }
         }
 
-        // --- 🌟 ປັບປຸງ: ຈັດການຫັກຍອດສາງ (Inventory) ໂດຍຈັບຄູ່ຜ່ານ product_row_id ຢ່າງຊັດເຈນ ---
         async function loadInventory() {
             let tbody = document.getElementById('inventory-tbody');
             tbody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
@@ -2168,7 +2189,6 @@
                 let unitPerPack = parseInt(row.unitPerPack || 12);
                 let totalSubUnits = initialPackQty * unitPerPack; 
 
-                // 🌟 ດึงยอดขายที่หักออกจาก row.id นี้โดยตรง หรือหักตาม code ในกรณีข้อมูลเก่า
                 let soldSubUnits = rowSoldMap[row.id] || rowSoldMap[String(row.code || '').trim().toLowerCase()] || 0;
                 if (soldSubUnits > totalSubUnits) soldSubUnits = totalSubUnits;
 
@@ -2415,11 +2435,11 @@
             document.getElementById('stock-in-total-calculated').value = formatNumberWithCommas(total);
         }
 
+        // 🌟 ຟັງຊັນຢືນຢັນນຳເຂົ້າສິນຄ້າ (ພ້ອມລະບົບກວດສອບ ແລະ ປ໊ອບອັບຖາມລວມສິນຄ້າຊ້ຳ)
         async function confirmStockIn() {
             let costVal = parseFloat(String(document.getElementById('stock-in-cost').value).replace(/,/g, '')) || 0;
             let qtyVal = parseInt(document.getElementById('stock-in-qty').value) || 1; 
             let unitPerPack = parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12; 
-            let finalTotalQty = unitPerPack > 0 ? (qtyVal * unitPerPack) : qtyVal;
 
             let importDateInput = document.getElementById('stock-in-import-date').value.trim();
             let isoImportDate = importDateInput ? parseDDMMYYYYToISO(importDateInput) : new Date().toISOString().split('T')[0];
@@ -2455,29 +2475,132 @@
                 }
             }
 
-            let rawPrice = costVal + (costVal * 20 / 100);
-            let priceVal = Math.ceil(rawPrice / 1000) * 1000;
-            let newRowId = 'ROW-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
+            // ດຶງຂໍ້ມູນສິນຄ້າໃນສາງປັດຈຸບັນມາເຊັກວ່າມີລະຫັດນີ້ແລ້ວບໍ?
+            await fetchProductsForGenerator();
+            let cleanCode = currentStockInCode.trim().toLowerCase();
+            let existingProductIndex = excelRows.findIndex(r => String(r.code || '').trim().toLowerCase() === cleanCode);
 
-            excelRows.push({
-                id: newRowId,
+            pendingDuplicateStockData = {
                 code: currentStockInCode,
                 cost: costVal,
-                originalCost: costVal,
-                profitPct: 20,
-                price: priceVal,
-                qty: qtyVal, 
+                qty: qtyVal,
                 unitPerPack: unitPerPack,
-                dateAdded: isoImportDate,
-                mfgDate: isExpiryMode ? isoMfgDate : isoImportDate,
-                expiryDate: calculatedExpiryDate,
-                currency: 'ກີບ'
-            });
+                isoImportDate: isoImportDate,
+                isoMfgDate: isExpiryMode ? isoMfgDate : isoImportDate,
+                calculatedExpiryDate: calculatedExpiryDate,
+                existingIndex: existingProductIndex
+            };
 
-            saveExcelData();
+            if (existingProductIndex !== -1) {
+                // ພົບສິນຄ້າຊ້ຳກັນ! ເປີດ Popup ຖາມຜູ້ໃຊ້
+                document.getElementById('duplicate-stock-msg').innerHTML = `ພົບສິນຄ້າລະຫັດ <b>[${currentStockInCode}]</b> ມີຢູ່ແລ້ວໃນສາງ.<br>ທ່ານຕ້ອງການລວມຈຳນວນເຂົ້າກັນ ແລະ ໃຊ້ລາຄາຊື້ທີ່ສູງກວ່າ ຫຼື ບໍ່?`;
+                document.getElementById('duplicate-stock-modal').classList.remove('hidden');
+            } else {
+                // ບໍ່ຊ້ຳ - ບັນທຶກເປັນແຖວໃໝ່ປົກກະຕິ
+                executeSaveStockIn(false);
+            }
+        }
 
-            closeStockInModal();
-            showAlert("ສຳເລັດ", `ນຳເຂົ້າສິນຄ້າ [ຫໍ່ໃຫຍ່: ${formatNumberWithCommas(qtyVal)} | ລວມຍ່ອຍ: ${formatNumberWithCommas(finalTotalQty)}] ສຳເລັດຮຽບຮ້ອຍ!`, "✅");
+        // ຈັດການການຕອບຮັບຈາກ Popup ຖາມລວມສິນຄ້າຊ້ຳ (true = ຕ້ອງການລວມ, false = ບໍ່ຕ້ອງການລວມ/ແຍກແຖວ)
+        async function resolveDuplicateStock(shouldMerge) {
+            document.getElementById('duplicate-stock-modal').classList.add('hidden');
+            if (!pendingDuplicateStockData) return;
+
+            await executeSaveStockIn(shouldMerge);
+            pendingDuplicateStockData = null;
+        }
+
+        async function executeSaveStockIn(isMerge) {
+            let data = pendingDuplicateStockData;
+            let rawPrice = data.cost + (data.cost * 20 / 100);
+            let priceVal = Math.ceil(rawPrice / 1000) * 1000;
+
+            if (isMerge && data.existingIndex !== -1) {
+                let oldRow = excelRows[data.existingIndex];
+                let oldQty = parseInt(String(oldRow.qty || 1).replace(/,/g, '')) || 1;
+                let mergedQty = oldQty + data.qty;
+
+                // ປຽບທຽບລາຄາຊື້: ເອົາລາຄາທີ່ສູງກວ່າ
+                let oldCost = parseFloat(String(oldRow.cost || 0).replace(/,/g, '')) || 0;
+                let finalCost = data.cost > oldCost ? data.cost : oldCost;
+                
+                let finalRawPrice = finalCost + (finalCost * 20 / 100);
+                let finalPrice = Math.ceil(finalRawPrice / 1000) * 1000;
+
+                // ອັບເດດຂໍ້ມູນໃນ Array
+                excelRows[data.existingIndex].qty = mergedQty;
+                excelRows[data.existingIndex].cost = finalCost;
+                excelRows[data.existingIndex].price = finalPrice;
+                excelRows[data.existingIndex].dateAdded = data.isoImportDate;
+                if (data.calculatedExpiryDate) {
+                    excelRows[data.existingIndex].expiryDate = data.calculatedExpiryDate;
+                }
+
+                await saveExcelDataQuietly();
+                closeStockInModal();
+                showAlert("ສຳເລັດ", `ລວມສິນຄ້າ [${data.code}] ສຳເລັດ! ຈຳນວນລວມ: ${formatNumberWithCommas(mergedQty)} (ລາຄາຊື້: ${formatNumberWithCommas(finalCost)} ກີບ)`, "✅");
+            } else {
+                // ບໍ່ລວມ (ສ້າງແຖວໃໝ່ແຍກຕ່າງຫາກ)
+                let newRowId = 'ROW-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
+                excelRows.push({
+                    id: newRowId,
+                    code: data.code,
+                    cost: data.cost,
+                    originalCost: data.cost,
+                    profitPct: 20,
+                    price: priceVal,
+                    qty: data.qty, 
+                    unitPerPack: data.unitPerPack,
+                    dateAdded: data.isoImportDate,
+                    mfgDate: data.isoMfgDate,
+                    expiryDate: data.calculatedExpiryDate,
+                    currency: 'ກີບ'
+                });
+
+                saveExcelData();
+                closeStockInModal();
+                let finalTotalQty = data.unitPerPack > 0 ? (data.qty * data.unitPerPack) : data.qty;
+                showAlert("ສຳເລັດ", `ນຳເຂົ້າສິນຄ້າແຖວໃໝ່ [ແພັກ: ${formatNumberWithCommas(data.qty)} | ລວມຍ່ອຍ: ${formatNumberWithCommas(finalTotalQty)}] ສຳເລັດຮຽບຮ້ອຍ!`, "✅");
+            }
+        }
+
+        async function saveExcelDataQuietly() {
+            let validRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
+            let today = new Date().toISOString().split('T')[0];
+
+            if (db) {
+                try {
+                    let snapshot = await db.collection("products").where("device_id", "==", deviceId).get();
+                    let batch = db.batch();
+                    snapshot.forEach((doc) => { batch.delete(doc.ref); });
+                    await batch.commit();
+
+                    let newBatch = db.batch();
+                    validRows.forEach(row => {
+                        let isoDate = row.dateAdded || today;
+                        if (row.dateAdded && row.dateAdded.includes('/')) {
+                            isoDate = parseDDMMYYYYToISO(row.dateAdded);
+                        }
+                        let docRef = db.collection("products").doc();
+                        newBatch.set(docRef, {
+                            device_id: deviceId,
+                            code: row.code,
+                            cost: parseFloat(String(row.cost).replace(/,/g, '')) || 0,
+                            original_cost: parseFloat(String(row.originalCost || row.cost).replace(/,/g, '')) || 0,
+                            profit_pct: parseFloat(String(row.profitPct).replace(/,/g, '')) || 20,
+                            price: parseFloat(String(row.price).replace(/,/g, '')) || 0,
+                            qty: parseInt(String(row.qty).replace(/,/g, '')) || 1,
+                            unit_per_pack: row.unitPerPack || 12,
+                            date_added: isoDate,
+                            mfg_date: row.mfgDate || null,
+                            expiry_date: row.expiryDate || null,
+                            currency: row.currency || 'ກີບ',
+                            updated_at: new Date().toISOString()
+                        });
+                    });
+                    await newBatch.commit();
+                } catch (e) {}
+            }
         }
 
         function openStockInModal(code, defaultCost = null) {
@@ -2494,9 +2617,9 @@
             document.getElementById('stock-in-cost').value = "";
             document.getElementById('stock-in-modal').classList.hidden = false;
             document.getElementById('stock-in-modal').classList.remove('hidden');
-            document.getElementById('stock-in-qty').value = "100";
+            document.getElementById('stock-in-qty').value = "1";
             document.getElementById('stock-in-unit-per-pack').value = "12";
-            document.getElementById('stock-in-total-calculated').value = "1,200";
+            document.getElementById('stock-in-total-calculated').value = "12";
             document.getElementById('stock-in-mfg-date').value = "";
             document.getElementById('stock-in-exp-date').value = "";
         }
@@ -3689,7 +3812,7 @@
             });
             renderExcelTable();
             closeUpdatePctModal();
-            showAlert("ສຳເລັດ", `ອັບເດດເປີເຊັນ (%) ເປັນ ${val}% ທຸກລາຍການແລ້ວ!`, "📊");
+            showAlert("ສຳເລັດ", `ອັບເດດເປີເຊັນ (%) ເเป็น ${val}% ທຸກລາຍການແລ້ວ!`, "📊");
         }
 
         function calculatePercentage() {
