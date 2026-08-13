@@ -719,7 +719,7 @@
                 </div>
                 <div class="flex gap-2 pt-2">
                     <button onclick="cancelScannedItem()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
-                    <!-- 🌟 ປຸ່ມຕົກລົງໃນຮູບ 1 (ກຳນົດຂໍ້ມູນສິນຄ້າ): ເມື່ອກົດຈະມີປ໊ອບອັບຢືນຢັນຂຶ້ນມາ -->
+                    <!-- 🌟 ເມື່ອກົດ ຕົກລົງ ໃນຮູບ 1 ຈະເດັ້ງປ໊ອບອັບຢືນຢັນການຂາຍ -->
                     <button onclick="promptConfirmAddCart()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">ຕົກລົງ (ເພີ່ມລົງຕາຕະລາງ)</button>
                 </div>
             </div>
@@ -854,6 +854,7 @@
                     <span>📊 ປະຫວັດການຂາຍ</span>
                 </h3>
                 <div class="flex gap-2">
+                    <!-- 🌟 1) ປ່ຽນປຸ່ມ ໂຫຼດໃໝ່ ເປັນປຸ່ມ ລຶບຂໍ້ມູນ (ສະເພາະ ADMIN ໃຫຍ່) -->
                     <button onclick="promptDeleteHistoryAction()" class="text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg cursor-pointer font-bold shadow flex items-center gap-1">🗑️ ລຶບຂໍ້ມູນ</button>
                     <button onclick="closeHistory()" class="text-gray-500 hover:text-gray-700 font-bold text-lg cursor-pointer px-2">✕</button>
                 </div>
@@ -870,7 +871,9 @@
                             <th class="p-3 border-r text-right">ລາຄາຂາຍ (ກ/ບ)</th>
                             <th class="p-3 border-r text-center">ຈໍານວນ</th>
                             <th class="p-3 border-r text-right">ລວມ (ກ/ບ)</th>
+                            <!-- 🌟 2) ຄໍລຳ ໝາຍເຫດ (ປ່ຽນເປັນການສະແດງລຳດັບຂາຍດີ) -->
                             <th class="p-3 border-r text-center">ໝາຍເຫດ</th>
+                            <!-- 🌟 3) ເພີ່ມຄໍລຳໜຶ່ງທັດຈາກໝາຍເຫດໄປທາງຂວາ ເພື່ອເລືອກຂໍ້ມູນໃນການລຶບ -->
                             <th class="p-3 text-center w-16">
                                 <input type="checkbox" id="select-all-history-checkbox" onclick="toggleSelectAllHistory(this)" class="w-4 h-4 cursor-pointer accent-blue-600" title="ເລືອກທັງໝົດ">
                             </th>
@@ -1400,8 +1403,7 @@
                       }
                   });
 
-                db.collection("sales_history").where("device_id", "==", deviceId)
-                  .onSnapshot((snapshot) => {
+                db.collection("sales_history").onSnapshot((snapshot) => {
                       if (!document.getElementById('history-modal').classList.contains('hidden')) {
                           loadCloudHistory();
                       }
@@ -2396,7 +2398,7 @@
             let soldQtyMap = {};
             if (db) {
                 try {
-                    let snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
+                    let snapshot = await db.collection("sales_history").get();
                     snapshot.forEach(doc => {
                         let tx = doc.data();
                         if (tx.items && Array.isArray(tx.items)) {
@@ -2659,7 +2661,7 @@
             let soldQtyMap = {};
             if (db) {
                 try {
-                    let snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
+                    let snapshot = await db.collection("sales_history").get();
                     snapshot.forEach(doc => {
                         let tx = doc.data();
                         if (tx.items && Array.isArray(tx.items)) {
@@ -2780,7 +2782,7 @@
             let soldQtyMap = {};
             if (db) {
                 try {
-                    let snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
+                    let snapshot = await db.collection("sales_history").get();
                     snapshot.forEach(doc => {
                         let tx = doc.data();
                         if (tx.items && Array.isArray(tx.items)) {
@@ -2896,6 +2898,7 @@
             }
         }
 
+        // --- 🌟 ຟັງຊັນຢັ້ງຢືນຊຳລະເງິນ: ບັນທຶກປະຫວັດ ແລະ ຣີເຟຣຊ (Refresh) ໜ້າຈໍທັນທີ 100% ---
         async function confirmCheckoutPayment() {
             let selectedRadio = document.querySelector('input[name="pay_mode"]:checked');
             let payMode = selectedRadio ? selectedRadio.value : 'cash';
@@ -2976,7 +2979,7 @@
             }
         }
 
-        // --- 🌟 ປະຫວັດການຂາຍ (ລຶບຂໍ້ມູນສະເພາະ Admin ໃຫຍ່ & ຈັດລຳດັບຂາຍດີ) ---
+        // --- 🌟 ປະຫວັດການຂາຍ (Admin ໃຫຍ່ເຫັນທັງໝົດ, ລຶບຂໍ້ມູນໄດ້, ສະແດງລຳດັບຂາຍດີ) ---
         function openHistory() { 
             document.getElementById('history-modal').classList.remove('hidden'); 
             loadCloudHistory(); 
@@ -3040,7 +3043,15 @@
 
             if (db) {
                 try {
-                    let snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
+                    let userRole = localStorage.getItem('pos_user_role');
+                    let snapshot;
+                    // 🌟 ADMIN ໃຫຍ່ເຫັນທັງໝົດຂອງທຸກຢູເຊີ
+                    if (userRole === 'admin') {
+                        snapshot = await db.collection("sales_history").get();
+                    } else {
+                        snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
+                    }
+
                     snapshot.forEach(doc => {
                         let tx = doc.data();
                         combinedMap.set(doc.id, {
@@ -3162,7 +3173,7 @@
             let allSales = [];
             if (db) {
                 try {
-                    let snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
+                    let snapshot = await db.collection("sales_history").get();
                     snapshot.forEach(doc => {
                         let tx = doc.data();
                         allSales.push({
