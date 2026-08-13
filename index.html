@@ -3222,8 +3222,6 @@
             }
 
             let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-            let totalCost = cart.reduce((sum, item) => sum + ((item.cost || 0) * item.qty), 0);
-            
             let customPriceVal = document.getElementById('custom-final-price').value.replace(/,/g, '');
             let finalTotal = customPriceVal !== "" ? (parseFloat(customPriceVal) || 0) : grandTotal;
             let discount = grandTotal - finalTotal;
@@ -3256,8 +3254,8 @@
                 if (payMode === 'cash_thb' || payMode === 'transfer_thb') {
                     let currentSellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate')) || currentBuyRate;
                     if (currentSellRate > 0) {
-                        itemPrice = Math.ceil(item.price / currentSellRate); // ROUNDUP 0
-                        itemCost = Math.ceil((item.cost || 0) / currentBuyRate); // ROUNDUP 0
+                        itemPrice = item.price / currentSellRate; // 🌟 4 ລ່ຽມ 1: ໃຫ້ຄົງເປັນເລກເສດ (ທົດສນິຍົມ)
+                        itemCost = (item.cost || 0) / currentBuyRate; // 🌟 4 ລ່ຽມ 1: ໃຫ້ຄົງເປັນເລກເສດ (ທົດສນິຍົມ)
                     }
                 }
 
@@ -3275,7 +3273,7 @@
                 };
             });
 
-            let totalCostToSave = (payMode === 'cash_thb' || payMode === 'transfer_thb') ? dbItemsToSave.reduce((sum, it) => sum + (it.cost * it.originalQty), 0) : totalCost;
+            let totalCostToSave = (payMode === 'cash_thb' || payMode === 'transfer_thb') ? dbItemsToSave.reduce((sum, it) => sum + (it.cost * it.originalQty), 0) : cart.reduce((sum, item) => sum + ((item.cost || 0) * item.qty), 0);
 
             if (db) {
                 try {
@@ -3481,9 +3479,13 @@
                             displayCurrency = 'ບາດ';
                         }
 
-                        // 🌟 4 ລ່ຽມສີແດງ 2 (ຄໍລຳລວມ): ໃຊ້ Math.ceil (ROUNDUP 0) ບໍ່ໃຫ້ມີເສດ
+                        // 🌟 4 ລ່ຽມສີແດງ 1: ປ່ອຍໃຫ້ເປັນເລກເສດ (ທົດສນິຍົມ 2 ຕຳແຫນ່ງ)
+                        let formattedCost = (displayCurrency === 'ບາດ') ? displayCost.toFixed(2) : formatNumberWithCommas(displayCost);
+                        let formattedPrice = (displayCurrency === 'ບາດ') ? displayPrice.toFixed(2) : formatNumberWithCommas(displayPrice);
+
+                        // 🌟 4 ລ່ຽມສີແດງ 2: ລວມ ໃຫ້ເສດອອກໂດຍໃຊ້ Math.ceil (ROUNDUP 0)
                         let itemTotal = (displayCurrency === 'ບາດ') ? Math.ceil(displayPrice * itemQty) : (displayPrice * itemQty);
-                        let itemTotalCost = displayCost * itemQty;
+                        let itemTotalCost = (displayCurrency === 'ບາດ') ? (displayCost * itemQty) : (displayCost * itemQty);
 
                         if (displayCurrency === 'ບາດ') {
                             sumCostThb += itemTotalCost;
@@ -3510,8 +3512,8 @@
                                 <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
                                 <td class="p-3 border-r text-center font-semibold text-purple-700">${dateStr}</td>
                                 <td class="p-3 border-r font-bold text-gray-900">${itemName}</td>
-                                <td class="p-3 border-r text-right text-blue-600 font-semibold">${formatNumberWithCommas(displayCost)}${currencyLabel}</td>
-                                <td class="p-3 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(displayPrice)}${currencyLabel}</td>
+                                <td class="p-3 border-r text-right text-blue-600 font-semibold">${formattedCost}${currencyLabel}</td>
+                                <td class="p-3 border-r text-right text-green-600 font-semibold">${formattedPrice}${currencyLabel}</td>
                                 <td class="p-3 border-r text-center font-bold text-gray-800">${formatNumberWithCommas(itemQty)}</td>
                                 <td class="p-3 border-r text-right font-bold text-gray-900 bg-gray-50">${formatNumberWithCommas(itemTotal)}${currencyLabel}</td>
                                 <td class="p-3 border-r text-center font-extrabold text-amber-600 bg-amber-50/30">ອັນດັບ ${rankNum}</td>
