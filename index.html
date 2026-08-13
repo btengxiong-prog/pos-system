@@ -888,6 +888,7 @@
                 </table>
             </div>
 
+            <!-- 🌟 ສ່ວນສະຫຼຸບຍອດ ທີ່ຈັດວາງໄວ້ຢ່າງຖືກຕ້ອງກ່ອນປຸ່ມປິດ -->
             <div id="history-summary" class="bg-blue-50 border border-blue-200 p-4 rounded-xl space-y-3 hidden">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <!-- ເງິນກີບລາວ (ກີບ) -->
@@ -942,7 +943,7 @@
                 </div>
             </div>
 
-            <!-- 🌟 ປຸ່ມປິດ ຖືກຈັດວາງໄວ້ລຸ່ມສຸດ ພາຍໃນ Modal ຢ່າງຖືກຕ້ອງ -->
+            <!-- 🌟 ປຸ່ມປິດ ຢູ່ລຸ່ມສຸດຢ່າງເປັນລະບຽບ -->
             <button onclick="closeHistory()" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">ປິດ</button>
         </div>
     </div>
@@ -3029,6 +3030,89 @@
                 }
             }
             return { ok: true };
+        }
+
+        function openCheckoutMethodModal() {
+            if (cart.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າກ່ອນຊຳລະເງິນ!", "⚠️");
+                return;
+            }
+            let grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            let customPriceVal = document.getElementById('custom-final-price').value.replace(/,/g, '');
+            let finalTotal = customPriceVal !== "" ? (parseFloat(customPriceVal) || 0) : grandTotal;
+
+            let currentRate = parseFloat(localStorage.getItem('pos_custom_manual_rate')) || 650;
+            let thbAmount = 0;
+            if (currentRate > 0) {
+                let rawThb = finalTotal / currentRate;
+                thbAmount = Math.ceil(rawThb / 10) * 10;
+            }
+
+            document.getElementById('popup-total-amount-text').innerText = formatNumberWithCommas(finalTotal) + " ກີບ";
+            document.getElementById('popup-total-thb-text').innerText = formatNumberWithCommas(thbAmount) + " ບາດ (Rate: " + currentRate + ")";
+            
+            let selectedRadio = document.querySelector('input[name="pay_mode"]:checked');
+            let currentMode = selectedRadio ? selectedRadio.value : 'cash';
+
+            let lakSection = document.getElementById('transfer-lak-qr-section');
+            let thbSection = document.getElementById('transfer-thb-qr-section');
+            lakSection.classList.add('hidden');
+            thbSection.classList.add('hidden');
+
+            if (currentMode === 'transfer_lak') {
+                lakSection.classList.remove('hidden');
+                renderShopQrImage('lak');
+            } else if (currentMode === 'transfer_thb') {
+                thbSection.classList.remove('hidden');
+                renderShopQrImage('thb');
+            }
+
+            document.getElementById('checkout-method-modal').classList.hidden = false;
+            document.getElementById('checkout-method-modal').classList.remove('hidden');
+        }
+
+        function closeCheckoutMethodModal() {
+            document.getElementById('checkout-method-modal').classList.add('hidden');
+        }
+
+        function selectPaymentMode(mode, labelElem) {
+            let labels = document.querySelectorAll('#checkout-method-modal .space-y-3 label');
+            labels.forEach(l => {
+                l.classList.remove('border-blue-600', 'bg-blue-50/50');
+                l.classList.add('border-gray-200');
+            });
+            labelElem.classList.remove('border-gray-200');
+            labelElem.classList.add('border-blue-600', 'bg-blue-50/50');
+            let radio = labelElem.querySelector('input[type="radio"]');
+            if (radio) radio.checked = true;
+
+            let lakSection = document.getElementById('transfer-lak-qr-section');
+            let thbSection = document.getElementById('transfer-thb-qr-section');
+
+            lakSection.classList.add('hidden');
+            thbSection.classList.add('hidden');
+
+            if (mode === 'transfer_lak') {
+                lakSection.classList.remove('hidden');
+                renderShopQrImage('lak');
+            } else if (mode === 'transfer_thb') {
+                thbSection.classList.remove('hidden');
+                renderShopQrImage('thb');
+            }
+        }
+
+        function renderShopQrImage(type) {
+            let containerId = type === 'lak' ? 'modal-lak-acc-display' : 'modal-thb-acc-display';
+            let container = document.getElementById(containerId);
+            if (!container) return;
+
+            let accNum = localStorage.getItem(type === 'lak' ? ('pos_shop_lak_acc_' + deviceId) : ('pos_shop_thb_acc_' + deviceId));
+            
+            if (accNum) {
+                container.innerText = accNum;
+            } else {
+                container.innerText = type === 'lak' ? '1006000000470' : '-';
+            }
         }
     </script>
 </body>
