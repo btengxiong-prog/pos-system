@@ -888,7 +888,7 @@
                 </table>
             </div>
 
-            <!-- 🌟 ປັບປຸງສ່ວນສະຫຼຸບຍອດ: ແຍກເປັນເງິນກີບ ແລະ ເງິນບາດ ຕາມທີ່ອາຈານຕ້ອງການ -->
+            <!-- 🌟 ປັບປຸງສ່ວນສະຫຼຸບຍອດ: ແຍກເປັນເງິນກີບ ແລະ ເງິນບາດ ພ້ອມທັງ ຮັບ/ຈ່າຍ (ສົດ) ແລະ ເຂົ້າບັນຊີ (ໂອນ) -->
             <div id="history-summary" class="bg-blue-50 border border-blue-200 p-4 rounded-xl space-y-3 hidden">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <!-- ເງິນກີບລາວ (ກີບ) -->
@@ -943,8 +943,7 @@
                 </div>
             </div>
 
-            <!-- 🌟 ປຸ່ມປິດ ຖືກເລື່ອນລົງມາไว้ດ້ານລຸ່ມສຸດ ຕາມຄວາມຕ້ອງການ -->
-            <button onclick="closeHistory()" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">ປิด</button>
+            <button onclick="closeHistory()" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">ປິດ</button>
         </div>
     </div>
 
@@ -3148,7 +3147,8 @@
                     price: item.price,
                     qty: actualSubUnitQty, 
                     originalSaleType: item.saleType,
-                    originalQty: item.qty
+                    originalQty: item.qty,
+                    payment_method: payMode
                 };
             });
 
@@ -3179,6 +3179,7 @@
                         total: finalTotal,
                         cash: cashGiven,
                         change: txData.change,
+                        payment_method: payMode,
                         created_at: txData.created_at
                     });
                 } catch (err) {}
@@ -3265,156 +3266,6 @@
                 if (masterCb) masterCb.checked = false;
                 showAlert("ສຳເລັດ", "ລຶບປະຫວັດການຂາຍທີ່ເລືອກສຳເລັດຮຽບຮ້ອຍ!", "🗑️");
             });
-        }
-
-        // 🌟 ປັບປຸງ loadCloudHistory: ຄຳນວນແຍກຕາມສະກຸນເງິນ (ກີບ ແລະ ບາດ) ພ້ອມທັງ ຮັບ/ຈ່າຍ (ສົດ) ແລະ ເຂົ້າບັນຊີ (ໂອນ)
-        async function loadCloudHistory() {
-            let tbody = document.getElementById('history-table-tbody');
-            tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</td></tr>`;
-            document.getElementById('history-summary').classList.add('hidden');
-            globalHistoryList = [];
-
-            let combinedMap = new Map();
-
-            if (db) {
-                try {
-                    let userRole = localStorage.getItem('pos_user_role');
-                    let snapshot;
-                    if (userRole === 'admin' || deviceId === 'POSXIONG') {
-                        snapshot = await db.collection("sales_history").get();
-                    } else {
-                        snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
-                    }
-
-                    snapshot.forEach(doc => {
-                        let tx = doc.data();
-                        combinedMap.set(doc.id, {
-                            id: doc.id, created_at: tx.created_at,
-                            total_cost: tx.total_cost || 0, total: tx.total || 0, 
-                            payment_method: tx.payment_method || 'cash',
-                            items: tx.items || []
-                        });
-                    });
-                } catch (err) {}
-            }
-
-            globalHistoryList = Array.from(combinedMap.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-            let userRole = localStorage.getItem('pos_user_role');
-            let colHeader = document.getElementById('history-col-checkbox-header');
-            if (userRole === 'admin' || deviceId === 'POSXIONG') {
-                if (colHeader) colHeader.classList.remove('hidden');
-            } else {
-                if (colHeader) colHeader.classList.add('hidden');
-            }
-
-            if (globalHistoryList.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີປະຫວັດການຂາຍ.</td></tr>`;
-                return;
-            }
-
-            let itemSoldCountMap = {};
-            globalHistoryList.forEach(tx => {
-                if (tx.items && Array.isArray(tx.items)) {
-                    tx.items.forEach(it => {
-                        let codeKey = String(it.code || it.name || '').trim();
-                        let qty = parseInt(it.qty || 1) || 1;
-                        itemSoldCountMap[codeKey] = (itemSoldCountMap[codeKey] || 0) + qty;
-                    });
-                }
-            });
-
-            let sortedBestSellers = Object.keys(itemSoldCountMap).sort((a, b) => itemSoldCountMap[b] - itemSoldCountMap[a]);
-            let rankMap = {};
-            sortedBestSellers.forEach((code, index) => {
-                rankMap[code] = index + 1;
-            });
-
-            let html = '';
-            let countIndex = 1;
-
-            let sumCostLak = 0, sumPriceLak = 0, cashLak = 0, transferLak = 0;
-            let sumCostThb = 0, sumPriceThb = 0, cashThb = 0, transferThb = 0;
-
-            let currentRate = parseFloat(localStorage.getItem('pos_custom_manual_rate')) || 650;
-
-            globalHistoryList.forEach((tx) => {
-                let txDateObj = new Date(tx.created_at);
-                let dateStr = !isNaN(txDateObj.getTime()) ? formatDateToDDMMYYYY(txDateObj.toISOString().split('T')[0]) : '-';
-
-                let txTotalCost = parseFloat(tx.total_cost || 0);
-                let txTotalPrice = parseFloat(tx.total || 0);
-                let pMode = tx.payment_method || 'cash';
-
-                // ຖ້າເປັນບັນຊີບາດ (transfer_thb) ໃຫ້ຄິດໄລ່ເປັນບາດ, ນອກນັ້ນເປັນກີບ
-                if (pMode === 'transfer_thb') {
-                    sumCostThb += txTotalCost;
-                    sumPriceThb += txTotalPrice;
-                    transferThb += txTotalPrice;
-                } else if (pMode === 'transfer_lak') {
-                    sumCostLak += txTotalCost;
-                    sumPriceLak += txTotalPrice;
-                    transferLak += txTotalPrice;
-                } else {
-                    // ເງິນສົດ (cash)
-                    sumCostLak += txTotalCost;
-                    sumPriceLak += txTotalPrice;
-                    cashLak += txTotalPrice;
-                }
-
-                if (tx.items && Array.isArray(tx.items)) {
-                    tx.items.forEach(it => {
-                        let itemName = it.name || it.code || '-';
-                        let itemCost = parseFloat(it.cost || 0) || 0;
-                        let itemPrice = parseFloat(it.price || 0) || 0;
-                        let itemQty = parseInt(it.originalQty || it.qty || 1) || 1;
-                        let itemTotal = itemPrice * itemQty;
-                        let itemCodeKey = String(it.code || it.name || '').trim();
-                        let rankNum = rankMap[itemCodeKey] || '-';
-
-                        let currencyLabel = (pMode === 'transfer_thb') ? ' ບາດ' : ' ກີບ';
-
-                        let checkboxCellHtml = (userRole === 'admin' || deviceId === 'POSXIONG') ? `
-                            <td class="p-3 text-center">
-                                <input type="checkbox" data-id="${tx.id}" class="history-row-checkbox w-4 h-4 cursor-pointer accent-blue-600">
-                            </td>
-                        ` : '';
-
-                        html += `
-                            <tr class="hover:bg-gray-50 border-b">
-                                <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
-                                <td class="p-3 border-r text-center font-semibold text-purple-700">${dateStr}</td>
-                                <td class="p-3 border-r font-bold text-gray-900">${itemName}</td>
-                                <td class="p-3 border-r text-right text-blue-600 font-semibold">${formatNumberWithCommas(itemCost)}${currencyLabel}</td>
-                                <td class="p-3 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(itemPrice)}${currencyLabel}</td>
-                                <td class="p-3 border-r text-center font-bold text-gray-800">${formatNumberWithCommas(itemQty)}</td>
-                                <td class="p-3 border-r text-right font-bold text-gray-900 bg-gray-50">${formatNumberWithCommas(itemTotal)}${currencyLabel}</td>
-                                <td class="p-3 border-r text-center font-extrabold text-amber-600 bg-amber-50/30">ອັນດັບ ${rankNum}</td>
-                                ${checkboxCellHtml}
-                            </tr>
-                        `;
-                    });
-                }
-            });
-
-            tbody.innerHTML = html;
-
-            let profitLak = sumPriceLak - sumCostLak;
-            let profitThb = sumPriceThb - sumCostThb;
-
-            document.getElementById('sum-total-cost-lak').innerText = formatNumberWithCommas(sumCostLak) + " ກີບ";
-            document.getElementById('sum-total-price-lak').innerText = formatNumberWithCommas(sumPriceLak) + " ກີບ";
-            document.getElementById('sum-total-profit-lak').innerText = formatNumberWithCommas(profitLak) + " ກີບ";
-            document.getElementById('sum-cash-lak').innerText = formatNumberWithCommas(cashLak) + " ກີບ";
-            document.getElementById('sum-transfer-lak').innerText = formatNumberWithCommas(transferLak) + " ກີບ";
-
-            document.getElementById('sum-total-cost-thb').innerText = formatNumberWithCommas(sumCostThb) + " ບາດ";
-            document.getElementById('sum-total-price-thb').innerText = formatNumberWithCommas(sumPriceThb) + " ບາດ";
-            document.getElementById('sum-total-profit-thb').innerText = formatNumberWithCommas(profitThb) + " ບາດ";
-            document.getElementById('sum-cash-thb').innerText = formatNumberWithCommas(cashThb) + " ບາດ";
-            document.getElementById('sum-transfer-thb').innerText = formatNumberWithCommas(transferThb) + " ບາດ";
-
-            document.getElementById('history-summary').classList.remove('hidden');
         }
 
         async function openReport() { 
