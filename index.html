@@ -379,7 +379,13 @@
             <div class="space-y-3 text-left">
                 <label class="flex items-center gap-3 p-3 border-2 rounded-xl cursor-pointer hover:bg-gray-50 border-blue-600 bg-blue-50/50" onclick="selectPaymentMode('cash', this)">
                     <input type="radio" name="pay_mode" value="cash" checked class="w-4 h-4 text-blue-600">
-                    <span class="font-bold text-gray-800 text-sm">💵 ຈ່າຍເງິນສົດ</span>
+                    <span class="font-bold text-gray-800 text-sm">💵 ຈ່າຍເງິນສົດ (ກີບ)</span>
+                </label>
+
+                <!-- 🌟 ເພີ່ມວິທີຊຳລະເງິນ: ຈ່າຍເງິນສົດ (ບາດ) ຕາມຮູບ -->
+                <label class="flex items-center gap-3 p-3 border-2 rounded-xl cursor-pointer hover:bg-gray-50 border-gray-200" onclick="selectPaymentMode('cash_thb', this)">
+                    <input type="radio" name="pay_mode" value="cash_thb" class="w-4 h-4 text-blue-600">
+                    <span class="font-bold text-gray-800 text-sm">💵 ຈ່າຍເງິນສົດ (ບາດ)</span>
                 </label>
 
                 <label class="flex items-center gap-3 p-3 border-2 rounded-xl cursor-pointer hover:bg-gray-50 border-gray-200" onclick="selectPaymentMode('transfer_lak', this)">
@@ -3129,6 +3135,7 @@
                 thbAmount = Math.ceil(rawThb / 10) * 10;
             }
 
+            // 🌟 ປັບປຸງ: ເພີ່ມຄຳວ່າ "(ກີບ)" ຕໍ່ທາງທ້າຍຍອດເງິນລວມທັງໝົດ
             document.getElementById('popup-total-amount-text').innerText = formatNumberWithCommas(finalTotal) + " ກີບ";
             document.getElementById('popup-total-thb-text').innerText = formatNumberWithCommas(thbAmount) + " ບາດ (Rate: " + currentRate + ")";
             
@@ -3269,7 +3276,7 @@
             }
 
             closeCheckoutMethodModal();
-            let payLabel = payMode === 'cash' ? 'ເງິນສົດ' : (payMode === 'transfer_lak' ? 'ເງິນໂອນ (ບັນຊີກີບ)' : 'ເງິນໂອນ (ບັນຊີບາດ)');
+            let payLabel = payMode === 'cash' ? 'ເງິນສົດ (ກີບ)' : (payMode === 'cash_thb' ? 'ເງິນສົດ (ບາດ)' : (payMode === 'transfer_lak' ? 'ເງິນໂອນ (ບັນຊີກີບ)' : 'ເງິນໂອນ (ບັນຊີບາດ)'));
             
             showAlert("ສຳເລັດ", `ຊຳລະເງິນ (${payLabel}) ສຳເລັດຮຽບຮ້ອຍ!`, "✅", () => {
                 location.reload();
@@ -3438,10 +3445,11 @@
                         let rankNum = rankMap[itemCodeKey] || '-';
                         let itPayment = it.payment_method || tx.payment_method || 'cash';
 
-                        if (itPayment === 'transfer_thb') {
+                        if (itPayment === 'transfer_thb' || itPayment === 'cash_thb') {
                             sumCostThb += itemTotalCost;
                             sumPriceThb += itemTotal;
-                            transferThb += itemTotal;
+                            if (itPayment === 'cash_thb') cashThb += itemTotal;
+                            else transferThb += itemTotal;
                         } else if (itPayment === 'transfer_lak') {
                             sumCostLak += itemTotalCost;
                             sumPriceLak += itemTotal;
@@ -3452,7 +3460,7 @@
                             cashLak += itemTotal;
                         }
 
-                        let currencyLabel = (itPayment === 'transfer_thb') ? ' ບາດ' : ' ກີບ';
+                        let currencyLabel = (itPayment === 'transfer_thb' || itPayment === 'cash_thb') ? ' ບາດ' : ' ກີບ';
 
                         let checkboxCellHtml = (userRole === 'admin' || deviceId === 'POSXIONG') ? `
                             <td class="p-3 text-center">
@@ -3643,7 +3651,6 @@
                 return;
             }
 
-            // 🌟 ປັບປຸງ: ຖ້າລະຫັດສິນຄ້າ (code) ໃນກ່ອງສີແດງຄືກັນ ໃຫ້ສະແດງຜົນໃນຕາຕະລາງພຽງແຕ່ອັນດຽວ
             let uniqueMap = new Map();
             excelRows.forEach(row => {
                 let cleanCode = String(row.code || '').trim().toLowerCase();
