@@ -2434,6 +2434,7 @@
             document.getElementById('confirm-modal').classList.remove('hidden');
         }
 
+        // 🌟 ຟັງຊັນຢືນຢັນເພີ່ມສິນຄ້າລົງຕາຕະລາງຂາຍ (ຮູບ 1 & ຮູບ 2) ພ້ອມປ໊ອບອັບຢືນຢັນ ແລະ ຣີເຊັດເປັນ 0
         async function confirmScannedItem() {
             let nameInput = document.getElementById('modal-name').value.trim();
             let costInput = parseFloat(String(document.getElementById('modal-cost').value).replace(/,/g, '')) || 0;
@@ -2453,20 +2454,33 @@
                 return;
             }
 
-            let existingInCart = cart.find(item => item.code === tempScannedCode && item.cost === costInput && item.price === priceInput);
-            if (existingInCart) {
-                let totalNewQty = existingInCart.qty + qtyInput;
-                if (totalNewQty > (stockRemaining + existingInCart.qty)) {
-                    showAlert("ສິນຄ້າໃນສາງບໍ່ພໍ", `ສິນຄ້າໃນສາງເຫຼືອພຽງ ${stockRemaining} ອັນເທົ່ານັ້ນ!`, "❌");
-                    return;
-                }
-                existingInCart.qty = totalNewQty;
-            } else {
-                cart.push({ code: tempScannedCode, name: nameInput, cost: costInput, price: priceInput, qty: qtyInput });
-            }
+            // 🌟 ປ໊ອບອັບຢືນຢັນກ່ອນເພີ່ມລົງຕາຕະລາງ
+            showCustomConfirm("📦 ຢືນຢັນການຂາຍ", `ທ່ານຕ້ອງການເພີ່ມສິນຄ້າ [${nameInput}] ຈຳນວນ ${qtyInput} ລົງໃນຕາຕະລາງຂາຍແທ້ບໍ?`, async (confirmed) => {
+                if (!confirmed) return;
 
-            renderCart();
-            document.getElementById('confirm-modal').classList.add('hidden');
+                let existingInCart = cart.find(item => item.code === tempScannedCode && item.cost === costInput && item.price === priceInput);
+                if (existingInCart) {
+                    let totalNewQty = existingInCart.qty + qtyInput;
+                    if (totalNewQty > (stockRemaining + existingInCart.qty)) {
+                        showAlert("ສິນຄ້າໃນສາງບໍ່ພໍ", `ສິນຄ້າໃນສາງເຫຼືອພຽງ ${stockRemaining} ອັນເທົ່ານັ້ນ!`, "❌");
+                        return;
+                    }
+                    existingInCart.qty = totalNewQty;
+                } else {
+                    cart.push({ code: tempScannedCode, name: nameInput, cost: costInput, price: priceInput, qty: qtyInput });
+                }
+
+                renderCart();
+                document.getElementById('confirm-modal').classList.add('hidden');
+
+                // 🌟 ຣີເຊັດຄ່າໃນຟອມປ໊ອບອັບ (ຮູບ 1) ໃຫ້ກັບຄືນເປັນ 0 
+                document.getElementById('modal-qty').value = "1";
+                document.getElementById('modal-cost').value = "";
+                document.getElementById('modal-price').value = "";
+                document.getElementById('modal-stock-remaining').value = "0";
+
+                showAlert("ສຳເລັດ", "ເພີ່ມສິນຄ້າລົງຕາຕະລາງຂາຍສຳເລັດຮຽບຮ້ອຍ!", "✅");
+            });
         }
 
         function cancelScannedItem() { document.getElementById('confirm-modal').classList.add('hidden'); }
