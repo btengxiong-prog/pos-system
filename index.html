@@ -3222,20 +3222,17 @@
             let cashGivenInput = document.getElementById('cash-given').value.replace(/,/g, '');
             let cashGiven = cashGivenInput ? (parseFloat(cashGivenInput) || 0) : finalTotal;
 
-            // 🌟 ປັບປຸງ: ຖ້າເລືອກຈ່າຍເງິນສົດ (ບາດ) ໃຫ້ປ່ຽນລາຄາ/ຍອດເງິນທັງໝົດເປັນເງິນບາດ ຕາມຕົວເລກລຸ່ມ
             let currencyType = 'ກີບ';
             let finalPaidAmount = finalTotal;
 
-            if (payMode === 'cash_thb') {
+            if (payMode === 'cash_thb' || payMode === 'transfer_thb') {
                 currencyType = 'ບາດ';
                 let currentRate = parseFloat(localStorage.getItem('pos_custom_manual_rate')) || 650;
-                let rawThb = finalTotal / currentRate;
-                finalPaidAmount = Math.ceil(rawThb / 10) * 10;
-            } else if (payMode === 'transfer_thb') {
-                currencyType = 'ບາດ';
-                let currentRate = parseFloat(localStorage.getItem('pos_custom_manual_rate')) || 650;
-                let rawThb = finalTotal / currentRate;
-                finalPaidAmount = Math.ceil(rawThb / 10) * 10;
+                if (currentRate > 0) {
+                    let rawThb = finalTotal / currentRate;
+                    // 🌟 ປັບປຸງ: ปັດเศษขึ้นเต็มจำนวนตามกฎที่กำหนด (ເຊັ່ນ 230.77 -> 231, 269.23 -> 270, 2769.23 -> 2770)
+                    finalPaidAmount = Math.ceil(rawThb);
+                }
             }
 
             let dbItemsToSave = cart.map(item => {
@@ -3249,8 +3246,9 @@
                 if (payMode === 'cash_thb' || payMode === 'transfer_thb') {
                     let currentRate = parseFloat(localStorage.getItem('pos_custom_manual_rate')) || 650;
                     if (currentRate > 0) {
-                        itemPrice = Math.round((item.price / currentRate) * 100) / 100;
-                        itemCost = Math.round(((item.cost || 0) / currentRate) * 100) / 100;
+                        // 🌟 ປັບປຸງ: ปັດเศษขึ้นเต็มจำนวนสำหรับລາຄາຊື້ ແລະ ລາຄາຂາຍເມື່ອຈ่ายເປັນບາດ
+                        itemPrice = Math.ceil(item.price / currentRate);
+                        itemCost = Math.ceil((item.cost || 0) / currentRate);
                     }
                 }
 
@@ -3477,11 +3475,13 @@
                         let itPayment = it.payment_method || tx.payment_method || 'cash';
                         let itCurr = it.currency || tx.currency || 'ກີບ';
 
+                        // 🌟 ປັບປຸງ: ຈັດແຍກສະກຸນເງິນໃຫ້ຖືກຕ້ອງຕາມເງື່ອນໄຂ (ຈ່າຍບາດເຂົ້າກ່ອງບາດ, ເງິນກີບເຂົ້າກ່ອງກີບ)
                         if (itCurr === 'ບາດ' || itPayment === 'transfer_thb' || itPayment === 'cash_thb') {
                             sumCostThb += itemTotalCost;
                             sumPriceThb += itemTotal;
                             if (itPayment === 'cash_thb') cashThb += itemTotal;
-                            else transferThb += itemTotal;
+                            else if (itPayment === 'transfer_thb') transferThb += itemTotal;
+                            else cashThb += itemTotal;
                         } else {
                             sumCostLak += itemTotalCost;
                             sumPriceLak += itemTotal;
