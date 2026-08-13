@@ -1378,7 +1378,7 @@
         function initFirebaseRealtime() {
             if (!db) return;
             try {
-                // 🌟 ປັບປຸງໃຫ້ Admin ໃຫຍ່ (POSXIONG ຫຼື userRole === 'admin') ໂຫຼດຂໍ້ມູນສິນຄ້າທັງໝົດຂອງທຸກຢູເຊີ
+                // 🌟 Admin ໃຫຍ່ເຫັນຂໍ້ມູນສິນຄ້າທັງໝົດຂອງທຸກຢູເຊີ
                 let userRole = localStorage.getItem('pos_user_role');
                 let productQuery = (userRole === 'admin' || deviceId === 'POSXIONG') ? 
                     db.collection("products") : 
@@ -1741,14 +1741,19 @@
                             `<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded ml-2 font-semibold">✅ ຖາວອນ</span>` : 
                             `<span class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded ml-2 font-semibold">⏳ ທົດລອງ 15 ວັນ</span>`;
 
+                        // 🌟 ຖ້າຮ້ານມີຊື່ຮ້ານແລ້ວ ໃຫ້ສະແດງ "ຊື່ຮ້ານ" ໂດດເດັ່ນຂຶ້ນມາແທນ ID ເຄື່ອງ ຕາມທີ່ອາຈານຕ້ອງການ
+                        let displayName = (dev.shop_name && dev.shop_name.trim() !== '' && dev.shop_name !== dev.device_id) ? 
+                            `<span class="font-bold text-gray-900 text-base">${dev.shop_name}</span> <span class="font-mono text-xs text-blue-600">(${dev.device_id})</span>` : 
+                            `<span class="font-mono font-bold text-blue-600">${dev.device_id}</span>`;
+
                         devicesHtml += `
                             <div class="p-3 bg-white border rounded-xl flex justify-between items-center shadow-sm">
                                 <div class="flex items-center gap-3">
                                     <input type="checkbox" data-id="${dev.device_id}" onchange="handleAdminDeviceCheckboxChange(this, '${dev.device_id}')" class="admin-device-checkbox w-4 h-4 cursor-pointer accent-blue-600" title="ເລືອກຢູເຊີນີ້">
                                     <div>
-                                        <span class="font-mono font-bold text-blue-600">${dev.device_id}</span>
+                                        ${displayName}
                                         ${badgeHtml}
-                                        <div class="text-[11px] text-gray-500 mt-1">ຮ້ານ: ${dev.shop_name || '-'} | ເບີໂທ: ${dev.phone || '-'} | ວັນທີໝົດອາຍຸ: ${dev.expiry_date || '-'}</div>
+                                        <div class="text-[11px] text-gray-500 mt-1">ເບີໂທ: ${dev.phone || '-'} | ວັນທີໝົດອາຍຸ: ${dev.expiry_date || '-'}</div>
                                     </div>
                                 </div>
                                 <button onclick="promptEditUser('${dev.device_id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer shadow flex items-center gap-1">✏️ ແກ້ໄຂ</button>
@@ -3244,7 +3249,7 @@
                         let tx = doc.data();
                         combinedMap.set(doc.id, {
                             id: doc.id, created_at: tx.created_at,
-                            total_cost: tx.total_cost || 0, total: tx.total, items: tx.items || []
+                            total_cost: tx.total_cost || 0, total: tx.total, items: tx.items || [], device_id: tx.device_id || '-'
                         });
                     });
                 } catch (err) {}
@@ -3294,6 +3299,10 @@
                 if (tx.items && Array.isArray(tx.items)) {
                     tx.items.forEach(it => {
                         let itemName = it.name || it.code || '-';
+                        if ((userRole === 'admin' || deviceId === 'POSXIONG') && tx.device_id) {
+                            itemName += ` [ຮ້ານ: ${tx.device_id}]`;
+                        }
+
                         let itemCost = parseFloat(it.cost || 0) || 0;
                         let itemPrice = parseFloat(it.price || 0) || 0;
                         let itemQty = parseInt(it.originalQty || it.qty || 1) || 1;
