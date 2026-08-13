@@ -704,7 +704,7 @@
                         <input type="text" id="modal-price" oninput="formatInputMoney(this)" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-right font-bold text-green-600 text-lg" placeholder="ຕົວຢ່າງ: 0">
                     </div>
 
-                    <!-- 🌟 1) ປຸ່ມ ຂາຍສົ່ງ ແລະ ຂາຍຍ່ອຍ -->
+                    <!-- 🌟 ປຸ່ມ ຂາຍສົ່ງ ແລະ ຂາຍຍ່ອຍ -->
                     <div class="flex gap-2 pt-1">
                         <button type="button" id="btn-wholesale" onclick="setSaleType('wholesale')" class="flex-1 bg-red-600 text-white font-bold py-2 rounded-xl text-xs transition shadow cursor-pointer">📦 ຂາຍສົ່ງ (ຫໍ່, ແພັກ, ລາງ...)</button>
                         <button type="button" id="btn-retail" onclick="setSaleType('retail')" class="flex-1 bg-gray-200 text-gray-700 font-bold py-2 rounded-xl text-xs transition shadow cursor-pointer">🥤 ຂາຍຍ່ອຍ (ແກ້ວ, ວດ...)</button>
@@ -757,7 +757,7 @@
                     <div class="grid grid-cols-2 gap-2 bg-pink-50/50 p-3 rounded-xl border border-pink-200">
                         <div>
                             <label class="block font-[11px] font-bold text-gray-700 mb-1">🔢 ຈຳນວນຕໍ່ລາງ/ຫໍ່ (ຖ້າມີ):</label>
-                            <input type="number" id="stock-in-unit-per-pack" value="" min="1" oninput="calculateTotalUnit()" class="w-full border rounded-lg px-2 py-1.5 text-center font-bold text-gray-900 text-sm bg-white outline-none" placeholder="ເຊັ່ນ: 12">
+                            <input type="number" id="stock-in-unit-per-pack" value="12" min="1" oninput="calculateTotalUnit()" class="w-full border rounded-lg px-2 py-1.5 text-center font-bold text-gray-900 text-sm bg-white outline-none" placeholder="ເຊັ່ນ: 12">
                         </div>
                         <div>
                             <label class="block font-[11px] font-bold text-pink-800 mb-1">✨ ລວມຫົວໜ່ວຍຍ່ອຍ:</label>
@@ -1111,7 +1111,7 @@
         let editingDeviceId = null;
         let deviceId = 'POSXIONG';
         let currentSaleType = 'wholesale'; // 'wholesale' (ຂາຍສົ່ງ) ຫຼື 'retail' (ຂາຍຍ່ອຍ)
-        let activeScannedItem = null; // ເກັບຂໍ້ມູນສິນຄ້າທີ່ກຳລັງເຮັດລາຍການ
+        let activeScannedItem = null; 
 
         const translations = {
             lo: {
@@ -1202,7 +1202,7 @@
                 thName: "Tên sản phẩm",
                 thCost: "Giá mua",
                 thPrice: "Giá bán",
-                thQty: "Số lượng",
+                thSố량: "Số lượng",
                 thTotal: "Tổng",
                 thAction: "Thao tác"
             }
@@ -1391,6 +1391,7 @@
                               profitPct: item.profit_pct,
                               price: item.price,
                               qty: item.qty || 1,
+                              unitPerPack: item.unit_per_pack || 12, // 🌟 ເກັບຈຳນວນຕໍ່ຫໍ່ໃຫຍ່
                               dateAdded: item.date_added || new Date().toISOString().split('T')[0],
                               mfgDate: item.mfg_date || '',
                               expiryDate: item.expiry_date || '',
@@ -2306,7 +2307,7 @@
         async function confirmStockIn() {
             let costVal = parseFloat(String(document.getElementById('stock-in-cost').value).replace(/,/g, '')) || 0;
             let qtyVal = parseInt(document.getElementById('stock-in-qty').value) || 1;
-            let unitPerPack = parseInt(document.getElementById('stock-in-unit-per-pack').value) || 0;
+            let unitPerPack = parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12;
             let finalTotalQty = unitPerPack > 0 ? (qtyVal * unitPerPack) : qtyVal;
 
             let importDateInput = document.getElementById('stock-in-import-date').value.trim();
@@ -2347,6 +2348,7 @@
             let priceVal = Math.ceil(rawPrice / 1000) * 1000;
             let newRowId = 'ROW-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
 
+            // 🌟 ບັນທຶກຈຳນວນຫໍ່ໃຫຍ່ (`qty`) ແລະ ອັດຕາສ່ວນຕໍ່ຫໍ່ (`unitPerPack`) ລົງໃນฐานข้อมูล
             excelRows.push({
                 id: newRowId,
                 code: currentStockInCode,
@@ -2354,7 +2356,8 @@
                 originalCost: costVal,
                 profitPct: 20,
                 price: priceVal,
-                qty: finalTotalQty,
+                qty: qtyVal, 
+                unitPerPack: unitPerPack,
                 dateAdded: isoImportDate,
                 mfgDate: isExpiryMode ? isoMfgDate : isoImportDate,
                 expiryDate: calculatedExpiryDate,
@@ -2364,7 +2367,7 @@
             saveExcelData();
 
             closeStockInModal();
-            showAlert("ສຳເລັດ", `ນຳເຂົ້າສິນຄ້າ [ລວມ: ${formatNumberWithCommas(finalTotalQty)} ໜ່ວຍ] ສຳເລັດຮຽບຮ້ອຍ!`, "✅");
+            showAlert("ສຳເລັດ", `ນຳເຂົ້າສິນຄ້າ [ຫໍ່ໃຫຍ່: ${formatNumberWithCommas(qtyVal)} | ລວມຍ່ອຍ: ${formatNumberWithCommas(finalTotalQty)}] ສຳເລັດຮຽບຮ້ອຍ!`, "✅");
         }
 
         function openStockInModal(code, defaultCost = null) {
@@ -2380,9 +2383,9 @@
 
             document.getElementById('stock-in-cost').value = "";
             document.getElementById('stock-in-modal').classList.add('hidden');
-            document.getElementById('stock-in-qty').value = "1";
-            document.getElementById('stock-in-unit-per-pack').value = "";
-            document.getElementById('stock-in-total-calculated').value = "1";
+            document.getElementById('stock-in-qty').value = "100";
+            document.getElementById('stock-in-unit-per-pack').value = "12";
+            document.getElementById('stock-in-total-calculated').value = "1,200";
             document.getElementById('stock-in-mfg-date').value = "";
             document.getElementById('stock-in-exp-date').value = "";
             document.getElementById('stock-in-modal').classList.remove('hidden');
@@ -2401,8 +2404,6 @@
             
             await fetchProductsForGenerator();
             let soldQtyMap = {};
-            let totalImportQtyMap = {};
-
             if (db) {
                 try {
                     let snapshot = await db.collection("sales_history").get();
@@ -2419,33 +2420,28 @@
             }
 
             let cKey = String(code || '').trim().toLowerCase();
-            let totalStock = 0;
-            let totalOriginalImportQty = 0; // 🌟 ເກັບຈຳນວນນຳເຂົ້າຕົວຈິງທັງໝົດ (ລວມຫົວໜ່ວຍຍ່ອຍຂ້າງໃນ)
-            
+            let totalPackStock = 0; // ຫໍ່ໃຫຍ່
+            let unitPerPack = 12;
+
             excelRows.forEach(row => {
                 if (String(row.code || '').trim().toLowerCase() === cKey) {
                     let q = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1;
-                    totalStock += q;
-                    totalOriginalImportQty += q;
+                    totalPackStock += q;
+                    if (row.unitPerPack) unitPerPack = parseInt(row.unitPerPack) || 12;
                 }
             });
 
             let totalSold = soldQtyMap[cKey] || 0;
-            let remainingStock = totalStock - totalSold;
-            if (remainingStock < 0) remainingStock = 0;
-
-            let inCart = cart.find(it => String(it.code || '').trim().toLowerCase() === cKey && it.cost === cost && it.price === price);
-            let inCartQty = inCart ? inCart.qty : 0;
-            let finalAvailable = remainingStock - inCartQty;
-            if (finalAvailable < 0) finalAvailable = 0;
+            let remainingPackStock = totalPackStock - totalSold;
+            if (remainingPackStock < 0) remainingPackStock = 0;
 
             activeScannedItem = {
                 code: code,
                 name: name,
                 baseCost: cost,
                 basePrice: price,
-                totalImport: totalOriginalImportQty > 0 ? totalOriginalImportQty : 1,
-                remainingStock: finalAvailable
+                unitPerPack: unitPerPack,
+                remainingPackStock: remainingPackStock
             };
 
             // 🌟 ຕັ້ງຄ່າເລີ່ມຕົ້ນເປັນ ຂາຍສົ່ງ (Wholesale)
@@ -2455,7 +2451,7 @@
             document.getElementById('confirm-modal').classList.remove('hidden');
         }
 
-        // 🌟 ຟັງຊັນສະຫຼັບລະຫວ່າງ ຂາຍສົ່ງ ແລະ ຂາຍຍ່ອຍ (ຄຳນວນລາຄາ ແລະ ສາງຕາມເງື່ອນໄຂ)
+        // 🌟 ຟັງຊັນສະຫຼັບລະຫວ່າງ ຂາຍສົ່ງ ແລະ ຂາຍຍ່ອຍ (ຄຳນວນຖືກຕ້ອງຕາມເງື່ອນໄຂ)
         function setSaleType(type) {
             currentSaleType = type;
             let btnWholesale = document.getElementById('btn-wholesale');
@@ -2469,7 +2465,7 @@
 
             if (!activeScannedItem) return;
 
-            let conversionFactor = activeScannedItem.totalImport > 1 ? activeScannedItem.totalImport : 10; // ຕົວຢ່າງອັດຕາແປງຖ້າມີ
+            let up = activeScannedItem.unitPerPack > 0 ? activeScannedItem.unitPerPack : 12;
 
             if (type === 'wholesale') {
                 btnWholesale.className = "flex-1 bg-red-600 text-white font-bold py-2 rounded-xl text-xs transition shadow cursor-pointer";
@@ -2477,29 +2473,25 @@
                 if (lblStockTitle) lblStockTitle.innerText = "📦 ສາງຄົງເຫຼືອ (ຫໍ່, ແພັກ, ລາງ...):";
                 if (lblQtyTitle) lblQtyTitle.innerText = "🛒 ຈຳນວນຂາຍ (ຫໍ່, ແພັກ, ລາງ...):";
 
-                // 🌟 ກ່ອງສີແດງ 1 ຂາຍສົ່ງ ຖືກຕ້ອງຕາມປົກກະຕິ
+                // 🌟 ຂາຍສົ່ງ: ລาຄາປົກກະຕິ, ສາງສະແດງເປັນຈຳນວນຫໍ່ໃຫຍ່ (ຕົວຢ່າງ: 100)
                 costInput.value = formatNumberWithCommas(activeScannedItem.baseCost);
                 priceInput.value = formatNumberWithCommas(activeScannedItem.basePrice);
-                stockRemainingInput.value = formatNumberWithCommas(activeScannedItem.remainingStock);
+                stockRemainingInput.value = formatNumberWithCommas(activeScannedItem.remainingPackStock);
             } else {
                 btnRetail.className = "flex-1 bg-red-600 text-white font-bold py-2 rounded-xl text-xs transition shadow cursor-pointer";
                 btnWholesale.className = "flex-1 bg-gray-200 text-gray-700 font-bold py-2 rounded-xl text-xs transition shadow cursor-pointer";
                 if (lblStockTitle) lblStockTitle.innerText = "🥤 ສາງຄົງເຫຼືອ (ແກ້ວ, ວດ...):";
                 if (lblQtyTitle) lblQtyTitle.innerText = "🛒 ຈຳນວນຂາຍ (ແກ້ວ, ວດ...):";
 
-                // 🌟 ຂາຍຍ່ອຍ: ປັບລາຄາຫານດ້ວຍຈຳນວນຍ່ອຍ (ຕົວຢ່າງ 200,000 / 12 = 16,666.66 ປັບເປັນ 17,000)
-                let unitCost = activeScannedItem.baseCost / (conversionFactor > 1 ? conversionFactor : 12);
-                let unitPrice = activeScannedItem.basePrice / (conversionFactor > 1 ? conversionFactor : 12);
-
-                // ປັບປັດເປັນເລກມົນ (ເຊັ່ນ: 17,000 ແລະ 20,000)
-                unitCost = Math.ceil(unitCost / 1000) * 1000;
-                unitPrice = Math.ceil(unitPrice / 1000) * 1000;
+                // 🌟 ຂາຍຍ່ອຍ: ຫານລາຄາດ້ວຍ unitPerPack ແລ້ວປັດຂຶ້ນເປັນຫຼັກພັນ (ຕົວຢ່າງ 200,000/12 = 16,666.66 ປັບເປັນ 17,000)
+                let unitCost = Math.ceil((activeScannedItem.baseCost / up) / 1000) * 1000;
+                let unitPrice = Math.ceil((activeScannedItem.basePrice / up) / 1000) * 1000;
 
                 costInput.value = formatNumberWithCommas(unitCost);
                 priceInput.value = formatNumberWithCommas(unitPrice);
-                
-                // 🌟 ຂາຍຍ່ອຍ: ສາງຄົງເຫຼືອຕ້ອງຄູນດ້ວຍຈຳນວນຍ່ອຍຂ້າງໃນ (ຕົວຢ່າງ 100 ແພັກ * 12 = 1,200 ອັນ)
-                let totalRetailStock = activeScannedItem.remainingStock * (conversionFactor > 1 ? conversionFactor : 12);
+
+                // 🌟 ຂາຍຍ່ອຍ: ສາງຄົງເຫຼືອຕ້ອງຄູນດ້ວຍ unitPerPack (ຕົວຢ່າງ: 100 * 12 = 1,200)
+                let totalRetailStock = activeScannedItem.remainingPackStock * up;
                 stockRemainingInput.value = formatNumberWithCommas(totalRetailStock);
             }
         }
@@ -3334,6 +3326,7 @@
                             profitPct: item.profit_pct,
                             price: item.price,
                             qty: item.qty || 1,
+                            unitPerPack: item.unit_per_pack || 12,
                             dateAdded: item.date_added || new Date().toISOString().split('T')[0],
                             mfgDate: item.mfg_date || '',
                             expiryDate: item.expiry_date || '',
@@ -3402,7 +3395,7 @@
             syncTableInputsToData();
             let today = new Date().toISOString().split('T')[0];
             let newId = 'ROW-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
-            excelRows.push({ id: newId, code: code, cost: cost, originalCost: cost || 0, profitPct: profitPct, price: price, qty: qty, dateAdded: dateAdded || today, currency: 'ກີບ' });
+            excelRows.push({ id: newId, code: code, cost: cost, originalCost: cost || 0, profitPct: profitPct, price: price, qty: qty, unitPerPack: 12, dateAdded: dateAdded || today, currency: 'ກີບ' });
             renderExcelTable();
         }
 
@@ -3587,6 +3580,7 @@
                             profit_pct: parseFloat(String(row.profitPct).replace(/,/g, '')) || 20,
                             price: parseFloat(String(row.price).replace(/,/g, '')) || 0,
                             qty: parseInt(String(row.qty).replace(/,/g, '')) || 1,
+                            unit_per_pack: row.unitPerPack || 12,
                             date_added: isoDate,
                             mfg_date: row.mfgDate || null,
                             expiry_date: row.expiryDate || null,
