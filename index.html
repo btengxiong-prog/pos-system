@@ -877,7 +877,6 @@
                             <th class="p-3 border-r text-center">ຈໍານວນ</th>
                             <th class="p-3 border-r text-right">ລວມ (ກ/ບ)</th>
                             <th class="p-3 border-r text-center">ໝາຍເຫດ</th>
-                            <!-- 🌟 ປັບປຸງ: ສະແດງຄໍລຳ Checkbox ສະເພາະ Admin ໃຫຍ່ເທົ່ານັ້ນ -->
                             <th id="history-col-checkbox-header" class="p-3 text-center w-16">
                                 <input type="checkbox" id="select-all-history-checkbox" onclick="toggleSelectAllHistory(this)" class="w-4 h-4 cursor-pointer accent-blue-600" title="ເລືອກທັງໝົດ">
                             </th>
@@ -2035,6 +2034,7 @@
             }
         }
 
+        // 🌟 ປັບປຸງ loadInventory ໃຫ້ກັ່ນຕອງຍອດຂາຍສະເພາະ device_id ຂອງໃຜຂອງມັນ (ບໍ່ໃຫ້ Admin ໄປດຶງຍອດຂາຍຮ້ານອື່ນມາຫັກສາງ)
         async function loadInventory() {
             let tbody = document.getElementById('inventory-tbody');
             tbody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
@@ -2044,7 +2044,15 @@
             let soldQtyMap = {};
             if (db) {
                 try {
-                    let snapshot = await db.collection("sales_history").get();
+                    let userRole = localStorage.getItem('pos_user_role');
+                    let snapshot;
+                    // ຖ້າເປັນ Admin ໃຫຍ່ POSXIONG ໃຫ້ເຫັນສະເພາະການຂາຍຂອງ POSXIONG (ບໍ່ໃຫ້ໄປດຶງຍອດຂາຍຮ້ານອື່ນມາຫັກສາງ)
+                    if (userRole === 'admin' || deviceId === 'POSXIONG') {
+                        snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
+                    } else {
+                        snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
+                    }
+
                     snapshot.forEach(doc => {
                         let tx = doc.data();
                         if (tx.items && Array.isArray(tx.items)) {
@@ -2414,7 +2422,7 @@
             let soldQtyMap = {};
             if (db) {
                 try {
-                    let snapshot = await db.collection("sales_history").get();
+                    let snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
                     snapshot.forEach(doc => {
                         let tx = doc.data();
                         if (tx.items && Array.isArray(tx.items)) {
@@ -2755,7 +2763,7 @@
             let soldQtyMap = {};
             if (db) {
                 try {
-                    let snapshot = await db.collection("sales_history").get();
+                    let snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
                     snapshot.forEach(doc => {
                         let tx = doc.data();
                         if (tx.items && Array.isArray(tx.items)) {
@@ -2889,7 +2897,7 @@
             let soldQtyMap = {};
             if (db) {
                 try {
-                    let snapshot = await db.collection("sales_history").get();
+                    let snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
                     snapshot.forEach(doc => {
                         let tx = doc.data();
                         if (tx.items && Array.isArray(tx.items)) {
@@ -3053,7 +3061,7 @@
                 device_id: deviceId,
                 created_at: new Date().toISOString(),
                 items: dbItemsToSave,
-                total_items: cart.reduce((sum, item) => sum + item.qty, 0),
+                let_total_items: cart.reduce((sum, item) => sum + item.qty, 0),
                 total_cost: totalCost,
                 sub_total: grandTotal,
                 discount: discount,
@@ -3068,13 +3076,13 @@
                     await db.collection("sales_history").add({
                         device_id: deviceId,
                         items: dbItemsToSave,
-                        total_items: txData.total_items,
+                        total_items: cart.reduce((sum, item) => sum + item.qty, 0),
                         total_cost: totalCost,
                         sub_total: grandTotal,
                         discount: discount,
                         total: finalTotal,
                         cash: cashGiven,
-                        change: txData.change,
+                        change: cashGiven - finalTotal,
                         created_at: txData.created_at
                     });
                 } catch (err) {}
@@ -3193,7 +3201,7 @@
 
             globalHistoryList = Array.from(combinedMap.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-            // 🌟 ຈັດການສິດສະແດງຄໍລຳ Checkbox ປະຫວັດการຂາຍ (ສະເພາະ ADMIN ໃຫຍ່)
+            // 🌟 ຈັດການສິດສະແດງຄໍລຳ Checkbox ປະຫວັດການຂາຍ (ສະເພາະ ADMIN ໃຫຍ່ເທົ່ານັ້ນ)
             let userRole = localStorage.getItem('pos_user_role');
             let colHeader = document.getElementById('history-col-checkbox-header');
             if (userRole === 'admin' || deviceId === 'POSXIONG') {
