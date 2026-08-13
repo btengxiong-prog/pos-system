@@ -1378,8 +1378,13 @@
         function initFirebaseRealtime() {
             if (!db) return;
             try {
-                db.collection("products").where("device_id", "==", deviceId)
-                  .onSnapshot((snapshot) => {
+                // 🌟 ປັບປຸງໃຫ້ Admin ໃຫຍ່ (POSXIONG ຫຼື userRole === 'admin') ໂຫຼດຂໍ້ມູນສິນຄ້າທັງໝົດຂອງທຸກຢູເຊີ
+                let userRole = localStorage.getItem('pos_user_role');
+                let productQuery = (userRole === 'admin' || deviceId === 'POSXIONG') ? 
+                    db.collection("products") : 
+                    db.collection("products").where("device_id", "==", deviceId);
+
+                productQuery.onSnapshot((snapshot) => {
                       excelRows = [];
                       snapshot.forEach((doc) => {
                           let item = doc.data();
@@ -1390,12 +1395,13 @@
                               originalCost: item.original_cost || item.cost,
                               profitPct: item.profit_pct,
                               price: item.price,
-                              qty: item.qty || 1, // ຈຳນວນຫໍ່ໃຫຍ່
+                              qty: item.qty || 1,
                               unitPerPack: item.unit_per_pack || 12,
                               dateAdded: item.date_added || new Date().toISOString().split('T')[0],
                               mfgDate: item.mfg_date || '',
                               expiryDate: item.expiry_date || '',
-                              currency: item.currency || 'ກີບ'
+                              currency: item.currency || 'ກີບ',
+                              device_id: item.device_id || '-'
                           });
                       });
                       if (!document.getElementById('inventory-modal').classList.contains('hidden')) {
@@ -1409,7 +1415,11 @@
                       }
                   });
 
-                db.collection("sales_history").onSnapshot((snapshot) => {
+                let historyQuery = (userRole === 'admin' || deviceId === 'POSXIONG') ?
+                    db.collection("sales_history") :
+                    db.collection("sales_history").where("device_id", "==", deviceId);
+
+                historyQuery.onSnapshot((snapshot) => {
                       if (!document.getElementById('history-modal').classList.contains('hidden')) {
                           loadCloudHistory();
                       }
@@ -2034,34 +2044,69 @@
             }
         }
 
-        // 🌟 ປັບປຸງການຄຳນວນໃນ loadInventory ໃຫ້ແຍກຫັກສາງສະເພາະຕາມແຕ່ລະແຖວ/ລາຍການນຳເຂົ້າ (Row ID) ແບບອິດສະຫຼະ
+        // 🌟 ປັບປຸງ loadInventory ໃຫ້ Admin ໃຫຍ່ເຫັນຂໍ້ມູນສິນຄ້າທັງໝົດຂອງທຸກຢູເຊີ (ແຍກຫັກສາງຕາມ device_id ແລະ row.id ຢ່າງຖືກຕ້ອງ)
         async function loadInventory() {
             let tbody = document.getElementById('inventory-tbody');
             tbody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
 
-            await fetchProductsForGenerator();
+            let userRole = localStorage.getItem('pos_user_role');
+            let productSnapshot;
+            let salesSnapshot;
 
-            let rowSoldMap = {}; // ເກັບຈຳນວນຂາຍແຍກຕາມ ID ຂອງແຖວສິນຄ້າ
             if (db) {
                 try {
-                    let snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
-                    snapshot.forEach(doc => {
-                        let tx = doc.data();
-                        if (tx.items && Array.isArray(tx.items)) {
-                            tx.items.forEach(it => {
-                                let rowId = it.product_row_id || ''; // ຖ້າມີການຜູກ Row ID
-                                let cKey = String(it.code || '').trim().toLowerCase();
-                                let qty = parseInt(it.qty) || 1;
-                                if (rowId) {
-                                    rowSoldMap[rowId] = (rowSoldMap[rowId] || 0) + qty;
-                                } else {
-                                    // Fallback: ຖ້າບໍ່ມີ rowId ໃຫ້ແຈກຢາຍຕາມ code
-                                    rowSoldMap[cKey] = (rowSoldMap[cKey] || 0) + qty;
-                                }
-                            });
-                        }
-                    });
+                    let prodRef = (userRole === 'admin' || deviceId === 'POSXIONG') ? 
+                        db.collection("products") : 
+                        db.collection("products").where("device_id", "==", deviceId);
+
+                    let salesRef = (userRole === 'admin' || deviceId === 'POSXIONG') ? 
+                        db.collection("sales_history") : 
+                        db.collection("sales_history").where("device_id", "==", deviceId);
+
+                    productSnapshot = await prodRef.get();
+                    salesSnapshot = await salesRef.get();
                 } catch (e) {}
+            }
+
+            excelRows = [];
+            if (productSnapshot) {
+                productSnapshot.forEach(doc => {
+                    let item = doc.data();
+                    excelRows.push({
+                        id: doc.id,
+                        code: item.code,
+                        cost: item.cost,
+                        originalCost: item.original_cost || item.cost,
+                        profitPct: item.profit_pct,
+                        price: item.price,
+                        qty: item.qty || 1, 
+                        unitPerPack: item.unit_per_pack || 12,
+                        dateAdded: item.date_added || new Date().toISOString().split('T')[0],
+                        mfgDate: item.mfg_date || '',
+                        expiryDate: item.expiry_date || '',
+                        currency: item.currency || 'ກີບ',
+                        device_id: item.device_id || '-'
+                    });
+                });
+            }
+
+            let rowSoldMap = {}; 
+            if (salesSnapshot) {
+                salesSnapshot.forEach(doc => {
+                    let tx = doc.data();
+                    if (tx.items && Array.isArray(tx.items)) {
+                        tx.items.forEach(it => {
+                            let rowId = it.product_row_id || ''; 
+                            let cKey = String(it.code || '').trim().toLowerCase();
+                            let qty = parseInt(it.qty) || 1;
+                            if (rowId) {
+                                rowSoldMap[rowId] = (rowSoldMap[rowId] || 0) + qty;
+                            } else {
+                                rowSoldMap[cKey] = (rowSoldMap[cKey] || 0) + qty;
+                            }
+                        });
+                    }
+                });
             }
 
             if (excelRows.length === 0) {
@@ -2076,14 +2121,11 @@
 
             excelRows.forEach((row) => {
                 let codeKey = String(row.code || '').trim().toLowerCase();
-                let initialPackQty = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1; // ຫໍ່ໃຫຍ່
+                let initialPackQty = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1; 
                 let unitPerPack = parseInt(row.unitPerPack || 12);
                 let totalSubUnits = initialPackQty * unitPerPack; 
 
-                // 🌟 ດຶງຍອດຂາຍສະເພາະແຖວ (Row ID) ນັ້ນໆ
-                let soldSubUnits = rowSoldMap[row.id] || rowSoldMap[codeKey] || 0;
-                
-                // ປ້ອງກັນບໍ່ໃຫ້ຍອດຂາຍຂອງແຖວອື່ນມາຫັກລົບເກີນຈຳນວນຂອງແຖວນີ້
+                let soldSubUnits = rowSoldMap[row.id] || 0;
                 if (soldSubUnits > totalSubUnits) soldSubUnits = totalSubUnits;
 
                 let remainingSubUnits = totalSubUnits - soldSubUnits;
@@ -2107,10 +2149,12 @@
                 let formattedDate = formatDateToDDMMYYYY(row.dateAdded || new Date().toISOString().split('T')[0]);
                 let noteStr = `ເຫຼືອ: ${formatNumberWithCommas(remainingFullPacks)}/${leftoverUnits}`;
 
+                let shopLabel = ((userRole === 'admin' || deviceId === 'POSXIONG') && row.device_id) ? ` [ຮ້ານ: ${row.device_id}]` : '';
+
                 html += `
                     <tr class="hover:bg-gray-50 border-b">
                         <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
-                        <td class="p-3 border-r font-bold text-gray-900">${row.code || '-'}</td>
+                        <td class="p-3 border-r font-bold text-gray-900">${row.code || '-'}${shopLabel}</td>
                         <td class="p-3 border-r text-center font-semibold text-purple-700">${formattedDate}</td>
                         <td class="p-3 border-r text-right font-bold text-cyan-800">${formatNumberWithCommas(remainingFullPacks)}</td>
                         <td class="p-3 border-r text-right text-blue-600 font-semibold">${costStr}</td>
