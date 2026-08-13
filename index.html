@@ -719,7 +719,7 @@
                 </div>
                 <div class="flex gap-2 pt-2">
                     <button onclick="cancelScannedItem()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
-                    <!-- 🌟 ປຸ່ມຕົກລົງໃນຮູບ 1: ເມື່ອກົດຈະມີປ໊ອບອັບຢືນຢັນການຂາຍ -->
+                    <!-- 🌟 ປຸ່ມຕົກລົງໃນຮູບ 1: ເມື່ອກົດຈະມີປ໊ອບອັບຢືນຢັນ -->
                     <button onclick="promptConfirmAddCart()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">ຕົກລົງ (ເພີ່ມລົງຕາຕະລາງ)</button>
                 </div>
             </div>
@@ -2974,3 +2974,705 @@
                 cb();
             }
         }
+
+        // --- 🌟 ປະຫວັດການຂາຍ (Admin ໃຫຍ່ POSXIONG ເຫັນທັງໝົດ, ລຶບຂໍ້ມູນໄດ້, ສະແດງລຳດັບຂາຍດີ) ---
+        function openHistory() { 
+            document.getElementById('history-modal').classList.remove('hidden'); 
+            loadCloudHistory(); 
+        }
+
+        function closeHistory() { 
+            document.getElementById('history-modal').classList.add('hidden'); 
+        }
+
+        function toggleSelectAllHistory(masterCheckbox) {
+            let checkboxes = document.querySelectorAll('.history-row-checkbox');
+            checkboxes.forEach(cb => { cb.checked = masterCheckbox.checked; });
+        }
+
+        function promptDeleteHistoryAction() {
+            let userRole = localStorage.getItem('pos_user_role');
+            if (userRole !== 'admin') {
+                showAlert("ບໍ່ມີສິດທິ", "ມີແຕ່ ADMIN ໃຫຍ່ ເທົ່ານັ້ນທີ່ສາມາດລຶບປະຫວັດການຂາຍໄດ້!", "🔒");
+                return;
+            }
+
+            let checkboxes = document.querySelectorAll('.history-row-checkbox:checked');
+            if (checkboxes.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາຕິກເລືອກລາຍການປະຫວັດທີ່ຕ້ອງການລຶບ!", "⚠️");
+                return;
+            }
+
+            let idsToDelete = [];
+            checkboxes.forEach(cb => {
+                idsToDelete.push(cb.getAttribute('data-id'));
+            });
+
+            showCustomConfirm("🗑️ ຢືນຢັນລຶບປະຫວັດການຂາຍ", `ທ່ານຕ້ອງການລຶບປະຫວັດການຂາຍທີ່ເລືອກ (${idsToDelete.length} ລາຍການ) ແທ້ບໍ?`, async (confirmed) => {
+                if (!confirmed) return;
+
+                if (db) {
+                    try {
+                        let batch = db.batch();
+                        for (let id of idsToDelete) {
+                            let docRef = db.collection("sales_history").doc(id);
+                            batch.delete(docRef);
+                        }
+                        await batch.commit();
+                    } catch (e) {}
+                }
+
+                loadCloudHistory();
+                let masterCb = document.getElementById('select-all-history-checkbox');
+                if (masterCb) masterCb.checked = false;
+                showAlert("ສຳເລັດ", "ລຶບປະຫວັດການຂາຍທີ່ເລືອກສຳເລັດຮຽບຮ້ອຍ!", "🗑️");
+            });
+        }
+
+        async function loadCloudHistory() {
+            let tbody = document.getElementById('history-table-tbody');
+            tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</td></tr>`;
+            document.getElementById('history-summary').classList.add('hidden');
+            globalHistoryList = [];
+
+            let combinedMap = new Map();
+
+            if (db) {
+                try {
+                    let userRole = localStorage.getItem('pos_user_role');
+                    let snapshot;
+                    // 🌟 ADMIN ໃຫຍ່ (POSXIONG) ເຫັນທັງໝົດຂອງທຸກຢູເຊີ
+                    if (userRole === 'admin' || deviceId === 'POSXIONG') {
+                        snapshot = await db.collection("sales_history").get();
+                    } else {
+                        snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
+                    }
+
+                    snapshot.forEach(doc => {
+                        let tx = doc.data();
+                        combinedMap.set(doc.id, {
+                            id: doc.id, created_at: tx.created_at,
+                            total_cost: tx.total_cost || 0, total: tx.total, items: tx.items || []
+                        });
+                    });
+                } catch (err) {}
+            }
+
+            globalHistoryList = Array.from(combinedMap.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+            if (globalHistoryList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີປະຫວັດການຂາຍ.</td></tr>`;
+                return;
+            }
+
+            // 🌟 ວິເຄາະຈັດລຳດັບຂາຍດີ (Best Sellers Ranking)
+            let itemSoldCountMap = {};
+            globalHistoryList.forEach(tx => {
+                if (tx.items && Array.isArray(tx.items)) {
+                    tx.items.forEach(it => {
+                        let codeKey = String(it.code || it.name || '').trim();
+                        let qty = parseInt(it.qty || 1) || 1;
+                        itemSoldCountMap[codeKey] = (itemSoldCountMap[codeKey] || 0) + qty;
+                    });
+                }
+            });
+
+            let sortedBestSellers = Object.keys(itemSoldCountMap).sort((a, b) => itemSoldCountMap[b] - itemSoldCountMap[a]);
+            let rankMap = {};
+            sortedBestSellers.forEach((code, index) => {
+                rankMap[code] = index + 1; // ອັນດັບ 1, 2, 3...
+            });
+
+            let html = '';
+            let countIndex = 1;
+            let sumCostTotal = 0;
+            let sumPriceTotal = 0;
+
+            globalHistoryList.forEach((tx) => {
+                let txDateObj = new Date(tx.created_at);
+                let dateStr = !isNaN(txDateObj.getTime()) ? formatDateToDDMMYYYY(txDateObj.toISOString().split('T')[0]) : '-';
+
+                if (tx.items && Array.isArray(tx.items)) {
+                    tx.items.forEach(it => {
+                        let itemName = it.name || it.code || '-';
+                        let itemCost = parseFloat(it.cost || 0) || 0;
+                        let itemPrice = parseFloat(it.price || 0) || 0;
+                        let itemQty = parseInt(it.qty || 1) || 1;
+                        let itemTotal = itemPrice * itemQty;
+                        let itemTotalCost = itemCost * itemQty;
+                        let itemCodeKey = String(it.code || it.name || '').trim();
+                        let rankNum = rankMap[itemCodeKey] || '-';
+
+                        sumCostTotal += itemTotalCost;
+                        sumPriceTotal += itemTotal;
+
+                        html += `
+                            <tr class="hover:bg-gray-50 border-b">
+                                <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
+                                <td class="p-3 border-r text-center font-semibold text-purple-700">${dateStr}</td>
+                                <td class="p-3 border-r font-bold text-gray-900">${itemName}</td>
+                                <td class="p-3 border-r text-right text-blue-600 font-semibold">${formatNumberWithCommas(itemCost)} ກີບ</td>
+                                <td class="p-3 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(itemPrice)} ກີບ</td>
+                                <td class="p-3 border-r text-center font-bold text-gray-800">${itemQty}</td>
+                                <td class="p-3 border-r text-right font-bold text-gray-900 bg-gray-50">${formatNumberWithCommas(itemTotal)} ກີບ</td>
+                                <td class="p-3 border-r text-center font-extrabold text-amber-600 bg-amber-50/30">ອັນດັບ ${rankNum}</td>
+                                <td class="p-3 text-center">
+                                    <input type="checkbox" data-id="${tx.id}" class="history-row-checkbox w-4 h-4 cursor-pointer accent-blue-600">
+                                </td>
+                            </tr>
+                        `;
+                    });
+                }
+            });
+
+            tbody.innerHTML = html;
+            let profitTotal = sumPriceTotal - sumCostTotal;
+
+            document.getElementById('sum-total-cost').innerText = formatNumberWithCommas(sumCostTotal) + " ກີບ";
+            document.getElementById('sum-total-price').innerText = formatNumberWithCommas(sumPriceTotal) + " ກີບ";
+            document.getElementById('sum-total-profit').innerText = formatNumberWithCommas(profitTotal) + " ກີບ";
+            document.getElementById('history-summary').classList.remove('hidden');
+        }
+
+        async function openReport() { 
+            document.getElementById('report-modal').classList.remove('hidden'); 
+            toggleReportFilter();
+        }
+
+        function closeReport() { 
+            document.getElementById('report-modal').classList.add('hidden'); 
+        }
+
+        function toggleReportFilter() {
+            let reportType = document.getElementById('report-type').value;
+            document.getElementById('filter-monthly').classList.add('hidden');
+            document.getElementById('filter-quarterly').classList.add('hidden');
+            document.getElementById('filter-duration').classList.add('hidden');
+
+            if (reportType === 'monthly') {
+                document.getElementById('filter-monthly').classList.remove('hidden');
+            } else if (reportType === 'quarterly') {
+                document.getElementById('filter-quarterly').classList.remove('hidden');
+            } else if (reportType === 'duration') {
+                document.getElementById('filter-duration').classList.add('hidden');
+            }
+            calculateReport();
+        }
+
+        async function calculateReport() {
+            let reportType = document.getElementById('report-type').value;
+            let year = parseInt(document.getElementById('report-year').value);
+            
+            let totalCost = 0;
+            let totalPrice = 0;
+
+            let allSales = [];
+            if (db) {
+                try {
+                    let snapshot = await db.collection("sales_history").get();
+                    snapshot.forEach(doc => {
+                        let tx = doc.data();
+                        allSales.push({
+                            total_cost: tx.total_cost || 0,
+                            total: tx.total || 0,
+                            created_at: tx.created_at
+                        });
+                    });
+                } catch (e) {}
+            }
+
+            allSales.forEach(tx => {
+                let txDate = new Date(tx.created_at);
+                if (isNaN(txDate)) return;
+
+                let txYear = txDate.getFullYear();
+                let txMonth = txDate.getMonth() + 1;
+
+                if (txYear === year) {
+                    let match = false;
+
+                    if (reportType === 'monthly') {
+                        let selectedMonth = parseInt(document.getElementById('report-month').value);
+                        if (txMonth === selectedMonth) match = true;
+                    } 
+                    else if (reportType === 'quarterly') {
+                        let quarter = parseInt(document.getElementById('report-quarter').value);
+                        let qMonths = { 1: [1,2,3], 2: [4,5,6], 3: [7,8,9], 4: [10,11,12] };
+                        if (qMonths[quarter].includes(txMonth)) match = true;
+                    } 
+                    else if (reportType === 'duration') {
+                        let durationMonths = parseInt(document.getElementById('report-duration-months').value);
+                        if (txMonth <= durationMonths) match = true;
+                    }
+
+                    if (match) {
+                        totalCost += parseFloat(tx.total_cost || 0);
+                        totalPrice += parseFloat(tx.total || 0);
+                    }
+                }
+            });
+
+            let profit = totalPrice - totalCost;
+
+            document.getElementById('rep-total-cost').innerText = formatNumberWithCommas(totalCost) + " ກີບ";
+            document.getElementById('rep-total-price').innerText = formatNumberWithCommas(totalPrice) + " ກີບ";
+            document.getElementById('rep-total-profit').innerText = formatNumberWithCommas(profit) + " ກີບ";
+        }
+
+        // --- EXCEL & QR CODE GENERATOR ---
+        async function openExcelGenerator() {
+            document.getElementById('excel-generator-modal').classList.remove('hidden');
+            let titleText = document.getElementById('excel-modal-title-text');
+            let printTitle = document.getElementById('print-area-title');
+            
+            if (currentCodeType === 'barcode') {
+                titleText.innerText = "📊 ຕາຕະລາງສ້າງ Barcode ສິນຄ້າ";
+                printTitle.innerText = "🖨️ ຕົວຢ່າງປ້າຍ Barcode ສິນຄ້າ";
+            } else {
+                titleText.innerText = "📱 ຕາຕະລາງສ້າງ QR Code ສິນຄ້າ";
+                printTitle.innerText = "🖨️ ຕົວຢ່າງປ້າຍ QR Code ສິນຄ້າ";
+            }
+
+            await fetchProductsForGenerator();
+            renderExcelTable();
+        }
+
+        function closeExcelGenerator() {
+            document.getElementById('excel-generator-modal').classList.add('hidden');
+            document.getElementById('excel-print-area').classList.add('hidden');
+        }
+
+        async function fetchProductsForGenerator() {
+            if (db) {
+                try {
+                    let snapshot = await db.collection("products").where("device_id", "==", deviceId).get();
+                    excelRows = [];
+                    snapshot.forEach(doc => {
+                        let item = doc.data();
+                        excelRows.push({
+                            id: doc.id,
+                            code: item.code,
+                            cost: item.cost,
+                            originalCost: item.original_cost || item.cost,
+                            profitPct: item.profit_pct,
+                            price: item.price,
+                            qty: item.qty || 1,
+                            dateAdded: item.date_added || new Date().toISOString().split('T')[0],
+                            mfgDate: item.mfg_date || '',
+                            expiryDate: item.expiry_date || '',
+                            currency: item.currency || 'ກີບ'
+                        });
+                    });
+                    return;
+                } catch (e) {}
+            }
+            excelRows = [];
+        }
+
+        function renderExcelTable() {
+            let tbody = document.getElementById('excel-tbody');
+            let html = '';
+            
+            if (excelRows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400 font-semibold">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າ (ກະລຸນາກົດ "+ ເພີ່ມແຖວ" ຫຼື ນຳເຂົ້າ Excel)</td></tr>`;
+                return;
+            }
+
+            excelRows.forEach((row, index) => {
+                let costNum = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
+                let priceNum = parseFloat(String(row.price).replace(/,/g, '')) || 0;
+                let totalCost = costNum * (row.qty || 1);
+                
+                let mfgVal = row.mfgDate ? formatDateToDDMMYYYY(row.mfgDate) : '';
+                let expVal = row.expiryDate ? formatDateToDDMMYYYY(row.expiryDate) : '';
+                let dateDisplay = formatDateToDDMMYYYY(row.dateAdded);
+                if (mfgVal && expVal) {
+                    dateDisplay = `MFG:${mfgVal} | EXP:${expVal}`;
+                }
+
+                html += `
+                    <tr class="hover:bg-gray-50 border-b">
+                        <td class="p-2 border-r text-center font-bold text-gray-500">${index + 1}</td>
+                        <td class="p-2 border-r">
+                            <input type="text" value="${row.code || ''}" data-field="code" onkeydown="handleExcelCellKeydown(event, ${index}, 'code')" oninput="handleInputLive(${index}, 'code', this.value)" class="w-full bg-transparent border-none outline-none font-bold text-gray-900 px-2 uppercase" placeholder="ປ້ອນຊື່ສິນຄ້າ/ລະຫັດ">
+                        </td>
+                        <td class="p-2 border-r">
+                            <input type="text" value="${formatNumberWithCommas(costNum)}" data-field="cost" onkeydown="handleExcelCellKeydown(event, ${index}, 'cost')" oninput="formatInputMoney(this); handleInputLive(${index}, 'cost', this.value)" class="w-full bg-transparent border-none outline-none text-right font-bold text-blue-600 px-2" placeholder="0">
+                        </td>
+                        <td class="p-2 border-r">
+                            <input type="text" value="${row.profitPct || 20}" data-field="profitPct" onkeydown="handleExcelCellKeydown(event, ${index}, 'profitPct')" oninput="handleInputLive(${index}, 'profitPct', this.value)" class="w-full bg-transparent border-none outline-none text-center font-semibold text-gray-700 px-2" placeholder="20">
+                        </td>
+                        <td class="p-2 border-r">
+                            <input type="text" value="${formatNumberWithCommas(priceNum)}" data-field="price" onkeydown="handleExcelCellKeydown(event, ${index}, 'price')" oninput="formatInputMoney(this); handleInputLive(${index}, 'price', this.value)" class="w-full bg-transparent border-none outline-none text-right font-bold text-green-600 px-2" placeholder="0">
+                        </td>
+                        <td class="p-2 border-r">
+                            <input type="text" value="${row.qty || 1}" data-field="qty" onkeydown="handleExcelCellKeydown(event, ${index}, 'qty')" oninput="handleInputLive(${index}, 'qty', this.value)" class="w-full bg-transparent border-none outline-none text-center font-bold text-gray-800 px-2" placeholder="1">
+                        </td>
+                        <td class="p-2 border-r text-right font-bold text-gray-800 px-3 bg-gray-50">${formatNumberWithCommas(totalCost)}</td>
+                        <td class="p-2 border-r">
+                            <input type="text" value="${dateDisplay}" data-field="dateAdded" onkeydown="handleExcelCellKeydown(event, ${index}, 'dateAdded')" oninput="handleInputLive(${index}, 'dateAdded', this.value)" class="w-full bg-transparent border-none outline-none text-center text-xs font-semibold text-gray-600 px-1" placeholder="dd/mm/yyyy">
+                        </td>
+                        <td class="p-2 text-center">
+                            <button onclick="removeExcelRow(${index})" class="text-red-500 hover:text-red-700 font-bold px-2 py-1 rounded bg-red-50 hover:bg-red-100 transition cursor-pointer">ລຶບ</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        function addExcelRow(code = '', cost = '', profitPct = 20, price = '', qty = 1, dateAdded = '') {
+            syncTableInputsToData();
+            let today = new Date().toISOString().split('T')[0];
+            let newId = 'ROW-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
+            excelRows.push({ id: newId, code: code, cost: cost, originalCost: cost || 0, profitPct: profitPct, price: price, qty: qty, dateAdded: dateAdded || today, currency: 'ກີບ' });
+            renderExcelTable();
+        }
+
+        function removeExcelRow(index) {
+            syncTableInputsToData();
+            excelRows.splice(index, 1);
+            renderExcelTable();
+        }
+
+        async function clearUnsavedRows() {
+            excelRows = [];
+            renderExcelTable(); 
+
+            if (db) {
+                try {
+                    let snapshot = await db.collection("products").where("device_id", "==", deviceId).get();
+                    let batch = db.batch();
+                    snapshot.forEach((doc) => { batch.delete(doc.ref); });
+                    await batch.commit();
+                } catch (e) {}
+            }
+
+            showAlert("ສຳເລັດ", "ລຶບຂໍ້ມູນທັງໝົດອອກຈາກລະບົບຮຽບຮ້ອຍແລ້ວ", "🧹");
+        }
+
+        function handleInputLive(index, field, value) {
+            if (field === 'code') {
+                excelRows[index].code = value;
+            } else if (field === 'cost') {
+                excelRows[index].cost = value;
+                excelRows[index].originalCost = value;
+            } else if (field === 'profitPct') {
+                excelRows[index].profitPct = value;
+            } else if (field === 'price') {
+                excelRows[index].price = value;
+            } else if (field === 'qty') {
+                excelRows[index].qty = value;
+            } else if (field === 'dateAdded') {
+                excelRows[index].dateAdded = value;
+            }
+        }
+
+        function handleExcelCellKeydown(event, rowIndex, fieldName) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                syncTableInputsToData();
+
+                if (rowIndex === excelRows.length - 1) {
+                    addExcelRow();
+                } else {
+                    renderExcelTable();
+                }
+
+                setTimeout(() => {
+                    let nextRowInputs = document.querySelectorAll(`#excel-tbody tr`);
+                    if (nextRowInputs[rowIndex + 1]) {
+                        let targetInput = nextRowInputs[rowIndex + 1].querySelector(`[data-field="${fieldName}"]`);
+                        if (targetInput) {
+                            targetInput.focus();
+                        }
+                    }
+                }, 50);
+            }
+        }
+
+        function syncTableInputsToData() {
+            let rowsInput = document.querySelectorAll('#excel-tbody tr');
+            rowsInput.forEach((tr, index) => {
+                if (excelRows[index]) {
+                    if (!excelRows[index].id) {
+                        excelRows[index].id = 'ROW-' + Date.now() + '-' + index;
+                    }
+                    let codeInput = tr.querySelector('input[data-field="code"]');
+                    let costInput = tr.querySelector('input[data-field="cost"]');
+                    let pctInput = tr.querySelector('input[data-field="profitPct"]');
+                    let priceInput = tr.querySelector('input[data-field="price"]');
+                    let qtyInput = tr.querySelector('input[data-field="qty"]');
+                    let dateInput = tr.querySelector('input[data-field="dateAdded"]');
+
+                    if (codeInput) excelRows[index].code = codeInput.value.trim();
+                    if (costInput) {
+                        let cVal = costInput.value.trim();
+                        excelRows[index].cost = cVal;
+                        if (!excelRows[index].originalCost) excelRows[index].originalCost = cVal;
+                    }
+                    if (pctInput) excelRows[index].profitPct = pctInput.value.trim();
+                    if (priceInput) excelRows[index].price = priceInput.value.trim();
+                    if (qtyInput) excelRows[index].qty = qtyInput.value.trim() === '' ? 1 : qtyInput.value.trim();
+                    if (dateInput) excelRows[index].dateAdded = dateInput.value;
+                }
+            });
+        }
+
+        function handleCalcPctDropdown(selectElem) {
+            let val = selectElem.value;
+            selectElem.value = "";
+            if (val === "calc") {
+                calculatePercentage();
+            } else if (val === "update") {
+                document.getElementById('update-pct-modal').classList.remove('hidden');
+            }
+        }
+
+        function closeUpdatePctModal() {
+            document.getElementById('update-pct-modal').classList.add('hidden');
+        }
+
+        function confirmUpdateGlobalPct() {
+            let val = parseFloat(document.getElementById('input-global-pct').value);
+            if (isNaN(val)) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຕົວເລກເປີເຊັນທີ່ຖືກຕ້ອງ!", "⚠️");
+                return;
+            }
+            syncTableInputsToData();
+            excelRows.forEach(row => {
+                row.profitPct = val;
+            });
+            renderExcelTable();
+            closeUpdatePctModal();
+            showAlert("ສຳເລັດ", `ອັບເດດເປີເຊັນ (%) ເປັນ ${val}% ທຸກລາຍການແລ້ວ!`, "📊");
+        }
+
+        function calculatePercentage() {
+            syncTableInputsToData();
+            excelRows.forEach(row => {
+                let cost = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
+                let price = parseFloat(String(row.price).replace(/,/g, '')) || 0;
+                if (cost > 0 && price > cost) {
+                    let pct = ((price - cost) / cost) * 100;
+                    row.profitPct = Math.round(pct);
+                }
+            });
+            renderExcelTable();
+            showAlert("ສຳເລັດ", "ຄຳນວນເປີເຊັນສຳເລັດ!", "🧮");
+        }
+
+        function calculateSalePrices() {
+            syncTableInputsToData();
+            excelRows.forEach(row => {
+                let cost = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
+                let pct = parseFloat(String(row.profitPct).replace(/,/g, '')) || 20;
+                if (cost > 0) {
+                    let rawPrice = cost * (1 + pct / 100);
+                    let roundedPrice = Math.ceil(rawPrice / 1000) * 1000;
+                    row.price = roundedPrice;
+                }
+            });
+            renderExcelTable();
+            showAlert("ສຳເລັດ", "ຄຳນວນລາຄາຂາຍຕາມສູດ ROUNDUP ສຳເລັດ!", "🏷️");
+        }
+
+        async function saveExcelData() {
+            syncTableInputsToData();
+            let validRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
+
+            if (validRows.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຂໍ້ມູນສິນຄ້າກ່ອນບັນທຶກ!", "⚠️");
+                return;
+            }
+
+            let today = new Date().toISOString().split('T')[0];
+
+            if (db) {
+                try {
+                    let snapshot = await db.collection("products").where("device_id", "==", deviceId).get();
+                    let batch = db.batch();
+                    snapshot.forEach((doc) => { batch.delete(doc.ref); });
+                    await batch.commit();
+
+                    let newBatch = db.batch();
+                    validRows.forEach(row => {
+                        let isoDate = row.dateAdded || today;
+                        if (row.dateAdded && row.dateAdded.includes('/')) {
+                            isoDate = parseDDMMYYYYToISO(row.dateAdded);
+                        }
+                        let docRef = db.collection("products").doc();
+                        newBatch.set(docRef, {
+                            device_id: deviceId,
+                            code: row.code,
+                            cost: parseFloat(String(row.cost).replace(/,/g, '')) || 0,
+                            original_cost: parseFloat(String(row.originalCost || row.cost).replace(/,/g, '')) || 0,
+                            profit_pct: parseFloat(String(row.profitPct).replace(/,/g, '')) || 20,
+                            price: parseFloat(String(row.price).replace(/,/g, '')) || 0,
+                            qty: parseInt(String(row.qty).replace(/,/g, '')) || 1,
+                            date_added: isoDate,
+                            mfg_date: row.mfgDate || null,
+                            expiry_date: row.expiryDate || null,
+                            currency: row.currency || 'ກີບ',
+                            updated_at: new Date().toISOString()
+                        });
+                    });
+                    await newBatch.commit();
+                } catch (e) {}
+            }
+
+            showAlert("ສຳເລັດ", `ບັນທຶກຂໍ້ມູນ ${validRows.length} ລາຍການ ສຳເລັດຮຽບຮ້ອຍ!`, "💾");
+            generateExcelCodes();
+        }
+
+        function promptPrintDate() {
+            syncTableInputsToData();
+            let validRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
+            if (validRows.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຂໍ້ມູນສິນຄ້າກ່ອນສັ່ງພິມ!", "⚠️");
+                return;
+            }
+
+            let uniqueDates = [...new Set(validRows.map(r => r.dateAdded || new Date().toISOString().split('T')[0]))].sort().reverse();
+            let selectElem = document.getElementById('print-date-select');
+            let html = `<option value="all">🌟 ທຸກວັນ (ພິມທັງໝົດ)</option>`;
+            
+            uniqueDates.forEach(d => {
+                let count = validRows.filter(r => (r.dateAdded || new Date().toISOString().split('T')[0]) === d).length;
+                let parts = d.split('-');
+                let formattedDate = parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : d;
+                html += `<option value="${d}">📅 ວັນທີ: ${formattedDate} (${count} ລາຍການອັບໂຫຼດ)</option>`;
+            });
+
+            selectElem.innerHTML = html;
+            document.getElementById('print-date-modal').classList.remove('hidden');
+        }
+
+        function closePrintDateModal() {
+            document.getElementById('print-date-modal').classList.add('hidden');
+        }
+
+        function confirmAndPrintByDate() {
+            let selectedDate = document.getElementById('print-date-select').value;
+            closePrintDateModal();
+            generateExcelCodes(selectedDate);
+            setTimeout(() => {
+                window.print();
+            }, 500);
+        }
+
+        async function generateExcelCodes(filterDate = 'all') {
+            syncTableInputsToData();
+            
+            let validRows = excelRows.filter(r => r.code && String(r.code).trim() !== '');
+            
+            if (filterDate !== 'all') {
+                validRows = validRows.filter(r => (r.dateAdded || new Date().toISOString().split('T')[0]) === filterDate);
+            }
+
+            if (validRows.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ບໍ່ພົບຂໍ້ມູນສິນຄ້າໃນວັນທີເລືອກ!", "⚠️");
+                return;
+            }
+
+            duplicateRemovedList = validRows;
+
+            document.getElementById('excel-print-area').classList.remove('hidden');
+            let container = document.getElementById('excel-preview-cards');
+            container.innerHTML = '';
+
+            let promises = duplicateRemovedList.map((row, index) => {
+                return new Promise((resolve) => {
+                    let cleanCode = String(row.code).trim();
+                    let costVal = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
+                    let priceVal = parseFloat(String(row.price).replace(/,/g, '')) || 0;
+
+                    let payloadObj = {
+                        code: cleanCode,
+                        cost: costVal,
+                        price: priceVal
+                    };
+                    let payloadStr = JSON.stringify(payloadObj);
+
+                    let card = document.createElement('div');
+                    card.className = "bg-white p-4 rounded-xl shadow-lg border border-gray-200 text-center flex flex-col items-center justify-center relative";
+                    
+                    let headerHtml = `<div class="font-bold text-gray-800 text-sm mb-2 w-full truncate px-2" title="${cleanCode}">${cleanCode}</div>`;
+
+                    let codeContainerId = `ex-code-${index}-${Date.now()}`;
+                    
+                    let dateDisplay = '';
+                    if (row.mfgDate && row.expiryDate) {
+                        dateDisplay = `<div class="text-[9px] text-gray-500 mt-1 font-semibold">MFG: ${formatDateToDDMMYYYY(row.mfgDate)} | EXP: ${formatDateToDDMMYYYY(row.expiryDate)}</div>`;
+                    } else if (row.dateAdded) {
+                        dateDisplay = `<div class="text-[9px] text-gray-400 mt-1">ວັນນຳເຂົ້າ: ${formatDateToDDMMYYYY(row.dateAdded)}</div>`;
+                    }
+
+                    if (currentCodeType === 'qrcode') {
+                        card.innerHTML = `
+                            ${headerHtml}
+                            <div class="bg-gray-50 p-2 rounded-lg inline-block">
+                                <canvas id="${codeContainerId}"></canvas>
+                            </div>
+                            <div class="mt-2 text-xs font-semibold text-gray-600">ລະຫັດ: <span class="text-blue-600 font-mono">${cleanCode}</span></div>
+                            ${dateDisplay}
+                        `;
+                        container.appendChild(card);
+                        setTimeout(() => {
+                            QRCode.toCanvas(document.getElementById(codeContainerId), payloadStr, { width: 140, margin: 1 }, function (error) {
+                                resolve();
+                            });
+                        }, 50);
+                    } else {
+                        card.innerHTML = `
+                            ${headerHtml}
+                            <div class="bg-gray-50 p-2 rounded-lg w-full flex justify-center overflow-hidden">
+                                <svg id="${codeContainerId}" class="max-w-full"></svg>
+                            </div>
+                            ${dateDisplay}
+                        `;
+                        container.appendChild(card);
+                        setTimeout(() => {
+                            try {
+                                JsBarcode(`#${codeContainerId}`, cleanCode, {
+                                    format: "CODE128", width: 2, height: 50, displayValue: true, fontSize: 14, margin: 5
+                                });
+                            } catch (e) {
+                                document.getElementById(codeContainerId).outerHTML = `<div class="text-red-500 text-xs py-4">ລະຫັດ Barcode ບໍ່ຮອງຮັບຮູບແບບນີ້</div>`;
+                            }
+                            resolve();
+                        }, 50);
+                    }
+                });
+            });
+
+            await Promise.all(promises);
+        }
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            await initDeviceId();
+            initFirebaseRealtime(); 
+            await fetchProductsForGenerator(); 
+            let userRole = localStorage.getItem('pos_user_role');
+            let shopOwner = localStorage.getItem('pos_shop_owner');
+            let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
+            if (userRole === 'admin' || shopOwner === 'true' || linkedAdminId) {
+                let roleModal = document.getElementById('role-select-modal');
+                if (roleModal) roleModal.classList.add('hidden');
+                let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
+                if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
+                let rateBtn = document.getElementById('header-rate-btn');
+                if (rateBtn) rateBtn.classList.remove('hidden');
+            }
+            let savedLang = localStorage.getItem('pos_current_lang') || 'lo';
+            let langSelect = document.getElementById('language-select');
+            if (langSelect) langSelect.value = savedLang;
+            changeLanguage(savedLang);
+
+            updateHeaderTitle();
+            checkRoleAndLicense();
+            checkAdminButtonVisibility();
+        });
+    </script>
+</body>
+</html>
