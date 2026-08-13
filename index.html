@@ -684,6 +684,7 @@
             <button onclick="closeStockInScanner()" class="mt-3 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded w-full font-bold cursor-pointer">ປິດກ້ອງ</button>
         </div>
 
+        <!-- Modal ກຳນົດຂໍ້ມູນສິນຄ້າ (ຮູບ 1) -->
         <div id="confirm-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
                 <div class="text-3xl text-center">📦</div>
@@ -719,7 +720,8 @@
                 </div>
                 <div class="flex gap-2 pt-2">
                     <button onclick="cancelScannedItem()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
-                    <button onclick="confirmScannedItem()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ຕົກລົງ (ເພີ່ມລົງຕາຕະລາງ)</button>
+                    <!-- 🌟 ເມື່ອກົດປຸ່ມ ຕົກລົງ ໃນຮູບ 1 ຈະເອີ້ນ promptConfirmAddCart() ເພື່ອສະແດງປ໊ອບອັບຢືນຢັນ -->
+                    <button onclick="promptConfirmAddCart()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">ຕົກລົງ (ເພີ່ມລົງຕາຕະລາງ)</button>
                 </div>
             </div>
         </div>
@@ -2434,8 +2436,8 @@
             document.getElementById('confirm-modal').classList.remove('hidden');
         }
 
-        // 🌟 ຟັງຊັນຢືນຢັນເພີ່ມສິນຄ້າລົງຕາຕະລາງຂາຍ (ຮູບ 1 & ຮູບ 2) ພ້ອມປ໊ອບອັບຢືນຢັນ ແລະ ຣີເຊັດເປັນ 0
-        async function confirmScannedItem() {
+        // 🌟 ຟັງຊັນປ໊ອບອັບຢືນຢັນ ເມື່ອກົດ ຕົກລົງ ໃນຮູບ 1
+        function promptConfirmAddCart() {
             let nameInput = document.getElementById('modal-name').value.trim();
             let costInput = parseFloat(String(document.getElementById('modal-cost').value).replace(/,/g, '')) || 0;
             let priceInput = parseFloat(String(document.getElementById('modal-price').value).replace(/,/g, '')) || 0;
@@ -2443,44 +2445,31 @@
             let stockRemaining = parseInt(document.getElementById('modal-stock-remaining').value) || 0;
 
             if (!nameInput) { showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຊື່ສິນຄ້າ!", "⚠️"); return; }
-
-            if (qtyInput <= 0) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຈຳນວນໃຫ້ຖືກຕ້ອງ!", "⚠️");
-                return;
-            }
+            if (qtyInput <= 0) { showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນຈຳນວນໃຫ້ຖືກຕ້ອງ!", "⚠️"); return; }
 
             if (qtyInput > stockRemaining) {
-                showAlert("ສິນຄ້າໃນສາງບໍ່ພໍ", `ສິນຄ້າ [${nameInput}] ໃນສາງເຫຼືອພຽງ ${stockRemaining} ອັນເທົ່ານັ້ນ! ບໍ່ສາມາດຂາຍເກີນຈຳນວນສາງໄດ້.`, "❌");
+                showAlert("ສິນຄ້າໃນສາງບໍ່ພໍ", `ສິນຄ້າ [${nameInput}] ໃນສາງເຫຼືອພຽງ ${stockRemaining} ອັນເທົ່ານັ້ນ!`, "❌");
                 return;
             }
 
-            // 🌟 ປ໊ອບອັບຢືນຢັນກ່ອນເພີ່ມລົງຕາຕະລາງ
-            showCustomConfirm("📦 ຢືນຢັນການຂາຍ", `ທ່ານຕ້ອງການເພີ່ມສິນຄ້າ [${nameInput}] ຈຳນວນ ${qtyInput} ລົງໃນຕາຕະລາງຂາຍແທ້ບໍ?`, async (confirmed) => {
+            showCustomConfirm("📦 ຢືນຢັນການເພີ່ມສິນຄ້າ", `ທ່ານຕ້ອງການຢືນຢັນເພີ່ມສິນຄ້າ [${nameInput}] ຈຳນວນ ${qtyInput} ລົງໃນຕາຕະລາງຂາຍ (ຮູບ 2) ແທ້ບໍ?`, (confirmed) => {
                 if (!confirmed) return;
 
                 let existingInCart = cart.find(item => item.code === tempScannedCode && item.cost === costInput && item.price === priceInput);
                 if (existingInCart) {
-                    let totalNewQty = existingInCart.qty + qtyInput;
-                    if (totalNewQty > (stockRemaining + existingInCart.qty)) {
-                        showAlert("ສິນຄ້າໃນສາງບໍ່ພໍ", `ສິນຄ້າໃນສາງເຫຼືອພຽງ ${stockRemaining} ອັນເທົ່ານັ້ນ!`, "❌");
-                        return;
-                    }
-                    existingInCart.qty = totalNewQty;
+                    existingInCart.qty += qtyInput;
                 } else {
                     cart.push({ code: tempScannedCode, name: nameInput, cost: costInput, price: priceInput, qty: qtyInput });
                 }
 
                 renderCart();
                 document.getElementById('confirm-modal').classList.add('hidden');
-
-                // 🌟 ຣີເຊັດຄ່າໃນຟອມປ໊ອບອັບ (ຮູບ 1) ໃຫ້ກັບຄືນເປັນ 0 
-                document.getElementById('modal-qty').value = "1";
-                document.getElementById('modal-cost').value = "";
-                document.getElementById('modal-price').value = "";
-                document.getElementById('modal-stock-remaining').value = "0";
-
-                showAlert("ສຳເລັດ", "ເພີ່ມສິນຄ້າລົງຕາຕະລາງຂາຍສຳເລັດຮຽບຮ້ອຍ!", "✅");
+                showAlert("ສຳເລັດ", "ເພີ່ມສິນຄ້າລົງໃນຕາຕະລາງຂາຍຮຽບຮ້ອຍ!", "✅");
             });
+        }
+
+        function confirmScannedItem() {
+            promptConfirmAddCart();
         }
 
         function cancelScannedItem() { document.getElementById('confirm-modal').classList.add('hidden'); }
@@ -2906,7 +2895,7 @@
             }
         }
 
-        // --- 🌟 ຟັງຊັນຢັ້ງຢືນຊຳລະເງິນ: ບັນທຶກປະຫວັດ ແລະ ຣີເຟຣຊ (Refresh) ໜ້າຈໍທັນທີ 100% ຕາມທີ່ອາຈານຕ້ອງການ ---
+        // --- 🌟 ຟັງຊັນຢັ້ງຢືນຊຳລະເງິນ: ບັນທຶກປະຫວັດ ແລະ ຣີເຊັດໜ້າຈໍຂາຍໃຫ້ກັບຄືນເປັນ 0 ທັນທີ 100% ---
         async function confirmCheckoutPayment() {
             let selectedRadio = document.querySelector('input[name="pay_mode"]:checked');
             let payMode = selectedRadio ? selectedRadio.value : 'cash';
