@@ -68,6 +68,9 @@
 </head>
 <body class="bg-gray-100 min-h-screen pb-10">
 
+    <!-- Hidden File Input for Excel Import -->
+    <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" class="hidden" onchange="handleExcelFileImport(event)">
+
     <!-- Role Selection Modal -->
     <div id="role-select-modal" class="hidden fixed inset-0 bg-black/80 z-[300] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
@@ -233,8 +236,8 @@
                     <span>📦 ສິນຄ້າຄ້າງສາງ (Inventory Stock)</span>
                 </h3>
                 <div class="flex items-center gap-2">
-                    <!-- 🌟 ປຸ່ມເຂົ້າຂໍ້ມູນ (Excel) ທີ່ຢູ່ດ້ານໃນໜ້າຕ່າງສິນຄ້າຄ້າງສາງ (ຮູບ 2) -->
-                    <button onclick="openExcelGenerator()" class="text-xs bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg cursor-pointer font-bold transition shadow flex items-center gap-1.5">
+                    <!-- 🌟 ປຸ່ມ "ເຂົ້າຂໍ້ມູນ (Excel)" ທີ່ກົດແລ້ວເລືອກໄຟລ໌ຈາກຄອມພິວເຕີມາລົງສາງທັນທີ -->
+                    <button onclick="triggerExcelImport()" class="text-xs bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg cursor-pointer font-bold transition shadow flex items-center gap-1.5">
                         <span>📊</span> ເຂົ້າຂໍ້ມູນ (Excel)
                     </button>
                     <button onclick="promptDeleteInventoryAction()" class="text-xs bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg cursor-pointer font-bold transition shadow flex items-center gap-1.5">
@@ -591,7 +594,7 @@
                     </div>
                 </div>
 
-                <!-- 🌟 ປັບປຸງ: ປຸ່ມ "ສິນຄ້າຄ້າງສາງ" ກັບຄືນມາເປັນປຸ່ມປົກກະຕິ (ບໍ່ແມ່ນ Dropdown) -->
+                <!-- 🌟 ປຸ່ມ "ສິນຄ້າຄ້າງສາງ" ປົກກະຕິ -->
                 <button id="btn-inventory" onclick="openInventoryModal()" class="w-full sm:w-auto bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     📦 ສິນຄ້າຄ້າງສາງ
                 </button>
@@ -2651,6 +2654,78 @@
             document.getElementById('stock-in-modal').classList.add('hidden');
         }
 
+        // --- 🌟 ຟັງຊັນສຳລັບກົດປຸ່ມ "ເຂົ້າຂໍ້ມູນ (Excel)" ເພື່ອເລືອກໄຟລ໌ຈາກຄອມພິວເຕີ ແລະ ບັນທຶກເຂົ້າສາງອັດຕະໂນມັດ ---
+        function triggerExcelImport() {
+            let fileInput = document.getElementById('excel-file-input');
+            if (fileInput) fileInput.click();
+        }
+
+        async function handleExcelFileImport(event) {
+            let file = event.target.files[0];
+            if (!file) return;
+
+            let reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    let data = new Uint8Array(e.target.result);
+                    let workbook = XLSX.read(data, { type: 'array' });
+                    let firstSheetName = workbook.SheetNames[0];
+                    let worksheet = workbook.Sheets[firstSheetName];
+                    let jsonRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                    if (jsonRows.length <= 1) {
+                        showAlert("ແຈ້ງເຕືອນ", "ໄຟລ໌ Excel ບໍ່ມີຂໍ້ມູນ ຫຼື ບໍ່ຖືກຕ້ອງ!", "⚠️");
+                        return;
+                    }
+
+                    // ດຶງຂໍ້ມູນຈາກແຖວທີ 2 ເປັນຕົ້ນໄປ (ຂ້າມ Header)
+                    let importedNewRows = [];
+                    let todayIso = new Date().toISOString().split('T')[0];
+
+                    for (let i = 1; i < jsonRows.length; i++) {
+                        let r = jsonRows[i];
+                        if (r && r.length > 0 && r[0]) {
+                            let code = String(r[0] || '').trim();
+                            let cost = parseFloat(String(r[1] || 0).replace(/,/g, '')) || 0;
+                            let price = parseFloat(String(r[2] || 0).replace(/,/g, '')) || (cost > 0 ? Math.ceil((cost * 1.2) / 1000) * 1000 : 0);
+                            let qty = parseInt(String(r[3] || 1).replace(/,/g, '')) || 1;
+                            let unitPerPack = parseInt(r[4] || 12) || 12;
+                            let dateAdded = r[5] ? parseDDMMYYYYToISO(String(r[5])) : todayIso;
+
+                            if (code !== '') {
+                                importedNewRows.push({
+                                    id: 'ROW-' + Date.now() + '-' + i + '-' + Math.random().toString(36).substring(2, 6),
+                                    code: code,
+                                    cost: cost,
+                                    originalCost: cost,
+                                    profitPct: 20,
+                                    price: price,
+                                    qty: qty,
+                                    unitPerPack: unitPerPack,
+                                    dateAdded: dateAdded,
+                                    currency: 'ກີບ'
+                                });
+                            }
+                        }
+                    }
+
+                    if (importedNewRows.length > 0) {
+                        // ບັນທຶກລົງ Firebase / LocalStorage ໂດຍອັດຕະໂນມັດ
+                        excelRows = excelRows.concat(importedNewRows);
+                        await saveExcelDataQuietly();
+                        loadInventory();
+                        showAlert("ສຳເລັດ", `ນຳເຂົ້າຂໍ້ມູນ Excel ຈຳນວນ ${importedNewRows.length} ລາຍການ ເຂົ້າສາງສຳເລັດຮຽບຮ້ອຍ!`, "📊");
+                    } else {
+                        showAlert("ແຈ້ງເຕືອນ", "ບໍ່ພົບຂໍ້ມູນສິນຄ້າທີ່ถูกต้องໃນໄຟລ໌ Excel!", "⚠️");
+                    }
+                } catch (err) {
+                    showAlert("ຜິດພາດ", "ເກີດข้อຜິດພາດໃນການອ່ານໄຟລ໌ Excel!", "❌");
+                }
+                event.target.value = ""; // Reset file input
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
         async function showConfirmModalParsed(rowId, code, name, cost, price) {
             tempScannedCode = code;
             document.getElementById('modal-code').innerText = code;
@@ -3489,7 +3564,7 @@
                         }
 
                         let formattedCost = (displayCurrency === 'ບາດ') ? displayCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : formatNumberWithCommas(displayCost);
-                        let formattedPrice = (displayCurrency === 'ບາດ') ? displayPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : formatNumberWithCommas(displayPrice);
+                        let formattedPrice = (displayCurrency === 'ບາດ') ? displayPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : formatNumberWithCommas(formattedPrice);
 
                         let itemTotal = (displayCurrency === 'ບາດ') ? Math.ceil(displayPrice * itemQty) : (displayPrice * itemQty);
                         let itemTotalCost = (displayCurrency === 'ບາດ') ? (displayCost * itemQty) : (displayCost * itemQty);
@@ -3576,7 +3651,6 @@
             calculateReport();
         }
 
-        // 🌟 ປັບປຸງ: ລາຍງານລວມຍອດ ແຍກສະກຸນເງິນ ແລະ ແຍກປະເພດ ເງິນສົດ/ເງິນໂອນ ຢ່າງລະອຽດ
         async function calculateReport() {
             let reportType = document.getElementById('report-type').value;
             let year = parseInt(document.getElementById('report-year').value);
