@@ -260,7 +260,8 @@
                             <th class="p-3 border-r text-right">ລວມເງິນຊື້</th>
                             <th class="p-3 border-r text-right">ລວມເງິນຂາຍ</th>
                             <th class="p-3 border-r text-center">ໝາຍເຫດ</th>
-                            <th class="p-3 text-center w-20">ຈັດການ</th>
+                            <!-- 🌟 ຫົວຂໍ້ຄໍລຳຂວາສຸດ ປ່ຽນຕາມສິດທິ (ADMIN ໃຫຍ່ = ເລືອກ/ລຶບ, ADMIN ຮ້ານ = ຈັດການ) -->
+                            <th id="inventory-col-action-header" class="p-3 text-center w-20">ຈັດການ</th>
                         </tr>
                     </thead>
                     <tbody id="inventory-tbody" class="divide-y divide-gray-200 text-sm">
@@ -770,7 +771,7 @@
                         <input type="text" id="stock-in-cost" oninput="formatInputMoney(this); calculateStockInPrice();" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 text-right font-bold text-blue-600 text-lg" placeholder="ປ້ອນລາຄາຊື້">
                     </div>
 
-                    <!-- 🌟 ປຸ່ມ ເປີເຊັນຂາຍ (%) ແລະ ລາຄາຂາຍ (ຕັດຄຳວ່າ "ອັດຕະໂນມັດ" ອອກຕາມຕ້ອງການ) -->
+                    <!-- 🌟 ປຸ່ມ ເປີເຊັນຂາຍ (%) ແລະ ລາຄາຂາຍ (ຕັດຄຳວ່າ "(ອັດຕະໂນມັດ)" ອອກແລ້ວ) -->
                     <div class="grid grid-cols-2 gap-2 bg-purple-50/50 p-3 rounded-xl border border-purple-200">
                         <div>
                             <label class="block font-[11px] font-bold text-purple-900 mb-1">📈 ເປີເຊັນຂາຍ (%):</label>
@@ -1569,7 +1570,6 @@
                 }
             }
 
-            // 🌟 ຖ້າເປັນ ADMIN ໃຫຍ່ (Super Admin ຫຼື POSXIONG) ໃຫ້ສະແດງປຸ່ມລຶບຂໍ້ມູນໃນສາງ, ຖ້າເປັນ Admin ຮ້ານປົກກະຕິໃຫ້ຊ່ອນ
             if (deleteInvBtn) {
                 if (userRole === 'admin' || deviceId === 'POSXIONG') {
                     deleteInvBtn.classList.remove('hidden');
@@ -2128,20 +2128,55 @@
         }
 
         function promptDeleteInventoryAction() {
-            showCustomConfirm("🔥 ຢືນຢັນລຶບຂໍ້ມູນທັງໝົດ", "ທ່ານຕ້ອງການລຶບຂໍ້ມູນສິນຄ້າທັງໝົດໃນສາງແທ້ບໍ?", async (confirmed) => {
-                if (!confirmed) return;
-                if (db) {
-                    try {
-                        let snapshot = await db.collection("products").where("device_id", "==", deviceId).get();
-                        let batch = db.batch();
-                        snapshot.forEach((doc) => { batch.delete(doc.ref); });
-                        await batch.commit();
-                    } catch (e) {}
-                }
-                excelRows = [];
-                loadInventory();
-                showAlert("ສຳເລັດ", "ລຶບຂໍ້ມູນສິນຄ້າທັງໝົດໃນສາງສຳເລັດຮຽບຮ້ອຍ!", "🗑️");
-            });
+            let userRole = localStorage.getItem('pos_user_role');
+            if (userRole !== 'admin' && deviceId !== 'POSXIONG') {
+                showAlert("ບໍ່ມີສິດທິ", "ມີແຕ່ ADMIN ໃຫຍ່ ເທົ່ານັ້ນທີ່ສາມາດລຶບຂໍ້ມູນສາງໄດ້!", "🔒");
+                return;
+            }
+
+            let checkboxes = document.querySelectorAll('.inventory-row-checkbox:checked');
+            
+            if (checkboxes.length > 0) {
+                let idsToDelete = [];
+                checkboxes.forEach(cb => {
+                    idsToDelete.push(cb.getAttribute('data-id'));
+                });
+
+                showCustomConfirm("🗑️ ຢືນຢັນລຶບລາຍການທີ່ເລືອກ", `ທ່ານຕ້ອງການລຶບຂໍ້ມູນສິນຄ້າ ${idsToDelete.length} ລາຍການທີ່ເລືອກແທ້ບໍ?`, async (confirmed) => {
+                    if (!confirmed) return;
+                    if (db) {
+                        try {
+                            let batch = db.batch();
+                            for (let id of idsToDelete) {
+                                let docRef = db.collection("products").doc(id);
+                                batch.delete(docRef);
+                            }
+                            await batch.commit();
+                        } catch (e) {}
+                    }
+
+                    excelRows = excelRows.filter(r => !idsToDelete.includes(r.id));
+                    loadInventory();
+                    let masterCb = document.getElementById('select-all-checkbox');
+                    if (masterCb) masterCb.checked = false;
+                    showAlert("ສຳເລັດ", `ລຶບລາຍການສິນຄ້າທີ່ເລືອກສຳເລັດຮຽບຮ້ອຍແລ້ວ!`, "🗑️");
+                });
+            } else {
+                showCustomConfirm("🔥 ຢືນຢັນລຶບຂໍ້ມູນທັງໝົດ", "ທ່ານບໍ່ໄດ້ຕິກເລືອກລາຍການໃດໆ! ທ່ານຕ້ອງການລຶບຂໍ້ມູນສິນຄ້າທັງໝົດໃນສາງແທ້ບໍ?", async (confirmed) => {
+                    if (!confirmed) return;
+                    if (db) {
+                        try {
+                            let snapshot = await db.collection("products").where("device_id", "==", deviceId).get();
+                            let batch = db.batch();
+                            snapshot.forEach((doc) => { batch.delete(doc.ref); });
+                            await batch.commit();
+                        } catch (e) {}
+                    }
+                    excelRows = [];
+                    loadInventory();
+                    showAlert("ສຳເລັດ", "ລຶບຂໍ້ມູນສິນຄ້າທັງໝົດໃນສາງສຳເລັດຮຽບຮ້ອຍ!", "🗑️");
+                });
+            }
         }
 
         async function loadInventory() {
@@ -2216,6 +2251,17 @@
 
             let html = '';
             let countIndex = 1;
+            let isAdminMaster = (userRole === 'admin' || deviceId === 'POSXIONG');
+
+            // 🌟 ປັບປຸງຫົວຂໍ້ຄໍລຳຂວາສຸດ: ADMIN ໃຫຍ່ = Checkbox ວາງໄວ້, ADMIN ຮ້ານ = ຈັດການ
+            let actionHeader = document.getElementById('inventory-col-action-header');
+            if (actionHeader) {
+                if (isAdminMaster) {
+                    actionHeader.innerHTML = `<input type="checkbox" id="select-all-checkbox" onclick="toggleSelectAllInventory(this)" class="w-4 h-4 cursor-pointer accent-cyan-600" title="ເລືອກທັງໝົດ">`;
+                } else {
+                    actionHeader.innerHTML = `ຈັດການ`;
+                }
+            }
 
             excelRows.forEach((row) => {
                 let initialPackQty = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1; 
@@ -2248,6 +2294,11 @@
 
                 let shopLabel = ((userRole === 'admin' || deviceId === 'POSXIONG') && row.device_id) ? ` [ຮ້ານ: ${row.device_id}]` : '';
 
+                // 🌟 ຖ້າ ADMIN ໃຫຍ່ = ສະແດງ Checkbox, ຖ້າ ADMIN ຮ້ານ = ສະແດງປຸ່ມ "ແກ້ໄຂ"
+                let rightCellHtml = isAdminMaster ? 
+                    `<input type="checkbox" data-id="${row.id}" class="inventory-row-checkbox w-4 h-4 cursor-pointer accent-cyan-600">` : 
+                    `<button onclick="openEditInventoryItem('${row.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer shadow flex items-center gap-1 mx-auto">✏️ ແກ້ໄຂ</button>`;
+
                 html += `
                     <tr class="hover:bg-gray-50 border-b">
                         <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
@@ -2261,7 +2312,7 @@
                         <td class="p-3 border-r text-right font-bold text-green-800 bg-green-50/30">${totalPriceStr}</td>
                         <td class="p-3 border-r text-center text-xs font-extrabold text-amber-600">${noteStr}</td>
                         <td class="p-3 text-center">
-                            <button onclick="openEditInventoryItem('${row.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer shadow">✏️ ແກ້ໄຂ</button>
+                            ${rightCellHtml}
                         </td>
                     </tr>
                 `;
@@ -2270,7 +2321,7 @@
             tbody.innerHTML = html;
         }
 
-        // 🌟 ຟັງຊັນເປີດ Modal ນຳເຂົ້າສິນຄ້າເພື່ອແກ້ໄຂຂໍ້ມູນສິນຄ້າໃນສາງ
+        // 🌟 ຟັງຊັນເປີດ Modal ນຳເຂົ້າສິນຄ້າເພື່ອແກ້ໄຂຂໍ້ມູນສິນຄ້າໃນສາງ (ສຳລັບ Admin ຮ້ານ)
         function openEditInventoryItem(rowId) {
             let item = excelRows.find(r => r.id === rowId);
             if (!item) return;
@@ -2288,7 +2339,6 @@
             document.getElementById('stock-in-cost').value = formatNumberWithCommas(item.cost);
             
             if (document.getElementById('stock-in-profit-pct')) {
-                document.getElementById('stock-in-profit-pct.value') = item.profitPct !== undefined ? item.profitPct : 20;
                 document.getElementById('stock-in-profit-pct').value = item.profitPct !== undefined ? item.profitPct : 20;
             }
 
@@ -2305,7 +2355,6 @@
                 document.getElementById('stock-in-exp-date').value = item.expiryDate ? formatDateToDDMMYYYY(item.expiryDate) : "";
             }
 
-            // ປ່ຽນພຶດຕິກຳປຸ່ມຢືນຢັນໃຫ້ເປັນການອັບເດດ (Update)
             let confirmBtn = document.querySelector('#stock-in-modal button.bg-pink-600');
             if (confirmBtn) {
                 confirmBtn.setAttribute('onclick', `updateExistingStockItem('${item.id}')`);
@@ -2359,7 +2408,6 @@
             await saveExcelDataQuietly();
             closeStockInModal();
 
-            // ຕັ້ງຄ່າປຸ່ມກັບຄືນເປັນໂໝດປົກກະຕິ
             let confirmBtn = document.querySelector('#stock-in-modal button.bg-pink-600');
             if (confirmBtn) {
                 confirmBtn.setAttribute('onclick', `confirmStockIn()`);
@@ -2776,7 +2824,6 @@
                 document.getElementById('stock-in-calculated-price').value = "0";
             }
 
-            // ຕັ້ງຄ່າປຸ່ມກັບຄືນເປັນໂໝດປົກກະຕິ (ນຳເຂົ້າ)
             let confirmBtn = document.querySelector('#stock-in-modal button.bg-pink-600');
             if (confirmBtn) {
                 confirmBtn.setAttribute('onclick', `confirmStockIn()`);
