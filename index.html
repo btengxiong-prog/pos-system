@@ -239,7 +239,8 @@
                     <button onclick="triggerExcelImport()" class="text-xs bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg cursor-pointer font-bold transition shadow flex items-center gap-1.5">
                         <span>📊</span> ເຂົ້າຂໍ້ມູນ (Excel)
                     </button>
-                    <button onclick="promptDeleteInventoryAction()" class="text-xs bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg cursor-pointer font-bold transition shadow flex items-center gap-1.5">
+                    <!-- 🌟 ປຸ່ມລຶບຂໍ້ມູນ: ສະແດງສະເພາະ ADMIN ໃຫຍ່ເທົ່ານັ້ນ -->
+                    <button id="btn-delete-inventory" onclick="promptDeleteInventoryAction()" class="hidden text-xs bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg cursor-pointer font-bold transition shadow flex items-center gap-1.5">
                         <span>🗑️</span> ລຶບຂໍ້ມູນ
                     </button>
                 </div>
@@ -259,9 +260,7 @@
                             <th class="p-3 border-r text-right">ລວມເງິນຊື້</th>
                             <th class="p-3 border-r text-right">ລວມເງິນຂາຍ</th>
                             <th class="p-3 border-r text-center">ໝາຍເຫດ</th>
-                            <th class="p-3 text-center w-16">
-                                <input type="checkbox" id="select-all-checkbox" onclick="toggleSelectAllInventory(this)" class="w-4 h-4 cursor-pointer accent-cyan-600" title="ເລືອກທັງໝົດ">
-                            </th>
+                            <th class="p-3 text-center w-20">ຈັດການ</th>
                         </tr>
                     </thead>
                     <tbody id="inventory-tbody" class="divide-y divide-gray-200 text-sm">
@@ -771,7 +770,7 @@
                         <input type="text" id="stock-in-cost" oninput="formatInputMoney(this); calculateStockInPrice();" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 text-right font-bold text-blue-600 text-lg" placeholder="ປ້ອນລາຄາຊື້">
                     </div>
 
-                    <!-- 🌟 ປຸ່ມ ເປີເຊັນຂາຍ (%) ແລະ ລາຄາຂາຍ (ຕັດຄຳວ່າ "ອັດຕະໂນມັດ" ອອກ) -->
+                    <!-- 🌟 ປຸ່ມ ເປີເຊັນຂາຍ (%) ແລະ ລາຄາຂາຍ (ຕັດຄຳວ່າ "ອັດຕະໂນມັດ" ອອກຕາມຕ້ອງການ) -->
                     <div class="grid grid-cols-2 gap-2 bg-purple-50/50 p-3 rounded-xl border border-purple-200">
                         <div>
                             <label class="block font-[11px] font-bold text-purple-900 mb-1">📈 ເປີເຊັນຂາຍ (%):</label>
@@ -1499,7 +1498,7 @@
                               name: item.name || '',
                               cost: item.cost,
                               originalCost: item.original_cost || item.cost,
-                              profitPct: item.profit_pct || 20,
+                              profitPct: item.profit_pct !== undefined ? item.profit_pct : 20,
                               price: item.price,
                               qty: item.qty || 1,
                               unitPerPack: item.unit_per_pack || 12,
@@ -1552,6 +1551,7 @@
             let shopOwner = localStorage.getItem('pos_shop_owner');
             let adminBtn = document.getElementById('admin-manage-btn');
             let connectQrBtn = document.getElementById('header-connect-qr-btn');
+            let deleteInvBtn = document.getElementById('btn-delete-inventory');
 
             if (adminBtn) {
                 if (userRole === 'admin') {
@@ -1566,6 +1566,15 @@
                     connectQrBtn.classList.remove('hidden');
                 } else {
                     connectQrBtn.classList.add('hidden');
+                }
+            }
+
+            // 🌟 ຖ້າເປັນ ADMIN ໃຫຍ່ (Super Admin ຫຼື POSXIONG) ໃຫ້ສະແດງປຸ່ມລຶບຂໍ້ມູນໃນສາງ, ຖ້າເປັນ Admin ຮ້ານປົກກະຕິໃຫ້ຊ່ອນ
+            if (deleteInvBtn) {
+                if (userRole === 'admin' || deviceId === 'POSXIONG') {
+                    deleteInvBtn.classList.remove('hidden');
+                } else {
+                    deleteInvBtn.classList.add('hidden');
                 }
             }
         }
@@ -2119,49 +2128,20 @@
         }
 
         function promptDeleteInventoryAction() {
-            let checkboxes = document.querySelectorAll('.inventory-row-checkbox:checked');
-            
-            if (checkboxes.length > 0) {
-                let idsToDelete = [];
-                checkboxes.forEach(cb => {
-                    idsToDelete.push(cb.getAttribute('data-id'));
-                });
-
-                showCustomConfirm("🗑️ ຢືນຢັນລຶບລາຍການທີ່ເລືອກ", `ທ່ານຕ້ອງການລຶບຂໍ້ມູນສິນຄ້າ ${idsToDelete.length} ລາຍການທີ່ເລືອກແທ້ບໍ?`, async (confirmed) => {
-                    if (!confirmed) return;
-                    if (db) {
-                        try {
-                            let batch = db.batch();
-                            for (let id of idsToDelete) {
-                                let docRef = db.collection("products").doc(id);
-                                batch.delete(docRef);
-                            }
-                            await batch.commit();
-                        } catch (e) {}
-                    }
-
-                    excelRows = excelRows.filter(r => !idsToDelete.includes(r.id));
-                    loadInventory();
-                    let masterCb = document.getElementById('select-all-checkbox');
-                    if (masterCb) masterCb.checked = false;
-                    showAlert("ສຳເລັດ", `ລຶບລາຍການສິນຄ້າທີ່ເລືອກສຳເລັດຮຽບຮ້ອຍແລ້ວ!`, "🗑️");
-                });
-            } else {
-                showCustomConfirm("🔥 ຢືນຢັນລຶບຂໍ້ມູນທັງໝົດ", "ທ່ານບໍ່ໄດ້ຕິກເລືອກລາຍການໃດໆ! ທ່ານຕ້ອງການລຶບຂໍ້ມູນສິນຄ້າທັງໝົດໃນສາງແທ້ບໍ?", async (confirmed) => {
-                    if (!confirmed) return;
-                    if (db) {
-                        try {
-                            let snapshot = await db.collection("products").where("device_id", "==", deviceId).get();
-                            let batch = db.batch();
-                            snapshot.forEach((doc) => { batch.delete(doc.ref); });
-                            await batch.commit();
-                        } catch (e) {}
-                    }
-                    excelRows = [];
-                    loadInventory();
-                    showAlert("ສຳເລັດ", "ລຶບຂໍ້ມູນສິນຄ້າທັງໝົດໃນສາງສຳເລັດຮຽບຮ້ອຍ!", "🗑️");
-                });
-            }
+            showCustomConfirm("🔥 ຢືນຢັນລຶບຂໍ້ມູນທັງໝົດ", "ທ່ານຕ້ອງການລຶບຂໍ້ມູນສິນຄ້າທັງໝົດໃນສາງແທ້ບໍ?", async (confirmed) => {
+                if (!confirmed) return;
+                if (db) {
+                    try {
+                        let snapshot = await db.collection("products").where("device_id", "==", deviceId).get();
+                        let batch = db.batch();
+                        snapshot.forEach((doc) => { batch.delete(doc.ref); });
+                        await batch.commit();
+                    } catch (e) {}
+                }
+                excelRows = [];
+                loadInventory();
+                showAlert("ສຳເລັດ", "ລຶບຂໍ້ມູນສິນຄ້າທັງໝົດໃນສາງສຳເລັດຮຽບຮ້ອຍ!", "🗑️");
+            });
         }
 
         async function loadInventory() {
@@ -2197,7 +2177,7 @@
                         name: item.name || item.code,
                         cost: item.cost,
                         originalCost: item.original_cost || item.cost,
-                        profitPct: item.profit_pct,
+                        profitPct: item.profit_pct !== undefined ? item.profit_pct : 20,
                         price: item.price,
                         qty: item.qty || 1, 
                         unitPerPack: item.unit_per_pack || 12,
@@ -2231,8 +2211,6 @@
 
             if (excelRows.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ</td></tr>`;
-                let masterCb = document.getElementById('select-all-checkbox');
-                if (masterCb) masterCb.checked = false;
                 return;
             }
 
@@ -2283,13 +2261,113 @@
                         <td class="p-3 border-r text-right font-bold text-green-800 bg-green-50/30">${totalPriceStr}</td>
                         <td class="p-3 border-r text-center text-xs font-extrabold text-amber-600">${noteStr}</td>
                         <td class="p-3 text-center">
-                            <input type="checkbox" data-id="${row.id}" class="inventory-row-checkbox w-4 h-4 cursor-pointer accent-cyan-600">
+                            <button onclick="openEditInventoryItem('${row.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer shadow">✏️ ແກ້ໄຂ</button>
                         </td>
                     </tr>
                 `;
             });
 
             tbody.innerHTML = html;
+        }
+
+        // 🌟 ຟັງຊັນເປີດ Modal ນຳເຂົ້າສິນຄ້າເພື່ອແກ້ໄຂຂໍ້ມູນສິນຄ້າໃນສາງ
+        function openEditInventoryItem(rowId) {
+            let item = excelRows.find(r => r.id === rowId);
+            if (!item) return;
+
+            currentStockInCode = item.code;
+            document.getElementById('stock-in-code').innerText = item.code;
+
+            let formattedDate = formatDateToInputDate(item.dateAdded || new Date().toISOString().split('T')[0]);
+            document.getElementById('stock-in-import-date').value = formattedDate;
+
+            if (document.getElementById('stock-in-custom-name')) {
+                document.getElementById('stock-in-custom-name').value = item.name !== item.code ? item.name : "";
+            }
+
+            document.getElementById('stock-in-cost').value = formatNumberWithCommas(item.cost);
+            
+            if (document.getElementById('stock-in-profit-pct')) {
+                document.getElementById('stock-in-profit-pct.value') = item.profitPct !== undefined ? item.profitPct : 20;
+                document.getElementById('stock-in-profit-pct').value = item.profitPct !== undefined ? item.profitPct : 20;
+            }
+
+            calculateStockInPrice();
+
+            document.getElementById('stock-in-qty').value = item.qty || 1;
+            document.getElementById('stock-in-unit-per-pack').value = item.unitPerPack || 12;
+            calculateTotalUnit();
+
+            if (document.getElementById('stock-in-mfg-date')) {
+                document.getElementById('stock-in-mfg-date').value = item.mfgDate ? formatDateToDDMMYYYY(item.mfgDate) : "";
+            }
+            if (document.getElementById('stock-in-exp-date')) {
+                document.getElementById('stock-in-exp-date').value = item.expiryDate ? formatDateToDDMMYYYY(item.expiryDate) : "";
+            }
+
+            // ປ່ຽນພຶດຕິກຳປຸ່ມຢືນຢັນໃຫ້ເປັນການອັບເດດ (Update)
+            let confirmBtn = document.querySelector('#stock-in-modal button.bg-pink-600');
+            if (confirmBtn) {
+                confirmBtn.setAttribute('onclick', `updateExistingStockItem('${item.id}')`);
+                confirmBtn.innerText = "💾 ບັນທຶກການແກ້ໄຂ";
+            }
+
+            document.getElementById('stock-in-modal').classList.hidden = false;
+            document.getElementById('stock-in-modal').classList.remove('hidden');
+        }
+
+        function formatDateToInputDate(isoStr) {
+            if (!isoStr) return "";
+            let parts = isoStr.split('-');
+            if (parts.length === 3) {
+                return `${parts[2]}/${parts[1]}/${parts[0]}`;
+            }
+            return isoStr;
+        }
+
+        async function updateExistingStockItem(rowId) {
+            let costVal = parseFloat(String(document.getElementById('stock-in-cost').value).replace(/,/g, '')) || 0;
+            let qtyVal = parseInt(document.getElementById('stock-in-qty').value) || 1; 
+            let unitPerPack = parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12; 
+            let profitPctInput = document.getElementById('stock-in-profit-pct').value;
+            let profitPctVal = (profitPctInput === "" || isNaN(profitPctInput)) ? 0 : parseFloat(profitPctInput);
+            let customName = document.getElementById('stock-in-custom-name') ? document.getElementById('stock-in-custom-name').value.trim() : "";
+
+            let importDateInput = document.getElementById('stock-in-import-date').value.trim();
+            let isoImportDate = importDateInput ? parseDDMMYYYYToISO(importDateInput) : new Date().toISOString().split('T')[0];
+
+            if (costVal <= 0 || qtyVal <= 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນລາຄາຊື້ ແລະ ຈຳນວນໃຫ້ຖືກຕ້ອງ!", "⚠️");
+                return;
+            }
+
+            let rawPrice = costVal + (costVal * profitPctVal / 100);
+            let priceVal = Math.ceil(rawPrice / 1000) * 1000;
+            let finalName = (customName !== "") ? customName : currentStockInCode;
+
+            let targetIndex = excelRows.findIndex(r => r.id === rowId);
+            if (targetIndex !== -1) {
+                excelRows[targetIndex].name = finalName;
+                excelRows[targetIndex].cost = costVal;
+                excelRows[targetIndex].profitPct = profitPctVal;
+                excelRows[targetIndex].price = priceVal;
+                excelRows[targetIndex].qty = qtyVal;
+                excelRows[targetIndex].unitPerPack = unitPerPack;
+                excelRows[targetIndex].dateAdded = isoImportDate;
+            }
+
+            await saveExcelDataQuietly();
+            closeStockInModal();
+
+            // ຕັ້ງຄ່າປຸ່ມກັບຄືນເປັນໂໝດປົກກະຕິ
+            let confirmBtn = document.querySelector('#stock-in-modal button.bg-pink-600');
+            if (confirmBtn) {
+                confirmBtn.setAttribute('onclick', `confirmStockIn()`);
+                confirmBtn.innerText = "ຕົກລົງ / ຢືນຢັນ";
+            }
+
+            loadInventory();
+            showAlert("ສຳເລັດ", "ອັບເດດ ແລະ ແກ້ໄຂຂໍ້ມູນສິນຄ້າໃນສາງສຳເລັດຮຽບຮ້ອຍ!", "✅");
         }
 
         function resolveCustomConfirm(result) {
@@ -2696,6 +2774,13 @@
             document.getElementById('stock-in-cost').value = "";
             if (document.getElementById('stock-in-calculated-price')) {
                 document.getElementById('stock-in-calculated-price').value = "0";
+            }
+
+            // ຕັ້ງຄ່າປຸ່ມກັບຄືນເປັນໂໝດປົກກະຕິ (ນຳເຂົ້າ)
+            let confirmBtn = document.querySelector('#stock-in-modal button.bg-pink-600');
+            if (confirmBtn) {
+                confirmBtn.setAttribute('onclick', `confirmStockIn()`);
+                confirmBtn.innerText = "ຕົກລົງ / ຢືນຢັນ";
             }
 
             document.getElementById('stock-in-modal').classList.hidden = false;
