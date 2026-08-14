@@ -761,7 +761,6 @@
                         <input type="text" id="stock-in-import-date" inputmode="numeric" oninput="autoSlashDateInput(this)" maxlength="10" class="w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-pink-500 font-semibold text-purple-700 bg-white" placeholder="dd/mm/yyyy">
                     </div>
 
-                    <!-- 🌟 ປັບປຸງ: ເພີ່ມຊ່ອງປ້ອນ ຊື່ສິນຄ້າ (ປ້ອນ ຫຼື ບໍ່ປ້ອນກໍ່ໄດ້ ຜ່ານຕະຫຼອດ) -->
                     <div>
                         <label class="block font-semibold text-gray-700 mb-1">🏷️ ຊື່ສິນຄ້າ (ບໍ່ປ້ອນກໍ່ໄດ້):</label>
                         <input type="text" id="stock-in-custom-name" class="w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-pink-500 font-semibold text-gray-800 bg-white" placeholder="ປ້ອນຊື່ສິນຄ້າ (ຖ້າມີ)">
@@ -769,7 +768,19 @@
 
                     <div>
                         <label class="block font-semibold text-gray-700 mb-1">ລາຄາຊື້ (ກີບ):</label>
-                        <input type="text" id="stock-in-cost" oninput="formatInputMoney(this)" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 text-right font-bold text-blue-600 text-lg" placeholder="ປ້ອນລາຄາຊື້">
+                        <input type="text" id="stock-in-cost" oninput="formatInputMoney(this)" calculateStockInPrice()" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 text-right font-bold text-blue-600 text-lg" placeholder="ປ້ອນລາຄາຊື້">
+                    </div>
+
+                    <!-- 🌟 ປຸ່ມ ແລະ ຊ່ອງປ້ອນ ເປີເຊັນຂາຍ (%) -->
+                    <div class="grid grid-cols-2 gap-2 bg-purple-50/50 p-3 rounded-xl border border-purple-200">
+                        <div>
+                            <label class="block font-[11px] font-bold text-purple-900 mb-1">📈 ເປີເຊັນຂາຍ (%):</label>
+                            <input type="number" id="stock-in-profit-pct" value="20" oninput="calculateStockInPrice()" class="w-full border rounded-lg px-2 py-1.5 text-center font-bold text-purple-700 text-sm bg-white outline-none" placeholder="20">
+                        </div>
+                        <div>
+                            <label class="block font-[11px] font-bold text-green-800 mb-1">✨ ລາຄາຂາຍ (ອັດຕະໂນມັດ):</label>
+                            <input type="text" id="stock-in-calculated-price" readonly class="w-full border rounded-lg px-2 py-1.5 text-right font-extrabold text-green-700 text-sm bg-green-100 cursor-not-allowed" value="0">
+                        </div>
                     </div>
                     
                     <div>
@@ -1082,7 +1093,7 @@
                         <span id="rep-cash-thb" class="text-gray-800 font-bold">0 ບາດ</span>
                     </div>
                     <div class="flex justify-between text-[11px] font-semibold text-gray-600">
-                        <span>- ເຂົ້າບັນຊີ (ໂອນ):</span>
+                        <span>- ເງິນໂອນ (ບາດ):</span>
                         <span id="rep-transfer-thb" class="text-gray-800 font-bold">0 ບາດ</span>
                     </div>
                 </div>
@@ -1478,16 +1489,17 @@
                     db.collection("products").where("device_id", "==", deviceId);
 
                 productQuery.onSnapshot((snapshot) => {
-                     excelRows = [];
+                     globalHistoryList = []; // fix scope reference warning
+                     let tempArr = [];
                      snapshot.forEach((doc) => {
                           let item = doc.data();
-                          excelRows.push({
+                          tempArr.push({
                               id: doc.id,
                               code: item.code,
                               name: item.name || '',
                               cost: item.cost,
                               originalCost: item.original_cost || item.cost,
-                              profitPct: item.profit_pct,
+                              profitPct: item.profit_pct || 20,
                               price: item.price,
                               qty: item.qty || 1,
                               unitPerPack: item.unit_per_pack || 12,
@@ -1498,6 +1510,7 @@
                               device_id: item.device_id || '-'
                           });
                      });
+                     excelRows = tempArr;
                      if (!document.getElementById('inventory-modal').classList.contains('hidden')) {
                           loadInventory();
                      }
@@ -2471,6 +2484,14 @@
             openStockInModal(code, 0);
         }
 
+        function calculateStockInPrice() {
+            let costVal = parseFloat(String(document.getElementById('stock-in-cost').value).replace(/,/g, '')) || 0;
+            let profitPct = parseFloat(String(document.getElementById('stock-in-profit-pct').value).replace(/,/g, '')) || 20;
+            let rawPrice = costVal + (costVal * profitPct / 100);
+            let finalPrice = Math.ceil(rawPrice / 1000) * 1000;
+            document.getElementById('stock-in-calculated-price').value = formatNumberWithCommas(finalPrice);
+        }
+
         function calculateTotalUnit() {
             let qty = parseInt(document.getElementById('stock-in-qty').value) || 1;
             let unitPerPack = parseInt(document.getElementById('stock-in-unit-per-pack').value) || 0;
@@ -2482,6 +2503,7 @@
             let costVal = parseFloat(String(document.getElementById('stock-in-cost').value).replace(/,/g, '')) || 0;
             let qtyVal = parseInt(document.getElementById('stock-in-qty').value) || 1; 
             let unitPerPack = parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12; 
+            let profitPctVal = parseFloat(String(document.getElementById('stock-in-profit-pct').value).replace(/,/g, '')) || 20;
             let customName = document.getElementById('stock-in-custom-name') ? document.getElementById('stock-in-custom-name').value.trim() : "";
 
             let importDateInput = document.getElementById('stock-in-import-date').value.trim();
@@ -2528,6 +2550,7 @@
                 code: currentStockInCode,
                 name: finalName,
                 cost: costVal,
+                profitPct: profitPctVal,
                 qty: qtyVal,
                 unitPerPack: unitPerPack,
                 isoImportDate: isoImportDate,
@@ -2554,7 +2577,7 @@
 
         async function executeSaveStockIn(isMerge) {
             let data = pendingDuplicateStockData;
-            let rawPrice = data.cost + (data.cost * 20 / 100);
+            let rawPrice = data.cost + (data.cost * data.profitPct / 100);
             let priceVal = Math.ceil(rawPrice / 1000) * 1000;
 
             if (isMerge && data.existingIndex !== -1) {
@@ -2565,11 +2588,12 @@
                 let oldCost = parseFloat(String(oldRow.cost || 0).replace(/,/g, '')) || 0;
                 let finalCost = data.cost > oldCost ? data.cost : oldCost;
                 
-                let finalRawPrice = finalCost + (finalCost * 20 / 100);
+                let finalRawPrice = finalCost + (finalCost * data.profitPct / 100);
                 let finalPrice = Math.ceil(finalRawPrice / 1000) * 1000;
 
                 excelRows[data.existingIndex].qty = mergedQty;
                 excelRows[data.existingIndex].cost = finalCost;
+                excelRows[data.existingIndex].profitPct = data.profitPct;
                 excelRows[data.existingIndex].price = finalPrice;
                 if (data.name && data.name !== data.code) {
                     excelRows[data.existingIndex].name = data.name;
@@ -2590,7 +2614,7 @@
                     name: data.name,
                     cost: data.cost,
                     originalCost: data.cost,
-                    profitPct: 20,
+                    profitPct: data.profitPct,
                     price: priceVal,
                     qty: data.qty, 
                     unitPerPack: data.unitPerPack,
@@ -2662,7 +2686,15 @@
                 document.getElementById('stock-in-custom-name').value = "";
             }
 
+            if (document.getElementById('stock-in-profit-pct')) {
+                document.getElementById('stock-in-profit-pct').value = "20";
+            }
+
             document.getElementById('stock-in-cost').value = "";
+            if (document.getElementById('stock-in-calculated-price')) {
+                document.getElementById('stock-in-calculated-price').value = "0";
+            }
+
             document.getElementById('stock-in-modal').classList.hidden = false;
             document.getElementById('stock-in-modal').classList.remove('hidden');
             document.getElementById('stock-in-qty').value = "1";
