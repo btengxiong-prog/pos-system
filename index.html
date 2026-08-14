@@ -68,7 +68,7 @@
 </head>
 <body class="bg-gray-100 min-h-screen pb-10">
 
-    <!-- Hidden File Input for Excel Import in Inventory Modal -->
+    <!-- Hidden File Input for Excel Import -->
     <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" class="hidden" onchange="handleExcelFileImport(event)">
 
     <!-- Role Selection Modal -->
@@ -236,7 +236,6 @@
                     <span>📦 ສິນຄ້າຄ້າງສາງ (Inventory Stock)</span>
                 </h3>
                 <div class="flex items-center gap-2">
-                    <!-- 🌟 ປຸ່ມເຂົ້າຂໍ້ມູນ (Excel) ທີ່ຖືກຕ້ອງສຳລັບດຶງໄຟລ໌ Excel ມາລົງສາງ -->
                     <button onclick="triggerExcelImport()" class="text-xs bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg cursor-pointer font-bold transition shadow flex items-center gap-1.5">
                         <span>📊</span> ເຂົ້າຂໍ້ມູນ (Excel)
                     </button>
@@ -252,6 +251,7 @@
                         <tr class="bg-cyan-800 text-white text-xs uppercase">
                             <th class="p-3 border-r text-center w-12">ລ/ດ</th>
                             <th class="p-3 border-r">ຊື່ສິນຄ້າ</th>
+                            <th class="p-3 border-r text-center">ລະຫັດສິນຄ້າ</th>
                             <th class="p-3 border-r text-center">ວັນນຳເຂົ້າສິນຄ້າ</th>
                             <th class="p-3 border-r text-right">ຈຳນວນ</th>
                             <th class="p-3 border-r text-right">ລາຄາຊື້/ໜ່ວຍ</th>
@@ -265,7 +265,7 @@
                         </tr>
                     </thead>
                     <tbody id="inventory-tbody" class="divide-y divide-gray-200 text-sm">
-                        <tr><td colspan="10" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>
+                        <tr><td colspan="11" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -1468,6 +1468,7 @@
                           excelRows.push({
                               id: doc.id,
                               code: item.code,
+                              name: item.name || item.code, // 🌟 ຮອງຮັບຊື່ສິນຄ້າ ແລະ ລະຫັດ
                               cost: item.cost,
                               originalCost: item.original_cost || item.cost,
                               profitPct: item.profit_pct,
@@ -2136,7 +2137,7 @@
 
         async function loadInventory() {
             let tbody = document.getElementById('inventory-tbody');
-            tbody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
 
             let userRole = localStorage.getItem('pos_user_role');
             let productSnapshot;
@@ -2164,6 +2165,7 @@
                     excelRows.push({
                         id: doc.id,
                         code: item.code,
+                        name: item.name || '', // 🌟 ຊື່ສິນຄ້າ
                         cost: item.cost,
                         originalCost: item.original_cost || item.cost,
                         profitPct: item.profit_pct,
@@ -2199,7 +2201,7 @@
             }
 
             if (excelRows.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ</td></tr>`;
                 let masterCb = document.getElementById('select-all-checkbox');
                 if (masterCb) masterCb.checked = false;
                 return;
@@ -2242,7 +2244,8 @@
                 html += `
                     <tr class="hover:bg-gray-50 border-b">
                         <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
-                        <td class="p-3 border-r font-bold text-gray-900">${row.code || '-'}${shopLabel}</td>
+                        <td class="p-3 border-r font-bold text-gray-900">${row.name || '-'}${shopLabel}</td>
+                        <td class="p-3 border-r text-center font-bold text-blue-600 font-mono">${row.code || '-'}</td>
                         <td class="p-3 border-r text-center font-semibold text-purple-700">${formattedDate}</td>
                         <td class="p-3 border-r text-right font-bold text-cyan-800">${formatNumberWithCommas(remainingFullPacks)}</td>
                         <td class="p-3 border-r text-right text-blue-600 font-semibold">${costStr}</td>
@@ -2567,6 +2570,7 @@
                 excelRows.push({
                     id: newRowId,
                     code: data.code,
+                    name: data.code,
                     cost: data.cost,
                     originalCost: data.cost,
                     profitPct: 20,
@@ -2607,6 +2611,7 @@
                         newBatch.set(docRef, {
                             device_id: deviceId,
                             code: row.code,
+                            name: row.name || row.code,
                             cost: parseFloat(String(row.cost).replace(/,/g, '')) || 0,
                             original_cost: parseFloat(String(row.originalCost || row.cost).replace(/,/g, '')) || 0,
                             profit_pct: parseFloat(String(row.profitPct).replace(/,/g, '')) || 20,
@@ -2653,7 +2658,7 @@
             document.getElementById('stock-in-modal').classList.add('hidden');
         }
 
-        // --- 🌟 ຟັງຊັນສຳລັບກົດປຸ່ມ "ເຂົ້າຂໍ້ມູນ (Excel)" ໃນໜ້າສິນຄ້າຄ້າງສາງ (ຮູບ 1) ເພື່ອນຳເຂົ້າໄຟລ໌ Excel ຈາກຄອມພິວເຕີ ---
+        // --- 🌟 ຟັງຊັນນຳເຂົ້າ Excel (ປັບປຸງ Mapping ໃຫ້ຖືກຕ້ອງ 100% ຕາມຮູບ 2) ---
         function triggerExcelImport() {
             let fileInput = document.getElementById('excel-file-input');
             if (fileInput) fileInput.click();
@@ -2677,25 +2682,33 @@
                         return;
                     }
 
-                    // 🌟 ປັບປຸງ Mapping ໃຫ້ຖືກຕ້ອງຕາມຕຳແໜ່ງຄໍລຳໃນ Excel ຕົ້ນທາງ (ຮູບ 2):
-                    // r[0] = ລ/ດ, r[1] = ຊື່ສິນຄ້າ/ລະຫັດ (P001...), r[2] = ວັນນຳເຂົ້າ (25/05/2025), r[3] = ຈຳນວນ (10), r[4] = ລາຄາຊື້ (158,000), r[5] = ລາຄາຂາຍ (206,000)
+                    // 🌟 ຖອດລະຫັດຄໍລຳຕາມຮູບ 2 (ຕາຕະລາງ Excel ຕົ້ນທາງ):
+                    // r[0] = ລ/ດ
+                    // r[1] = ຊື່ສິນຄ້າ (ເຖື່ອງ ສຳອາງ 1)
+                    // r[2] = ລະຫັດສິນຄ້າ (6920678802154)
+                    // r[3] = ວັນນຳເຂົ້າສິນຄ້າ (25/05/2025)
+                    // r[4] = ຈຳນວນ (10)
+                    // r[5] = ລາຄາຊື້/ໜ່ວຍ (158,000)
+                    // r[6] = ລາຄາຂາຍ/ໜ່ວຍ (206,000)
                     let importedNewRows = [];
                     let todayIso = new Date().toISOString().split('T')[0];
 
                     for (let i = 1; i < jsonRows.length; i++) {
                         let r = jsonRows[i];
-                        if (r && r.length > 1 && r[1]) {
-                            let code = String(r[1] || '').trim();
-                            let dateAddedInput = r[2] ? String(r[2]).trim() : '';
+                        if (r && r.length > 2 && (r[1] || r[2])) {
+                            let itemName = String(r[1] || '').trim();
+                            let itemCode = String(r[2] || itemName).trim(); // ຖ້າບໍ່ມີລະຫັດ ໃຫ້ໃຊ້ຊື່ແທນ
+                            let dateAddedInput = r[3] ? String(r[3]).trim() : '';
                             let isoDate = dateAddedInput ? parseDDMMYYYYToISO(dateAddedInput) : todayIso;
-                            let qty = parseInt(String(r[3] || 1).replace(/,/g, '')) || 1;
-                            let cost = parseFloat(String(r[4] || 0).replace(/,/g, '')) || 0;
-                            let price = parseFloat(String(r[5] || 0).replace(/,/g, '')) || (cost > 0 ? Math.ceil((cost * 1.2) / 1000) * 1000 : 0);
+                            let qty = parseInt(String(r[4] || 1).replace(/,/g, '')) || 1;
+                            let cost = parseFloat(String(r[5] || 0).replace(/,/g, '')) || 0;
+                            let price = parseFloat(String(r[6] || 0).replace(/,/g, '')) || (cost > 0 ? Math.ceil((cost * 1.2) / 1000) * 1000 : 0);
 
-                            if (code !== '') {
+                            if (itemCode !== '') {
                                 importedNewRows.push({
                                     id: 'ROW-' + Date.now() + '-' + i + '-' + Math.random().toString(36).substring(2, 6),
-                                    code: code,
+                                    code: itemCode,
+                                    name: itemName || itemCode,
                                     cost: cost,
                                     originalCost: cost,
                                     profitPct: 20,
@@ -2710,7 +2723,6 @@
                     }
 
                     if (importedNewRows.length > 0) {
-                        // ບັນທຶກລົງ Firebase / LocalStorage ໃຫ້ໂດຍອັດຕະໂນມັດທັນທີ
                         excelRows = excelRows.concat(importedNewRows);
                         await saveExcelDataQuietly();
                         loadInventory();
@@ -2721,7 +2733,7 @@
                 } catch (err) {
                     showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການອ່ານໄຟລ໌ Excel!", "❌");
                 }
-                event.target.value = ""; // Reset file input
+                event.target.value = "";
             };
             reader.readAsArrayBuffer(file);
         }
@@ -3794,6 +3806,7 @@
                         excelRows.push({
                             id: doc.id,
                             code: item.code,
+                            name: item.name || item.code,
                             cost: item.cost,
                             originalCost: item.original_cost || item.cost,
                             profitPct: item.profit_pct,
