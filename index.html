@@ -756,6 +756,14 @@
                 <div class="bg-gray-50 p-4 rounded-xl text-left text-sm space-y-3 border">
                     <p><b>ລະຫັດ Barcode/QR:</b> <span id="stock-in-code" class="text-pink-600 font-bold text-xs break-all"></span></p>
                     
+                    <!-- 🌟 ປຸ່ມ "ຄຳນວນ (%)" ໄວ້ໃນກ່ອງສີແດງ (ກ່ອນວັນທີ) -->
+                    <div class="flex justify-between items-center bg-amber-50 p-2.5 rounded-xl border border-amber-200">
+                        <span class="text-xs font-bold text-amber-800">🧮 ຊ່ວຍຄຳນວນເປີເຊັນ (%):</span>
+                        <button type="button" onclick="openCalcModal()" class="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer shadow flex items-center gap-1">
+                            <span>📊</span> ຄຳນວນ (%)
+                        </button>
+                    </div>
+
                     <div>
                         <label class="block font-semibold text-gray-700 mb-1">📅 ວັນ/ເດືອນ/ປີ ນຳເຂົ້າສິນຄ້າ:</label>
                         <input type="text" id="stock-in-import-date" inputmode="numeric" oninput="autoSlashDateInput(this)" maxlength="10" class="w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-pink-500 font-semibold text-purple-700 bg-white" placeholder="dd/mm/yyyy">
@@ -771,7 +779,6 @@
                         <input type="text" id="stock-in-cost" oninput="formatInputMoney(this); calculateStockInPrice();" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 text-right font-bold text-blue-600 text-lg" placeholder="ປ້ອນລາຄາຊື້">
                     </div>
 
-                    <!-- 🌟 ປຸ່ມ ເປີເຊັນຂາຍ (%) ແລະ ລາຄາຂາຍ (ຕັດຄຳວ່າ "(ອັດຕະໂນມັດ)" ອອກແລ້ວ) -->
                     <div class="grid grid-cols-2 gap-2 bg-purple-50/50 p-3 rounded-xl border border-purple-200">
                         <div>
                             <label class="block font-[11px] font-bold text-purple-900 mb-1">📈 ເປີເຊັນຂາຍ (%):</label>
@@ -813,6 +820,32 @@
                 <div class="flex gap-2 pt-2">
                     <button onclick="closeStockInModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
                     <button onclick="confirmStockIn()" class="flex-1 bg-pink-600 hover:bg-pink-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">ຕົກລົງ / ຢືນຢັນ</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 🌟 Modal Popup ສຳລັບຄຳນວນເປີເຊັນ (%) -->
+        <div id="calc-pct-modal" class="hidden fixed inset-0 bg-black/60 z-[360] flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4 text-left">
+                <div class="text-3xl text-center">🧮</div>
+                <h3 class="text-lg font-bold text-amber-800 text-center">ເຄື່ອງມືຄຳນວນເປີເຊັນຂາຍ (%)</h3>
+                <div class="space-y-3 text-xs">
+                    <div>
+                        <label class="block font-bold text-gray-700 mb-1">ລາຄາຊື້ (ກີບ):</label>
+                        <input type="text" id="calc-modal-cost" oninput="formatInputMoney(this); autoComputePct();" class="w-full border rounded-lg px-3 py-2 text-right font-bold text-blue-600 text-sm outline-none bg-white" placeholder="ປ້ອນລາຄາຊື້">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-gray-700 mb-1">ລາຄາຂາຍ (ກີບ):</label>
+                        <input type="text" id="calc-modal-price" oninput="formatInputMoney(this); autoComputePct();" class="w-full border rounded-lg px-3 py-2 text-right font-bold text-green-600 text-sm outline-none bg-white" placeholder="ປ້ອນລາຄາຂາຍ">
+                    </div>
+                    <div class="bg-amber-50 p-3 rounded-xl border border-amber-200 text-center space-y-1">
+                        <span class="font-bold text-gray-700 text-xs">ເປີເຊັນຂາຍທີ່ຄຳນວນໄດ້ (%):</span>
+                        <div id="calc-modal-result-pct" class="text-2xl font-extrabold text-amber-700">0%</div>
+                    </div>
+                </div>
+                <div class="flex gap-2 pt-2 border-t">
+                    <button onclick="closeCalcModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer text-sm">ຍົກເລີກ</button>
+                    <button onclick="confirmCalcModal()" class="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">ຕົກລົງ</button>
                 </div>
             </div>
         </div>
@@ -2212,7 +2245,7 @@
                         name: item.name || item.code,
                         cost: item.cost,
                         originalCost: item.original_cost || item.cost,
-                        profitPct: item.profit_pct !== undefined ? item.profit_pct : 20,
+                        profitPct: item.profit_pct,
                         price: item.price,
                         qty: item.qty || 1, 
                         unitPerPack: item.unit_per_pack || 12,
@@ -2253,7 +2286,6 @@
             let countIndex = 1;
             let isAdminMaster = (userRole === 'admin' || deviceId === 'POSXIONG');
 
-            // 🌟 ປັບປຸງຫົວຂໍ້ຄໍລຳຂວາສຸດ: ADMIN ໃຫຍ່ = Checkbox ວາງໄວ້, ADMIN ຮ້ານ = ຈັດການ
             let actionHeader = document.getElementById('inventory-col-action-header');
             if (actionHeader) {
                 if (isAdminMaster) {
@@ -2294,7 +2326,6 @@
 
                 let shopLabel = ((userRole === 'admin' || deviceId === 'POSXIONG') && row.device_id) ? ` [ຮ້ານ: ${row.device_id}]` : '';
 
-                // 🌟 ຖ້າ ADMIN ໃຫຍ່ = ສະແດງ Checkbox, ຖ້າ ADMIN ຮ້ານ = ສະແດງປຸ່ມ "ແກ້ໄຂ"
                 let rightCellHtml = isAdminMaster ? 
                     `<input type="checkbox" data-id="${row.id}" class="inventory-row-checkbox w-4 h-4 cursor-pointer accent-cyan-600">` : 
                     `<button onclick="openEditInventoryItem('${row.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer shadow flex items-center gap-1 mx-auto">✏️ ແກ້ໄຂ</button>`;
@@ -2321,7 +2352,6 @@
             tbody.innerHTML = html;
         }
 
-        // 🌟 ຟັງຊັນເປີດ Modal ນຳເຂົ້າສິນຄ້າເພື່ອແກ້ໄຂຂໍ້ມູນສິນຄ້າໃນສາງ (ສຳລັບ Admin ຮ້ານ)
         function openEditInventoryItem(rowId) {
             let item = excelRows.find(r => r.id === rowId);
             if (!item) return;
@@ -2416,6 +2446,47 @@
 
             loadInventory();
             showAlert("ສຳເລັດ", "ອັບເດດ ແລະ ແກ້ໄຂຂໍ້ມູນສິນຄ້າໃນສາງສຳເລັດຮຽບຮ້ອຍ!", "✅");
+        }
+
+        // 🌟 ຟັງຊັນເປີດ/ປິດ Modal ຄຳນວນເປີເຊັນ (%)
+        function openCalcModal() {
+            document.getElementById('calc-modal-cost').value = document.getElementById('stock-in-cost').value || "";
+            document.getElementById('calc-modal-price').value = document.getElementById('stock-in-calculated-price').value || "";
+            autoComputePct();
+            document.getElementById('calc-pct-modal').classList.remove('hidden');
+        }
+
+        function closeCalcModal() {
+            document.getElementById('calc-pct-modal').classList.add('hidden');
+        }
+
+        function autoComputePct() {
+            let c = parseFloat(String(document.getElementById('calc-modal-cost').value).replace(/,/g, '')) || 0;
+            let p = parseFloat(String(document.getElementById('calc-modal-price').value).replace(/,/g, '')) || 0;
+            let resDiv = document.getElementById('calc-modal-result-pct');
+
+            if (c > 0 && p > 0) {
+                let ratio = p / c;
+                let pct = (ratio - 1) * 100;
+                let roundedPct = Math.round(pct * 100) / 100; // ROUND 2 decimal places
+                resDiv.innerText = roundedPct + "%";
+            } else {
+                resDiv.innerText = "0%";
+            }
+        }
+
+        function confirmCalcModal() {
+            let c = parseFloat(String(document.getElementById('calc-modal-cost').value).replace(/,/g, '')) || 0;
+            let p = parseFloat(String(document.getElementById('calc-modal-price').value).replace(/,/g, '')) || 0;
+
+            if (c > 0 && p > 0) {
+                let ratio = p / c;
+                let pct = Math.round(((ratio - 1) * 100) * 100) / 100;
+                document.getElementById('stock-in-cost').value = formatNumberWithCommas(c);
+                document.getElementById('stock-in-profit-pct').value = pct;
+                calculateStockInPrice();
+            }
+            closeCalcModal();
         }
 
         function resolveCustomConfirm(result) {
