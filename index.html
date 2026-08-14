@@ -260,7 +260,6 @@
                             <th class="p-3 border-r text-right">ລວມເງິນຊື້</th>
                             <th class="p-3 border-r text-right">ລວມເງິນຂາຍ</th>
                             <th class="p-3 border-r text-center">ໝາຍເຫດ</th>
-                            <!-- 🌟 ຫົວຂໍ້ຄໍລຳຂວາສຸດ ປ່ຽນຕາມສິດທິ (ADMIN ໃຫຍ່ = ເລືອກ/ລຶບ, ADMIN ຮ້ານ = ຈັດການ) -->
                             <th id="inventory-col-action-header" class="p-3 text-center w-20">ຈັດການ</th>
                         </tr>
                     </thead>
@@ -782,7 +781,7 @@
                     <div class="grid grid-cols-2 gap-2 bg-purple-50/50 p-3 rounded-xl border border-purple-200">
                         <div>
                             <label class="block font-[11px] font-bold text-purple-900 mb-1">📈 ເປີເຊັນຂາຍ (%):</label>
-                            <!-- 🌟 ປັບປຸງໃຫ້ປ້ອນເປັນຕົວເລກເສດ (ທົດສະຍົມ) ໄດ້ -->
+                            <!-- 🌟 ປັບປຸງ step="any" ແລະ ບໍ່ຈຳກັດຕົວເລກເສດ -->
                             <input type="number" step="any" id="stock-in-profit-pct" value="20" oninput="calculateStockInPrice()" class="w-full border rounded-lg px-2 py-1.5 text-center font-bold text-purple-700 text-sm bg-white outline-none" placeholder="20">
                         </div>
                         <div>
@@ -825,12 +824,16 @@
             </div>
         </div>
 
-        <!-- 🌟 Modal Popup ສຳລັບຄຳນວນເປີເຊັນ (%) -->
+        <!-- 🌟 Modal Popup ສຳລັບຄຳນວນເປີເຊັນ (%) ພ້ອມຊ່ອງປ້ອນຊື່ສິນຄ້າ -->
         <div id="calc-pct-modal" class="hidden fixed inset-0 bg-black/60 z-[360] flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4 text-left">
                 <div class="text-3xl text-center">🧮</div>
                 <h3 class="text-lg font-bold text-amber-800 text-center">ເຄື່ອງມືຄຳນວນເປີເຊັນຂາຍ (%)</h3>
                 <div class="space-y-3 text-xs">
+                    <div>
+                        <label class="block font-bold text-gray-700 mb-1">ຊື່ສິນຄ້າ (ບໍ່ປ້ອນກໍ່ໄດ້):</label>
+                        <input type="text" id="calc-modal-name" class="w-full border rounded-lg px-3 py-2 font-semibold text-gray-800 bg-white outline-none" placeholder="ປ້ອນຊື່ສິນຄ້າ (ຖ້າມີ)">
+                    </div>
                     <div>
                         <label class="block font-bold text-gray-700 mb-1">ລາຄາຊື້ (ກີບ):</label>
                         <input type="text" id="calc-modal-cost" oninput="formatInputMoney(this); autoComputePct();" class="w-full border rounded-lg px-3 py-2 text-right font-bold text-blue-600 text-sm outline-none bg-white" placeholder="ປ້ອນລາຄາຊື້">
@@ -2246,7 +2249,7 @@
                         name: item.name || item.code,
                         cost: item.cost,
                         originalCost: item.original_cost || item.cost,
-                        profitPct: item.profit_pct !== undefined ? item.profit_pct : 20,
+                        profitPct: item.profit_pct,
                         price: item.price,
                         qty: item.qty || 1, 
                         unitPerPack: item.unit_per_pack || 12,
@@ -2451,6 +2454,7 @@
 
         // 🌟 ຟັງຊັນເປີດ/ປິດ Modal ຄຳນວນເປີເຊັນ (%)
         function openCalcModal() {
+            document.getElementById('calc-modal-name').value = document.getElementById('stock-in-custom-name').value || "";
             document.getElementById('calc-modal-cost').value = document.getElementById('stock-in-cost').value || "";
             document.getElementById('calc-modal-price').value = document.getElementById('stock-in-calculated-price').value || "";
             autoComputePct();
@@ -2477,8 +2481,13 @@
         }
 
         function confirmCalcModal() {
+            let nameVal = document.getElementById('calc-modal-name').value.trim();
             let c = parseFloat(String(document.getElementById('calc-modal-cost').value).replace(/,/g, '')) || 0;
             let p = parseFloat(String(document.getElementById('calc-modal-price').value).replace(/,/g, '')) || 0;
+
+            if (nameVal !== "" && document.getElementById('stock-in-custom-name')) {
+                document.getElementById('stock-in-custom-name').value = nameVal;
+            }
 
             if (c > 0 && p > 0) {
                 let ratio = p / c;
