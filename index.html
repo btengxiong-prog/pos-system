@@ -236,7 +236,7 @@
                     <span>📦 ສິນຄ້າຄ້າງສາງ (Inventory Stock)</span>
                 </h3>
                 <div class="flex items-center gap-2">
-                    <!-- 🌟 ປຸ່ມ "ເຂົ້າຂໍ້ມູນ (Excel)" ທີ່ກົດແລ້ວເລືອກໄຟລ໌ຈາກຄອມພິວເຕີມາລົງສາງທັນທີ -->
+                    <!-- 🌟 ປຸ່ມເຂົ້າຂໍ້ມູນ (Excel) ທີ່ກົດແລ້ວເລືອກໄຟລ໌ຈາກຄອມພິວເຕີມາລົງສາງທັນທີ -->
                     <button onclick="triggerExcelImport()" class="text-xs bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg cursor-pointer font-bold transition shadow flex items-center gap-1.5">
                         <span>📊</span> ເຂົ້າຂໍ້ມູນ (Excel)
                     </button>
@@ -594,7 +594,6 @@
                     </div>
                 </div>
 
-                <!-- 🌟 ປຸ່ມ "ສິນຄ້າຄ້າງສາງ" ປົກກະຕິ -->
                 <button id="btn-inventory" onclick="openInventoryModal()" class="w-full sm:w-auto bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     📦 ສິນຄ້າຄ້າງສາງ
                 </button>
@@ -1094,7 +1093,7 @@
         </div>
     </div>
 
-    <!-- Excel-like Table Code Generator Modal -->
+    <!-- Excel-like Table Code Generator Modal (ສຳລັບສ້າງ QR/Barcode ຈາກສາງ) -->
     <div id="excel-generator-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-xl max-w-5xl w-full p-6 max-h-[90vh] overflow-y-auto space-y-4">
             <div class="flex justify-between items-center border-b pb-3 flex-wrap gap-2">
@@ -2654,7 +2653,7 @@
             document.getElementById('stock-in-modal').classList.add('hidden');
         }
 
-        // --- 🌟 ຟັງຊັນສຳລັບກົດປຸ່ມ "ເຂົ້າຂໍ້ມູນ (Excel)" ເພື່ອເລືອກໄຟລ໌ຈາກຄອມພິວເຕີ ແລະ ບັນທຶກເຂົ້າສາງອັດຕະໂນມັດ ---
+        // --- 🌟 ຟັງຊັນສຳລັບກົດປຸ່ມ "ເຂົ້າຂໍ້ມູນ (Excel)" ໃນໜ້າສິນຄ້າຄ້າງສາງ (ຮູບ 1) ເພື່ອນຳເຂົ້າໄຟລ໌ Excel ຈາກຄອມພິວເຕີ ---
         function triggerExcelImport() {
             let fileInput = document.getElementById('excel-file-input');
             if (fileInput) fileInput.click();
@@ -2678,19 +2677,20 @@
                         return;
                     }
 
-                    // ດຶງຂໍ້ມູນຈາກແຖວທີ 2 ເປັນຕົ້ນໄປ (ຂ້າມ Header)
+                    // 🌟 ປັບປຸງ Mapping ໃຫ້ຖືກຕ້ອງຕາມຕຳແໜ່ງຄໍລຳໃນ Excel ຕົ້ນທາງ (ຮູບ 2):
+                    // r[0] = ລ/ດ, r[1] = ຊື່ສິນຄ້າ/ລະຫັດ (P001...), r[2] = ວັນນຳເຂົ້າ (25/05/2025), r[3] = ຈຳນວນ (10), r[4] = ລາຄາຊື້ (158,000), r[5] = ລາຄາຂາຍ (206,000)
                     let importedNewRows = [];
                     let todayIso = new Date().toISOString().split('T')[0];
 
                     for (let i = 1; i < jsonRows.length; i++) {
                         let r = jsonRows[i];
-                        if (r && r.length > 0 && r[0]) {
-                            let code = String(r[0] || '').trim();
-                            let cost = parseFloat(String(r[1] || 0).replace(/,/g, '')) || 0;
-                            let price = parseFloat(String(r[2] || 0).replace(/,/g, '')) || (cost > 0 ? Math.ceil((cost * 1.2) / 1000) * 1000 : 0);
+                        if (r && r.length > 1 && r[1]) {
+                            let code = String(r[1] || '').trim();
+                            let dateAddedInput = r[2] ? String(r[2]).trim() : '';
+                            let isoDate = dateAddedInput ? parseDDMMYYYYToISO(dateAddedInput) : todayIso;
                             let qty = parseInt(String(r[3] || 1).replace(/,/g, '')) || 1;
-                            let unitPerPack = parseInt(r[4] || 12) || 12;
-                            let dateAdded = r[5] ? parseDDMMYYYYToISO(String(r[5])) : todayIso;
+                            let cost = parseFloat(String(r[4] || 0).replace(/,/g, '')) || 0;
+                            let price = parseFloat(String(r[5] || 0).replace(/,/g, '')) || (cost > 0 ? Math.ceil((cost * 1.2) / 1000) * 1000 : 0);
 
                             if (code !== '') {
                                 importedNewRows.push({
@@ -2701,8 +2701,8 @@
                                     profitPct: 20,
                                     price: price,
                                     qty: qty,
-                                    unitPerPack: unitPerPack,
-                                    dateAdded: dateAdded,
+                                    unitPerPack: 12,
+                                    dateAdded: isoDate,
                                     currency: 'ກີບ'
                                 });
                             }
@@ -2710,16 +2710,16 @@
                     }
 
                     if (importedNewRows.length > 0) {
-                        // ບັນທຶກລົງ Firebase / LocalStorage ໂດຍອັດຕະໂນມັດ
+                        // ບັນທຶກລົງ Firebase / LocalStorage ໃຫ້ໂດຍອັດຕະໂນມັດທັນທີ
                         excelRows = excelRows.concat(importedNewRows);
                         await saveExcelDataQuietly();
                         loadInventory();
                         showAlert("ສຳເລັດ", `ນຳເຂົ້າຂໍ້ມູນ Excel ຈຳນວນ ${importedNewRows.length} ລາຍການ ເຂົ້າສາງສຳເລັດຮຽບຮ້ອຍ!`, "📊");
                     } else {
-                        showAlert("ແຈ້ງເຕືອນ", "ບໍ່ພົບຂໍ້ມູນສິນຄ້າທີ່ถูกต้องໃນໄຟລ໌ Excel!", "⚠️");
+                        showAlert("ແຈ້ງເຕືອນ", "ບໍ່ພົບຂໍ້ມູນສິນຄ້າທີ່ຖືກຕ້ອງໃນໄຟລ໌ Excel!", "⚠️");
                     }
                 } catch (err) {
-                    showAlert("ຜິດພາດ", "ເກີດข้อຜິດພາດໃນການອ່ານໄຟລ໌ Excel!", "❌");
+                    showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການອ່ານໄຟລ໌ Excel!", "❌");
                 }
                 event.target.value = ""; // Reset file input
             };
@@ -3564,7 +3564,7 @@
                         }
 
                         let formattedCost = (displayCurrency === 'ບາດ') ? displayCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : formatNumberWithCommas(displayCost);
-                        let formattedPrice = (displayCurrency === 'ບາດ') ? displayPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : formatNumberWithCommas(formattedPrice);
+                        let formattedPrice = (displayCurrency === 'ບາດ') ? displayPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : formatNumberWithCommas(displayPrice);
 
                         let itemTotal = (displayCurrency === 'ບາດ') ? Math.ceil(displayPrice * itemQty) : (displayPrice * itemQty);
                         let itemTotalCost = (displayCurrency === 'ບາດ') ? (displayCost * itemQty) : (displayCost * itemQty);
@@ -3761,169 +3761,6 @@
             document.getElementById('rep-total-profit-thb').innerText = formatNumberWithCommas(Math.ceil(profitThb)) + " ບາດ";
             document.getElementById('rep-cash-thb').innerText = formatNumberWithCommas(Math.ceil(cashThb)) + " ບາດ";
             document.getElementById('rep-transfer-thb').innerText = formatNumberWithCommas(Math.ceil(transferThb)) + " ບາດ";
-        }
-
-        // --- EXCEL & QR CODE GENERATOR ---
-        async function openExcelGenerator() {
-            document.getElementById('excel-generator-modal').classList.hidden = false;
-            document.getElementById('excel-generator-modal').classList.remove('hidden');
-            let titleText = document.getElementById('excel-modal-title-text');
-            
-            if (currentCodeType === 'barcode') {
-                titleText.innerText = "📊 ຕາຕະລາງສ້າງ Barcode ສິນຄ້າ";
-            } else {
-                titleText.innerText = "📱 ຕາຕະລາງສ້າງ QR Code ສິນຄ້າ";
-            }
-
-            await fetchProductsForGenerator();
-            renderExcelTable();
-        }
-
-        function closeExcelGenerator() {
-            document.getElementById('excel-generator-modal').classList.add('hidden');
-            document.getElementById('excel-print-area').classList.add('hidden');
-        }
-
-        async function fetchProductsForGenerator() {
-            if (db) {
-                try {
-                    let snapshot = await db.collection("products").where("device_id", "==", deviceId).get();
-                    excelRows = [];
-                    snapshot.forEach(doc => {
-                        let item = doc.data();
-                        excelRows.push({
-                            id: doc.id,
-                            code: item.code,
-                            cost: item.cost,
-                            originalCost: item.original_cost || item.cost,
-                            profitPct: item.profit_pct,
-                            price: item.price,
-                            qty: item.qty || 1,
-                            unitPerPack: item.unit_per_pack || 12,
-                            dateAdded: item.date_added || new Date().toISOString().split('T')[0],
-                            mfgDate: item.mfg_date || '',
-                            expiryDate: item.expiry_date || '',
-                            currency: item.currency || 'ກີບ'
-                        });
-                    });
-                    return;
-                } catch (e) {}
-            }
-            excelRows = [];
-        }
-
-        function renderExcelTable() {
-            let tbody = document.getElementById('excel-tbody');
-            let html = '';
-            
-            if (excelRows.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-gray-400 font-semibold">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນສາງ</td></tr>`;
-                return;
-            }
-
-            let uniqueMap = new Map();
-            excelRows.forEach(row => {
-                let cleanCode = String(row.code || '').trim().toLowerCase();
-                if (!uniqueMap.has(cleanCode) || cleanCode === '') {
-                    uniqueMap.set(cleanCode || Math.random(), row);
-                }
-            });
-            let displayedRows = Array.from(uniqueMap.values());
-
-            displayedRows.forEach((row, index) => {
-                let costNum = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
-                let priceNum = parseFloat(String(row.price).replace(/,/g, '')) || 0;
-
-                html += `
-                    <tr class="hover:bg-gray-50 border-b">
-                        <td class="p-2.5 border-r text-center font-bold text-gray-500">${index + 1}</td>
-                        <td class="p-2.5 border-r font-bold text-gray-900 px-3 uppercase">${row.code || '-'}</td>
-                        <td class="p-2.5 border-r text-right font-bold text-blue-600 px-3">${formatNumberWithCommas(costNum)}</td>
-                        <td class="p-2.5 border-r text-right font-bold text-green-600 px-3">${formatNumberWithCommas(priceNum)}</td>
-                        <td class="p-2.5 text-center font-bold text-gray-800">${row.qty || 1}</td>
-                    </tr>
-                `;
-            });
-            tbody.innerHTML = html;
-        }
-
-        async function generateExcelCodes() {
-            await fetchProductsForGenerator();
-            
-            if (excelRows.length === 0) {
-                showAlert("ແຈ້ງເຕືອນ", "ບໍ່ພົບຂໍ້ມູນສິນຄ້າໃນສາງ!", "⚠️");
-                return;
-            }
-
-            let uniqueCodeMap = new Map();
-            excelRows.forEach(row => {
-                let cleanCode = String(row.code).trim().toLowerCase();
-                if (!uniqueCodeMap.has(cleanCode)) {
-                    uniqueCodeMap.set(cleanCode, row);
-                }
-            });
-            duplicateRemovedList = Array.from(uniqueCodeMap.values());
-
-            document.getElementById('excel-print-area').classList.remove('hidden');
-            let container = document.getElementById('excel-preview-cards');
-            container.innerHTML = '';
-
-            let promises = duplicateRemovedList.map((row, index) => {
-                return new Promise((resolve) => {
-                    let cleanCode = String(row.code).trim();
-                    let costVal = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
-                    let priceVal = parseFloat(String(row.price).replace(/,/g, '')) || 0;
-
-                    let payloadObj = {
-                        code: cleanCode,
-                        cost: costVal,
-                        price: priceVal
-                    };
-                    let payloadStr = JSON.stringify(payloadObj);
-
-                    let card = document.createElement('div');
-                    card.className = "bg-white p-4 rounded-xl shadow-lg border border-gray-200 text-center flex flex-col items-center justify-center relative";
-                    
-                    let headerHtml = `<div class="font-bold text-gray-800 text-sm mb-2 w-full truncate px-2" title="${cleanCode}">${cleanCode}</div>`;
-                    let codeContainerId = `ex-code-${index}-${Date.now()}`;
-
-                    if (currentCodeType === 'qrcode') {
-                        card.innerHTML = `
-                            ${headerHtml}
-                            <div class="bg-gray-50 p-2 rounded-lg inline-block">
-                                <canvas id="${codeContainerId}"></canvas>
-                            </div>
-                            <div class="mt-2 text-xs font-semibold text-gray-600">ລະຫັດ: <span class="text-blue-600 font-mono">${cleanCode}</span></div>
-                        `;
-                        container.appendChild(card);
-                        setTimeout(() => {
-                            QRCode.toCanvas(document.getElementById(codeContainerId), payloadStr, { width: 140, margin: 1 }, function (error) {
-                                resolve();
-                            });
-                        }, 50);
-                    } else {
-                        card.innerHTML = `
-                            ${headerHtml}
-                            <div class="bg-gray-50 p-2 rounded-lg w-full flex justify-center overflow-hidden">
-                                <svg id="${codeContainerId}" class="max-w-full"></svg>
-                            </div>
-                        `;
-                        container.appendChild(card);
-                        setTimeout(() => {
-                            try {
-                                JsBarcode(`#${codeContainerId}`, cleanCode, {
-                                    format: "CODE128", width: 2, height: 50, displayValue: true, fontSize: 14, margin: 5
-                                });
-                            } catch (e) {
-                                document.getElementById(codeContainerId).outerHTML = `<div class="text-red-500 text-xs py-4">ລະຫັດ Barcode ບໍ່ຮອງຮັບຮູບແບບນີ້</div>`;
-                            }
-                            resolve();
-                        }, 50);
-                    }
-                });
-            });
-
-            await Promise.all(promises);
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
