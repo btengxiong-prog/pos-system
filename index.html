@@ -1095,7 +1095,7 @@
 
     <!-- Excel-like Table Code Generator Modal -->
     <div id="excel-generator-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-xl max-w-5xl w-full p-6 max-h-[85vh] overflow-y-auto space-y-4">
+        <div class="bg-white rounded-xl max-w-5xl w-full p-6 max-h-[90vh] overflow-y-auto space-y-4">
             <div class="flex justify-between items-center border-b pb-3 flex-wrap gap-2">
                 <h3 id="excel-modal-title" class="text-xl font-bold text-gray-800 flex items-center gap-2">
                     <span id="excel-modal-title-text">📱 ຕາຕະລາງສ້າງ QR Code ສິນຄ້າ</span>
@@ -1396,6 +1396,21 @@
                 }
             }
             return dateStr;
+        }
+
+        function parseExcelDate(val) {
+            if (!val) return new Date().toISOString().split('T')[0];
+            if (typeof val === 'number') {
+                // Excel date serial number conversion
+                let utc_days = Math.floor(val - 25569);
+                let utc_value = utc_days * 86400;
+                let dateInfo = new Date(utc_value * 1000);
+                let y = dateInfo.getFullYear();
+                let m = String(dateInfo.getMonth() + 1).padStart(2, '0');
+                let d = String(dateInfo.getDate()).padStart(2, '0');
+                return `${y}-${m}-${d}`;
+            }
+            return parseDDMMYYYYToISO(String(val));
         }
 
         function parseDDMMYYYYToISO(inputStr) {
@@ -2658,7 +2673,7 @@
             document.getElementById('stock-in-modal').classList.add('hidden');
         }
 
-        // --- 🌟 ຟັງຊັນນຳເຂົ້າ Excel (ຈັດລະບຽບ Mapping ໃຫ້ຖືກຕ້ອງ 100% ຕາມຮູບ 2: r[1]=ລະຫັດສິນຄ້າ, r[2]=ຊື່ສິນຄ້າ) ---
+        // --- 🌟 ຟັງຊັນນຳເຂົ້າ Excel (ປັບປຸງຮອງຮັບການອ່ານວັນທີ່ຈາກ Excel ຕົ້ນທາງແບບ 100%) ---
         function triggerExcelImport() {
             let fileInput = document.getElementById('excel-file-input');
             if (fileInput) fileInput.click();
@@ -2688,10 +2703,11 @@
                     for (let i = 1; i < jsonRows.length; i++) {
                         let r = jsonRows[i];
                         if (r && r.length > 2 && (r[1] || r[2])) {
-                            let itemCode = String(r[1] || '').trim(); // ຄໍລຳ B (Index 1) = ລະຫັດສິນຄ້າ
-                            let itemName = String(r[2] || itemCode).trim(); // ຄໍລຳ C (Index 2) = ຊື່ສິນຄ້າ
-                            let dateAddedInput = r[3] ? String(r[3]).trim() : '';
-                            let isoDate = dateAddedInput ? parseDDMMYYYYToISO(dateAddedInput) : todayIso;
+                            let itemCode = String(r[1] || '').trim(); // ຄໍລຳ 2 = ລະຫັດສິນຄ້າ
+                            let itemName = String(r[2] || itemCode).trim(); // ຄໍລຳ 3 = ຊື່ສິນຄ້າ
+                            let dateRaw = r[3]; // ຄໍລຳ 4 = ວັນນຳເຂົ້າສິນຄ້າ
+                            let isoDate = parseExcelDate(dateRaw);
+                            
                             let qty = parseInt(String(r[4] || 1).replace(/,/g, '')) || 1;
                             let cost = parseFloat(String(r[5] || 0).replace(/,/g, '')) || 0;
                             let price = parseFloat(String(r[6] || 0).replace(/,/g, '')) || (cost > 0 ? Math.ceil((cost * 1.2) / 1000) * 1000 : 0);
