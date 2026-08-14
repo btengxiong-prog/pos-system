@@ -781,7 +781,7 @@
                     <div class="grid grid-cols-2 gap-2 bg-purple-50/50 p-3 rounded-xl border border-purple-200">
                         <div>
                             <label class="block font-[11px] font-bold text-purple-900 mb-1">📈 ເປີເຊັນຂາຍ (%):</label>
-                            <!-- 🌟 ປັບປຸງ step="any" ແລະ ບໍ່ຈຳກັດຕົວເລກເສດ -->
+                            <!-- 🌟 ປັບປຸງ step="any" ໃຫ້ປ້ອນຕົວເລກເສດ/ທົດສະຍົມ ຫຼື ຈຳນວນຖ້ວນໄດ້ຢ່າງອິດສະຫຼະ -->
                             <input type="number" step="any" id="stock-in-profit-pct" value="20" oninput="calculateStockInPrice()" class="w-full border rounded-lg px-2 py-1.5 text-center font-bold text-purple-700 text-sm bg-white outline-none" placeholder="20">
                         </div>
                         <div>
@@ -824,7 +824,7 @@
             </div>
         </div>
 
-        <!-- 🌟 Modal Popup ສຳລັບຄຳນວນເປີເຊັນ (%) ພ້ອມຊ່ອງປ້ອນຊື່ສິນຄ້າ -->
+        <!-- 🌟 Modal Popup ສຳລັບຄຳນວນເປີເຊັນ (%) ພ້ອມຊ່ອງປ້ອນຊື່ສິນຄ້າ ແລະ ລາຄາປ້ອນແບບ #,##0 -->
         <div id="calc-pct-modal" class="hidden fixed inset-0 bg-black/60 z-[360] flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4 text-left">
                 <div class="text-3xl text-center">🧮</div>
@@ -2708,6 +2708,9 @@
             document.getElementById('stock-in-total-calculated').value = formatNumberWithCommas(total);
         }
 
+        // 🌟 ຟັງຊັນບັນທຶກນຳເຂົ້າສິນຄ້າ (ພ້ອມກວດສອບວັນໝົດອາຍຸ ວ່າຖ້າບໍ່ປ້ອນຈະມີ Popup ຖາມຢືນຢັນ)
+        let pendingExpiryConfirmData = null;
+
         async function confirmStockIn() {
             let costVal = parseFloat(String(document.getElementById('stock-in-cost').value).replace(/,/g, '')) || 0;
             let qtyVal = parseInt(document.getElementById('stock-in-qty').value) || 1; 
@@ -2731,41 +2734,45 @@
             let calculatedExpiryDate = "";
 
             if (isExpiryMode) {
+                // ຖ້າເປັນໂໝດມີກຳນົດ ແຕ່ຜູ້ໃຊ້ບໍ່ໄດ້ປ້ອນວັນຜະລິດ ຫຼື ວັນໝົດອາຍຸ ໃຫ້ສະແດງ Popup ຖາມຢືນຢັນ
                 if (!mfgDateInput || !expDateInput) {
-                    showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນທັງວັນຜະລິດ ແລະ ວັນໝົດອາຍຸໃຫ້ຄົບຖ້ວນ!", "⚠️");
-                    return;
-                }
-                isoMfgDate = parseDDMMYYYYToISO(mfgDateInput);
-                let mfgDateObj = new Date(isoMfgDate);
-                if (isNaN(mfgDateObj.getTime())) {
-                    showAlert("ແຈ້ງເຕືອນ", "ຮູບແບບວັນຜະລິດບໍ່ຖືກຕ້ອງ! ກະລຸນາປ້ອນເປັນ dd/mm/yyyy", "⚠️");
+                    pendingExpiryConfirmData = {
+                        costVal, qtyVal, unitPerPack, profitPctVal, customName, isoImportDate, isoMfgDate, calculatedExpiryDate
+                    };
+                    showCustomConfirm("⚠️ ຂໍ້ມູນວັນໝົດອາຍຸບໍ່ຄົບຖ້ວນ", "ທ່ານຍັງບໍ່ໄດ້ປ້ອນວັນຜະລິດ ຫຼື ວັນໝົດອາຍຸ! ຕ້ອງການບັນທຶກຜ່ານເລີຍ ຫຼື ບໍ່?", (confirmed) => {
+                        if (confirmed) {
+                            proceedSaveStockInAfterExpiryCheck(pendingExpiryConfirmData);
+                        }
+                    });
                     return;
                 }
 
+                isoMfgDate = parseDDMMYYYYToISO(mfgDateInput);
                 calculatedExpiryDate = parseDDMMYYYYToISO(expDateInput);
-                let expDateObj = new Date(calculatedExpiryDate);
-                if (isNaN(expDateObj.getTime())) {
-                    showAlert("ແຈ້ງເຕືອນ", "ຮູບແບບວັນໝົດອາຍຸບໍ່ຖືກຕ້ອງ! ກະລຸນາປ້ອນເປັນ dd/mm/yyyy", "⚠️");
-                    return;
-                }
             }
 
+            proceedSaveStockInAfterExpiryCheck({
+                costVal, qtyVal, unitPerPack, profitPctVal, customName, isoImportDate, isoMfgDate, calculatedExpiryDate
+            });
+        }
+
+        async function proceedSaveStockInAfterExpiryCheck(data) {
             await fetchProductsForGenerator();
             let cleanCode = currentStockInCode.trim().toLowerCase();
             let existingProductIndex = excelRows.findIndex(r => String(r.code || '').trim().toLowerCase() === cleanCode);
 
-            let finalName = (customName !== "") ? customName : currentStockInCode;
+            let finalName = (data.customName !== "") ? data.customName : currentStockInCode;
 
             pendingDuplicateStockData = {
                 code: currentStockInCode,
                 name: finalName,
-                cost: costVal,
-                profitPct: profitPctVal,
-                qty: qtyVal,
-                unitPerPack: unitPerPack,
-                isoImportDate: isoImportDate,
-                isoMfgDate: isExpiryMode ? isoMfgDate : isoImportDate,
-                calculatedExpiryDate: calculatedExpiryDate,
+                cost: data.costVal,
+                profitPct: data.profitPctVal,
+                qty: data.qtyVal,
+                unitPerPack: data.unitPerPack,
+                isoImportDate: data.isoImportDate,
+                isoMfgDate: isExpiryMode ? data.isoMfgDate : data.isoImportDate,
+                calculatedExpiryDate: data.calculatedExpiryDate,
                 existingIndex: existingProductIndex
             };
 
