@@ -1111,7 +1111,7 @@
                     <thead>
                         <tr class="bg-gray-100 text-gray-700 text-xs uppercase sticky top-0 border-b">
                             <th class="p-2.5 border-r text-center align-middle w-12">ລ/ດ</th>
-                            <th class="p-2.5 border-r text-center align-middle">ລະຫັດສິນຄ້າ</th>
+                            <th class="p-2.5 border-r text-center align-middle min-w-[160px]">ລະຫັດສິນຄ້າ</th>
                             <th class="p-2.5 border-r text-center align-middle min-w-[200px]">ຊື່ສິນຄ້າ</th>
                             <th class="p-2.5 border-r text-center align-middle min-w-[120px]">ລາຄາຊື້ (ກີບ)</th>
                             <th class="p-2.5 border-r text-center align-middle min-w-[120px]">ລາຄາຂາຍ (ກີບ)</th>
@@ -2256,7 +2256,6 @@
 
                 let shopLabel = ((userRole === 'admin' || deviceId === 'POSXIONG') && row.device_id) ? ` [ຮ້ານ: ${row.device_id}]` : '';
 
-                // 🌟 ປັບປຸງລຳດັບຄໍລຳໃຫ້ກົງກັບ: ລ/ດ -> ລະຫັດສິນຄ້າ -> ຊື່ສິນຄ້າ (ຊື່ສິນຄ້າอยู่ກາງ)
                 html += `
                     <tr class="hover:bg-gray-50 border-b">
                         <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
@@ -2674,7 +2673,7 @@
             document.getElementById('stock-in-modal').classList.add('hidden');
         }
 
-        // --- 🌟 ຟັງຊັນນຳເຂົ້າ Excel (ລຽງລຳດັບຕາມ Excel ຕົ້ນທາງ 100%) ---
+        // --- 🌟 ຟັງຊັນນຳເຂົ້າ Excel ---
         function triggerExcelImport() {
             let fileInput = document.getElementById('excel-file-input');
             if (fileInput) fileInput.click();
@@ -2732,7 +2731,7 @@
                     }
 
                     if (importedNewRows.length > 0) {
-                        excelRows = importedNewRows; // 🌟 ບັນທຶກລຳດັບຕາມ Excel ຕົ້ນທາງໂດຍກົງ
+                        excelRows = importedNewRows; 
                         await saveExcelDataQuietly();
                         loadInventory();
                         showAlert("ສຳເລັດ", `ນຳເຂົ້າຂໍ້ມູນ Excel ຈຳນວນ ${importedNewRows.length} ລາຍການ ເຂົ້າສາງສຳເລັດຮຽບຮ້ອຍ!`, "📊");
@@ -3856,11 +3855,11 @@
                 let costNum = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
                 let priceNum = parseFloat(String(row.price).replace(/,/g, '')) || 0;
 
-                // 🌟 ປັບປຸງຄໍລຳໃນໜ້າຕ່າງສ້າງ QR Code ໃຫ້ມີ: ລ/ດ | ລະຫັດສິນຄ້າ | ຊື່ສິນຄ້າ | ລາຄາຊື້ | ລາຄາຂາຍ | ຈຳນວນໃນສາງ
+                // 🌟 ປັບປຸງຄໍລຳ: ລ/ດ | ລະຫັດສິນຄ້າ | ຊື່ສິນຄ້າ | ລາຄາຊື້ | ລາຄາຂາຍ | ຈຳນວນໃນສາງ
                 html += `
                     <tr class="hover:bg-gray-50 border-b">
                         <td class="p-2.5 border-r text-center font-bold text-gray-500">${index + 1}</td>
-                        <td class="p-2.5 border-r text-center font-bold text-blue-600 font-mono">${row.code || '-'}</td>
+                        <td class="p-2.5 border-r text-center font-bold text-blue-600 font-mono uppercase px-3">${row.code || '-'}</td>
                         <td class="p-2.5 border-r font-bold text-gray-900 px-3">${row.name || '-'}</td>
                         <td class="p-2.5 border-r text-right font-bold text-blue-600 px-3">${formatNumberWithCommas(costNum)}</td>
                         <td class="p-2.5 border-r text-right font-bold text-green-600 px-3">${formatNumberWithCommas(priceNum)}</td>
@@ -3895,6 +3894,7 @@
             let promises = duplicateRemovedList.map((row, index) => {
                 return new Promise((resolve) => {
                     let cleanCode = String(row.code).trim();
+                    let itemName = String(row.name || cleanCode).trim();
                     let costVal = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
                     let priceVal = parseFloat(String(row.price).replace(/,/g, '')) || 0;
 
@@ -3908,7 +3908,8 @@
                     let card = document.createElement('div');
                     card.className = "bg-white p-4 rounded-xl shadow-lg border border-gray-200 text-center flex flex-col items-center justify-center relative";
                     
-                    let headerHtml = `<div class="font-bold text-gray-800 text-sm mb-2 w-full truncate px-2" title="${cleanCode}">${cleanCode}</div>`;
+                    // 🌟 ປັບປຸງ: ໃຫ້ຕົວເລກ/ຂໍ້ຄວາມທາງເທິງ QR Code ສະແດງເປັນ "ຊື່ສິນຄ້າ"
+                    let headerHtml = `<div class="font-bold text-gray-800 text-sm mb-2 w-full truncate px-2" title="${itemName}">${itemName}</div>`;
                     let codeContainerId = `ex-code-${index}-${Date.now()}`;
 
                     if (currentCodeType === 'qrcode') {
