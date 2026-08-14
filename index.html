@@ -219,7 +219,7 @@
     <!-- Staff QR Scanner Container Modal -->
     <div id="staff-scanner-modal" class="hidden fixed inset-0 bg-black/80 z-[350] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-md w-full p-5 text-center space-y-3 shadow-2xl">
-            <h3 class="font-bold text-base text-purple-700">📷 ສະແກນ QR Code ເเชື່ອມຕໍ່ຮ້ານ Admin</h3>
+            <h3 class="font-bold text-base text-purple-700">📷 ສະແກນ QR Code ເຊື່ອມຕໍ່ຮ້ານ Admin</h3>
             <div id="staff-reader" class="w-full max-w-sm mx-auto"></div>
             <button onclick="closeStaffScanner()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl w-full font-bold cursor-pointer text-sm">ປິດກ້ອງ</button>
         </div>
@@ -763,7 +763,7 @@
 
         <!-- Modal ນຳເຂົ້າສິນຄ້າ -->
         <div id="stock-in-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-            <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
                 <div class="text-3xl text-center">📥</div>
                 <h3 id="stock-in-title" class="text-xl font-bold text-pink-700 text-center">ນຳເຂົ້າສິນຄ້າ</h3>
                 <div class="bg-gray-50 p-4 rounded-xl text-left text-sm space-y-3 border">
@@ -777,6 +777,18 @@
                     <div>
                         <label class="block font-semibold text-gray-700 mb-1">ລາຄາຊື້ (ກີບ):</label>
                         <input type="text" id="stock-in-cost" oninput="formatInputMoney(this)" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 text-right font-bold text-blue-600 text-lg" placeholder="ປ້ອນລາຄາຊື້">
+                    </div>
+
+                    <!-- 🌟 ປັບປຸງ: ເພີ່ມຊ່ອງປ້ອນ Rate ອັດຕາແລກປ່ຽນ (ບາດ ແລະ ກີບ) -->
+                    <div class="grid grid-cols-2 gap-2 bg-blue-50/60 p-3 rounded-xl border border-blue-200">
+                        <div>
+                            <label class="block font-[11px] font-bold text-blue-900 mb-1">💱 Rate ຊື້ (ກີບ/ບາດ):</label>
+                            <input type="text" id="stock-in-buy-rate" oninput="formatInputMoney(this)" class="w-full border rounded-lg px-2 py-1.5 text-right font-bold text-blue-700 text-sm bg-white outline-none" placeholder="650">
+                        </div>
+                        <div>
+                            <label class="block font-[11px] font-bold text-green-900 mb-1">💱 Rate ຂາຍ (ກີບ/ບາດ):</label>
+                            <input type="text" id="stock-in-sell-rate" oninput="formatInputMoney(this)" class="w-full border rounded-lg px-2 py-1.5 text-right font-bold text-green-700 text-sm bg-white outline-none" placeholder="690">
+                        </div>
                     </div>
                     
                     <div>
@@ -2501,6 +2513,8 @@
 
         async function confirmStockIn() {
             let costVal = parseFloat(String(document.getElementById('stock-in-cost').value).replace(/,/g, '')) || 0;
+            let buyRateVal = parseFloat(String(document.getElementById('stock-in-buy-rate').value).replace(/,/g, '')) || 650;
+            let sellRateVal = parseFloat(String(document.getElementById('stock-in-sell-rate').value).replace(/,/g, '')) || 690;
             let qtyVal = parseInt(document.getElementById('stock-in-qty').value) || 1; 
             let unitPerPack = parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12; 
 
@@ -2514,6 +2528,10 @@
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນລາຄາຊື້ ແລະ ຈຳນວນໃຫ້ຖືກຕ້ອງ!", "⚠️");
                 return;
             }
+
+            // ບັນທຶກ Rate ທີ່ປ້ອນໄວ້ລົງ localStorage ເພື່ອໃຊ້ງານຕໍ່
+            if (buyRateVal > 0) localStorage.setItem('pos_custom_buy_rate', buyRateVal);
+            if (sellRateVal > 0) localStorage.setItem('pos_custom_sell_rate', sellRateVal);
 
             let isoMfgDate = isoImportDate;
             let calculatedExpiryDate = "";
@@ -2669,6 +2687,12 @@
             let yyyy = todayObj.getFullYear();
             let todayFormatted = `${dd}/${mm}/${yyyy}`;
             document.getElementById('stock-in-import-date').value = todayFormatted;
+
+            // ດຶງຄ່າ Rate ປັດຈຸບັນມາສະແດງໃນ Modal ນຳເຂົ້າສິນຄ້າ
+            let currentBuyRate = localStorage.getItem('pos_custom_buy_rate') || localStorage.getItem('pos_custom_manual_rate') || '650';
+            let currentSellRate = localStorage.getItem('pos_custom_sell_rate') || '690';
+            document.getElementById('stock-in-buy-rate').value = formatNumberWithCommas(currentBuyRate);
+            document.getElementById('stock-in-sell-rate').value = formatNumberWithCommas(currentSellRate);
 
             document.getElementById('stock-in-cost').value = "";
             document.getElementById('stock-in-modal').classList.hidden = false;
