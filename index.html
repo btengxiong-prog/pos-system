@@ -972,7 +972,7 @@
             </div>
         </div>
 
-        <!-- 🌟 ປັບປຸງຕາມ 6 ເງື່ອນໄຂໃນຮູບ (ຕັດຕາຕະລາງອອກ, ເພີ່ມຊື່, ປະເພດການຂາຍ, ສາງ ແລະ ຈ/ນຂາຍ) -->
+        <!-- 🌟 ປັບປຸງຕາມ 6 ເງື່ອນໄຂໃນຮູບ -->
         <div class="bg-white rounded-xl shadow p-4 mb-6 space-y-3">
             <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-center text-sm">
                 <!-- 5) ຊື່ສິນຄ້າ -->
@@ -3594,7 +3594,7 @@
             showAlert("ສຳເລັດ", "ຍົກເລີກຂໍ້ມູນການສະແກນ ແລະ ລາຍການໃນໜ້າຂາຍສຳເລັດຮຽບຮ້ອຍ!", "❌");
         }
 
-        // 🌟 ປັບປຸງການຄຳນວນ "ລວມຍອດຊື້" ແລະ "ລວມຍອດຂາຍ" ໃຫ້ຖືກຕ້ອງຕາມໂໝດ ຂາຍສົ່ງ/ຂາຍຍ່ອຍ
+        // 🌟 ຄຳນວນລວມຍອດຊື້ ແລະ ຍອດຂາຍ ຕາມໂໝດຂາຍສົ່ງ/ຂາຍຍ່ອຍຢ່າງຖືກຕ້ອງຕາມຕົວຢ່າງ
         function calculateGrandTotal() {
             let grandCost = 0;
             let grandSale = 0;
@@ -3606,11 +3606,9 @@
                 if (currentSaleType === 'retail') {
                     let unitPerPack = parseInt(item.unitPerPack || 12);
                     if (unitPerPack > 0) {
-                        // 1) ປັບລາຄາຊື້ຕໍ່ປ໋ອງ/ໜ່ວຍຍ່ອຍ (ລົດລາຄາຊື້ຕໍ່ແພັກຫານດ້ວຍຈຳນວນປ໋ອງ ແລ້ວປັດຂຶ້ນເປັນຫຼັກພັນ ຕາມຕົວຢ່າງ 520,000/24 = 21,666 -> 22,000)
                         let rawRetailCost = item.cost / unitPerPack;
                         unitCost = Math.ceil(rawRetailCost / 1000) * 1000;
 
-                        // 2) ປັບລາຄາຂາຍຕໍ່ປ໋ອງ/ໜ່ວຍຍ່ອຍ (ຫານດ້ວຍ unitPerPack ແລ້ວປັດຂຶ້ນເປັນຫຼັກພັນ)
                         let rawRetailPrice = item.price / unitPerPack;
                         unitPrice = Math.ceil(rawRetailPrice / 1000) * 1000;
                     }
@@ -3723,13 +3721,14 @@
                 if (!isNaN(parsedCustom)) finalSaleAmount = parsedCustom;
             }
 
-            let sellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate')) || parseFloat(localStorage.getItem('pos_custom_manual_rate')) || 688;
-            let totalThb = sellRate > 0 ? Math.round(finalSaleAmount / sellRate) : 0;
+            let currentDateStr = localStorage.getItem('pos_custom_manual_rate_date') || new Date().toISOString().split('T')[0];
+            let buyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate_' + currentDateStr)) || parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 675;
+            let totalThb = buyRate > 0 ? Math.ceil(finalSaleAmount / buyRate) : 0;
 
             let textAmount = document.getElementById('popup-total-amount-text');
             let textThb = document.getElementById('popup-total-thb-text');
             if (textAmount) textAmount.innerText = formatNumberWithCommas(finalSaleAmount) + " ກີບ";
-            if (textThb) textThb.innerText = formatNumberWithCommas(totalThb) + ` ບາດ (Rate ຂາຍ: ${sellRate})`;
+            if (textThb) textThb.innerText = formatNumberWithCommas(totalThb) + ` ບາດ (Rate ຊື້: ${buyRate})`;
 
             let lakAcc = localStorage.getItem('pos_shop_lak_acc_' + deviceId) || '1006000000470';
             let thbAcc = localStorage.getItem('pos_shop_thb_acc_' + deviceId) || '-';
@@ -3805,10 +3804,12 @@
             }
 
             let currency = (payMode === 'cash_thb' || payMode === 'transfer_thb') ? 'ບາດ' : 'ກີບ';
-            let sellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate')) || 688;
-            if (currency === 'ບາດ' && sellRate > 0) {
-                finalSaleAmount = Math.round(finalSaleAmount / sellRate);
-                grandCost = Math.round(grandCost / sellRate);
+            let currentDateStr = localStorage.getItem('pos_custom_manual_rate_date') || new Date().toISOString().split('T')[0];
+            let buyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate_' + currentDateStr)) || parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 675;
+            
+            if (currency === 'ບາດ' && buyRate > 0) {
+                finalSaleAmount = Math.ceil(finalSaleAmount / buyRate);
+                grandCost = Math.ceil(grandCost / buyRate);
             }
 
             let transactionData = {
