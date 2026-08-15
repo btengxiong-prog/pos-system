@@ -972,29 +972,20 @@
             </div>
         </div>
 
-        <div class="bg-white rounded-xl shadow overflow-hidden mb-6">
-            <div id="cart-header-title" class="bg-[#1e3a8a] text-white px-4 py-3 font-semibold flex items-center gap-2">
+        <!-- 🌟 1) ຕັດຕາຕະລາງອອກ ແລ້ວເພີ່ມກ່ອງສະແດງ "ຊື່ສິນຄ້າ:" ແລະ "ຈຳນວນສິນຄ້າ:" ຕາມຮູບ 1 -->
+        <div class="bg-white rounded-xl shadow p-4 mb-6 space-y-3">
+            <div id="cart-header-title" class="text-base font-bold text-gray-800 flex items-center gap-2 border-b pb-2">
                 📄 ລາຍການສິນຄ້າທີ່ເລືອກ (ລຽງລົງໄປ)
             </div>
-            
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="bg-blue-900 text-white text-sm">
-                            <th class="p-3" id="th-name">ຊື່ສິນຄ້າ</th>
-                            <th class="p-3 text-right" id="th-cost">ລາຄາຊື້ (ກີບ)</th>
-                            <th class="p-3 text-right" id="th-price">ລາຄາຂາຍ (ກີບ)</th>
-                            <th class="p-3 text-center" id="th-qty">ຈຳນວນ</th>
-                            <th class="p-3 text-right" id="th-total">ລວມ (ກີບ)</th>
-                            <th class="p-3 text-center" id="th-action">ຈັດການ</th>
-                        </tr>
-                    </thead>
-                    <tbody id="cart-items" class="divide-y divide-gray-200 text-sm">
-                        <tr>
-                            <td colspan="6" id="cart-empty-text" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ (ກະລຸນາກົດສະແກນສິນຄ້າ)</td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                <div class="bg-gray-50 p-3 rounded-xl border flex justify-between items-center">
+                    <span class="font-bold text-gray-700">ຊື່ສິນຄ້າ:</span>
+                    <span id="display-scanned-product-name" class="font-semibold text-blue-700">-</span>
+                </div>
+                <div class="bg-gray-50 p-3 rounded-xl border flex justify-between items-center">
+                    <span class="font-bold text-gray-700">ຈຳນວນສິນຄ້າ:</span>
+                    <span id="display-scanned-product-qty" class="font-bold text-green-600">0</span>
+                </div>
             </div>
         </div>
 
@@ -1029,10 +1020,13 @@
             </div>
         </div>
 
-        <!-- 🌟 2 ປຸ່ມຄຳສັ່ງດ້ານລຸ່ມ -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
+        <!-- 🌟 2) ປ່ຽນຊື່ປຸ່ມເປັນ "ພີມບິນຂາຍ" + 3) ເພີ່ມປຸ່ມ "ຍົກເລີກ" ຕາມຮູບ -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
             <button onclick="printCurrentReceipt()" class="w-full bg-purple-600 hover:bg-purple-700 text-white text-base font-bold py-3.5 rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
-                🖨️ ປຼີ້ນບິນຂາຍ
+                🖨️ ພີມບິນຂາຍ
+            </button>
+            <button onclick="cancelCurrentSaleTransaction()" class="w-full bg-red-600 hover:bg-red-700 text-white text-base font-bold py-3.5 rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
+                ❌ ຍົກເລີກ
             </button>
             <button onclick="openCheckoutMethodModal()" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-base font-bold py-3.5 rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
                 💰 ຊຳລະເງິນ ແລະ ເລືອກບັນຊີ
@@ -1501,22 +1495,6 @@
 
             let cartHeader = document.getElementById('cart-header-title');
             if (cartHeader) cartHeader.innerHTML = `📄 ${t.cartTitle}`;
-
-            let thName = document.getElementById('th-name');
-            if (thName) thName.innerText = t.thName;
-            let thCost = document.getElementById('th-cost');
-            if (thCost) thCost.innerText = t.thCost;
-            let thPrice = document.getElementById('th-price');
-            if (thPrice) thPrice.innerText = t.thPrice;
-            let thQty = document.getElementById('th-qty');
-            if (thQty) thQty.innerText = t.thQty;
-            let thTotal = document.getElementById('th-total');
-            if (thTotal) thTotal.innerText = t.thTotal;
-            let thAction = document.getElementById('th-action');
-            if (thAction) thAction.innerText = t.thAction;
-
-            let emptyText = document.getElementById('cart-empty-text');
-            if (emptyText) emptyText.innerText = t.cartEmpty;
         }
 
         function formatNumberWithCommas(num) {
@@ -2388,11 +2366,9 @@
 
                 let rowDate = row.dateAdded || new Date().toISOString().split('T')[0];
                 
-                // 🌟 1) Rate (ເດີມ): ດຶງ Rate ຕາມວັນທີນຳເຂົ້າສິນຄ້າ
                 let importBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate_' + rowDate)) || parseFloat(row.buyingRate) || 650;
                 let importSellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate_' + rowDate)) || parseFloat(row.sellingRate) || 670;
 
-                // 🌟 2) Rate (ໃຫມ່): ດຶງ Rate ຕາມວັນປະຈຸບັນ
                 let currentBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate_' + currentDateStr)) || parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 675;
                 let currentSellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate_' + currentDateStr)) || parseFloat(localStorage.getItem('pos_custom_sell_rate')) || 688;
 
@@ -3456,7 +3432,7 @@
             await Promise.all(promises);
         }
 
-        // --- 🌟 ຟັງຊັນທີ່ເພີ່ມເຕີມສຳລັບປຸ່ມ "ນຳອອກສິນຄ້າ" (ຂາຍສິນຄ້າ) ---
+        // --- 🌟 ຟັງຊັນການສະແກນຂາຍສິນຄ້າ (ນຳອອກສິນຄ້າ) ---
         function openScanner() {
             let container = document.getElementById('scanner-container');
             if (container) {
@@ -3548,32 +3524,20 @@
             renderCart();
         }
 
+        // 🌟 ອັບເດດການສະແດງຜົນຊື່ສິນຄ້າ ແລະ ຈຳນວນສິນຄ້າໃນກ່ອງແດງ 1
         function renderCart() {
-            let tbody = document.getElementById('cart-items');
-            if (!tbody) return;
+            let nameElem = document.getElementById('display-scanned-product-name');
+            let qtyElem = document.getElementById('display-scanned-product-qty');
+
             if (cart.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ (ກະລຸນາກົດສະແກນສິນຄ້າ)</td></tr>`;
-                return;
+                if (nameElem) nameElem.innerText = "-";
+                if (qtyElem) qtyElem.innerText = "0";
+            } else {
+                let lastItem = cart[cart.length - 1];
+                let totalQty = cart.reduce((sum, item) => sum + item.qty, 0);
+                if (nameElem) nameElem.innerText = `${lastItem.name} (${lastItem.code})`;
+                if (qtyElem) qtyElem.innerText = formatNumberWithCommas(totalQty);
             }
-            let html = '';
-            cart.forEach((item, index) => {
-                let total = item.price * item.qty;
-                html += `
-                    <tr class="hover:bg-gray-50 border-b">
-                        <td class="p-3 font-bold text-gray-800">${item.name} <span class="text-xs text-blue-600 font-mono">(${item.code})</span></td>
-                        <td class="p-3 text-right text-blue-600">${formatNumberWithCommas(item.cost)}</td>
-                        <td class="p-3 text-right text-green-600">${formatNumberWithCommas(item.price)}</td>
-                        <td class="p-3 text-center">
-                            <input type="number" min="1" value="${item.qty}" onchange="updateCartQty(${index}, this.value)" class="w-16 border rounded text-center font-bold">
-                        </td>
-                        <td class="p-3 text-right font-bold text-gray-900">${formatNumberWithCommas(total)}</td>
-                        <td class="p-3 text-center">
-                            <button onclick="removeFromCart(${index})" class="bg-red-500 text-white px-2.5 py-1 rounded text-xs font-bold hover:bg-red-600">ລຶບ</button>
-                        </td>
-                    </tr>
-                `;
-            });
-            tbody.innerHTML = html;
             calculateGrandTotal();
         }
 
@@ -3587,6 +3551,31 @@
         function removeFromCart(index) {
             cart.splice(index, 1);
             renderCart();
+        }
+
+        // 🌟 3) ຟັງຊັນປຸ່ມຍົກເລີກ: ລຶບຂໍ້ມູນການສະແກນ/ລາຍການໃນໜ້າຂາຍທັງໝົດ
+        function cancelCurrentSaleTransaction() {
+            cart = [];
+            renderCart();
+
+            let customFinalInput = document.getElementById('custom-final-price');
+            if (customFinalInput) customFinalInput.value = "";
+            let cashGivenInput = document.getElementById('cash-given');
+            if (cashGivenInput) cashGivenInput.value = "";
+
+            let elCost = document.getElementById('grand-total-cost');
+            let elSale = document.getElementById('grand-total');
+            let elFinal = document.getElementById('final-total');
+            let elProfit = document.getElementById('grand-total-profit');
+            let changeElem = document.getElementById('change-amount');
+
+            if (elCost) elCost.innerText = "0 ກີບ";
+            if (elSale) elSale.innerText = "0 ກີບ";
+            if (elFinal) elFinal.innerText = "0 ກີບ";
+            if (elProfit) elProfit.innerText = "0 ກີບ";
+            if (changeElem) changeElem.innerText = "0 ກີບ (ຈ່າຍພໍດີ)";
+
+            showAlert("ສຳເລັດ", "ຍົກເລີກຂໍ້ມູນການສະແກນ ແລະ ລາຍການໃນໜ້າຂາຍສຳເລັດຮຽບຮ້ອຍ!", "❌");
         }
 
         function calculateGrandTotal() {
@@ -3658,16 +3647,13 @@
             }
         }
 
-        // --- 💰 2 ປຸ່ມຄຳສັ່ງຕາມເງື່ອນໄຂ ---
-        
-        // 1) ປຼີ້ນບິນຂາຍ: ສັ່ງປຼີ້ນໃບເຊັດຊຳລະຈ່າຍເງິນເທົ່ານັ້ນ
+        // --- 💰 2) ພີມບິນຂາຍ & ຊຳລະເງິນ ---
         function printCurrentReceipt() {
             try {
                 window.print();
             } catch (e) {}
         }
 
-        // 2) ຊຳລະເງິນ ແລະ ເລືອກບັນຊີ: ເປີດປ໊ອບອັບເລືອກວິທີຊຳລະ
         function openCheckoutMethodModal() {
             if (cart.length === 0) {
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າລົງໃນກະຕ່າກ່ອນຊຳລະເງິນ!", "⚠️");
@@ -3737,7 +3723,6 @@
             }
         }
 
-        // ເມື່ອກົດ ຕົກລົງ ໃນປ໊ອບອັບເລືອກວິທີຊຳລະ: ບັນທຶກລົງປະຫວັດການຂາຍ ພ້ອມທັງ Reset ຂໍ້ມູນໜ້າຂາຍເປັນ 0 ທັນທີ
         async function confirmCheckoutPayment() {
             let selectedRadio = document.querySelector('input[name="pay_mode"]:checked');
             let payMode = selectedRadio ? selectedRadio.value : 'cash';
@@ -3773,7 +3758,6 @@
                 currency: currency
             };
 
-            // 1) ບັນທຶກການຊຳລະເງິນ ແລະ ສົ່ງໄປທີ່ປະຫວັດການຂາຍ (Firebase)
             if (db) {
                 try {
                     await db.collection("sales_history").add(transactionData);
@@ -3784,7 +3768,6 @@
 
             closeCheckoutMethodModal();
 
-            // 2) Reset ຂໍ້ມູນທັງໝົດໃນໜ້າຂາຍ ໃຫ້ເປັນ 0 ໝົດທຸກຢ່າງທັນທີຢ່າງແທ້ຈິງ
             cart = [];
             renderCart();
             
