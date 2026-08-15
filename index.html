@@ -2264,9 +2264,9 @@
             document.getElementById('rate-input-modal').classList.add('hidden');
         }
 
-        // 🌟 ຟັງຊັນໂຫຼດ Rate ຕາມວັນທີທີ່ເລືອກໃນຊ່ອງວັນທີ
+        // 🌟 ຟັງຊັນໂຫຼດ Rate ຕາມວັນທີທີ່ເລືອກໃນຊ່ອງວັນທີ (ຮອງຮັບ Rate ວັນນຳເຂົ້າ ແລະ ວັນປະຈຸບັນ)
         function loadRateForDate(dateStr) {
-            let savedBuyRate = localStorage.getItem('pos_custom_buy_rate_' + dateStr) || localStorage.getItem('pos_custom_buy_rate') || '600';
+            let savedBuyRate = localStorage.getItem('pos_custom_buy_rate_' + dateStr) || localStorage.getItem('pos_custom_buy_rate') || '650';
             let savedSellRate = localStorage.getItem('pos_custom_sell_rate_' + dateStr) || localStorage.getItem('pos_custom_sell_rate') || localStorage.getItem('pos_custom_manual_rate') || '688';
             
             document.getElementById('input-custom-buy-rate').value = formatNumberWithCommas(savedBuyRate);
@@ -2298,7 +2298,6 @@
 
             closeRateInputModal();
             
-            // 🌟 ອັບເດດຕາຕະລາງ Rate Analysis ທັນທີເມື່ອບັນທຶກ Rate ໃໝ່
             if (!document.getElementById('rate-analysis-modal').classList.contains('hidden')) {
                 loadRateAnalysis();
             }
@@ -2339,7 +2338,7 @@
             document.getElementById('rate-analysis-modal').classList.add('hidden');
         }
 
-        // 🌟 ຟັງຊັນຄຳນວນປັບລາຄາຊື້ ແລະ ລາຄາຂາຍປະຈຸບັນ ຕາມສູດທີ່ຖືກຕ້ອງ 100% ໂດຍອ້າງອີງຕາມວັນທີນຳເຂົ້າຂອງສິນຄ້າແຕ່ລະລາຍການ
+        // 🌟 ຟັງຊັນຄຳນວນປັບລາຄາຊື້ ແລະ ລາຄາຂາຍປະຈຸບັນ ຕາມສູດที่ຖືກຕ້ອງ 100% ໂດຍອ້າງອີງຕາມວັນທີນຳເຂົ້າຂອງສິນຄ້າແຕ່ລະລາຍການ
         function getAdjustedItemPricing(item) {
             let originalCost = parseFloat(String(item.originalCost || item.cost).replace(/,/g, '')) || 0;
             let profitPct = parseFloat(String(item.profitPct !== undefined ? item.profitPct : 20)) || 20;
@@ -2379,29 +2378,31 @@
             let html = '';
             let countIndex = 1;
 
-            let currentBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 675;
-            let currentSellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate')) || 688;
             let currentDateStr = localStorage.getItem('pos_custom_manual_rate_date') || new Date().toISOString().split('T')[0];
             let formattedCurrentDate = formatDateToDDMMYYYY(currentDateStr);
 
             excelRows.forEach((row) => {
                 let originalCost = parseFloat(String(row.originalCost || row.cost).replace(/,/g, '')) || 0;
                 let originalPrice = parseFloat(String(row.price).replace(/,/g, '')) || 0;
-                let buyRateOnImport = parseFloat(row.buyingRate) || 600;
-                let sellRateOnImport = parseFloat(row.sellingRate) || 650;
                 let profitPct = parseFloat(String(row.profitPct !== undefined ? row.profitPct : 20)) || 20;
 
                 let rowDate = row.dateAdded || new Date().toISOString().split('T')[0];
-                let specificSellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate_' + rowDate)) || parseFloat(localStorage.getItem('pos_custom_sell_rate')) || currentSellRate;
-                let specificBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate_' + rowDate)) || parseFloat(localStorage.getItem('pos_custom_buy_rate')) || currentBuyRate;
+                
+                // 🌟 1) Rate (ເດີມ): ດึง Rate ຕາມວັນທີນຳເຂົ້າສິນຄ້າ (ຖ້າມີບັນທຶກໄວ້, ຖ້າບໍ່ມີໃຊ້ 650 ແລະ 670 ຕາມຮູບ 3)
+                let importBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate_' + rowDate)) || parseFloat(row.buyingRate) || 650;
+                let importSellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate_' + rowDate)) || parseFloat(row.sellingRate) || 670;
 
-                let rawNewCost = originalCost * (specificSellRate / buyRateOnImport);
+                // 🌟 2) Rate (ໃຫມ່): ດຶງ Rate ຕາມວັນປະຈຸບັນ (ຖ້າມີບັນທຶກໄວ້, ຖ້າບໍ່ມີໃຊ້ 675 ແລະ 688 ຕາມຮູບ 3)
+                let currentBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate_' + currentDateStr)) || parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 675;
+                let currentSellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate_' + currentDateStr)) || parseFloat(localStorage.getItem('pos_custom_sell_rate')) || 688;
+
+                let rawNewCost = originalCost * (currentSellRate / importBuyRate);
                 let newCost = Math.ceil(rawNewCost / 1000) * 1000;
 
                 let rawNewPrice = newCost * (1 + profitPct / 100);
                 let newPrice = Math.ceil(rawNewPrice / 1000) * 1000;
 
-                let formattedImportDate = formatDateToDDMMYYYY(row.dateAdded || new Date().toISOString().split('T')[0]);
+                let formattedImportDate = formatDateToDDMMYYYY(rowDate);
 
                 html += `
                     <tr class="hover:bg-gray-50 border-b text-center text-xs">
@@ -2411,12 +2412,12 @@
                         <td class="p-2 border-r font-semibold text-purple-700">${formattedImportDate}</td>
                         <td class="p-2 border-r font-semibold text-blue-700">${formattedCurrentDate}</td>
                         <td class="p-2 border-r font-bold text-amber-700">${profitPct}%</td>
-                        <td class="p-2 border-r font-semibold text-gray-700">${buyRateOnImport.toFixed(2)}</td>
-                        <td class="p-2 border-r font-semibold text-gray-700">${sellRateOnImport.toFixed(2)}</td>
+                        <td class="p-2 border-r font-semibold text-gray-700">${importBuyRate.toFixed(2)}</td>
+                        <td class="p-2 border-r font-semibold text-gray-700">${importSellRate.toFixed(2)}</td>
                         <td class="p-2 border-r text-right text-blue-600 font-semibold">${formatNumberWithCommas(originalCost)}</td>
                         <td class="p-2 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(originalPrice)}</td>
-                        <td class="p-2 border-r font-bold text-blue-800 bg-blue-50/20">${specificBuyRate.toFixed(2)}</td>
-                        <td class="p-2 border-r font-bold text-blue-800 bg-blue-50/20">${specificSellRate.toFixed(2)}</td>
+                        <td class="p-2 border-r font-bold text-blue-800 bg-blue-50/20">${currentBuyRate.toFixed(2)}</td>
+                        <td class="p-2 border-r font-bold text-blue-800 bg-blue-50/20">${currentSellRate.toFixed(2)}</td>
                         <td class="p-2 border-r text-right text-blue-900 font-bold bg-blue-50/30">${formatNumberWithCommas(newCost)}</td>
                         <td class="p-2 border-r text-right text-green-900 font-bold bg-green-50/30">${formatNumberWithCommas(newPrice)}</td>
                         <td class="p-2 font-bold text-gray-600">-</td>
@@ -2442,15 +2443,17 @@
             let html = '';
             let countIndex = 1;
 
+            let currentDateStr = localStorage.getItem('pos_custom_manual_rate_date') || new Date().toISOString().split('T')[0];
+
             excelRows.forEach((row) => {
                 let originalCost = parseFloat(String(row.originalCost || row.cost).replace(/,/g, '')) || 0;
                 let originalPrice = parseFloat(String(row.price).replace(/,/g, '')) || 0;
-                let buyRateOnImport = parseFloat(row.buyingRate) || 600;
-
                 let rowDate = row.dateAdded || new Date().toISOString().split('T')[0];
-                let currentSellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate_' + rowDate)) || parseFloat(localStorage.getItem('pos_custom_sell_rate')) || parseFloat(localStorage.getItem('pos_custom_manual_rate')) || 688;
 
-                let rawNewCost = originalCost * (currentSellRate / buyRateOnImport);
+                let importBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate_' + rowDate)) || parseFloat(row.buyingRate) || 650;
+                let currentSellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate_' + currentDateStr)) || parseFloat(localStorage.getItem('pos_custom_sell_rate')) || 688;
+
+                let rawNewCost = originalCost * (currentSellRate / importBuyRate);
                 let newCost = Math.ceil(rawNewCost / 1000) * 1000;
 
                 let profitPct = parseFloat(String(row.profitPct !== undefined ? row.profitPct : 20)) || 20;
@@ -2463,10 +2466,9 @@
                 let totalPriceOld = originalPrice * qty;
                 let totalPriceNew = newPrice * qty;
 
-                let formattedDate = formatDateToDDMMYYYY(row.dateAdded || new Date().toISOString().split('T')[0]);
-                let currentDateStr = localStorage.getItem('pos_custom_manual_rate_date') || new Date().toISOString().split('T')[0];
+                let formattedDate = formatDateToDDMMYYYY(rowDate);
                 let formattedCurrentDate = formatDateToDDMMYYYY(currentDateStr);
-                let noteRateStr = `${buyRateOnImport}/${currentSellRate}`;
+                let noteRateStr = `${importBuyRate}/${currentSellRate}`;
 
                 html += `
                     <tr class="hover:bg-gray-50 border-b text-center text-xs">
