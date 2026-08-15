@@ -48,7 +48,8 @@
             #rate-analysis-modal, #rate-analysis-modal *,
             #expiry-modal, #expiry-modal *,
             #history-modal, #history-modal *,
-            #report-modal, #report-modal * {
+            #report-modal, #report-modal *,
+            #checkout-method-modal, #checkout-method-modal * {
                 visibility: visible !important;
             }
             #inventory-modal, #price-compare-modal, #rate-analysis-modal, #expiry-modal, #history-modal, #report-modal {
@@ -320,7 +321,7 @@
                         </tr>
                     </thead>
                     <tbody id="price-compare-tbody" class="divide-y divide-gray-200 text-sm">
-                        <tr><td colspan="15" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນວິເຄາະລาຄາສິນຄ້າ...</td></tr>
+                        <tr><td colspan="15" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນວິເຄາະລາຄາສິນຄ້າ...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -512,7 +513,7 @@
 
             <div id="transfer-lak-qr-section" class="hidden space-y-2 pt-2 border-t text-left text-xs">
                 <span class="font-bold text-gray-700">📱 ເລກບັນຊີກີບ:</span>
-                <div id="modal-lak-acc-display" class="p-2.5 bg-gray-50 border rounded-lg font-mono font-bold text-blue-700 text-sm"></div>
+                <div id="modal-lak-acc-display" class="p-2.5 bg-gray-50 border rounded-lg font-mono font-bold text-blue-700 text-sm">1006000000470</div>
             </div>
 
             <div id="transfer-thb-qr-section" class="hidden space-y-2 pt-2 border-t text-left text-xs">
@@ -3382,7 +3383,7 @@
             await Promise.all(promises);
         }
 
-        // --- 🌟 ຟັງຊັນທີ່ເພີ່ມເຕີມສຳລັບປຸ່ມ "ນຳອອກສິນຄ້າ" (ຂາຍສິນຄ້າ) ---
+        // --- 🌟 ຟັງຊັນที่ເພີ່ມເຕີມສຳລັບປຸ່ມ "ນຳອອກສິນຄ້າ" (ຂາຍສິນຄ້າ) ---
         function openScanner() {
             let container = document.getElementById('scanner-container');
             if (container) {
@@ -3540,6 +3541,174 @@
 
             if (elFinal) elFinal.innerText = formatNumberWithCommas(finalSaleAmount) + " ກີບ";
             if (elProfit) elProfit.innerText = formatNumberWithCommas(finalSaleAmount - grandCost) + " ກີບ";
+        }
+
+        function calculateChange() {
+            let grandSale = 0;
+            cart.forEach(item => { grandSale += (item.price * item.qty); });
+            let customFinalInput = document.getElementById('custom-final-price');
+            let finalSaleAmount = grandSale;
+            if (customFinalInput && customFinalInput.value.trim() !== '') {
+                let parsedCustom = parseFloat(customFinalInput.value.replace(/,/g, ''));
+                if (!isNaN(parsedCustom)) finalSaleAmount = parsedCustom;
+            }
+
+            let cashGivenInput = document.getElementById('cash-given');
+            let changeElem = document.getElementById('change-amount');
+            if (!cashGivenInput || !changeElem) return;
+
+            let cashGivenVal = parseFloat(cashGivenInput.value.replace(/,/g, '')) || 0;
+            if (cashGivenVal <= 0) {
+                changeElem.innerText = "0 ກີບ (ຈ່າຍພໍດີ)";
+                return;
+            }
+
+            let changeVal = cashGivenVal - finalSaleAmount;
+            if (changeVal >= 0) {
+                changeElem.innerText = formatNumberWithCommas(changeVal) + " ກີບ";
+            } else {
+                changeElem.innerText = "ເງິນຍັງຂາດ " + formatNumberWithCommas(Math.abs(changeVal)) + " ກີບ";
+            }
+        }
+
+        function handleCustomPriceKeydown(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                openCheckoutMethodModal();
+            }
+        }
+
+        function handleCashKeydown(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                openCheckoutMethodModal();
+            }
+        }
+
+        // --- 💰 ຟັງຊັນຊຳລະເງິນ ແລະ ພິມບິນ (ເພີ່ມໃໝ່) ---
+        function openCheckoutMethodModal() {
+            if (cart.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າລົງໃນກະຕ່าก່ອນຊຳລະເງິນ!", "⚠️");
+                return;
+            }
+
+            let grandSale = 0;
+            cart.forEach(item => { grandSale += (item.price * item.qty); });
+            let customFinalInput = document.getElementById('custom-final-price');
+            let finalSaleAmount = grandSale;
+            if (customFinalInput && customFinalInput.value.trim() !== '') {
+                let parsedCustom = parseFloat(customFinalInput.value.replace(/,/g, ''));
+                if (!isNaN(parsedCustom)) finalSaleAmount = parsedCustom;
+            }
+
+            let sellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate')) || parseFloat(localStorage.getItem('pos_custom_manual_rate')) || 688;
+            let totalThb = sellRate > 0 ? Math.round(finalSaleAmount / sellRate) : 0;
+
+            let textAmount = document.getElementById('popup-total-amount-text');
+            let textThb = document.getElementById('popup-total-thb-text');
+            if (textAmount) textAmount.innerText = formatNumberWithCommas(finalSaleAmount) + " ກີບ";
+            if (textThb) textThb.innerText = formatNumberWithCommas(totalThb) + ` ບາດ (Rate ຂາຍ: ${sellRate})`;
+
+            let lakAcc = localStorage.getItem('pos_shop_lak_acc_' + deviceId) || '1006000000470';
+            let thbAcc = localStorage.getItem('pos_shop_thb_acc_' + deviceId) || '-';
+
+            let lakDisplay = document.getElementById('modal-lak-acc-display');
+            let thbDisplay = document.getElementById('modal-thb-acc-display');
+            if (lakDisplay) lakDisplay.innerText = lakAcc;
+            if (thbDisplay) thbDisplay.innerText = thbAcc;
+
+            let modal = document.getElementById('checkout-method-modal');
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        function closeCheckoutMethodModal() {
+            let modal = document.getElementById('checkout-method-modal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function selectPaymentMode(mode, labelElem) {
+            let radios = document.querySelectorAll('input[name="pay_mode"]');
+            radios.forEach(r => {
+                let parentLabel = r.closest('label');
+                if (parentLabel) {
+                    parentLabel.classList.remove('border-blue-600', 'bg-blue-50/50');
+                    parentLabel.classList.add('border-gray-200');
+                }
+            });
+
+            if (labelElem) {
+                labelElem.classList.remove('border-gray-200');
+                labelElem.classList.add('border-blue-600', 'bg-blue-50/50');
+                let radio = labelElem.querySelector('input[type="radio"]');
+                if (radio) radio.checked = true;
+            }
+
+            let lakQr = document.getElementById('transfer-lak-qr-section');
+            let thbQr = document.getElementById('transfer-thb-qr-section');
+            if (lakQr) lakQr.classList.add('hidden');
+            if (thbQr) thbQr.classList.add('hidden');
+
+            if (mode === 'transfer_lak' && lakQr) {
+                lakQr.classList.remove('hidden');
+            } else if (mode === 'transfer_thb' && thbQr) {
+                thbQr.classList.remove('hidden');
+            }
+        }
+
+        async function confirmCheckoutPayment() {
+            let selectedRadio = document.querySelector('input[name="pay_mode"]:checked');
+            let payMode = selectedRadio ? selectedRadio.value : 'cash';
+
+            let grandCost = 0;
+            let grandSale = 0;
+            cart.forEach(item => {
+                grandCost += (item.cost * item.qty);
+                grandSale += (item.price * item.qty);
+            });
+
+            let customFinalInput = document.getElementById('custom-final-price');
+            let finalSaleAmount = grandSale;
+            if (customFinalInput && customFinalInput.value.trim() !== '') {
+                let parsedCustom = parseFloat(customFinalInput.value.replace(/,/g, ''));
+                if (!isNaN(parsedCustom)) finalSaleAmount = parsedCustom;
+            }
+
+            let currency = (payMode === 'cash_thb' || payMode === 'transfer_thb') ? 'ບາດ' : 'ກີບ';
+            let sellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate')) || 688;
+            if (currency === 'ບາດ' && sellRate > 0) {
+                finalSaleAmount = Math.round(finalSaleAmount / sellRate);
+                grandCost = Math.round(grandCost / sellRate);
+            }
+
+            let transactionData = {
+                device_id: deviceId,
+                date: new Date().toISOString(),
+                items: JSON.parse(JSON.stringify(cart)),
+                total_cost: grandCost,
+                total_price: finalSaleAmount,
+                pay_mode: payMode,
+                currency: currency
+            };
+
+            if (db) {
+                try {
+                    await db.collection("sales_history").add(transactionData);
+                } catch (e) {
+                    console.error("Save sales history error:", e);
+                }
+            }
+
+            closeCheckoutMethodModal();
+            showAlert("ສຳເລັດ", "ບັນທຶກການຊຳລະເງິນ ແລະ ພິມບິນສຳເລັດຮຽບຮ້ອຍ!", "🖨️");
+
+            // ລ້າງກະຕ່າຫຼັງຊຳລະສຳເລັດ
+            cart = [];
+            renderCart();
+            if (customFinalInput) customFinalInput.value = "";
+            let cashGivenInput = document.getElementById('cash-given');
+            if (cashGivenInput) cashGivenInput.value = "";
+            let changeElem = document.getElementById('change-amount');
+            if (changeElem) changeElem.innerText = "0 ກີບ (ຈ່າຍພໍດີ)";
         }
 
         // --- 📊 ຟັງຊັນຈັດການປະຫວັດການຂາຍ ---
