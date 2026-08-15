@@ -95,6 +95,10 @@
                     🔑 ລັອກອິນເຂົ້າລະບົບ (ເຈົ້າຂອງຮ້ານ / Admin)
                 </button>
             </div>
+            <!-- 🌟 ເພີ່ມ Version Display ທີ່ລຸ່ມສຸດຂອງ Role Selection Modal -->
+            <div class="pt-2 border-t text-[11px] text-gray-400 font-semibold">
+                Ver: 1.0.0 (Master Edition)
+            </div>
         </div>
     </div>
 
@@ -1498,7 +1502,7 @@
             if (btnRep) btnRep.innerHTML = `${t.reportSys} <span class="text-xs">▼</span>`;
 
             let btnAdmin = document.getElementById('admin-manage-btn');
-            if (btnAdmin) btnAdmin.innerText = t.adminManage;
+            if (adminBtn) adminBtn.innerText = t.adminManage;
 
             let btnStaffQr = document.getElementById('header-connect-qr-btn');
             if (btnStaffQr) btnStaffQr.innerText = t.connectStaff;
@@ -3583,19 +3587,33 @@
                 if (nameElem) nameElem.innerText = `${lastItem.name} (${lastItem.code})`;
                 
                 let matchedStockItem = excelRows.find(r => String(r.code).trim().toLowerCase() === String(lastItem.code).trim().toLowerCase());
-                let packQty = matchedStockItem ? (parseInt(matchedStockItem.qty || 1)) : 1;
                 let unitPerPack = lastItem.unitPerPack || 12;
 
+                let initialPackQty = matchedStockItem ? (parseInt(String(matchedStockItem.qty || 1).replace(/,/g, '')) || 1) : 1;
+                let totalSubUnits = initialPackQty * unitPerPack;
+
+                // ຄຳນວນຫັກຍອດທີ່ຂາຍໄປແລ້ວໃນ cart (ຖ້າຂາຍສົ່ງ ຫັກຕາມຈຳນວນແພັກ, ຖ້າຂາຍຍ່ອຍ ຫັກຕາມຈຳນວນຫົວໜ່ວຍຍ່ອຍ)
+                let soldSubUnits = 0;
+                cart.forEach(c => {
+                    if (String(c.code).trim().toLowerCase() === String(lastItem.code).trim().toLowerCase()) {
+                        if (currentSaleType === 'retail') {
+                            soldSubUnits += (parseInt(c.qty) || 1);
+                        } else {
+                            soldSubUnits += (parseInt(c.qty) || 1) * unitPerPack;
+                        }
+                    }
+                });
+
+                let remainingSubUnits = totalSubUnits - soldSubUnits;
+                if (remainingSubUnits < 0) remainingSubUnits = 0;
+
+                let remainingFullPacks = Math.floor(remainingSubUnits / unitPerPack);
+                let leftoverUnits = remainingSubUnits % unitPerPack;
+
                 if (currentSaleType === 'retail') {
-                    let soldSubUnits = (lastItem.qty || 1); // ຫົວໜ່ວຍຍ່ອຍທີ່ຂາຍ
-                    let totalSubUnits = (packQty * unitPerPack) - soldSubUnits;
-                    if (totalSubUnits < 0) totalSubUnits = 0;
-                    if (stockElem) stockElem.innerText = formatNumberWithCommas(totalSubUnits);
+                    if (stockElem) stockElem.innerText = formatNumberWithCommas(remainingSubUnits);
                 } else {
-                    let soldPacks = (lastItem.qty || 1);
-                    let remainingPacks = packQty - soldPacks;
-                    if (remainingPacks < 0) remainingPacks = 0;
-                    if (stockElem) stockElem.innerText = formatNumberWithCommas(remainingPacks);
+                    if (stockElem) stockElem.innerText = formatNumberWithCommas(remainingFullPacks);
                 }
 
                 if (qtyInput) qtyInput.value = formatNumberWithCommas(lastItem.qty);
@@ -4202,7 +4220,7 @@
             document.getElementById('rep-total-price-thb').innerText = formatNumberWithCommas(totalPriceThb) + " ບາດ";
             document.getElementById('rep-total-profit-thb').innerText = formatNumberWithCommas(totalPriceThb - totalCostThb) + " ບາດ";
             document.getElementById('rep-cash-thb').innerText = formatNumberWithCommas(cashThb) + " ບາດ";
-            document.getElementById('rep-transfer-thb').innerText = formatNumberWithThb(transferThb) + " ບາດ";
+            document.getElementById('rep-transfer-thb').innerText = formatNumberWithCommas(transferThb) + " ບາດ";
         }
 
         function showAlert(title, message, icon = "✅") {
@@ -4210,7 +4228,7 @@
             document.getElementById('alert-title').innerText = title;
             document.getElementById('alert-message').innerText = message;
             document.getElementById('alert-icon').innerText = icon;
-            modal.classList.remove('hidden');
+            modal.classList.add('hidden');
         }
 
         function closeCustomAlert() {
