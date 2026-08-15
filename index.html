@@ -1029,9 +1029,16 @@
             </div>
         </div>
 
-        <div class="w-full">
-            <button onclick="openCheckoutMethodModal()" id="btn-checkout" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-base font-bold py-3.5 rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
-                💰 ຊຳລະເງິນ / ພິມບິນ
+        <!-- 🌟 ແຖບສີຂຽວແບ່ງເປັນ 3 ປຸ່ມຕາມຄຳສັ່ງໃໝ່ -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
+            <button onclick="window.print()" class="w-full bg-purple-600 hover:bg-purple-700 text-white text-base font-bold py-3.5 rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
+                🖨️ ປຼີ້ນບິນຂາຍ
+            </button>
+            <button onclick="openCheckoutMethodModal()" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-base font-bold py-3.5 rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
+                💰 ເລືອກວິທີຊຳລະ
+            </button>
+            <button onclick="executeDirectCheckout()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-base font-bold py-3.5 rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
+                ✅ ຊຳລະເງິນ
             </button>
         </div>
     </main>
@@ -2313,7 +2320,7 @@
             document.getElementById('rate-analysis-modal').classList.add('hidden');
         }
 
-        // 🌟 ຟັງຊັນຄຳນວນປັບລາຄາຊື້ ແລະ ລາຄາຂາຍປະຈຸບັນ ຕາມສູດທີ່ຖືກຕ້ອງ 100%
+        // 🌟 ຟັງຊັນຄຳນວນປັບລາຄາຊື້ ແລະ ລາຄາຂາຍປະຈຸບັນ ຕາມສູດที่ຖືກຕ້ອງ 100%
         function getAdjustedItemPricing(item) {
             let originalCost = parseFloat(String(item.originalCost || item.cost).replace(/,/g, '')) || 0;
             let profitPct = parseFloat(String(item.profitPct !== undefined ? item.profitPct : 20)) || 20;
@@ -3383,7 +3390,7 @@
             await Promise.all(promises);
         }
 
-        // --- 🌟 ຟັງຊັນที่ເພີ່ມເຕີມສຳລັບປຸ່ມ "ນຳອອກສິນຄ້າ" (ຂາຍສິນຄ້າ) ---
+        // --- 🌟 ຟັງຊັນທີ່ເພີ່ມເຕີມສຳລັບປຸ່ມ "ນຳອອກສິນຄ້າ" (ຂາຍສິນຄ້າ) ---
         function openScanner() {
             let container = document.getElementById('scanner-container');
             if (container) {
@@ -3585,10 +3592,19 @@
             }
         }
 
-        // --- 💰 ຟັງຊັນຊຳລະເງິນ ---
+        // --- 💰 3 ປຸ່ມຄຳສັ່ງໃໝ່ຕາມເງື່ອນໄຂ ---
+        
+        // 1) ປຼີ້ນບິນຂາຍ: ສັ່ງປຼີ້ນໃບເຊັດຊຳລະຈ່າຍເງິນເທົ່ານັ້ນ
+        function printCurrentReceipt() {
+            try {
+                window.print();
+            } catch (e) {}
+        }
+
+        // 2) ເລືອກວິທີຊຳລະ: ເປີດປ໊ອບອັບຮູບ 2
         function openCheckoutMethodModal() {
             if (cart.length === 0) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າລົງໃນກະຕ່າກ່ອນຊຳລະເງິນ!", "⚠️");
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າລົງໃນກະຕ່າກ່ອນເລືອກວິທີຊຳລະ!", "⚠️");
                 return;
             }
 
@@ -3655,7 +3671,22 @@
             }
         }
 
+        // ເມື່ອກົດ ຕົກລົງ ໃນຮູບ 2 (ປ໊ອບອັບເລືອກວິທີຊຳລະ)
         async function confirmCheckoutPayment() {
+            closeCheckoutMethodModal();
+            await executePaymentAndReset();
+        }
+
+        // 3) ຊຳລະເງິນ: ບັນທຶກຂໍ້ມູນສົ່ງໄປຫາປະຫວັດການຂາຍ ພ້ອມທັງ Reset ຂໍ້ມູນໃຫ້ເປັນ 0 ທັນທີ
+        async function executeDirectCheckout() {
+            if (cart.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກສິນຄ້າລົງໃນກະຕ່າກ່ອນຊຳລະເງິນ!", "⚠️");
+                return;
+            }
+            await executePaymentAndReset();
+        }
+
+        async function executePaymentAndReset() {
             let selectedRadio = document.querySelector('input[name="pay_mode"]:checked');
             let payMode = selectedRadio ? selectedRadio.value : 'cash';
 
@@ -3690,7 +3721,7 @@
                 currency: currency
             };
 
-            // 1) ບັນທຶກການຊຳລະເງິນທັງໝົດ ແລະ ສົ່ງໄປທີ່ປະຫວັດການຂາຍ (Firebase)
+            // ບັນທຶກຂໍ້ມູນສົ່ງໄປຫາປະຫວັດການຂາຍ (Firebase)
             if (db) {
                 try {
                     await db.collection("sales_history").add(transactionData);
@@ -3699,22 +3730,10 @@
                 }
             }
 
-            closeCheckoutMethodModal();
-
-            // ສະແດງປ໊ອບອັບແຈ້ງເຕືອນສຳເລັດ
-            showAlert("ສຳເລັດ", "ບັນທຶກການຊຳລະເງິນ ແລະ ພິມບິນສຳເລັດຮຽບຮ້ອຍ!", "🖨️");
-        }
-
-        // 2) ເມື່ອກົດປຸ່ມ "ຕົກລົງ" ຂອງປ໊ອບອັບ: Reset ຂໍ້ມູນທັງໝົດໃນໜ້າຂາຍ (ຮູບ 1) ໃຫ້ເປັນ 0 ໝົດທຸກຢ່າງຢ່າງແທ້ຈິງ
-        function closeCustomAlert() {
-            let modal = document.getElementById('custom-alert-modal');
-            if (modal) modal.classList.add('hidden');
-
-            // ລ້າງລາຍການສິນຄ້າໃນກະຕ່າ (Cart) ໃຫ້ຫວ່າງເປົ່າ
+            // Reset ຂໍ້ມູນໃນໜ້າຂາຍ (ຮູບ 1) ໃຫ້ເປັນ 0 ໝົດທຸກຢ່າງທັນທີ
             cart = [];
             renderCart();
             
-            // ຣີເຊັດປ້າຍສະແດງຜົນຍອດເງິນທັງໝົດໃນຮູບ 1 ໃຫ້ເປັນ 0 ໝົດທຸກຕົວ
             let elCost = document.getElementById('grand-total-cost');
             let elSale = document.getElementById('grand-total');
             let elFinal = document.getElementById('final-total');
@@ -3727,18 +3746,21 @@
             if (elProfit) elProfit.innerText = "0 ກີບ";
             if (changeElem) changeElem.innerText = "0 ກີບ (ຈ່າຍພໍດີ)";
 
-            // ລ້າງຊ່ອງປ້ອນຂໍ້ມູນລາຄາຂາຍຕົວຈິງ ແລະ ເງິນລູກຄ້າຈ່າຍ
-            let customFinalInput = document.getElementById('custom-final-price');
             if (customFinalInput) customFinalInput.value = "";
-            
             let cashGivenInput = document.getElementById('cash-given');
             if (cashGivenInput) cashGivenInput.value = "";
 
-            // ພາ Cursor ໄປໂຟກັດທີ່ຊ່ອງສະແກນ/ຍິງບາໂຄດ ເພື່ອພ້ອມຂາຍສິນຄ້າລາຍການຕໍ່ໄປທັນທີ
+            showAlert("ສຳເລັດ", "ບັນທຶກການຊຳລະເງິນ ແລະ Reset ຂໍ້ມູນສຳເລັດຮຽບຮ້ອຍ!", "✅");
+
             let scanInput = document.getElementById('scan-barcode-input');
             if (scanInput) {
                 scanInput.focus();
             }
+        }
+
+        function closeCustomAlert() {
+            let modal = document.getElementById('custom-alert-modal');
+            if (modal) modal.classList.add('hidden');
         }
 
         // --- 📊 ຟັງຊັນຈັດການປະຫວັດການຂາຍ ---
@@ -4004,19 +4026,6 @@
             document.getElementById('rep-total-profit-thb').innerText = formatNumberWithCommas(totalPriceThb - totalCostThb) + " ບາດ";
             document.getElementById('rep-cash-thb').innerText = formatNumberWithCommas(cashThb) + " ບາດ";
             document.getElementById('rep-transfer-thb').innerText = formatNumberWithCommas(transferThb) + " ບາດ";
-        }
-
-        function showAlert(title, message, icon = "✅") {
-            let modal = document.getElementById('custom-alert-modal');
-            document.getElementById('alert-title').innerText = title;
-            document.getElementById('alert-message').innerText = message;
-            document.getElementById('alert-icon').innerText = icon;
-            modal.classList.remove('hidden');
-        }
-
-        function closeCustomAlert() {
-            let modal = document.getElementById('custom-alert-modal');
-            if (modal) modal.classList.add('hidden');
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
