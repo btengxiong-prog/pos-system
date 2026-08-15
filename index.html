@@ -47,10 +47,11 @@
             #price-compare-modal, #price-compare-modal *,
             #rate-analysis-modal, #rate-analysis-modal *,
             #expiry-modal, #expiry-modal *,
-            #history-modal, #history-modal * {
+            #history-modal, #history-modal *,
+            #report-modal, #report-modal * {
                 visibility: visible !important;
             }
-            #inventory-modal, #price-compare-modal, #rate-analysis-modal, #expiry-modal, #history-modal {
+            #inventory-modal, #price-compare-modal, #rate-analysis-modal, #expiry-modal, #history-modal, #report-modal {
                 position: absolute !important;
                 left: 0 !important;
                 top: 0 !important;
@@ -1635,6 +1636,9 @@
                      if (!document.getElementById('excel-generator-modal').classList.contains('hidden')) {
                           renderExcelTable();
                      }
+                     if (!document.getElementById('report-modal').classList.contains('hidden')) {
+                          calculateReport();
+                     }
                 });
 
                 let historyQuery = (userRole === 'admin' || deviceId === 'POSXIONG') ?
@@ -1644,6 +1648,9 @@
                 historyQuery.onSnapshot((snapshot) => {
                      if (!document.getElementById('history-modal').classList.contains('hidden')) {
                           loadCloudHistory();
+                     }
+                     if (!document.getElementById('report-modal').classList.contains('hidden')) {
+                          calculateReport();
                      }
                 });
             } catch (e) {
@@ -2255,7 +2262,7 @@
             document.getElementById('rate-analysis-modal').classList.add('hidden');
         }
 
-        // 🌟 ຟັງຊັນຄຳນວນປັບລາຄາຊື້ ແລະ ລາຄາຂາຍປະຈຸບັນ ຕາມສູດที่ຖືກຕ້ອງ 100%
+        // 🌟 ຟັງຊັນຄຳນວນປັບລາຄາຊື້ ແລະ ລາຄາຂາຍປະຈຸບັນ ຕາມສູດທີ່ຖືກຕ້ອງ 100%
         function getAdjustedItemPricing(item) {
             let originalCost = parseFloat(String(item.originalCost || item.cost).replace(/,/g, '')) || 0;
             let profitPct = parseFloat(String(item.profitPct !== undefined ? item.profitPct : 20)) || 20;
@@ -3482,7 +3489,7 @@
             if (elProfit) elProfit.innerText = formatNumberWithCommas(finalSaleAmount - grandCost) + " ກີບ";
         }
 
-        // --- 📊 ຟັງຊັນຈັດການປະຫວັດການຂາຍ (ເພີ່ມໃໝ່) ---
+        // --- 📊 ຟັງຊັນຈັດການປະຫວັດການຂາຍ ---
         async function openHistory() {
             let modal = document.getElementById('history-modal');
             if (modal) {
@@ -3613,6 +3620,139 @@
         function toggleSelectAllHistory(checkbox) {
             let checkboxes = document.querySelectorAll('.history-row-checkbox');
             checkboxes.forEach(cb => cb.checked = checkbox.checked);
+        }
+
+        // --- 📈 ຟັງຊັນຈັດການລະບົບລາຍງານຍອດຂາຍ (ເພີ່ມໃໝ່) ---
+        async function openReport() {
+            let modal = document.getElementById('report-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                calculateReport();
+            }
+        }
+
+        function closeReport() {
+            let modal = document.getElementById('report-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+            }
+        }
+
+        function toggleReportFilter() {
+            let rType = document.getElementById('report-type').value;
+            let fMonthly = document.getElementById('filter-monthly');
+            let fQuarterly = document.getElementById('filter-quarterly');
+            let fDuration = document.getElementById('filter-duration');
+
+            if (fMonthly) fMonthly.classList.add('hidden');
+            if (fQuarterly) fQuarterly.classList.add('hidden');
+            if (fDuration) fDuration.classList.add('hidden');
+
+            if (rType === 'monthly' && fMonthly) {
+                fMonthly.classList.remove('hidden');
+            } else if (rType === 'quarterly' && fQuarterly) {
+                fQuarterly.classList.remove('hidden');
+            } else if (rType === 'duration' && fDuration) {
+                fDuration.classList.remove('hidden');
+            }
+            calculateReport();
+        }
+
+        async function calculateReport() {
+            let userRole = localStorage.getItem('pos_user_role');
+            let historyList = [];
+
+            if (db) {
+                try {
+                    let historyRef = (userRole === 'admin' || deviceId === 'POSXIONG') ?
+                        db.collection("sales_history") :
+                        db.collection("sales_history").where("device_id", "==", deviceId);
+
+                    let snapshot = await historyRef.get();
+                    snapshot.forEach(doc => {
+                        let data = doc.data();
+                        historyList.push({
+                            date: data.date || data.timestamp || '',
+                            items: data.items || [],
+                            currency: data.currency || 'ກີບ',
+                            payMode: data.pay_mode || 'cash'
+                        });
+                    });
+                } catch (e) {}
+            }
+
+            let rType = document.getElementById('report-type').value;
+            let selectedYear = parseInt(document.getElementById('report-year').value) || 2026;
+            
+            let totalCostLak = 0, totalPriceLak = 0, cashLak = 0, transferLak = 0;
+            let totalCostThb = 0, totalPriceThb = 0, cashThb = 0, transferThb = 0;
+
+            historyList.forEach(tx => {
+                if (!tx.date) return;
+                let txDate = new Date(tx.date);
+                if (isNaN(txDate.getTime())) return;
+
+                let txYear = txDate.getFullYear();
+                let txMonth = txDate.getMonth() + 1; // 1-12
+
+                let match = false;
+                if (txYear === selectedYear) {
+                    if (rType === 'monthly') {
+                        let selMonth = parseInt(document.getElementById('report-month').value) || 1;
+                        if (txMonth === selMonth) match = true;
+                    } else if (rType === 'quarterly') {
+                        let selQ = parseInt(document.getElementById('report-quarter').value) || 1;
+                        let qRange = {
+                            1: [1, 2, 3],
+                            2: [4, 5, 6],
+                            3: [7, 8, 9],
+                            4: [10, 11, 12]
+                        }[selQ] || [];
+                        if (qRange.includes(txMonth)) match = true;
+                    } else if (rType === 'duration') {
+                        let selDuration = parseInt(document.getElementById('report-duration-months').value) || 12;
+                        if (txMonth <= selDuration) match = true;
+                    }
+                }
+
+                if (match && tx.items && Array.isArray(tx.items)) {
+                    tx.items.forEach(it => {
+                        let cost = (parseFloat(it.cost) || 0) * (parseInt(it.qty) || 1);
+                        let price = (parseFloat(it.price) || 0) * (parseInt(it.qty) || 1);
+
+                        if (tx.currency === 'ບາດ') {
+                            totalCostThb += cost;
+                            totalPriceThb += price;
+                            if (tx.payMode.includes('transfer')) {
+                                transferThb += price;
+                            } else {
+                                cashThb += price;
+                            }
+                        } else {
+                            totalCostLak += cost;
+                            totalPriceLak += price;
+                            if (tx.payMode.includes('transfer')) {
+                                transferLak += price;
+                            } else {
+                                cashLak += price;
+                            }
+                        }
+                    });
+                }
+            });
+
+            // ອັບເດດຄ່າລົງໃນ UI ຂອງ Modal ລາຍງານ
+            document.getElementById('rep-total-cost-lak').innerText = formatNumberWithCommas(totalCostLak) + " ກີບ";
+            document.getElementById('rep-total-price-lak').innerText = formatNumberWithCommas(totalPriceLak) + " ກີບ";
+            document.getElementById('rep-total-profit-lak').innerText = formatNumberWithCommas(totalPriceLak - totalCostLak) + " ກີບ";
+            document.getElementById('rep-cash-lak').innerText = formatNumberWithCommas(cashLak) + " ກີບ";
+            document.getElementById('rep-transfer-lak').innerText = formatNumberWithCommas(transferLak) + " ກີບ";
+
+            document.getElementById('rep-total-cost-thb').innerText = formatNumberWithCommas(totalCostThb) + " ບາດ";
+            document.getElementById('rep-total-price-thb').innerText = formatNumberWithCommas(totalPriceThb) + " ບາດ";
+            document.getElementById('rep-total-profit-thb').innerText = formatNumberWithCommas(totalPriceThb - totalCostThb) + " ບາດ";
+            document.getElementById('rep-cash-thb').innerText = formatNumberWithCommas(cashThb) + " ບາດ";
+            document.getElementById('rep-transfer-thb').innerText = formatNumberWithCommas(transferThb) + " ບາດ";
         }
 
         function showAlert(title, message, icon = "✅") {
