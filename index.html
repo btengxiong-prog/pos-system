@@ -972,7 +972,7 @@
             </div>
         </div>
 
-        <!-- 🌟 ປັບປຸງຕາມ 6 ເງື່ອນໄຂ (ສະແດງສິນຄ້າຄ້າງສາງແບບໂອໂຕ ຕາມໂໝດຂາຍສົ່ງ/ຂາຍຍ່ອຍ) -->
+        <!-- 🌟 ປັບປຸງ: ຕາຕະລາງດ້ານເທິງ -->
         <div class="bg-white rounded-xl shadow p-4 mb-6 space-y-3">
             <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-center text-sm">
                 <!-- 5) ຊື່ສິນຄ້າ -->
@@ -988,7 +988,7 @@
                         <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="sale_type_mode" value="retail" onchange="setSaleTypeMode('retail')" class="accent-blue-600"> ຂາຍຍ່ອຍ</label>
                     </div>
                 </div>
-                <!-- 6) ສິນຄ້າຄ້າງສາງ (ສະແດງຜົນໂອໂຕ: ຖ້າຂາຍສົ່ງ=ແພັກໃຫຍ່, ຖ້າຂາຍຍ່ອຍ=ຈຳນວນປ໋ອງ/ຂວດລວມທັງໝົດ) -->
+                <!-- 6) ສິນຄ້າຄ້າງສາງ (ສະແດງຜົນໂອໂຕ: ຂາຍສົ່ງ=ແພັກໃຫຍ່, ຂາຍຍ່ອຍ=ປ໋ອງ/ຂວດລວມທັງໝົດ) -->
                 <div class="bg-gray-50 p-2.5 rounded-xl border flex items-center justify-between">
                     <span class="font-bold text-gray-700 text-xs">ສິນຄ້າຄ້າງສາງ:</span>
                     <span id="display-scanned-stock-remaining" class="font-bold text-cyan-800 text-sm">0</span>
@@ -3569,12 +3569,46 @@
             renderCart();
         }
 
+        function renderCart() {
+            let nameElem = document.getElementById('display-scanned-product-name');
+            let stockElem = document.getElementById('display-scanned-stock-remaining');
+            let qtyInput = document.getElementById('display-scanned-product-qty-input');
+
+            if (cart.length === 0) {
+                if (nameElem) nameElem.innerText = "-";
+                if (stockElem) stockElem.innerText = "0";
+                if (qtyInput) qtyInput.value = "1";
+            } else {
+                let lastItem = cart[cart.length - 1];
+                if (nameElem) nameElem.innerText = `${lastItem.name} (${lastItem.code})`;
+                
+                let matchedStockItem = excelRows.find(r => String(r.code).trim().toLowerCase() === String(lastItem.code).trim().toLowerCase());
+                let packQty = matchedStockItem ? (parseInt(matchedStockItem.qty || 1)) : 1;
+                let unitPerPack = lastItem.unitPerPack || 12;
+
+                if (currentSaleType === 'retail') {
+                    let soldSubUnits = (lastItem.qty || 1); // ຫົວໜ່ວຍຍ່ອຍທີ່ຂາຍ
+                    let totalSubUnits = (packQty * unitPerPack) - soldSubUnits;
+                    if (totalSubUnits < 0) totalSubUnits = 0;
+                    if (stockElem) stockElem.innerText = formatNumberWithCommas(totalSubUnits);
+                } else {
+                    let soldPacks = (lastItem.qty || 1);
+                    let remainingPacks = packQty - soldPacks;
+                    if (remainingPacks < 0) remainingPacks = 0;
+                    if (stockElem) stockElem.innerText = formatNumberWithCommas(remainingPacks);
+                }
+
+                if (qtyInput) qtyInput.value = formatNumberWithCommas(lastItem.qty);
+            }
+            calculateGrandTotal();
+        }
+
         function updateCartQtyFromInput(val) {
             if (cart.length === 0) return;
             let q = parseInt(val.replace(/,/g, '')) || 1;
             if (q < 1) q = 1;
             cart[cart.length - 1].qty = q;
-            calculateGrandTotal();
+            renderCart();
         }
 
         function cancelCurrentSaleTransaction() {
@@ -4168,7 +4202,7 @@
             document.getElementById('rep-total-price-thb').innerText = formatNumberWithCommas(totalPriceThb) + " ບາດ";
             document.getElementById('rep-total-profit-thb').innerText = formatNumberWithCommas(totalPriceThb - totalCostThb) + " ບາດ";
             document.getElementById('rep-cash-thb').innerText = formatNumberWithCommas(cashThb) + " ບາດ";
-            document.getElementById('rep-transfer-thb').innerText = formatNumberWithCommas(transferThb) + " ບາດ";
+            document.getElementById('rep-transfer-thb').innerText = formatNumberWithThb(transferThb) + " ບາດ";
         }
 
         function showAlert(title, message, icon = "✅") {
