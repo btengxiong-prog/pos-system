@@ -972,7 +972,7 @@
             </div>
         </div>
 
-        <!-- 🌟 ປັບປຸງຕາມ 6 ເງື່ອນໄຂໃນຮູບ -->
+        <!-- 🌟 ປັບປຸງຕາມ 6 ເງື່ອນໄຂໃນຮູບ (ຕັດຕາຕະລາງອອກ, ເພີ່ມຊື່, ປະເພດການຂາຍ, ສາງ ແລະ ຈ/ນຂາຍ) -->
         <div class="bg-white rounded-xl shadow p-4 mb-6 space-y-3">
             <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-center text-sm">
                 <!-- 5) ຊື່ສິນຄ້າ -->
@@ -1032,7 +1032,7 @@
             </div>
         </div>
 
-        <!-- 🌟 3 ປຸ່ມຄຳສັ່ງດ້ານລຸ່ມຕາມຮູບ -->
+        <!-- 🌟 3 ປຸ່ມຄຳສັ່ງດ້ານລຸ່ມ -->
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
             <button onclick="printCurrentReceipt()" class="w-full bg-purple-600 hover:bg-purple-700 text-white text-base font-bold py-3.5 rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
                 🖨️ ພິມບິນຂາຍ
@@ -3594,21 +3594,29 @@
             showAlert("ສຳເລັດ", "ຍົກເລີກຂໍ້ມູນການສະແກນ ແລະ ລາຍການໃນໜ້າຂາຍສຳເລັດຮຽບຮ້ອຍ!", "❌");
         }
 
-        // 🌟 ຄຳນວນລາຄາຂາຍສົ່ງ vs ຂາຍຍ່ອຍ (ຖ້າເລືອກຂາຍຍ່ອຍ ໃຫ້ຫານ unitPerPack ລະປັດມົນກົມຂຶ້ນເປັນຫຼັກພັນ)
+        // 🌟 ປັບປຸງການຄຳນວນ "ລວມຍອດຊື້" ແລະ "ລວມຍອດຂາຍ" ໃຫ້ຖືກຕ້ອງຕາມໂໝດ ຂາຍສົ່ງ/ຂາຍຍ່ອຍ
         function calculateGrandTotal() {
             let grandCost = 0;
             let grandSale = 0;
 
             cart.forEach(item => {
+                let unitCost = item.cost;
                 let unitPrice = item.price;
+
                 if (currentSaleType === 'retail') {
                     let unitPerPack = parseInt(item.unitPerPack || 12);
                     if (unitPerPack > 0) {
-                        let rawRetail = item.price / unitPerPack;
-                        unitPrice = Math.ceil(rawRetail / 1000) * 1000; // ປັດຂຶ້ນເປັນຫຼັກພັນ (ເຊັ່ນ 22,500 -> 23,000)
+                        // 1) ປັບລາຄາຊື້ຕໍ່ປ໋ອງ/ໜ່ວຍຍ່ອຍ (ລົດລາຄາຊື້ຕໍ່ແພັກຫານດ້ວຍຈຳນວນປ໋ອງ ແລ້ວປັດຂຶ້ນເປັນຫຼັກພັນ ຕາມຕົວຢ່າງ 520,000/24 = 21,666 -> 22,000)
+                        let rawRetailCost = item.cost / unitPerPack;
+                        unitCost = Math.ceil(rawRetailCost / 1000) * 1000;
+
+                        // 2) ປັບລາຄາຂາຍຕໍ່ປ໋ອງ/ໜ່ວຍຍ່ອຍ (ຫານດ້ວຍ unitPerPack ແລ້ວປັດຂຶ້ນເປັນຫຼັກພັນ)
+                        let rawRetailPrice = item.price / unitPerPack;
+                        unitPrice = Math.ceil(rawRetailPrice / 1000) * 1000;
                     }
                 }
-                grandCost += (item.cost * item.qty);
+
+                grandCost += (unitCost * item.qty);
                 grandSale += (unitPrice * item.qty);
             });
             
@@ -3776,14 +3784,16 @@
             let grandCost = 0;
             let grandSale = 0;
             cart.forEach(item => {
+                let unitCost = item.cost;
                 let unitPrice = item.price;
                 if (currentSaleType === 'retail') {
                     let unitPerPack = parseInt(item.unitPerPack || 12);
                     if (unitPerPack > 0) {
+                        unitCost = Math.ceil((item.cost / unitPerPack) / 1000) * 1000;
                         unitPrice = Math.ceil((item.price / unitPerPack) / 1000) * 1000;
                     }
                 }
-                grandCost += (item.cost * item.qty);
+                grandCost += (unitCost * item.qty);
                 grandSale += (unitPrice * item.qty);
             });
 
