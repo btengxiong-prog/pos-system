@@ -44,11 +44,12 @@
             #stock-in-modal, #stock-in-modal *,
             #rate-input-modal, #rate-input-modal *,
             #inventory-modal, #inventory-modal *,
+            #price-compare-modal, #price-compare-modal *,
             #expiry-modal, #expiry-modal *,
             #history-modal, #history-modal * {
                 visibility: visible !important;
             }
-            #inventory-modal, #expiry-modal, #history-modal {
+            #inventory-modal, #price-compare-modal, #expiry-modal, #history-modal {
                 position: absolute !important;
                 left: 0 !important;
                 top: 0 !important;
@@ -70,6 +71,9 @@
 
     <!-- Hidden File Input for Excel Import -->
     <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" class="hidden" onchange="handleExcelFileImport(event)">
+
+    <!-- Shared Datalist for Product Names Auto-suggest -->
+    <datalist id="existing-product-names-list"></datalist>
 
     <!-- Role Selection Modal -->
     <div id="role-select-modal" class="hidden fixed inset-0 bg-black/80 z-[300] flex items-center justify-center p-4">
@@ -272,6 +276,57 @@
             <div class="flex gap-2 pt-2">
                 <button onclick="window.print()" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">🖨️ ພິມລາຍງານ</button>
                 <button onclick="closeInventoryModal()" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ປິດ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🌟 Price Comparison & Analysis Modal (ຕາຕະລາງວິເຄາະ ແລະ ສົມທຽບລາຄາສິນຄ້າ) -->
+    <div id="price-compare-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl max-w-7xl w-full p-6 max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center border-b pb-3 flex-wrap gap-2">
+                <h3 class="text-xl font-bold text-blue-900 flex items-center gap-2">
+                    <span>📊 ວິເຄາະ ແລະ ສົມທຽບລາຄາສິນຄ້າ (Price Comparison & Analysis)</span>
+                </h3>
+                <button onclick="loadPriceComparison()" class="text-xs bg-blue-100 text-blue-800 px-3 py-1.5 rounded-lg cursor-pointer font-bold">🔄 ໂຫຼດໃໝ່</button>
+            </div>
+            
+            <div class="overflow-x-auto border rounded-xl">
+                <table class="w-full text-left border-collapse bg-white min-w-[1200px]">
+                    <thead>
+                        <tr class="bg-blue-900 text-white text-xs uppercase text-center">
+                            <th rowspan="2" class="p-2 border-r align-middle w-12">ລ/ດ</th>
+                            <th rowspan="2" class="p-2 border-r align-middle">ລະຫັດສິນຄ້າ</th>
+                            <th rowspan="2" class="p-2 border-r align-middle">ຊື່ສິນຄ້າ</th>
+                            <th colspan="2" class="p-2 border-r align-middle">ວັນນຳເຂົ້າສິນຄ້າ</th>
+                            <th rowspan="2" class="p-2 border-r align-middle">ຈຳນວນ</th>
+                            <th colspan="2" class="p-2 border-r align-middle">ລາຄາຊື້/ໜ່ວຍ</th>
+                            <th colspan="2" class="p-2 border-r align-middle">ລາຄາຂາຍ/ໜ່ວຍ</th>
+                            <th colspan="2" class="p-2 border-r align-middle">ລວມເງິນຊື້</th>
+                            <th colspan="2" class="p-2 border-r align-middle">ລວມເງິນຂາຍ</th>
+                            <th rowspan="2" class="p-2 align-middle">ໝາຍເຫດ</th>
+                        </tr>
+                        <tr class="bg-blue-800 text-white text-[11px] uppercase text-center">
+                            <th class="p-2 border-r">ວັນນຳເຂົ້າສິນຄ້າ</th>
+                            <th class="p-2 border-r">ວັນນຳອອກສິນຄ້າ</th>
+                            <th class="p-2 border-r">ລາຄາຊື້ (ເດີມ)</th>
+                            <th class="p-2 border-r">ລາຄາຊື້ (ໃໝ່)</th>
+                            <th class="p-2 border-r">ລາຄາຂາຍ (ເດີມ)</th>
+                            <th class="p-2 border-r">ລາຄາຂາຍ (ໃໝ່)</th>
+                            <th class="p-2 border-r">ລວມເງິນຊື້ (ເດີມ)</th>
+                            <th class="p-2 border-r">ລວມເງິນຊື້ (ໃໝ່)</th>
+                            <th class="p-2 border-r">ລວມເງິນຂາຍ (ເດີມ)</th>
+                            <th class="p-2 border-r">ລວມເງິນຂາຍ (ໃໝ່)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="price-compare-tbody" class="divide-y divide-gray-200 text-sm">
+                        <tr><td colspan="15" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນວິເຄາະລາຄາ...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="flex gap-2 pt-2">
+                <button onclick="window.print()" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">🖨️ ພິມລາຍງານ</button>
+                <button onclick="closePriceCompareModal()" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ປິດ</button>
             </div>
         </div>
     </div>
@@ -633,14 +688,18 @@
                     <button type="button" id="btn-report" onclick="toggleCustomDropdown('report-menu', event)" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                         📋 ຂໍ້ມູນ ແລະ ລະບົບ <span class="text-xs">▼</span>
                     </button>
-                    <div id="report-menu" class="hidden absolute left-0 sm:left-auto mt-2 w-56 rounded-xl bg-emerald-600 shadow-2xl ring-1 ring-black/10 z-[100] text-left py-1">
-                        <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); openReport();" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-emerald-700 flex items-center gap-2 text-left cursor-pointer transition" id="menu-report">
+                    <div id="report-menu" class="hidden absolute left-0 sm:left-auto mt-2 w-64 rounded-xl bg-emerald-600 shadow-2xl ring-1 ring-black/10 z-[100] text-left py-1">
+                        <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); openReport();" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-emerald-700 flex items-center gap-2 text-left cursor-pointer transition">
                             📈 ລາຍງານ
                         </button>
-                        <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); openRegisterModal();" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-emerald-700 flex items-center gap-2 text-left cursor-pointer transition" id="menu-register">
+                        <!-- 🌟 ປຸ່ມວິເຄາະ ແລະ ສົມທຽບລາຄາສິນຄ້າ -->
+                        <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); openPriceCompareModal();" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-emerald-700 flex items-center gap-2 text-left cursor-pointer transition border-t border-emerald-500">
+                            📊 ວິເຄາະ ແລະ ສົມທຽບລາຄາສິນຄ້າ
+                        </button>
+                        <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); openRegisterModal();" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-emerald-700 flex items-center gap-2 text-left cursor-pointer transition border-t border-emerald-500">
                             📝 ລົງທະບຽນ
                         </button>
-                        <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); openUserManual();" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-emerald-700 flex items-center gap-2 text-left cursor-pointer transition" id="menu-manual">
+                        <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); openUserManual();" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-emerald-700 flex items-center gap-2 text-left cursor-pointer transition">
                             📖 ຄູ່ມືການໃຊ້ງານ
                         </button>
                     </div>
@@ -770,7 +829,7 @@
 
                     <div>
                         <label class="block font-semibold text-gray-700 mb-1">🏷️ ຊື່ສິນຄ້າ (ບໍ່ປ້ອນກໍ່ໄດ້):</label>
-                        <input type="text" id="stock-in-custom-name" class="w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-pink-500 font-semibold text-gray-800 bg-white" placeholder="ປ້ອນຊື່ສິນຄ້າ (ຖ້າມີ)">
+                        <input type="text" id="stock-in-custom-name" list="existing-product-names-list" class="w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-pink-500 font-semibold text-gray-800 bg-white" placeholder="ປ້ອນຊື່ສິນຄ້າ (ຖ້າມີ)">
                     </div>
 
                     <div>
@@ -823,7 +882,7 @@
             </div>
         </div>
 
-        <!-- 🌟 Modal Popup ສຳລັບຄຳນວນເປີເຊັນ (%) ພ້ອມຊ່ອງປ້ອນຊື່ສິນຄ້າ ແລະ ຈຳນວນນຳເຂົ້າ -->
+        <!-- 🌟 Modal Popup ສຳລັບຄຳນວນເປີເຊັນ (%) -->
         <div id="calc-pct-modal" class="hidden fixed inset-0 bg-black/60 z-[360] flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4 text-left">
                 <div class="text-3xl text-center">🧮</div>
@@ -831,7 +890,7 @@
                 <div class="space-y-3 text-xs">
                     <div>
                         <label class="block font-bold text-gray-700 mb-1">ຊື່ສິນຄ້າ (ບໍ່ປ້ອນກໍ່ໄດ້):</label>
-                        <input type="text" id="calc-modal-name" class="w-full border rounded-lg px-3 py-2 font-semibold text-gray-800 bg-white outline-none" placeholder="ປ້ອນຊື່ສິນຄ້າ (ຖ້າມີ)">
+                        <input type="text" id="calc-modal-name" list="existing-product-names-list" class="w-full border rounded-lg px-3 py-2 font-semibold text-gray-800 bg-white outline-none" placeholder="ປ້ອນຊື່ສິນຄ້າ (ຖ້າມີ)">
                     </div>
                     <div>
                         <label class="block font-bold text-gray-700 mb-1">ລາຄາຊື້ (ກີບ):</label>
@@ -1520,6 +1579,22 @@
             }
         }
 
+        function updateExistingProductNamesDatalist() {
+            let datalist = document.getElementById('existing-product-names-list');
+            if (!datalist) return;
+            let uniqueNames = new Set();
+            excelRows.forEach(row => {
+                if (row.name && row.name.trim() !== '' && row.name.trim().toLowerCase() !== String(row.code).trim().toLowerCase()) {
+                    uniqueNames.add(row.name.trim());
+                }
+            });
+            let html = '';
+            uniqueNames.forEach(name => {
+                html += `<option value="${name}">`;
+            });
+            datalist.innerHTML = html;
+        }
+
         function initFirebaseRealtime() {
             if (!db) return;
             try {
@@ -1547,12 +1622,19 @@
                               mfgDate: item.mfg_date || '',
                               expiryDate: item.expiry_date || '',
                               currency: item.currency || 'ກີບ',
+                              buyingRate: item.buying_rate || 650,
+                              sellingRate: item.selling_rate || 690,
                               device_id: item.device_id || '-'
                           });
                      });
                      excelRows = tempArr;
+                     updateExistingProductNamesDatalist();
+
                      if (!document.getElementById('inventory-modal').classList.contains('hidden')) {
                           loadInventory();
+                     }
+                     if (!document.getElementById('price-compare-modal').classList.contains('hidden')) {
+                          loadPriceComparison();
                      }
                      if (!document.getElementById('expiry-modal').classList.contains('hidden')) {
                           loadExpiryCheck();
@@ -2160,6 +2242,81 @@
             document.getElementById('inventory-modal').classList.add('hidden');
         }
 
+        // 🌟 ຟັງຊັນເປີດຕາຕະລາງວິເຄາະ ແລະ ສົມທຽບລາຄາສິນຄ້າ
+        async function openPriceCompareModal() {
+            document.getElementById('price-compare-modal').classList.remove('hidden');
+            await loadPriceComparison();
+        }
+
+        function closePriceCompareModal() {
+            document.getElementById('price-compare-modal').classList.add('hidden');
+        }
+
+        async function loadPriceComparison() {
+            let tbody = document.getElementById('price-compare-tbody');
+            tbody.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນວິເຄາະລາຄາສິນຄ້າ...</td></tr>`;
+
+            await fetchProductsForGenerator();
+
+            if (excelRows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນສາງ</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            let countIndex = 1;
+
+            excelRows.forEach((row) => {
+                let originalCost = parseFloat(String(row.originalCost || row.cost).replace(/,/g, '')) || 0;
+                let originalPrice = parseFloat(String(row.price).replace(/,/g, '')) || 0;
+                let buyRateOnImport = parseFloat(row.buyingRate) || 650; // Rate ຊື້ວັນຊື້
+
+                // Rate ຂາຍໃໝ່ປັດຈຸບັນ
+                let currentSellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate')) || parseFloat(localStorage.getItem('pos_custom_manual_rate')) || 690;
+
+                // ສູດຄຳນວນປັບຕົ້ນທຶນໃໝ່: ລາຄາຊື້ເດີມ × (Rate ຂາຍໃໝ່ / Rate ຊື້ວັນຊື້) ປັບຂຶ້ນເປັນຫຼັກພັນ
+                let rawNewCost = originalCost * (currentSellRate / buyRateOnImport);
+                let newCost = Math.ceil(rawNewCost / 1000) * 1000;
+
+                let profitPct = parseFloat(String(row.profitPct !== undefined ? row.profitPct : 20)) || 20;
+                let rawNewPrice = newCost * (1 + profitPct / 100);
+                let newPrice = Math.ceil(rawNewPrice / 1000) * 1000;
+
+                let qty = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1;
+                let totalCostOld = originalCost * qty;
+                let totalCostNew = newCost * qty;
+                let totalPriceOld = originalPrice * qty;
+                let totalPriceNew = newPrice * qty;
+
+                let formattedDate = formatDateToDDMMYYYY(row.dateAdded || new Date().toISOString().split('T')[0]);
+
+                // ໝາຍເຫດ: Rate ຊື້ເດີມ/Rate ຂາຍໃໝ່ (ຕົວຢ່າງ: 550/675)
+                let noteRateStr = `${buyRateOnImport}/${currentSellRate}`;
+
+                html += `
+                    <tr class="hover:bg-gray-50 border-b text-center">
+                        <td class="p-2 border-r font-bold text-gray-500 text-xs">${countIndex++}</td>
+                        <td class="p-2 border-r font-bold text-blue-600 font-mono">${row.code || '-'}</td>
+                        <td class="p-2 border-r font-bold text-gray-900 text-left">${row.name || '-'}</td>
+                        <td class="p-2 border-r font-semibold text-purple-700 text-xs">${formattedDate}</td>
+                        <td class="p-2 border-r font-semibold text-gray-600 text-xs">-</td>
+                        <td class="p-2 border-r font-bold text-cyan-800">${formatNumberWithCommas(qty)}</td>
+                        <td class="p-2 border-r text-right text-blue-600 font-semibold">${formatNumberWithCommas(originalCost)}</td>
+                        <td class="p-2 border-r text-right text-blue-800 font-bold bg-blue-50/20">${formatNumberWithCommas(newCost)}</td>
+                        <td class="p-2 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(originalPrice)}</td>
+                        <td class="p-2 border-r text-right text-green-800 font-bold bg-green-50/20">${formatNumberWithCommas(newPrice)}</td>
+                        <td class="p-2 border-r text-right text-blue-700 font-semibold">${formatNumberWithCommas(totalCostOld)}</td>
+                        <td class="p-2 border-r text-right text-blue-900 font-bold bg-blue-50/30">${formatNumberWithCommas(totalCostNew)}</td>
+                        <td class="p-2 border-r text-right text-green-700 font-semibold">${formatNumberWithCommas(totalPriceOld)}</td>
+                        <td class="p-2 border-r text-right text-green-900 font-bold bg-green-50/30">${formatNumberWithCommas(totalPriceNew)}</td>
+                        <td class="p-2 font-extrabold text-amber-600 text-xs">${noteRateStr}</td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+        }
+
         function toggleSelectAllInventory(masterCheckbox) {
             let checkboxes = document.querySelectorAll('.inventory-row-checkbox');
             checkboxes.forEach(cb => {
@@ -2260,6 +2417,8 @@
                         mfgDate: item.mfg_date || '',
                         expiryDate: item.expiry_date || '',
                         currency: item.currency || 'ກີບ',
+                        buyingRate: item.buying_rate || 650,
+                        sellingRate: item.selling_rate || 690,
                         device_id: item.device_id || '-'
                     });
                 });
@@ -2316,8 +2475,9 @@
                 let remainingFullPacks = Math.floor(remainingSubUnits / unitPerPack);
                 let leftoverUnits = remainingSubUnits % unitPerPack;
 
-                let cost = parseFloat(String(row.cost || 0).replace(/,/g, '')) || 0;
-                let price = parseFloat(String(row.price || 0).replace(/,/g, '')) || 0;
+                let adjusted = getAdjustedItemPricing(row);
+                let cost = adjusted.cost;
+                let price = adjusted.price;
                 
                 let totalCostAmount = cost * remainingFullPacks;
                 let totalPriceAmount = price * remainingFullPacks;
@@ -2455,7 +2615,7 @@
             showAlert("ສຳເລັດ", "ອັບເດດ ແລະ ແກ້ໄຂຂໍ້ມູນສິນຄ້າໃນສາງສຳເລັດຮຽບຮ້ອຍ!", "✅");
         }
 
-        // 🌟 ຟັງຊັນເປີດ/ປິດ Modal ຄຳນວນເປີເຊັນ (%)
+        // --- 🌟 ຟັງຊັນເປີດ/ປິດ Modal ຄຳນວນເປີເຊັນ (%) ---
         function openCalcModal() {
             document.getElementById('calc-modal-name').value = document.getElementById('stock-in-custom-name').value || "";
             document.getElementById('calc-modal-cost').value = document.getElementById('stock-in-cost').value || "";
@@ -2584,8 +2744,9 @@
                     let formattedDate = formatDateToDDMMYYYY(dateAddedStr);
                     let formattedMfg = formatDateToDDMMYYYY(row.mfgDate || dateAddedStr);
 
-                    let cost = parseFloat(String(row.cost || 0).replace(/,/g, '')) || 0;
-                    let price = parseFloat(String(row.price || 0).replace(/,/g, '')) || 0;
+                    let adjusted = getAdjustedItemPricing(row);
+                    let cost = adjusted.cost;
+                    let price = adjusted.price;
                     let currency = row.currency || 'ກີບ';
                     let costStr = formatNumberWithCommas(cost) + " " + currency;
                     let priceStr = formatNumberWithCommas(price) + " " + currency;
@@ -2772,6 +2933,9 @@
 
             let finalName = (data.customName !== "") ? data.customName : currentStockInCode;
 
+            let currentBuyRateForStock = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || parseFloat(localStorage.getItem('pos_custom_manual_rate')) || 650;
+            let currentSellRateForStock = parseFloat(localStorage.getItem('pos_custom_sell_rate')) || 690;
+
             pendingDuplicateStockData = {
                 code: currentStockInCode,
                 name: finalName,
@@ -2782,7 +2946,9 @@
                 isoImportDate: data.isoImportDate,
                 isoMfgDate: isExpiryMode ? data.isoMfgDate : data.isoImportDate,
                 calculatedExpiryDate: data.calculatedExpiryDate,
-                existingIndex: existingProductIndex
+                existingIndex: existingProductIndex,
+                buyingRate: currentBuyRateForStock,
+                sellingRate: currentSellRateForStock
             };
 
             if (existingProductIndex !== -1) {
@@ -2821,6 +2987,9 @@
                 excelRows[data.existingIndex].cost = finalCost;
                 excelRows[data.existingIndex].profitPct = data.profitPct;
                 excelRows[data.existingIndex].price = finalPrice;
+                excelRows[data.existingIndex].buyingRate = data.buyingRate;
+                excelRows[data.existingIndex].sellingRate = data.sellingRate;
+
                 if (data.name && data.name !== data.code) {
                     excelRows[data.existingIndex].name = data.name;
                 }
@@ -2847,7 +3016,9 @@
                     dateAdded: data.isoImportDate,
                     mfgDate: data.isoMfgDate,
                     expiryDate: data.calculatedExpiryDate,
-                    currency: 'ກີບ'
+                    currency: 'ກີບ',
+                    buyingRate: data.buyingRate,
+                    sellingRate: data.sellingRate
                 });
 
                 saveExcelDataQuietly();
@@ -2889,6 +3060,8 @@
                             mfg_date: row.mfgDate || null,
                             expiry_date: row.expiryDate || null,
                             currency: row.currency || 'ກີບ',
+                            buying_rate: row.buyingRate || 650,
+                            selling_rate: row.sellingRate || 690,
                             updated_at: new Date().toISOString()
                         });
                     });
@@ -2967,6 +3140,9 @@
                     let importedNewRows = [];
                     let todayIso = new Date().toISOString().split('T')[0];
 
+                    let currentBuyRateForStock = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 650;
+                    let currentSellRateForStock = parseFloat(localStorage.getItem('pos_custom_sell_rate')) || 690;
+
                     for (let i = 1; i < jsonRows.length; i++) {
                         let r = jsonRows[i];
                         if (r && r.length > 2 && (r[1] || r[2])) {
@@ -2991,7 +3167,9 @@
                                     qty: qty,
                                     unitPerPack: 12,
                                     dateAdded: isoDate,
-                                    currency: 'ກີບ'
+                                    currency: 'ກີບ',
+                                    buyingRate: currentBuyRateForStock,
+                                    sellingRate: currentSellRateForStock
                                 });
                             }
                         }
@@ -3196,9 +3374,9 @@
             } else if (matches.length === 1) {
                 let foundItem = matches[0];
                 let scannedCode = foundItem.code;
-                let scannedCost = parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0;
-                let scannedPrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
-                showConfirmModalParsed(foundItem.id, scannedCode, scannedCode, scannedCost, scannedPrice);
+                let adjusted = getAdjustedItemPricing(foundItem);
+                let finalScanName = (foundItem.name && foundItem.name.trim() !== '') ? foundItem.name : scannedCode;
+                showConfirmModalParsed(foundItem.id, scannedCode, finalScanName, adjusted.cost, adjusted.price);
             } else {
                 showConfirmModalParsed('', cleanDecoded, cleanDecoded, 0, 0);
             }
@@ -3260,7 +3438,6 @@
             handleScannedCodeMatch(cleanDecoded);
         }
 
-        // 🌟 ປັບປຸງ Modal ພົບສິນຄ້າມີຫຼາຍລາຄາ ໃຫ້ສະແດງ "ຊື່ສິນຄ້າ" ຖ້າມີ, ຖ້າບໍ່ມີໃຫ້ສະແດງ "ລາຍການນຳເຂົ້າວັນທີ" ຕາມເງື່ອນໄຂ
         function openSelectPriceModal(code, items) {
             pendingMultiPriceItems = items;
             selectedPriceItem = items[0];
@@ -3268,14 +3445,13 @@
             let listContainer = document.getElementById('multi-price-list');
             let html = '';
             items.forEach((item, idx) => {
-                let costNum = parseFloat(String(item.cost).replace(/,/g, '')) || 0;
-                let priceNum = parseFloat(String(item.price).replace(/,/g, '')) || 0;
+                let adjusted = getAdjustedItemPricing(item);
                 let profitPct = item.profitPct || 20;
                 let dateStr = item.dateAdded || '-';
                 let stockQty = item.qty || 1;
                 
-                // 🌟 ເງື່ອນໄຂ: ຖ້າສິນຄ້າມีຊື່ (ແລະ ຊື່ບໍ່ແມ່ນລະຫັດ Barcode) ໃຫ້ສະແດງຊື່ສິນຄ້າ, ຖ້າບໍ່ມີໃຫ້ສະແດງລາຍການນຳເຂົ້າວັນທີ
-                let displayName = (item.name && item.name.trim() !== '' && item.name.trim().toLowerCase() !== String(code).trim().toLowerCase()) ? 
+                let hasCustomName = (item.name && item.name.trim() !== '' && item.name.trim().toLowerCase() !== String(code).trim().toLowerCase());
+                let displayName = hasCustomName ? 
                     `${item.name} <span class="text-xs text-purple-700 font-semibold">(${dateStr})</span>` : 
                     `ລາຍການນຳເຂົ້າວັນທີ: <span class="text-purple-700">${dateStr}</span>`;
 
@@ -3284,11 +3460,11 @@
                         <input type="radio" name="price_option" value="${idx}" ${idx === 0 ? 'checked' : ''} class="w-4 h-4 text-blue-600">
                         <div>
                             <div class="text-xs font-bold text-gray-800">${displayName}</div>
-                            <div class="text-xs font-semibold text-blue-700">ລາຄາຊື້: ${formatNumberWithCommas(costNum)} ກີບ | ສາງ: ${formatNumberWithCommas(stockQty)}</div>
+                            <div class="text-xs font-semibold text-blue-700">ລາຄາຊື້: ${formatNumberWithCommas(adjusted.cost)} ກີບ | ສາງ: ${formatNumberWithCommas(stockQty)}</div>
                         </div>
                     </div>
                     <div class="text-right">
-                        <div class="text-sm font-extrabold text-green-600">ຂາຍ: ${formatNumberWithCommas(priceNum)} ກີບ</div>
+                        <div class="text-sm font-extrabold text-green-600">ຂາຍ: ${formatNumberWithCommas(adjusted.price)} ກີບ</div>
                         <div class="text-[10px] font-bold text-amber-600">ກຳໄລ: +${profitPct}%</div>
                     </div>
                 </label>`;
@@ -3312,11 +3488,10 @@
         function confirmSelectedPriceOption() {
             if (!selectedPriceItem) return;
             let scannedCode = selectedPriceItem.code;
-            let scannedCost = parseFloat(String(selectedPriceItem.cost).replace(/,/g, '')) || 0;
-            let scannedPrice = parseFloat(String(selectedPriceItem.price).replace(/,/g, '')) || 0;
+            let adjusted = getAdjustedItemPricing(selectedPriceItem);
             let finalScanName = (selectedPriceItem.name && selectedPriceItem.name.trim() !== '') ? selectedPriceItem.name : scannedCode;
             closeSelectPriceModal();
-            showConfirmModalParsed(selectedPriceItem.id, scannedCode, finalScanName, scannedCost, scannedPrice);
+            showConfirmModalParsed(selectedPriceItem.id, scannedCode, finalScanName, adjusted.cost, adjusted.price);
         }
 
         async function updateCartQtyDirect(index, inputElem) {
@@ -4004,7 +4179,7 @@
                     }
 
                     if (match && tx.items && Array.isArray(tx.items)) {
-                        tx.items.forEach(it => {
+                        tx.items.divide ? [] : tx.items.forEach(it => {
                             let itemCost = parseFloat(it.cost || 0) || 0;
                             let itemPrice = parseFloat(it.price || 0) || 0;
                             let itemQty = parseInt(it.originalQty || it.qty || 1) || 1;
@@ -4081,173 +4256,4 @@
 
         async function fetchProductsForGenerator() {
             if (db) {
-                try {
-                    let snapshot = await db.collection("products").where("device_id", "==", deviceId).get();
-                    excelRows = [];
-                    snapshot.forEach(doc => {
-                        let item = doc.data();
-                        excelRows.push({
-                            id: doc.id,
-                            code: item.code,
-                            name: item.name || '',
-                            cost: item.cost,
-                            originalCost: item.original_cost || item.cost,
-                            profitPct: item.profit_pct,
-                            price: item.price,
-                            qty: item.qty || 1,
-                            unitPerPack: item.unit_per_pack || 12,
-                            dateAdded: item.date_added || new Date().toISOString().split('T')[0],
-                            mfgDate: item.mfg_date || '',
-                            expiryDate: item.expiry_date || '',
-                            currency: item.currency || 'ກີບ'
-                        });
-                    });
-                    return;
-                } catch (e) {}
-            }
-            excelRows = [];
-        }
-
-        function renderExcelTable() {
-            let tbody = document.getElementById('excel-tbody');
-            let html = '';
-            
-            if (excelRows.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400 font-semibold">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນສາງ</td></tr>`;
-                return;
-            }
-
-            let uniqueMap = new Map();
-            excelRows.forEach(row => {
-                let cleanCode = String(row.code || '').trim().toLowerCase();
-                if (!uniqueMap.has(cleanCode) || cleanCode === '') {
-                    uniqueMap.set(cleanCode || Math.random(), row);
-                }
-            });
-            let displayedRows = Array.from(uniqueMap.values());
-
-            displayedRows.forEach((row, index) => {
-                let costNum = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
-                let priceNum = parseFloat(String(row.price).replace(/,/g, '')) || 0;
-
-                html += `
-                    <tr class="hover:bg-gray-50 border-b">
-                        <td class="p-2.5 border-r text-center font-bold text-gray-500">${index + 1}</td>
-                        <td class="p-2.5 border-r text-center font-bold text-blue-600 font-mono uppercase px-3">${row.code || '-'}</td>
-                        <td class="p-2.5 border-r font-bold text-gray-900 px-3">${row.name || '-'}</td>
-                        <td class="p-2.5 border-r text-center font-bold text-gray-800">${row.qty || 1}</td>
-                        <td class="p-2.5 border-r text-right font-bold text-blue-600 px-3">${formatNumberWithCommas(costNum)}</td>
-                        <td class="p-2.5 text-right font-bold text-green-600 px-3">${formatNumberWithCommas(priceNum)}</td>
-                    </tr>
-                `;
-            });
-            tbody.innerHTML = html;
-        }
-
-        async function generateExcelCodes() {
-            await fetchProductsForGenerator();
-            
-            if (excelRows.length === 0) {
-                showAlert("ແຈ້ງເຕືອນ", "ບໍ່ພົບຂໍ້ມູນສິນຄ້າໃນສາງ!", "⚠️");
-                return;
-            }
-
-            let uniqueCodeMap = new Map();
-            excelRows.forEach(row => {
-                let cleanCode = String(row.code).trim().toLowerCase();
-                if (!uniqueCodeMap.has(cleanCode)) {
-                    uniqueCodeMap.set(cleanCode, row);
-                }
-            });
-            duplicateRemovedList = Array.from(uniqueCodeMap.values());
-
-            document.getElementById('excel-print-area').classList.remove('hidden');
-            let container = document.getElementById('excel-preview-cards');
-            container.innerHTML = '';
-
-            let promises = duplicateRemovedList.map((row, index) => {
-                return new Promise((resolve) => {
-                    let cleanCode = String(row.code).trim();
-                    let itemName = String(row.name || cleanCode).trim();
-                    let costVal = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
-                    let priceVal = parseFloat(String(row.price).replace(/,/g, '')) || 0;
-
-                    let payloadObj = {
-                        code: cleanCode,
-                        cost: costVal,
-                        price: priceVal
-                    };
-                    let payloadStr = JSON.stringify(payloadObj);
-
-                    let card = document.createElement('div');
-                    card.className = "bg-white p-4 rounded-xl shadow-lg border border-gray-200 text-center flex flex-col items-center justify-center relative";
-                    
-                    let headerHtml = `<div class="font-bold text-gray-800 text-sm mb-2 w-full truncate px-2" title="${itemName}">${itemName}</div>`;
-                    let codeContainerId = `ex-code-${index}-${Date.now()}`;
-
-                    if (currentCodeType === 'qrcode') {
-                        card.innerHTML = `
-                            ${headerHtml}
-                            <div class="bg-gray-50 p-2 rounded-lg inline-block">
-                                <canvas id="${codeContainerId}"></canvas>
-                            </div>
-                            <div class="mt-2 text-xs font-semibold text-gray-600">ລະຫັດ: <span class="text-blue-600 font-mono">${cleanCode}</span></div>
-                        `;
-                        container.appendChild(card);
-                        setTimeout(() => {
-                            QRCode.toCanvas(document.getElementById(codeContainerId), payloadStr, { width: 140, margin: 1 }, function (error) {
-                                resolve();
-                            });
-                        }, 50);
-                    } else {
-                        card.innerHTML = `
-                            ${headerHtml}
-                            <div class="bg-gray-50 p-2 rounded-lg w-full flex justify-center overflow-hidden">
-                                <svg id="${codeContainerId}" class="max-w-full"></svg>
-                            </div>
-                        `;
-                        container.appendChild(card);
-                        setTimeout(() => {
-                            try {
-                                JsBarcode(`#${codeContainerId}`, cleanCode, {
-                                    format: "CODE128", width: 2, height: 50, displayValue: true, fontSize: 14, margin: 5
-                                });
-                            } catch (e) {
-                                document.getElementById(codeContainerId).outerHTML = `<div class="text-red-500 text-xs py-4">ລະຫັດ Barcode ບໍ່ຮອງຮັບຮູບແບບນີ້</div>`;
-                            }
-                            resolve();
-                        }, 50);
-                    }
-                });
-            });
-
-            await Promise.all(promises);
-        }
-
-        window.addEventListener('DOMContentLoaded', async () => {
-            await initDeviceId();
-            initFirebaseRealtime(); 
-            await fetchProductsForGenerator(); 
-            let userRole = localStorage.getItem('pos_user_role');
-            let shopOwner = localStorage.getItem('pos_shop_owner');
-            let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
-            if (userRole === 'admin' || shopOwner === 'true' || linkedAdminId) {
-                let roleModal = document.getElementById('role-select-modal');
-                if (roleModal) roleModal.classList.add('hidden');
-                let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
-                if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
-                let rateBtn = document.getElementById('header-rate-btn');
-                if (rateBtn) rateBtn.classList.remove('hidden');
-            }
-            let savedLang = localStorage.getItem('pos_current_lang') || 'lo';
-            let langSelect = document.getElementById('language-select');
-            if (langSelect) langSelect.value = savedLang;
-            changeLanguage(savedLang);
-
-            updateHeaderTitle();
-            checkRoleAndLicense();
-            checkAdminButtonVisibility();
-        });
-    </script>
-</body>
-</html>
+                Sorry, something went wrong. Please try your request again.
