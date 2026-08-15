@@ -3532,17 +3532,24 @@
             let stockRemaining = 100;
             let unitPerPack = parseInt(item.unitPerPack || 12);
             let matchedStockItem = excelRows.find(r => String(r.code).trim().toLowerCase() === String(item.code).trim().toLowerCase());
+            
+            let adjusted = getAdjustedItemPricing(item);
+            let itemCost = adjusted.cost;
+            let itemPrice = adjusted.price;
+
             if (matchedStockItem) {
                 unitPerPack = parseInt(matchedStockItem.unitPerPack || 12);
                 stockRemaining = (parseInt(matchedStockItem.qty || 1) * unitPerPack);
+                let adjMatched = getAdjustedItemPricing(matchedStockItem);
+                itemCost = adjMatched.cost;
+                itemPrice = adjMatched.price;
             }
 
-            // 🌟 ບັນທຶກລາຄາຊື້ ແລະ ລາຄາຂາຍຕົວຈິງຕາມໂหมดຂາຍສົ່ງ/ຂາຍຍ່ອຍລົງໃນ item ທີ່ຈະຂາຍ
-            let finalCost = item.cost;
-            let finalPrice = item.price;
+            let finalCost = itemCost;
+            let finalPrice = itemPrice;
             if (currentSaleType === 'retail' && unitPerPack > 0) {
-                finalCost = Math.ceil((item.cost / unitPerPack) / 1000) * 1000;
-                finalPrice = Math.ceil((item.price / unitPerPack) / 1000) * 1000;
+                finalCost = Math.ceil((itemCost / unitPerPack) / 1000) * 1000;
+                finalPrice = Math.ceil((itemPrice / unitPerPack) / 1000) * 1000;
             }
 
             if (existing) {
@@ -3630,7 +3637,6 @@
                     }
                 }
 
-                // ອັບເດດຄ່າ cost ແລະ price ຕົວຈິງລົງໃນ item ເພື່ອເວລາຊຳລະຈະໄດ້ບັນທຶກຖືກຕ້ອງ
                 item.actualCost = unitCost;
                 item.actualPrice = unitPrice;
 
@@ -3874,6 +3880,7 @@
         async function openHistory() {
             let modal = document.getElementById('history-modal');
             if (modal) {
+                modal.classList.hidden = false;
                 modal.classList.remove('hidden');
                 await loadCloudHistory();
             }
@@ -3950,7 +3957,6 @@
                         let isAdminMaster = (userRole === 'admin' || deviceId === 'POSXIONG');
                         let checkboxCell = isAdminMaster ? `<td class="p-3 text-center"><input type="checkbox" data-id="${tx.id}" class="history-row-checkbox w-4 h-4 cursor-pointer accent-blue-600"></td>` : ``;
 
-                        // 🌟 1) ສະແດງລາຄາຊື້ (it.cost) ແລະ ລาຄາຂາຍ (it.price) ຕົວຈິງຂອງວັນທີ່ຂາຍສິນຄ້າ
                         html += `
                             <tr class="hover:bg-gray-50 border-b text-xs">
                                 <td class="p-3 border-r text-center font-bold text-gray-500">${countIndex++}</td>
