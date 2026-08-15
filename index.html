@@ -1566,6 +1566,8 @@
                               mfgDate: item.mfg_date || '',
                               expiryDate: item.expiry_date || '',
                               currency: item.currency || 'ກີບ',
+                              buyingRate: item.buying_rate || 650,
+                              sellingRate: item.selling_rate || 690,
                               device_id: item.device_id || '-'
                           });
                      });
@@ -2281,6 +2283,8 @@
                         mfgDate: item.mfg_date || '',
                         expiryDate: item.expiry_date || '',
                         currency: item.currency || 'ກີບ',
+                        buyingRate: item.buying_rate || 650,
+                        sellingRate: item.selling_rate || 690,
                         device_id: item.device_id || '-'
                     });
                 });
@@ -2337,8 +2341,9 @@
                 let remainingFullPacks = Math.floor(remainingSubUnits / unitPerPack);
                 let leftoverUnits = remainingSubUnits % unitPerPack;
 
-                let cost = parseFloat(String(row.cost || 0).replace(/,/g, '')) || 0;
-                let price = parseFloat(String(row.price || 0).replace(/,/g, '')) || 0;
+                let adjusted = getAdjustedItemPricing(row);
+                let cost = adjusted.cost;
+                let price = adjusted.price;
                 
                 let totalCostAmount = cost * remainingFullPacks;
                 let totalPriceAmount = price * remainingFullPacks;
@@ -2605,8 +2610,9 @@
                     let formattedDate = formatDateToDDMMYYYY(dateAddedStr);
                     let formattedMfg = formatDateToDDMMYYYY(row.mfgDate || dateAddedStr);
 
-                    let cost = parseFloat(String(row.cost || 0).replace(/,/g, '')) || 0;
-                    let price = parseFloat(String(row.price || 0).replace(/,/g, '')) || 0;
+                    let adjusted = getAdjustedItemPricing(row);
+                    let cost = adjusted.cost;
+                    let price = adjusted.price;
                     let currency = row.currency || 'ກີບ';
                     let costStr = formatNumberWithCommas(cost) + " " + currency;
                     let priceStr = formatNumberWithCommas(price) + " " + currency;
@@ -2793,9 +2799,8 @@
 
             let finalName = (data.customName !== "") ? data.customName : currentStockInCode;
 
-            // 🌟 ບັນທຶກ Rate ຊື້ວັນຊື້ (Buying Rate) ແລະ Rate ຂາຍວັນຊື້ (Selling Rate) ເກັບໄວ້ພ້ອມກັບສິນຄ້າ
             let currentBuyRateForStock = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || parseFloat(localStorage.getItem('pos_custom_manual_rate')) || 650;
-            let currentSellRateForStock = parseFloat(localStorage.getItem('pos_custom_sell_rate')) || currentBuyRateForStock;
+            let currentSellRateForStock = parseFloat(localStorage.getItem('pos_custom_sell_rate')) || 690;
 
             pendingDuplicateStockData = {
                 code: currentStockInCode,
@@ -3052,7 +3057,7 @@
             reader.readAsArrayBuffer(file);
         }
 
-        // 🌟 ຟັງຊັນຄຳນວນປັບຕົ້ນທຶນ ແລະ ລາຄາຂາຍອັດຕະໂນມັດ ຕາມ Rate ວັນຊື້ vs Rate ຂາຍປັດຈຸບັນ
+        // --- 🌟 ຟັງຊັນຄຳນວນປັບຕົ້ນທຶນ ແລະ ລາຄາຂາຍອັດຕະໂນມັດ ຕາມສູດໃໝ່: ລາຄາຊື້ເດີມ × (Rate ຂາຍໃໝ່ / Rate ຊື້ວັນຊື້) ---
         function getAdjustedItemPricing(item) {
             let originalCost = parseFloat(String(item.originalCost || item.cost).replace(/,/g, '')) || 0;
             let profitPct = parseFloat(String(item.profitPct !== undefined ? item.profitPct : 20)) || 20;
@@ -3061,16 +3066,16 @@
             // Rate ຂາຍໃໝ່ປັດຈຸບັນ (ທີ່ຕັ້ງຄ່າປະຈຳວັນ)
             let currentSellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate')) || parseFloat(localStorage.getItem('pos_custom_manual_rate')) || 690;
 
-            // ສູດຄຳນວນປັບຕົ້ນທຶນ: ລາຄາຊື້ເດີມ × (Rate ຂາຍໃໝ່ / Rate ຊື້ວັນຊື້) ປັບຂຶ້ນເປັນຫຼັກພັນ
             let adjustedCost = originalCost;
             let adjustedPrice = parseFloat(String(item.price).replace(/,/g, '')) || 0;
 
             if (buyRateOnImport > 0 && currentSellRate > 0) {
+                // ສູດ: ລາຄາຊື້ເດີມ × (Rate ຂາຍໃໝ່ / Rate ຊື້ວັນຊື້) ປັບຂຶ້ນເປັນຫຼັກພັນ
                 let rawNewCost = originalCost * (currentSellRate / buyRateOnImport);
-                adjustedCost = Math.ceil(rawNewCost / 1000) * 1000; // ປັບຂຶ້ນເປັນຫຼັກພັນ
+                adjustedCost = Math.ceil(rawNewCost / 1000) * 1000;
 
                 let rawNewPrice = adjustedCost * (1 + profitPct / 100);
-                adjustedPrice = Math.ceil(rawNewPrice / 1000) * 1000; // ປັບຂຶ້ນເປັນຫຼັກພັນ
+                adjustedPrice = Math.ceil(rawNewPrice / 1000) * 1000;
             }
 
             return {
@@ -3086,7 +3091,6 @@
 
             await fetchProductsForGenerator();
 
-            // 🌟 ຊອກຫາ Item ຈາກ excelRows ເພື່ອນຳໄປຄຳນວນປັບ Rate ຕາມສູດໃໝ່
             let targetRow = excelRows.find(r => r.id === rowId);
             if (!targetRow) {
                 targetRow = excelRows.find(r => String(r.code || '').trim().toLowerCase() === String(code || '').trim().toLowerCase());
@@ -4204,8 +4208,9 @@
             let displayedRows = Array.from(uniqueMap.values());
 
             displayedRows.forEach((row, index) => {
-                let costNum = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
-                let priceNum = parseFloat(String(row.price).replace(/,/g, '')) || 0;
+                let adjusted = getAdjustedItemPricing(row);
+                let costNum = adjusted.cost;
+                let priceNum = adjusted.price;
 
                 html += `
                     <tr class="hover:bg-gray-50 border-b">
@@ -4246,8 +4251,9 @@
                 return new Promise((resolve) => {
                     let cleanCode = String(row.code).trim();
                     let itemName = String(row.name || cleanCode).trim();
-                    let costVal = parseFloat(String(row.cost).replace(/,/g, '')) || 0;
-                    let priceVal = parseFloat(String(row.price).replace(/,/g, '')) || 0;
+                    let adjusted = getAdjustedItemPricing(row);
+                    let costVal = adjusted.cost;
+                    let priceVal = adjusted.price;
 
                     let payloadObj = {
                         code: cleanCode,
@@ -4310,4 +4316,21 @@
             let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
             if (userRole === 'admin' || shopOwner === 'true' || linkedAdminId) {
                 let roleModal = document.getElementById('role-select-modal');
-                if (roleModalSorry, something went wrong. Please try your request again.
+                if (roleModal) roleModal.classList.add('hidden');
+                let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
+                if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
+                let rateBtn = document.getElementById('header-rate-btn');
+                if (rateBtn) rateBtn.classList.remove('hidden');
+            }
+            let savedLang = localStorage.getItem('pos_current_lang') || 'lo';
+            let langSelect = document.getElementById('language-select');
+            if (langSelect) langSelect.value = savedLang;
+            changeLanguage(savedLang);
+
+            updateHeaderTitle();
+            checkRoleAndLicense();
+            checkAdminButtonVisibility();
+        });
+    </script>
+</body>
+</html>
