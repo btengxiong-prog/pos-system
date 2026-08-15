@@ -2388,11 +2388,11 @@
 
                 let rowDate = row.dateAdded || new Date().toISOString().split('T')[0];
                 
-                // 🌟 1) Rate (ເດີມ): ດຶງ Rate ຕາມວັນທີນຳເຂົ້າສິນຄ້າ (25/05/2025 ຈະອອກ 650 ແລະ 670 ຕາມຮູບ 3)
+                // 🌟 1) Rate (ເດີມ): ດຶງ Rate ຕາມວັນທີນຳເຂົ້າສິນຄ້າ
                 let importBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate_' + rowDate)) || parseFloat(row.buyingRate) || 650;
                 let importSellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate_' + rowDate)) || parseFloat(row.sellingRate) || 670;
 
-                // 🌟 2) Rate (ໃຫມ່): ດຶງ Rate ຕາມວັນປະຈຸບັນ (15/08/2026 ຈະອອກ 675 ແລະ 688 ຕາມຮູບ 3)
+                // 🌟 2) Rate (ໃຫມ່): ດຶງ Rate ຕາມວັນປະຈຸບັນ
                 let currentBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate_' + currentDateStr)) || parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 675;
                 let currentSellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate_' + currentDateStr)) || parseFloat(localStorage.getItem('pos_custom_sell_rate')) || 688;
 
@@ -2950,6 +2950,7 @@
             }
         }
 
+        // 🌟 ປັບປຸງຟັງຊັນເປີດກ້ອງນຳເຂົ້າສິນຄ້າມີວັນໝົດອາຍຸ ໃຫ້ເຮັດວຽກຢ່າງຖືກຕ້ອງ 100%
         function openStockInScannerWithExpiry(hasExpiry) {
             isExpiryMode = hasExpiry;
             let titleElem = document.getElementById('stock-in-title');
@@ -2978,8 +2979,10 @@
         }
 
         async function openStockInScanner() {
-            document.getElementById('stock-in-scanner-container').classList.hidden = false;
-            document.getElementById('stock-in-scanner-container').classList.remove('hidden');
+            let scannerCont = document.getElementById('stock-in-scanner-container');
+            if (scannerCont) {
+                scannerCont.classList.remove('hidden');
+            }
 
             if (!stockInQrCode) {
                 try { stockInQrCode = new Html5Qrcode("stock-in-reader"); } catch(err) { return; }
@@ -3004,6 +3007,7 @@
                         }
                     } catch (e) {}
 
+                    closeStockInScanner();
                     openStockInModal(targetCode, parsedCost);
                 },
                 (errorMessage) => {}
@@ -3013,11 +3017,46 @@
         function closeStockInScanner() {
             if (stockInQrCode) {
                 stockInQrCode.stop().then(() => { 
-                    document.getElementById('stock-in-scanner-container').classList.add('hidden'); 
-                }).catch(() => {});
+                    let scannerCont = document.getElementById('stock-in-scanner-container');
+                    if (scannerCont) scannerCont.classList.add('hidden'); 
+                }).catch(() => {
+                    let scannerCont = document.getElementById('stock-in-scanner-container');
+                    if (scannerCont) scannerCont.classList.add('hidden');
+                });
             } else { 
-                document.getElementById('stock-in-scanner-container').classList.add('hidden'); 
+                let scannerCont = document.getElementById('stock-in-scanner-container');
+                if (scannerCont) scannerCont.classList.add('hidden'); 
             }
+        }
+
+        function openStockInModal(codeText, preCost = 0) {
+            currentStockInCode = codeText;
+            document.getElementById('stock-in-code').innerText = codeText;
+            document.getElementById('stock-in-cost').value = preCost > 0 ? formatNumberWithCommas(preCost) : "";
+            document.getElementById('stock-in-qty').value = "1";
+            document.getElementById('stock-in-unit-per-pack').value = "12";
+            if (document.getElementById('stock-in-custom-name')) {
+                document.getElementById('stock-in-custom-name').value = "";
+            }
+            let todayStr = formatDateToInputDate(new Date().toISOString().split('T')[0]);
+            document.getElementById('stock-in-import-date').value = todayStr;
+
+            if (document.getElementById('stock-in-mfg-date')) document.getElementById('stock-in-mfg-date').value = "";
+            if (document.getElementById('stock-in-exp-date')) document.getElementById('stock-in-exp-date').value = "";
+
+            calculateStockInPrice();
+            calculateTotalUnit();
+
+            let modal = document.getElementById('stock-in-modal');
+            if (modal) {
+                modal.classList.hidden = false;
+                modal.classList.remove('hidden');
+            }
+        }
+
+        function closeStockInModal() {
+            let modal = document.getElementById('stock-in-modal');
+            if (modal) modal.classList.add('hidden');
         }
 
         function handleManualBarcodeInput(event) {
@@ -3417,7 +3456,7 @@
             await Promise.all(promises);
         }
 
-        // --- 🌟 ຟັງຊັນທີ່ເພີ່ມເຕີມສຳລັບປຸ່ມ "ນຳອອກສິນຄ້າ" (ຂາຍສິນຄ້າ) ---
+        // --- 🌟 ຟັງຊັນที่ເພີ່ມເຕີມສຳລັບປຸ່ມ "ນຳອອກສິນຄ້າ" (ຂາຍສິນຄ້າ) ---
         function openScanner() {
             let container = document.getElementById('scanner-container');
             if (container) {
