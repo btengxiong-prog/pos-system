@@ -585,7 +585,7 @@
             <div class="space-y-3 bg-gray-50 p-4 rounded-xl border">
                 <div>
                     <label class="block text-xs font-bold text-gray-700 mb-1">ວັນທີ:</label>
-                    <input type="date" id="input-custom-rate-date" class="w-full border rounded-lg px-3 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-orange-500 bg-white text-purple-700 cursor-pointer">
+                    <input type="date" id="input-custom-rate-date" onchange="handleRateDateChange(this.value)" class="w-full border rounded-lg px-3 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-orange-500 bg-white text-purple-700 cursor-pointer">
                 </div>
 
                 <div class="flex items-center justify-between gap-3">
@@ -2254,13 +2254,9 @@
         }
 
         function openRateInputModal() {
-            let savedBuyRate = localStorage.getItem('pos_custom_buy_rate') || localStorage.getItem('pos_custom_manual_rate') || '600';
-            let savedSellRate = localStorage.getItem('pos_custom_sell_rate') || localStorage.getItem('pos_custom_manual_rate') || '688';
             let savedDate = localStorage.getItem('pos_custom_manual_rate_date') || new Date().toISOString().split('T')[0];
-            
-            document.getElementById('input-custom-buy-rate').value = formatNumberWithCommas(savedBuyRate);
-            document.getElementById('input-custom-sell-rate').value = formatNumberWithCommas(savedSellRate);
             document.getElementById('input-custom-rate-date').value = savedDate;
+            loadRateForDate(savedDate);
             document.getElementById('rate-input-modal').classList.remove('hidden');
         }
 
@@ -2268,23 +2264,40 @@
             document.getElementById('rate-input-modal').classList.add('hidden');
         }
 
+        // 🌟 ຟັງຊັນໂຫຼດ Rate ຕາມວັນທີທີ່ເລືອກໃນຊ່ອງວັນທີ
+        function loadRateForDate(dateStr) {
+            let savedBuyRate = localStorage.getItem('pos_custom_buy_rate_' + dateStr) || localStorage.getItem('pos_custom_buy_rate') || '600';
+            let savedSellRate = localStorage.getItem('pos_custom_sell_rate_' + dateStr) || localStorage.getItem('pos_custom_sell_rate') || localStorage.getItem('pos_custom_manual_rate') || '688';
+            
+            document.getElementById('input-custom-buy-rate').value = formatNumberWithCommas(savedBuyRate);
+            document.getElementById('input-custom-sell-rate').value = formatNumberWithCommas(savedSellRate);
+        }
+
+        function handleRateDateChange(dateStr) {
+            if (dateStr) {
+                loadRateForDate(dateStr);
+            }
+        }
+
         async function applyCustomRateToTable() {
             let buyRateVal = parseFloat(document.getElementById('input-custom-buy-rate').value.replace(/,/g, '')) || 0;
             let sellRateVal = parseFloat(document.getElementById('input-custom-sell-rate').value.replace(/,/g, '')) || 0;
-            let dateVal = document.getElementById('input-custom-rate-date').value.trim();
+            let dateVal = document.getElementById('input-custom-rate-date').value.trim() || new Date().toISOString().split('T')[0];
 
             if (buyRateVal <= 0 || sellRateVal <= 0) {
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ Rate ຊື້ ແລະ Rate ຂາຍ ໃຫ້ຖືກຕ້ອງ!", "⚠️");
                 return;
             }
 
+            localStorage.setItem('pos_custom_buy_rate_' + dateVal, buyRateVal);
+            localStorage.setItem('pos_custom_sell_rate_' + dateVal, sellRateVal);
             localStorage.setItem('pos_custom_buy_rate', buyRateVal);
             localStorage.setItem('pos_custom_sell_rate', sellRateVal);
             localStorage.setItem('pos_custom_manual_rate', sellRateVal);
             localStorage.setItem('pos_custom_manual_rate_date', dateVal);
 
             closeRateInputModal();
-            showAlert("ສຳເລັດ", "ບັນທຶກ Rate ຊື້ ແລະ Rate ຂາຍ ສຳເລັດຮຽບຮ້ອຍ!", "💱");
+            showAlert("ສຳເລັດ", `ບັນທຶກ Rate ສຳລັບວັນທີ [${dateVal}] ສຳເລັດຮຽບຮ້ອຍ!`, "💱");
         }
 
         // --- CORE POS LOGIC & INVENTORY MANAGEMENT ---
@@ -2323,7 +2336,8 @@
             let profitPct = parseFloat(String(item.profitPct !== undefined ? item.profitPct : 20)) || 20;
             let buyRateOnImport = parseFloat(item.buyingRate) || 600;
 
-            let currentSellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate')) || parseFloat(localStorage.getItem('pos_custom_manual_rate')) || 688;
+            let itemDate = item.dateAdded || new Date().toISOString().split('T')[0];
+            let currentSellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate_' + itemDate)) || parseFloat(localStorage.getItem('pos_custom_sell_rate')) || parseFloat(localStorage.getItem('pos_custom_manual_rate')) || 688;
 
             let adjustedCost = originalCost;
             let adjustedPrice = parseFloat(String(item.price).replace(/,/g, '')) || 0;
@@ -2368,7 +2382,11 @@
                 let sellRateOnImport = parseFloat(row.sellingRate) || 650;
                 let profitPct = parseFloat(String(row.profitPct !== undefined ? row.profitPct : 20)) || 20;
 
-                let rawNewCost = originalCost * (currentSellRate / buyRateOnImport);
+                let rowDate = row.dateAdded || new Date().toISOString().split('T')[0];
+                let specificSellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate_' + rowDate)) || currentSellRate;
+                let specificBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate_' + rowDate)) || currentBuyRate;
+
+                let rawNewCost = originalCost * (specificSellRate / buyRateOnImport);
                 let newCost = Math.ceil(rawNewCost / 1000) * 1000;
 
                 let rawNewPrice = newCost * (1 + profitPct / 100);
@@ -2388,8 +2406,8 @@
                         <td class="p-2 border-r font-semibold text-gray-700">${sellRateOnImport.toFixed(2)}</td>
                         <td class="p-2 border-r text-right text-blue-600 font-semibold">${formatNumberWithCommas(originalCost)}</td>
                         <td class="p-2 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(originalPrice)}</td>
-                        <td class="p-2 border-r font-bold text-blue-800 bg-blue-50/20">${currentBuyRate.toFixed(2)}</td>
-                        <td class="p-2 border-r font-bold text-blue-800 bg-blue-50/20">${currentSellRate.toFixed(2)}</td>
+                        <td class="p-2 border-r font-bold text-blue-800 bg-blue-50/20">${specificBuyRate.toFixed(2)}</td>
+                        <td class="p-2 border-r font-bold text-blue-800 bg-blue-50/20">${specificSellRate.toFixed(2)}</td>
                         <td class="p-2 border-r text-right text-blue-900 font-bold bg-blue-50/30">${formatNumberWithCommas(newCost)}</td>
                         <td class="p-2 border-r text-right text-green-900 font-bold bg-green-50/30">${formatNumberWithCommas(newPrice)}</td>
                         <td class="p-2 font-bold text-gray-600">-</td>
@@ -2420,7 +2438,8 @@
                 let originalPrice = parseFloat(String(row.price).replace(/,/g, '')) || 0;
                 let buyRateOnImport = parseFloat(row.buyingRate) || 600;
 
-                let currentSellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate')) || parseFloat(localStorage.getItem('pos_custom_manual_rate')) || 688;
+                let rowDate = row.dateAdded || new Date().toISOString().split('T')[0];
+                let currentSellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate_' + rowDate)) || parseFloat(localStorage.getItem('pos_custom_sell_rate')) || parseFloat(localStorage.getItem('pos_custom_manual_rate')) || 688;
 
                 let rawNewCost = originalCost * (currentSellRate / buyRateOnImport);
                 let newCost = Math.ceil(rawNewCost / 1000) * 1000;
@@ -3387,7 +3406,7 @@
             await Promise.all(promises);
         }
 
-        // --- 🌟 ຟັງຊັນที่ເພີ່ມເຕີມສຳລັບປຸ່ມ "ນຳອອກສິນຄ້າ" (ຂາຍສິນຄ້າ) ---
+        // --- 🌟 ຟັງຊັນທີ່ເພີ່ມເຕີມສຳລັບປຸ່ມ "ນຳອອກສິນຄ້າ" (ຂາຍສິນຄ້າ) ---
         function openScanner() {
             let container = document.getElementById('scanner-container');
             if (container) {
@@ -3589,7 +3608,7 @@
             }
         }
 
-        // --- 💰 2 ປຸ່ມຄຳສັ່ງໃໝ່ຕາມເງື່ອນໄຂ ---
+        // --- 💰 2 ປຸ່ມຄຳສັ່ງຕາມເງື່ອນໄຂ ---
         
         // 1) ປຼີ້ນບິນຂາຍ: ສັ່ງປຼີ້ນໃບເຊັດຊຳລະຈ່າຍເງິນເທົ່ານັ້ນ
         function printCurrentReceipt() {
@@ -3668,7 +3687,7 @@
             }
         }
 
-        // ເມື່ອກົດ ຕົກລົງ ໃນປ໊ອບອັບເລືອກວິທີຊຳລະ (ຮູບ 2): ບັນທຶກລົງປະຫວັດການຂາຍ ພ້ອມທັງ Reset ຂໍ້ມູນໜ້າຂາຍເປັນ 0 ທັນທີ
+        // ເມື່ອກົດ ຕົກລົງ ໃນປ໊ອບອັບເລືອກວິທີຊຳລະ: ບັນທຶກລົງປະຫວັດການຂາຍ ພ້ອມທັງ Reset ຂໍ້ມູນໜ້າຂາຍເປັນ 0 ທັນທີ
         async function confirmCheckoutPayment() {
             let selectedRadio = document.querySelector('input[name="pay_mode"]:checked');
             let payMode = selectedRadio ? selectedRadio.value : 'cash';
@@ -3715,7 +3734,7 @@
 
             closeCheckoutMethodModal();
 
-            // 2) Reset ຂໍ້ມູນທັງໝົດໃນໜ້າຂາຍ (ຮູບ 1) ໃຫ້ເປັນ 0 ໝົດທຸກຢ່າງທັນທີຢ່າງແທ້ຈິງ
+            // 2) Reset ຂໍ້ມູນທັງໝົດໃນໜ້າຂາຍ ໃຫ້ເປັນ 0 ໝົດທຸກຢ່າງທັນທີຢ່າງແທ້ຈິງ
             cart = [];
             renderCart();
             
