@@ -2239,6 +2239,7 @@
             }
         });
 
+        // 🌟 ຟັງຊັນບັນທຶກ ແລະ ເປີດ Modal ຕ່າງໆ ໃຫ້ຄົບຖ້ວນ 100%
         function openRegisterModal() {
             let m = document.getElementById('register-payment-modal');
             if (m) m.classList.remove('hidden');
@@ -2257,6 +2258,149 @@
         function closeUserManual() {
             let m = document.getElementById('user-manual-modal');
             if (m) m.classList.add('hidden');
+        }
+
+        function openReport() {
+            let m = document.getElementById('report-modal');
+            if (m) {
+                m.classList.remove('hidden');
+                toggleReportFilter();
+            }
+        }
+
+        function closeReport() {
+            let m = document.getElementById('report-modal');
+            if (m) m.classList.add('hidden');
+        }
+
+        function toggleReportFilter() {
+            let reportType = document.getElementById('report-type').value;
+            let mGroup = document.getElementById('filter-monthly');
+            let qGroup = document.getElementById('filter-quarterly');
+            let dGroup = document.getElementById('filter-duration');
+
+            if (mGroup) mGroup.classList.add('hidden');
+            if (qGroup) qGroup.classList.add('hidden');
+            if (dGroup) dGroup.classList.add('hidden');
+
+            if (reportType === 'monthly' && mGroup) mGroup.classList.remove('hidden');
+            else if (reportType === 'quarterly' && qGroup) qGroup.classList.remove('hidden');
+            else if (reportType === 'duration' && dGroup) dGroup.classList.remove('hidden');
+
+            calculateReport();
+        }
+
+        async function calculateReport() {
+            let reportType = document.getElementById('report-type').value;
+            let yearElem = document.getElementById('report-year');
+            let year = yearElem ? parseInt(yearElem.value) : new Date().getFullYear();
+            
+            let totalCostLak = 0, totalPriceLak = 0, cashLak = 0, transferLak = 0;
+            let totalCostThb = 0, totalPriceThb = 0, cashThb = 0, transferThb = 0;
+
+            let allSales = [];
+            if (db) {
+                try {
+                    let userRole = localStorage.getItem('pos_user_role');
+                    let snapshot;
+                    if (userRole === 'admin' || deviceId === 'POSXIONG') {
+                        snapshot = await db.collection("sales_history").get();
+                    } else {
+                        snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
+                    }
+
+                    snapshot.forEach(doc => {
+                        let tx = doc.data();
+                        allSales.push({
+                            currency: tx.currency || 'ກີບ',
+                            payment_method: tx.payment_method || 'cash',
+                            items: tx.items || [],
+                            created_at: tx.created_at
+                        });
+                    });
+                } catch (e) {}
+            }
+
+            let currentBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 600;
+            let currentSellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate')) || 688;
+
+            allSales.forEach(tx => {
+                let txDate = new Date(tx.created_at);
+                if (isNaN(txDate)) return;
+
+                let txYear = txDate.getFullYear();
+                let txMonth = txDate.getMonth() + 1;
+
+                if (txYear === year) {
+                    let match = false;
+                    if (reportType === 'monthly') {
+                        let mSel = document.getElementById('report-month');
+                        let selectedMonth = mSel ? parseInt(mSel.value) : 1;
+                        if (txMonth === selectedMonth) match = true;
+                    } else if (reportType === 'quarterly') {
+                        let qSel = document.getElementById('report-quarter');
+                        let quarter = qSel ? parseInt(qSel.value) : 1;
+                        let qMonths = { 1: [1,2,3], 2: [4,5,6], 3: [7,8,9], 4: [10,11,12] };
+                        if (qMonths[quarter] && qMonths[quarter].includes(txMonth)) match = true;
+                    } else if (reportType === 'duration') {
+                        let dSel = document.getElementById('report-duration-months');
+                        let durationMonths = dSel ? parseInt(dSel.value) : 3;
+                        if (txMonth <= durationMonths) match = true;
+                    }
+
+                    if (match && tx.items && Array.isArray(tx.items)) {
+                        tx.items.forEach(it => {
+                            let itemCost = parseFloat(it.cost || 0) || 0;
+                            let itemPrice = parseFloat(it.price || 0) || 0;
+                            let itemQty = parseInt(it.originalQty || it.qty || 1) || 1;
+                            let itPayment = it.payment_method || tx.payment_method || 'cash';
+                            let itCurr = it.currency || tx.currency || 'ກີບ';
+
+                            let displayCost = itemCost;
+                            let displayPrice = itemPrice;
+                            let displayCurrency = itCurr;
+
+                            if (itPayment === 'cash_thb' || itPayment === 'transfer_thb') {
+                                displayCurrency = 'ບາດ';
+                            } else if (itCurr === 'ກີບ' && (itPayment === 'cash_thb' || itPayment === 'transfer_thb')) {
+                                displayCost = currentBuyRate > 0 ? (itemCost / currentBuyRate) : itemCost;
+                                displayPrice = currentSellRate > 0 ? (itemPrice / currentSellRate) : itemPrice;
+                                displayCurrency = 'ບາດ';
+                            }
+
+                            let itemTotal = (displayCurrency === 'ບາດ') ? Math.ceil(displayPrice * itemQty) : (displayPrice * itemQty);
+                            let itemTotalCost = displayCost * itemQty;
+
+                            if (displayCurrency === 'ບາດ') {
+                                totalCostThb += itemTotalCost;
+                                totalPriceThb += itemTotal;
+                                if (itPayment === 'cash_thb') cashThb += itemTotal;
+                                else transferThb += itemTotal;
+                            } else {
+                                totalCostLak += itemTotalCost;
+                                totalPriceLak += itemTotal;
+                                if (itPayment === 'transfer_lak') transferLak += itemTotal;
+                                else cashLak += itemTotal;
+                            }
+                        });
+                    }
+                }
+            });
+
+            let profitLak = totalPriceLak - totalCostLak;
+            let profitThb = totalPriceThb - totalCostThb;
+
+            let el1 = document.getElementById('rep-total-cost-lak'); if (el1) el1.innerText = formatNumberWithCommas(totalCostLak) + " ກີບ";
+            let el2 = document.getElementById('rep-total-price-lak'); if (el2) el2.innerText = formatNumberWithCommas(totalPriceLak) + " ກີບ";
+            let el3 = document.getElementById('rep-total-profit-lak'); if (el3) el3.innerText = formatNumberWithCommas(profitLak) + " ກີບ";
+            let el4 = document.getElementById('rep-cash-lak'); if (el4) el4.innerText = formatNumberWithCommas(cashLak) + " ກີບ";
+            let el5 = document.getElementById('rep-transfer-lak'); if (el5) el5.innerText = formatNumberWithCommas(transferLak) + " ກີບ";
+
+            let el6 = document.getElementById('rep-total-cost-thb'); if (el6) el6.innerText = formatNumberWithCommas(Math.ceil(totalCostThb)) + " ບາດ";
+            let el7 = document.getElementById('rep-total-price-thb'); if (el7) el7.innerText = formatNumberWithCommas(Math.ceil(totalPriceThb)) + " ບາດ";
+            let el8 = document.getElementById('rep-total-profit-thb'); if (el8) el8.innerText = formatNumberWithCommas(Math.ceil(profitThb)) + " ບາດ";
+            let el9 = document.getElementById('rep-cash-thb'); if (el9) el9.innerText = formatNumberWithCommas(Math.ceil(cashThb)) + " ບາດ";
+            let el10 = document.getElementById('rep-transfer-thb'); if (el10) el10.innerText = formatNumberWithCommas(Math.ceil(transferThb)) + " ບາດ";
         }
 
         function openRateInputModal() {
