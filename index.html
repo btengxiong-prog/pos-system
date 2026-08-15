@@ -2260,7 +2260,7 @@
         }
 
         function openRateInputModal() {
-            let savedBuyRate = localStorage.getItem('pos_custom_buy_rate') || localStorage.getItem('pos_custom_manual_rate') || '675';
+            let savedBuyRate = localStorage.getItem('pos_custom_buy_rate') || localStorage.getItem('pos_custom_manual_rate') || '600';
             let savedSellRate = localStorage.getItem('pos_custom_sell_rate') || localStorage.getItem('pos_custom_manual_rate') || '688';
             let savedDate = localStorage.getItem('pos_custom_manual_rate_date') || new Date().toISOString().split('T')[0];
             
@@ -2311,6 +2311,163 @@
 
         function closePriceCompareModal() {
             document.getElementById('price-compare-modal').classList.add('hidden');
+        }
+
+        // 🌟 ຟັງຊັນເປີດ Modal "Rate ແລະ ອັດຕາຂາຍ"
+        async function openRateAnalysisModal() {
+            document.getElementById('rate-analysis-modal').classList.remove('hidden');
+            await loadRateAnalysis();
+        }
+
+        function closeRateAnalysisModal() {
+            document.getElementById('rate-analysis-modal').classList.add('hidden');
+        }
+
+        // 🌟 ຟັງຊັນຄຳນວນປັບລາຄາຊື້ ແລະ ລາຄາຂາຍປະຈຸບັນ ຕາມສູດທີ່ຖືກຕ້ອງ 100%
+        function getAdjustedItemPricing(item) {
+            let originalCost = parseFloat(String(item.originalCost || item.cost).replace(/,/g, '')) || 0;
+            let profitPct = parseFloat(String(item.profitPct !== undefined ? item.profitPct : 20)) || 20;
+            let buyRateOnImport = parseFloat(item.buyingRate) || 600; // Rate ຊື້ເບື້ອງຕົ້ນວັນນຳເຂົ້າ (ຮູບ 1: 600)
+
+            // Rate ຂາຍປະຈຸບັນ (ທີ່ຕັ້ງຄ່າປະຈຳວັນ - ຮູບ 2: 688)
+            let currentSellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate')) || parseFloat(localStorage.getItem('pos_custom_manual_rate')) || 688;
+
+            let adjustedCost = originalCost;
+            let adjustedPrice = parseFloat(String(item.price).replace(/,/g, '')) || 0;
+
+            if (buyRateOnImport > 0 && currentSellRate > 0) {
+                // ລາຄາຊື້ປະຈຸບັນ = ລາຄາຊື້ເບື້ອງຕົ້ນ * (Rate ຂາຍປະຈຸບັນ / Rate ຊື້ເບື້ອງຕົ້ນ) ປັດເສດຂຶ້ນເປັນຫຼັກພັນ (-3)
+                let rawNewCost = originalCost * (currentSellRate / buyRateOnImport);
+                adjustedCost = Math.ceil(rawNewCost / 1000) * 1000;
+
+                // ລາຄາຂາຍປະຈຸບັນ = ລາຄາຊື້ປະຈຸບັນ * (1 + ເປີເຊັນຂາຍ / 100) ປັດເສດຂຶ້ນເປັນຫຼັກພັນ (-3)
+                let rawNewPrice = adjustedCost * (1 + profitPct / 100);
+                adjustedPrice = Math.ceil(rawNewPrice / 1000) * 1000;
+            }
+
+            return {
+                cost: adjustedCost,
+                price: adjustedPrice
+            };
+        }
+
+        async function loadRateAnalysis() {
+            let tbody = document.getElementById('rate-analysis-tbody');
+            tbody.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນ Rate ແລະ ອັດຕາຂາຍ...</td></tr>`;
+
+            await fetchProductsForGenerator();
+
+            if (excelRows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນສາງ</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            let countIndex = 1;
+
+            let currentBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 675;
+            let currentSellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate')) || 688;
+            let currentDateStr = localStorage.getItem('pos_custom_manual_rate_date') || new Date().toISOString().split('T')[0];
+            let formattedCurrentDate = formatDateToDDMMYYYY(currentDateStr);
+
+            excelRows.forEach((row) => {
+                let originalCost = parseFloat(String(row.originalCost || row.cost).replace(/,/g, '')) || 0;
+                let originalPrice = parseFloat(String(row.price).replace(/,/g, '')) || 0;
+                let buyRateOnImport = parseFloat(row.buyingRate) || 600;
+                let sellRateOnImport = parseFloat(row.sellingRate) || 650;
+                let profitPct = parseFloat(String(row.profitPct !== undefined ? row.profitPct : 20)) || 20;
+
+                let rawNewCost = originalCost * (currentSellRate / buyRateOnImport);
+                let newCost = Math.ceil(rawNewCost / 1000) * 1000;
+
+                let rawNewPrice = newCost * (1 + profitPct / 100);
+                let newPrice = Math.ceil(rawNewPrice / 1000) * 1000;
+
+                let formattedImportDate = formatDateToDDMMYYYY(row.dateAdded || new Date().toISOString().split('T')[0]);
+
+                html += `
+                    <tr class="hover:bg-gray-50 border-b text-center text-xs">
+                        <td class="p-2 border-r font-bold text-gray-500">${countIndex++}</td>
+                        <td class="p-2 border-r font-bold text-blue-600 font-mono">${row.code || '-'}</td>
+                        <td class="p-2 border-r font-bold text-gray-900 text-left">${row.name || '-'}</td>
+                        <td class="p-2 border-r font-semibold text-purple-700">${formattedImportDate}</td>
+                        <td class="p-2 border-r font-semibold text-blue-700">${formattedCurrentDate}</td>
+                        <td class="p-2 border-r font-bold text-amber-700">${profitPct}%</td>
+                        <td class="p-2 border-r font-semibold text-gray-700">${buyRateOnImport.toFixed(2)}</td>
+                        <td class="p-2 border-r font-semibold text-gray-700">${sellRateOnImport.toFixed(2)}</td>
+                        <td class="p-2 border-r text-right text-blue-600 font-semibold">${formatNumberWithCommas(originalCost)}</td>
+                        <td class="p-2 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(originalPrice)}</td>
+                        <td class="p-2 border-r font-bold text-blue-800 bg-blue-50/20">${currentBuyRate.toFixed(2)}</td>
+                        <td class="p-2 border-r font-bold text-blue-800 bg-blue-50/20">${currentSellRate.toFixed(2)}</td>
+                        <td class="p-2 border-r text-right text-blue-900 font-bold bg-blue-50/30">${formatNumberWithCommas(newCost)}</td>
+                        <td class="p-2 border-r text-right text-green-900 font-bold bg-green-50/30">${formatNumberWithCommas(newPrice)}</td>
+                        <td class="p-2 font-bold text-gray-600">-</td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+        }
+
+        async function loadPriceComparison() {
+            let tbody = document.getElementById('price-compare-tbody');
+            tbody.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນວິເຄາະລາຄາ...</td></tr>`;
+
+            await fetchProductsForGenerator();
+
+            if (excelRows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນສາງ</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            let countIndex = 1;
+
+            excelRows.forEach((row) => {
+                let originalCost = parseFloat(String(row.originalCost || row.cost).replace(/,/g, '')) || 0;
+                let originalPrice = parseFloat(String(row.price).replace(/,/g, '')) || 0;
+                let buyRateOnImport = parseFloat(row.buyingRate) || 600;
+
+                let currentSellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate')) || parseFloat(localStorage.getItem('pos_custom_manual_rate')) || 688;
+
+                let rawNewCost = originalCost * (currentSellRate / buyRateOnImport);
+                let newCost = Math.ceil(rawNewCost / 1000) * 1000;
+
+                let profitPct = parseFloat(String(row.profitPct !== undefined ? row.profitPct : 20)) || 20;
+                let rawNewPrice = newCost * (1 + profitPct / 100);
+                let newPrice = Math.ceil(rawNewPrice / 1000) * 1000;
+
+                let qty = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1;
+                let totalCostOld = originalCost * qty;
+                let totalCostNew = newCost * qty;
+                let totalPriceOld = originalPrice * qty;
+                let totalPriceNew = newPrice * qty;
+
+                let formattedDate = formatDateToDDMMYYYY(row.dateAdded || new Date().toISOString().split('T')[0]);
+                let noteRateStr = `${buyRateOnImport}/${currentSellRate}`;
+
+                html += `
+                    <tr class="hover:bg-gray-50 border-b text-center text-xs">
+                        <td class="p-2 border-r font-bold text-gray-500">${countIndex++}</td>
+                        <td class="p-2 border-r font-bold text-blue-600 font-mono">${row.code || '-'}</td>
+                        <td class="p-2 border-r font-bold text-gray-900 text-left">${row.name || '-'}</td>
+                        <td class="p-2 border-r font-semibold text-purple-700">${formattedDate}</td>
+                        <td class="p-2 border-r font-semibold text-gray-600">-</td>
+                        <td class="p-2 border-r font-bold text-cyan-800">${formatNumberWithCommas(qty)}</td>
+                        <td class="p-2 border-r text-right text-blue-600 font-semibold">${formatNumberWithCommas(originalCost)}</td>
+                        <td class="p-2 border-r text-right text-blue-800 font-bold bg-blue-50/20">${formatNumberWithCommas(newCost)}</td>
+                        <td class="p-2 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(originalPrice)}</td>
+                        <td class="p-2 border-r text-right text-green-800 font-bold bg-green-50/20">${formatNumberWithCommas(newPrice)}</td>
+                        <td class="p-2 border-r text-right text-blue-700 font-semibold">${formatNumberWithCommas(totalCostOld)}</td>
+                        <td class="p-2 border-r text-right text-blue-900 font-bold bg-blue-50/30">${formatNumberWithCommas(totalCostNew)}</td>
+                        <td class="p-2 border-r text-right text-green-700 font-semibold">${formatNumberWithCommas(totalPriceOld)}</td>
+                        <td class="p-2 border-r text-right text-green-900 font-bold bg-green-50/30">${formatNumberWithCommas(totalPriceNew)}</td>
+                        <td class="p-2 font-extrabold text-amber-600">${noteRateStr}</td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
         }
 
         // --- EXCEL & QR CODE GENERATOR ---
