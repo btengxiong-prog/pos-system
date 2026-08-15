@@ -3191,32 +3191,6 @@
             reader.readAsArrayBuffer(file);
         }
 
-        // --- 🌟 ຟັງຊັນຄຳນວນປັບຕົ້ນທຶນ ແລະ ລາຄາຂາຍອັດຕະໂນມັດ ຕາມສູດ: ລາຄາຊື້ເດີມ × (Rate ຂາຍໃໝ່ / Rate ຊື້ວັນຊື້) ---
-        function getAdjustedItemPricing(item) {
-            let originalCost = parseFloat(String(item.originalCost || item.cost).replace(/,/g, '')) || 0;
-            let profitPct = parseFloat(String(item.profitPct !== undefined ? item.profitPct : 20)) || 20;
-            let buyRateOnImport = parseFloat(item.buyingRate) || 650; // Rate ຊື້ວັນຊື້
-
-            // Rate ຂາຍໃໝ່ປັດຈຸບັນ
-            let currentSellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate')) || parseFloat(localStorage.getItem('pos_custom_manual_rate')) || 690;
-
-            let adjustedCost = originalCost;
-            let adjustedPrice = parseFloat(String(item.price).replace(/,/g, '')) || 0;
-
-            if (buyRateOnImport > 0 && currentSellRate > 0) {
-                let rawNewCost = originalCost * (currentSellRate / buyRateOnImport);
-                adjustedCost = Math.ceil(rawNewCost / 1000) * 1000;
-
-                let rawNewPrice = adjustedCost * (1 + profitPct / 100);
-                adjustedPrice = Math.ceil(rawNewPrice / 1000) * 1000;
-            }
-
-            return {
-                cost: adjustedCost,
-                price: adjustedPrice
-            };
-        }
-
         async function showConfirmModalParsed(rowId, code, name, cost, price) {
             tempScannedCode = code;
             document.getElementById('modal-code').innerText = code;
@@ -4263,4 +4237,43 @@
             document.getElementById('rep-cash-lak').innerText = formatNumberWithCommas(cashLak) + " ກີບ";
             document.getElementById('rep-transfer-lak').innerText = formatNumberWithCommas(transferLak) + " ກີບ";
 
-            document.getElementById('repI'm having a hard time fulfilling your request. Can I help you with something else instead?
+            document.getElementById('rep-total-cost-thb').innerText = formatNumberWithCommas(Math.ceil(totalCostThb)) + " ບາດ";
+            document.getElementById('rep-total-price-thb').innerText = formatNumberWithCommas(Math.ceil(totalPriceThb)) + " ບາດ";
+            document.getElementById('rep-total-profit-thb').innerText = formatNumberWithCommas(Math.ceil(profitThb)) + " ບາດ";
+            document.getElementById('rep-cash-thb').innerText = formatNumberWithCommas(Math.ceil(cashThb)) + " ບາດ";
+            document.getElementById('rep-transfer-thb').innerText = formatNumberWithCommas(Math.ceil(transferThb)) + " ບາດ";
+        }
+
+        // --- EXCEL & QR CODE GENERATOR ---
+        async function openExcelGenerator() {
+            document.getElementById('excel-generator-modal').classList.hidden = false;
+            document.getElementById('excel-generator-modal').classList.remove('hidden');
+            let titleText = document.getElementById('excel-modal-title-text');
+            
+            if (currentCodeType === 'barcode') {
+                titleText.innerText = "📊 ຕາຕະລາງສ້າງ Barcode ສິນຄ້າ";
+            } else {
+                titleText.innerText = "📱 ຕາຕະລາງສ້າງ QR Code ສິນຄ້າ";
+            }
+
+            await fetchProductsForGenerator();
+            renderExcelTable();
+        }
+
+        function closeExcelGenerator() {
+            document.getElementById('excel-generator-modal').classList.add('hidden');
+            document.getElementById('excel-print-area').classList.add('hidden');
+        }
+
+        async function fetchProductsForGenerator() {
+            if (db) {
+                try {
+                    let snapshot = await db.collection("products").where("device_id", "==", deviceId).get();
+                    excelRows = [];
+                    snapshot.forEach(doc => {
+                        let item = doc.data();
+                        excelRows.push({
+                            id: doc.id,
+                            code: item.code,
+                            name: item.name || '',
+                            cost: item.I encountered an error doing what you asked. Could you try again?
