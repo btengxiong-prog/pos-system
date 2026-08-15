@@ -481,7 +481,7 @@
         <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 text-left">
             <div class="text-center">
                 <div class="text-4xl mb-1">🏷️</div>
-                <h3 class="text-lg font-bold text-gray-800">ພົບສິນຄ້າມีຫຼາຍລາຄາ</h3>
+                <h3 class="text-lg font-bold text-gray-800">ພົບສິນຄ້າມີຫຼາຍລາຄາ</h3>
                 <p class="text-xs text-gray-500">ລະຫັດ: <span id="multi-price-code" class="font-mono font-bold text-blue-600"></span></p>
             </div>
             
@@ -3480,6 +3480,139 @@
 
             if (elFinal) elFinal.innerText = formatNumberWithCommas(finalSaleAmount) + " ກີບ";
             if (elProfit) elProfit.innerText = formatNumberWithCommas(finalSaleAmount - grandCost) + " ກີບ";
+        }
+
+        // --- 📊 ຟັງຊັນຈັດການປະຫວັດການຂາຍ (ເພີ່ມໃໝ່) ---
+        async function openHistory() {
+            let modal = document.getElementById('history-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                await loadCloudHistory();
+            }
+        }
+
+        function closeHistory() {
+            let modal = document.getElementById('history-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+            }
+        }
+
+        async function loadCloudHistory() {
+            let tbody = document.getElementById('history-table-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</td></tr>`;
+
+            let userRole = localStorage.getItem('pos_user_role');
+            let historyList = [];
+
+            if (db) {
+                try {
+                    let historyRef = (userRole === 'admin' || deviceId === 'POSXIONG') ?
+                        db.collection("sales_history") :
+                        db.collection("sales_history").where("device_id", "==", deviceId);
+
+                    let snapshot = await historyRef.get();
+                    snapshot.forEach(doc => {
+                        let data = doc.data();
+                        historyList.push({
+                            id: doc.id,
+                            date: data.date || data.timestamp || '-',
+                            items: data.items || [],
+                            totalCost: data.total_cost || 0,
+                            totalPrice: data.total_price || 0,
+                            payMode: data.pay_mode || 'cash',
+                            currency: data.currency || 'ກີບ',
+                            device_id: data.device_id || '-'
+                        });
+                    });
+                } catch (e) {
+                    console.error("Load history error:", e);
+                }
+            }
+
+            if (historyList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີປະຫວັດການຂາຍໃນລະບົບ</td></tr>`;
+                let summaryDiv = document.getElementById('history-summary');
+                if (summaryDiv) summaryDiv.classList.add('hidden');
+                return;
+            }
+
+            let html = '';
+            let countIndex = 1;
+            let sumCostLak = 0;
+            let sumPriceLak = 0;
+            let sumCostThb = 0;
+            let sumPriceThb = 0;
+
+            historyList.forEach(tx => {
+                if (tx.items && Array.isArray(tx.items)) {
+                    tx.items.forEach(it => {
+                        let cost = (parseFloat(it.cost) || 0) * (parseInt(it.qty) || 1);
+                        let price = (parseFloat(it.price) || 0) * (parseInt(it.qty) || 1);
+                        
+                        if (tx.currency === 'ບາດ') {
+                            sumCostThb += cost;
+                            sumPriceThb += price;
+                        } else {
+                            sumCostLak += cost;
+                            sumPriceLak += price;
+                        }
+
+                        html += `
+                            <tr class="hover:bg-gray-50 border-b text-xs">
+                                <td class="p-3 border-r text-center font-bold text-gray-500">${countIndex++}</td>
+                                <td class="p-3 border-r text-center font-semibold text-purple-700">${formatDateToDDMMYYYY(tx.date)}</td>
+                                <td class="p-3 border-r font-bold text-gray-900">${it.name || it.code}</td>
+                                <td class="p-3 border-r text-right text-blue-600 font-semibold">${formatNumberWithCommas(it.cost)}</td>
+                                <td class="p-3 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(it.price)}</td>
+                                <td class="p-3 border-r text-center font-bold">${it.qty}</td>
+                                <td class="p-3 border-r text-right font-bold text-gray-900">${formatNumberWithCommas(price)} ${tx.currency}</td>
+                                <td class="p-3 border-r text-center font-semibold text-blue-700">${tx.payMode}</td>
+                                <td class="p-3 text-center hidden">-</td>
+                            </tr>
+                        `;
+                    });
+                }
+            });
+
+            tbody.innerHTML = html;
+
+            let summaryDiv = document.getElementById('history-summary');
+            if (summaryDiv) summaryDiv.classList.remove('hidden');
+
+            let elSumCostLak = document.getElementById('sum-total-cost-lak');
+            let elSumPriceLak = document.getElementById('sum-total-price-lak');
+            let elSumProfitLak = document.getElementById('sum-total-profit-lak');
+            let elSumCashLak = document.getElementById('sum-cash-lak');
+            let elSumTransferLak = document.getElementById('sum-transfer-lak');
+
+            if (elSumCostLak) elSumCostLak.innerText = formatNumberWithCommas(sumCostLak) + " ກີບ";
+            if (elSumPriceLak) elSumPriceLak.innerText = formatNumberWithCommas(sumPriceLak) + " ກີບ";
+            if (elSumProfitLak) elSumProfitLak.innerText = formatNumberWithCommas(sumPriceLak - sumCostLak) + " ກີບ";
+            if (elSumCashLak) elSumCashLak.innerText = formatNumberWithCommas(sumPriceLak) + " ກີບ";
+            if (elSumTransferLak) elSumTransferLak.innerText = "0 ກີບ";
+
+            let elSumCostThb = document.getElementById('sum-total-cost-thb');
+            let elSumPriceThb = document.getElementById('sum-total-price-thb');
+            let elSumProfitThb = document.getElementById('sum-total-profit-thb');
+            let elSumCashThb = document.getElementById('sum-cash-thb');
+            let elSumTransferThb = document.getElementById('sum-transfer-thb');
+
+            if (elSumCostThb) elSumCostThb.innerText = formatNumberWithCommas(sumCostThb) + " ບາດ";
+            if (elSumPriceThb) elSumPriceThb.innerText = formatNumberWithCommas(sumPriceThb) + " ບາດ";
+            if (elSumProfitThb) elSumProfitThb.innerText = formatNumberWithCommas(sumPriceThb - sumCostThb) + " ບາດ";
+            if (elSumCashThb) elSumCashThb.innerText = formatNumberWithCommas(sumPriceThb) + " ບາດ";
+            if (elSumTransferThb) elSumTransferThb.innerText = "0 ບາດ";
+        }
+
+        function promptDeleteHistoryAction() {
+            showAlert("ແຈ້ງເຕືອນ", "ຟັງຊັນລຶບປະຫວັດຍັງບໍ່ໄດ້ເປີດໃຊ້ງານ", "⚠️");
+        }
+
+        function toggleSelectAllHistory(checkbox) {
+            let checkboxes = document.querySelectorAll('.history-row-checkbox');
+            checkboxes.forEach(cb => cb.checked = checkbox.checked);
         }
 
         function showAlert(title, message, icon = "✅") {
