@@ -1497,7 +1497,7 @@
             if (btnRep) btnRep.innerHTML = `${t.reportSys} <span class="text-xs">▼</span>`;
 
             let btnAdmin = document.getElementById('admin-manage-btn');
-            if (adminBtn) adminBtn.innerText = t.adminManage;
+            if (btnAdmin) btnAdmin.innerText = t.adminManage;
 
             let btnStaffQr = document.getElementById('header-connect-qr-btn');
             if (btnStaffQr) btnStaffQr.innerText = t.connectStaff;
@@ -3537,14 +3537,22 @@
                 stockRemaining = (parseInt(matchedStockItem.qty || 1) * unitPerPack);
             }
 
+            // 🌟 ບັນທຶກລາຄາຊື້ ແລະ ລາຄາຂາຍຕົວຈິງຕາມໂหมดຂາຍສົ່ງ/ຂາຍຍ່ອຍລົງໃນ item ທີ່ຈະຂາຍ
+            let finalCost = item.cost;
+            let finalPrice = item.price;
+            if (currentSaleType === 'retail' && unitPerPack > 0) {
+                finalCost = Math.ceil((item.cost / unitPerPack) / 1000) * 1000;
+                finalPrice = Math.ceil((item.price / unitPerPack) / 1000) * 1000;
+            }
+
             if (existing) {
                 existing.qty += 1;
             } else {
                 cart.push({
                     code: item.code,
                     name: item.name || item.code,
-                    cost: item.cost,
-                    price: item.price,
+                    cost: finalCost,
+                    price: finalPrice,
                     qty: 1,
                     stockRemaining: stockRemaining,
                     unitPerPack: unitPerPack
@@ -3622,6 +3630,10 @@
                     }
                 }
 
+                // ອັບເດດຄ່າ cost ແລະ price ຕົວຈິງລົງໃນ item ເພື່ອເວລາຊຳລະຈະໄດ້ບັນທຶກຖືກຕ້ອງ
+                item.actualCost = unitCost;
+                item.actualPrice = unitPrice;
+
                 grandCost += (unitCost * item.qty);
                 grandSale += (unitPrice * item.qty);
             });
@@ -3648,13 +3660,7 @@
         function calculateChange() {
             let grandSale = 0;
             cart.forEach(item => {
-                let unitPrice = item.price;
-                if (currentSaleType === 'retail') {
-                    let unitPerPack = parseInt(item.unitPerPack || 12);
-                    if (unitPerPack > 0) {
-                        unitPrice = Math.ceil((item.price / unitPerPack) / 1000) * 1000;
-                    }
-                }
+                let unitPrice = item.actualPrice || item.price;
                 grandSale += (unitPrice * item.qty);
             });
 
@@ -3712,13 +3718,7 @@
 
             let grandSale = 0;
             cart.forEach(item => {
-                let unitPrice = item.price;
-                if (currentSaleType === 'retail') {
-                    let unitPerPack = parseInt(item.unitPerPack || 12);
-                    if (unitPerPack > 0) {
-                        unitPrice = Math.ceil((item.price / unitPerPack) / 1000) * 1000;
-                    }
-                }
+                let unitPrice = item.actualPrice || item.price;
                 grandSale += (unitPrice * item.qty);
             });
 
@@ -3790,18 +3790,21 @@
 
             let grandCost = 0;
             let grandSale = 0;
+            let itemsToSave = [];
+
             cart.forEach(item => {
-                let unitCost = item.cost;
-                let unitPrice = item.price;
-                if (currentSaleType === 'retail') {
-                    let unitPerPack = parseInt(item.unitPerPack || 12);
-                    if (unitPerPack > 0) {
-                        unitCost = Math.ceil((item.cost / unitPerPack) / 1000) * 1000;
-                        unitPrice = Math.ceil((item.price / unitPerPack) / 1000) * 1000;
-                    }
-                }
+                let unitCost = item.actualCost || item.cost;
+                let unitPrice = item.actualPrice || item.price;
                 grandCost += (unitCost * item.qty);
                 grandSale += (unitPrice * item.qty);
+
+                itemsToSave.push({
+                    code: item.code,
+                    name: item.name,
+                    cost: unitCost,
+                    price: unitPrice,
+                    qty: item.qty
+                });
             });
 
             let customFinalInput = document.getElementById('custom-final-price');
@@ -3823,7 +3826,7 @@
             let transactionData = {
                 device_id: deviceId,
                 date: new Date().toISOString(),
-                items: JSON.parse(JSON.stringify(cart)),
+                items: itemsToSave,
                 total_cost: grandCost,
                 total_price: finalSaleAmount,
                 pay_mode: payMode,
@@ -3947,7 +3950,7 @@
                         let isAdminMaster = (userRole === 'admin' || deviceId === 'POSXIONG');
                         let checkboxCell = isAdminMaster ? `<td class="p-3 text-center"><input type="checkbox" data-id="${tx.id}" class="history-row-checkbox w-4 h-4 cursor-pointer accent-blue-600"></td>` : ``;
 
-                        // 🌟 1) ປັບຄໍລຳ ວັນ/ເດືອນ/ປີ ໃຫ້ສະແດງ dd/mm/yyyy ແລະ 2) ເພີ່ມຄໍລຳ "ລະຫັດສິນຄ້າ"
+                        // 🌟 1) ສະແດງລາຄາຊື້ (it.cost) ແລະ ລาຄາຂາຍ (it.price) ຕົວຈິງຂອງວັນທີ່ຂາຍສິນຄ້າ
                         html += `
                             <tr class="hover:bg-gray-50 border-b text-xs">
                                 <td class="p-3 border-r text-center font-bold text-gray-500">${countIndex++}</td>
@@ -4046,6 +4049,7 @@
         async function openReport() {
             let modal = document.getElementById('report-modal');
             if (modal) {
+                modal.classList.hidden = false;
                 modal.classList.remove('hidden');
                 calculateReport();
             }
