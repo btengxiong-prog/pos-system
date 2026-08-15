@@ -2347,6 +2347,7 @@
 
         async function loadRateAnalysis() {
             let tbody = document.getElementById('rate-analysis-tbody');
+            if (!tbody) return;
             tbody.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນ Rate ແລະ ອັດຕາຂາຍ...</td></tr>`;
 
             await fetchProductsForGenerator();
@@ -2405,6 +2406,7 @@
 
         async function loadPriceComparison() {
             let tbody = document.getElementById('price-compare-tbody');
+            if (!tbody) return;
             tbody.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນວິເຄາະລາຄາ...</td></tr>`;
 
             await fetchProductsForGenerator();
@@ -2632,6 +2634,225 @@
             });
 
             await Promise.all(promises);
+        }
+
+        // --- 🌟 ປະຫວັດການຂາຍ ---
+        async function openHistory() { 
+            document.getElementById('history-modal').classList.hidden = false;
+            document.getElementById('history-modal').classList.remove('hidden'); 
+            await loadCloudHistory(); 
+        }
+
+        function closeHistory() { 
+            document.getElementById('history-modal').classList.add('hidden'); 
+        }
+
+        function toggleSelectAllHistory(masterCheckbox) {
+            let checkboxes = document.querySelectorAll('.history-row-checkbox');
+            checkboxes.forEach(cb => { cb.checked = masterCheckbox.checked; });
+        }
+
+        function promptDeleteHistoryAction() {
+            let userRole = localStorage.getItem('pos_user_role');
+            if (userRole !== 'admin' && deviceId !== 'POSXIONG') {
+                showAlert("ບໍ່ມີສິດທິ", "ມີແຕ່ ADMIN ໃຫຍ່ ເທົ່ານັ້ນທີ່ສາມາດລຶບປະຫວັດການຂາຍໄດ້!", "🔒");
+                return;
+            }
+
+            let checkboxes = document.querySelectorAll('.history-row-checkbox:checked');
+            if (checkboxes.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາຕິກເລືອກລາຍການປະຫວັດທີ່ຕ້ອງການລຶບ!", "⚠️");
+                return;
+            }
+
+            let idsToDelete = [];
+            checkboxes.forEach(cb => {
+                idsToDelete.push(cb.getAttribute('data-id'));
+            });
+
+            showCustomConfirm("🗑️ ຢືນຢັນລຶບປະຫວັດການຂາຍ", `ທ່ານຕ້ອງການລຶບປະຫວັດການຂາຍທີ່ເລືອກ (${idsToDelete.length} ລາຍການ) ແທ້ບໍ?`, async (confirmed) => {
+                if (!confirmed) return;
+
+                if (db) {
+                    try {
+                        let batch = db.batch();
+                        for (let id of idsToDelete) {
+                            let docRef = db.collection("sales_history").doc(id);
+                            batch.delete(docRef);
+                        }
+                        await batch.commit();
+                    } catch (e) {}
+                }
+
+                loadCloudHistory();
+                let masterCb = document.getElementById('select-all-history-checkbox');
+                if (masterCb) masterCb.checked = false;
+                showAlert("ສຳເລັດ", "ລຶບປະຫວັດການຂາຍທີ່ເລືອກສຳເລັດຮຽບຮ້ອຍ!", "🗑️");
+            });
+        }
+
+        async function loadCloudHistory() {
+            let tbody = document.getElementById('history-table-tbody');
+            tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</td></tr>`;
+            document.getElementById('history-summary').classList.add('hidden');
+            globalHistoryList = [];
+
+            let combinedMap = new Map();
+
+            if (db) {
+                try {
+                    let userRole = localStorage.getItem('pos_user_role');
+                    let snapshot;
+                    if (userRole === 'admin' || deviceId === 'POSXIONG') {
+                        snapshot = await db.collection("sales_history").get();
+                    } else {
+                        snapshot = await db.collection("sales_history").where("device_id", "==", deviceId).get();
+                    }
+
+                    snapshot.forEach(doc => {
+                        let tx = doc.data();
+                        combinedMap.set(doc.id, {
+                            id: doc.id, created_at: tx.created_at,
+                            total_cost: tx.total_cost || 0, total: tx.total, 
+                            payment_method: tx.payment_method || 'cash',
+                            currency: tx.currency || 'ກີບ',
+                            items: tx.items || []
+                        });
+                    });
+                } catch (err) {}
+            }
+
+            globalHistoryList = Array.from(combinedMap.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+            let userRole = localStorage.getItem('pos_user_role');
+            let colHeader = document.getElementById('history-col-checkbox-header');
+            let deleteBtn = document.getElementById('btn-delete-history');
+            
+            if (userRole === 'admin' || deviceId === 'POSXIONG') {
+                if (colHeader) colHeader.classList.remove('hidden');
+                if (deleteBtn) deleteBtn.classList.remove('hidden');
+            } else {
+                if (colHeader) colHeader.classList.add('hidden');
+                if (deleteBtn) deleteBtn.classList.add('hidden');
+            }
+
+            if (globalHistoryList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີປະຫວັດການຂາຍ.</td></tr>`;
+                return;
+            }
+
+            let itemSoldCountMap = {};
+            globalHistoryList.length && globalHistoryList.forEach(tx => {
+                if (tx.items && Array.isArray(tx.items)) {
+                    tx.items.forEach(it => {
+                        let codeKey = String(it.code || it.name || '').trim();
+                        let qty = parseInt(it.qty || 1) || 1;
+                        itemSoldCountMap[codeKey] = (itemSoldCountMap[codeKey] || 0) + qty;
+                    });
+                }
+            });
+
+            let sortedBestSellers = Object.keys(itemSoldCountMap).sort((a, b) => itemSoldCountMap[b] - itemSoldCountMap[a]);
+            let rankMap = {};
+            sortedBestSellers.forEach((code, index) => {
+                rankMap[code] = index + 1;
+            });
+
+            let html = '';
+            let countIndex = 1;
+            let sumCostLak = 0, sumPriceLak = 0, cashLak = 0, transferLak = 0;
+            let sumCostThb = 0, sumPriceThb = 0, cashThb = 0, transferThb = 0;
+
+            let currentBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 600;
+            let currentSellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate')) || 688;
+
+            globalHistoryList.forEach((tx) => {
+                let txDateObj = new Date(tx.created_at);
+                let dateStr = !isNaN(txDateObj.getTime()) ? formatDateToDDMMYYYY(txDateObj.toISOString().split('T')[0]) : '-';
+
+                if (tx.items && Array.isArray(tx.items)) {
+                    tx.items.forEach(it => {
+                        let itemName = it.name || it.code || '-';
+                        let itemCost = parseFloat(it.cost || 0) || 0;
+                        let itemPrice = parseFloat(it.price || 0) || 0;
+                        let itemQty = parseInt(it.originalQty || it.qty || 1) || 1;
+                        let itemCodeKey = String(it.code || it.name || '').trim();
+                        let rankNum = rankMap[itemCodeKey] || '-';
+                        let itPayment = it.payment_method || tx.payment_method || 'cash';
+                        let itCurr = it.currency || tx.currency || 'ກີບ';
+
+                        let displayCost = itemCost;
+                        let displayPrice = itemPrice;
+                        let displayCurrency = itCurr;
+
+                        if (itPayment === 'cash_thb' || itPayment === 'transfer_thb') {
+                            displayCurrency = 'ບາດ';
+                        } else if (itCurr === 'ກີບ' && (itPayment === 'cash_thb' || itPayment === 'transfer_thb')) {
+                            displayCost = currentBuyRate > 0 ? (itemCost / currentBuyRate) : itemCost;
+                            displayPrice = currentSellRate > 0 ? (itemPrice / currentSellRate) : itemPrice;
+                            displayCurrency = 'ບາດ';
+                        }
+
+                        let formattedCost = (displayCurrency === 'ບາດ') ? displayCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : formatNumberWithCommas(displayCost);
+                        let formattedPriceNum = (displayCurrency === 'ບາດ') ? displayPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : formatNumberWithCommas(displayPrice);
+
+                        let itemTotal = (displayCurrency === 'ບາດ') ? Math.ceil(displayPrice * itemQty) : (displayPrice * itemQty);
+                        let itemTotalCost = (displayCurrency === 'ບາດ') ? (displayCost * itemQty) : (displayCost * itemQty);
+
+                        if (displayCurrency === 'ບາດ') {
+                            sumCostThb += itemTotalCost;
+                            sumPriceThb += itemTotal;
+                            if (itPayment === 'cash_thb') cashThb += itemTotal;
+                            else transferThb += itemTotal;
+                        } else {
+                            sumCostLak += itemTotalCost;
+                            sumPriceLak += itemTotal;
+                            if (itPayment === 'transfer_lak') transferLak += itemTotal;
+                            else cashLak += itemTotal;
+                        }
+
+                        let currencyLabel = (displayCurrency === 'ບາດ') ? ' ບາດ' : ' ກີບ';
+
+                        let checkboxCellHtml = (userRole === 'admin' || deviceId === 'POSXIONG') ? `
+                            <td class="p-3 text-center">
+                                <input type="checkbox" data-id="${tx.id}" class="history-row-checkbox w-4 h-4 cursor-pointer accent-blue-600">
+                            </td>
+                        ` : '';
+
+                        html += `
+                            <tr class="hover:bg-gray-50 border-b">
+                                <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
+                                <td class="p-3 border-r text-center font-semibold text-purple-700">${dateStr}</td>
+                                <td class="p-3 border-r font-bold text-gray-900">${itemName}</td>
+                                <td class="p-3 border-r text-right text-blue-600 font-semibold">${formattedCost}${currencyLabel}</td>
+                                <td class="p-3 border-r text-right text-green-600 font-semibold">${formattedPriceNum}${currencyLabel}</td>
+                                <td class="p-3 border-r text-center font-bold text-gray-800">${formatNumberWithCommas(itemQty)}</td>
+                                <td class="p-3 border-r text-right font-bold text-gray-900 bg-gray-50">${formatNumberWithCommas(itemTotal)}${currencyLabel}</td>
+                                <td class="p-3 border-r text-center font-extrabold text-amber-600 bg-amber-50/30">ອັນດັບ ${rankNum}</td>
+                                ${checkboxCellHtml}
+                            </tr>
+                        `;
+                    });
+                }
+            });
+
+            tbody.innerHTML = html;
+            let profitLak = sumPriceLak - sumCostLak;
+            let profitThb = sumPriceThb - sumCostThb;
+
+            document.getElementById('sum-total-cost-lak').innerText = formatNumberWithCommas(sumCostLak) + " ກີບ";
+            document.getElementById('sum-total-price-lak').innerText = formatNumberWithCommas(sumPriceLak) + " ກີບ";
+            document.getElementById('sum-total-profit-lak').innerText = formatNumberWithCommas(profitLak) + " ກີບ";
+            document.getElementById('sum-cash-lak').innerText = formatNumberWithCommas(cashLak) + " ກີບ";
+            document.getElementById('sum-transfer-lak').innerText = formatNumberWithCommas(transferLak) + " ກີບ";
+
+            document.getElementById('sum-total-cost-thb').innerText = formatNumberWithCommas(Math.ceil(sumCostThb)) + " ບາດ";
+            document.getElementById('sum-total-price-thb').innerText = formatNumberWithCommas(Math.ceil(sumPriceThb)) + " ບາດ";
+            document.getElementById('sum-total-profit-thb').innerText = formatNumberWithCommas(Math.ceil(profitThb)) + " ບາດ";
+            document.getElementById('sum-cash-thb').innerText = formatNumberWithCommas(Math.ceil(cashThb)) + " ບາດ";
+            document.getElementById('sum-transfer-thb').innerText = formatNumberWithCommas(Math.ceil(transferThb)) + " ບາດ";
+
+            document.getElementById('history-summary').classList.remove('hidden');
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
