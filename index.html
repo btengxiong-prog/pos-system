@@ -2610,188 +2610,101 @@
             showAlert("ສຳເລັດ", `ບັນທຶກ Rate ສຳລັບວັນທີ [${dateVal}] ສຳເລັດຮຽບຮ້ອຍ ແລະ ຣີເຟຣຊຕາຕະລາງທັນທີ!`, "💱");
         }
 
-        // 1) ປັບປຸງ openInventoryModal ໃຫ້ເປີດ Modal ພ້ອມທັງດຶງຂໍ້ມູນແບບ Realtime ຜ່ານ onSnapshot ທັນທີ
+        // --- 📦 CORE POS LOGIC & INVENTORY MANAGEMENT ---
                 async function openInventoryModal() {
-                    document.getElementById('inventory-modal').classList.hidden = false;
-                    document.getElementById('inventory-modal').classList.remove('hidden');
-                    await loadInventoryRealtime();
+                    let modal = document.getElementById('inventory-modal');
+                    if (modal) {
+                        modal.classList.hidden = false;
+                        modal.classList.remove('hidden');
+                        loadInventory();
+                    }
                 }
 
                 function closeInventoryModal() {
-                    document.getElementById('inventory-modal').classList.add('hidden');
+                    let modal = document.getElementById('inventory-modal');
+                    if (modal) {
+                        modal.classList.add('hidden');
+                    }
                 }
 
-                // --- CORE POS LOGIC & INVENTORY MANAGEMENT (REALTIME) ---
-                        let inventoryUnsubscribe = null;
+                function loadInventory() {
+                    let tbody = document.getElementById('inventory-tbody');
+                    if (!tbody) return;
+                    tbody.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
 
-                        async function openInventoryModal() {
-                            document.getElementById('inventory-modal').classList.hidden = false;
-                            document.getElementById('inventory-modal').classList.remove('hidden');
-                            await loadInventoryRealtime();
+                    if (!excelRows || excelRows.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ</td></tr>`;
+                        return;
+                    }
+
+                    let userRole = localStorage.getItem('pos_user_role');
+                    let isAdminMaster = (userRole === 'admin' || deviceId === 'POSXIONG');
+
+                    let html = '';
+                    let countIndex = 1;
+
+                    let actionHeader = document.getElementById('inventory-col-action-header');
+                    if (actionHeader) {
+                        if (isAdminMaster) {
+                            actionHeader.innerHTML = `<input type="checkbox" id="select-all-checkbox" onclick="toggleSelectAllInventory(this)" class="w-4 h-4 cursor-pointer accent-cyan-600" title="ເລືອກທັງໝົດ">`;
+                        } else {
+                            actionHeader.innerHTML = `ຈັດການ`;
                         }
+                    }
 
-                        function closeInventoryModal() {
-                            document.getElementById('inventory-modal').classList.add('hidden');
-                            if (inventoryUnsubscribe) {
-                                inventoryUnsubscribe();
-                                inventoryUnsubscribe = null;
-                            }
-                        }
+                    excelRows.forEach((row) => {
+                        let initialPackQty = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1; 
+                        let unitPerPack = parseInt(row.unitPerPack || 12);
+                        let remainingFullPacks = initialPackQty;
+                        let leftoverUnits = 0;
 
-                        async function loadInventoryRealtime() {
-                            let tbody = document.getElementById('inventory-tbody');
-                            tbody.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງແບບ Realtime...</td></tr>`;
+                        let adjusted = getAdjustedItemPricing(row);
+                        let cost = adjusted.cost;
+                        let price = adjusted.price;
+                        
+                        let totalCostAmount = cost * remainingFullPacks;
+                        let totalPriceAmount = price * remainingFullPacks;
 
-                            if (!db) {
-                                tbody.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-red-500">ບໍ່ສາມາດເຊື່ອມຕໍ່ຖານຂໍ້ມູນໄດ້</td></tr>`;
-                                return;
-                            }
+                        let currency = row.currency || 'ກີບ'; 
+                        let costStr = formatNumberWithCommas(cost) + " " + currency;
+                        let priceStr = formatNumberWithCommas(price) + " " + currency;
+                        let totalCostStr = formatNumberWithCommas(totalCostAmount) + " " + currency;
+                        let totalPriceStr = formatNumberWithCommas(totalPriceAmount) + " " + currency;
 
-                            let userRole = localStorage.getItem('pos_user_role');
-                            let isAdminMaster = (userRole === 'admin' || deviceId === 'POSXIONG');
+                        let formattedDate = formatDateToDDMMYYYY(row.dateAdded || new Date().toISOString().split('T')[0]);
+                        let noteStr = `ເຫຼືອ: ${formatNumberWithCommas(remainingFullPacks)}/${leftoverUnits}`;
 
-                            let prodRef = isAdminMaster ? 
-                                db.collection("products") : 
-                                db.collection("products").where("device_id", "==", deviceId);
+                        let shopLabel = (isAdminMaster && row.device_id) ? ` [ຮ້ານ: ${row.device_id}]` : '';
 
-                            let salesRef = isAdminMaster ? 
-                                db.collection("sales_history") : 
-                                db.collection("sales_history").where("device_id", "==", deviceId);
+                        let rightCellHtml = isAdminMaster ? 
+                            `<input type="checkbox" data-id="${row.id}" class="inventory-row-checkbox w-4 h-4 cursor-pointer accent-cyan-600">` : 
+                            `<button onclick="openEditInventoryItem('${row.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer shadow flex items-center gap-1 mx-auto">✏️ ແກ້ໄຂ</button>`;
 
-                            if (inventoryUnsubscribe) {
-                                inventoryUnsubscribe();
-                            }
+                        html += `
+                            <tr class="hover:bg-gray-50 border-b">
+                                <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
+                                <td class="p-3 border-r text-center font-bold text-blue-600 font-mono">${row.code || '-'}</td>
+                                <td class="p-3 border-r font-bold text-gray-900">${row.name || '-'}${shopLabel}</td>
+                                <td class="p-3 border-r text-center font-semibold text-purple-700">${formattedDate}</td>
+                                <td class="p-3 border-r text-right font-bold text-cyan-800">${formatNumberWithCommas(remainingFullPacks)}</td>
+                                <td class="p-3 border-r text-right text-blue-600 font-semibold">${costStr}</td>
+                                <td class="p-3 border-r text-right text-green-600 font-semibold">${priceStr}</td>
+                                <td class="p-3 border-r text-right font-bold text-blue-800 bg-blue-50/30">${totalCostStr}</td>
+                                <td class="p-3 border-r text-right font-bold text-green-800 bg-green-50/30">${totalPriceStr}</td>
+                                <td class="p-3 border-r text-center text-xs font-extrabold text-amber-600">${noteStr}</td>
+                                <td class="p-3 text-center">
+                                    ${rightCellHtml}
+                                </td>
+                            </tr>
+                        `;
+                    });
 
-                            inventoryUnsubscribe = prodRef.onSnapshot(async (productSnapshot) => {
-                                try {
-                                    let salesSnapshot = await salesRef.get();
+                    tbody.innerHTML = html;
+                }
 
-                                    excelRows = [];
-                                    if (productSnapshot && !productSnapshot.empty) {
-                                        productSnapshot.forEach(doc => {
-                                            let item = doc.data();
-                                            excelRows.push({
-                                                id: doc.id,
-                                                code: item.code,
-                                                name: item.name || item.code,
-                                                cost: item.cost,
-                                                originalCost: item.original_cost || item.cost,
-                                                profitPct: item.profit_pct,
-                                                price: item.price,
-                                                qty: item.qty || 1, 
-                                                unitPerPack: item.unit_per_pack || 12,
-                                                dateAdded: item.date_added || new Date().toISOString().split('T')[0],
-                                                mfgDate: item.mfg_date || '',
-                                                expiryDate: item.expiry_date || '',
-                                                currency: item.currency || 'ກີບ',
-                                                buyingRate: item.buying_rate || 650,
-                                                sellingRate: item.selling_rate || 670,
-                                                device_id: item.device_id || '-'
-                                            });
-                                        });
-                                    }
-
-                                    let rowSoldMap = {}; 
-                                    if (salesSnapshot && !salesSnapshot.empty) {
-                                        salesSnapshot.forEach(doc => {
-                                            let tx = doc.data();
-                                            if (tx.items && Array.isArray(tx.items)) {
-                                                tx.items.forEach(it => {
-                                                    let rowId = it.product_row_id || ''; 
-                                                    let cKey = String(it.code || '').trim().toLowerCase();
-                                                    let qty = parseInt(it.qty) || 1;
-                                                    if (rowId) {
-                                                        rowSoldMap[rowId] = (rowSoldMap[rowId] || 0) + qty;
-                                                    } else {
-                                                        rowSoldMap[cKey] = (rowSoldMap[cKey] || 0) + qty;
-                                                    }
-                                                });
-                                            }
-                                        });
-                                    }
-
-                                    if (excelRows.length === 0) {
-                                        tbody.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ</td></tr>`;
-                                        return;
-                                    }
-
-                                    let html = '';
-                                    let countIndex = 1;
-
-                                    let actionHeader = document.getElementById('inventory-col-action-header');
-                                    if (actionHeader) {
-                                        if (isAdminMaster) {
-                                            actionHeader.innerHTML = `<input type="checkbox" id="select-all-checkbox" onclick="toggleSelectAllInventory(this)" class="w-4 h-4 cursor-pointer accent-cyan-600" title="ເລືອກທັງໝົດ">`;
-                                        } else {
-                                            actionHeader.innerHTML = `ຈັດການ`;
-                                        }
-                                    }
-
-                                    excelRows.forEach((row) => {
-                                        let initialPackQty = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1; 
-                                        let unitPerPack = parseInt(row.unitPerPack || 12);
-                                        let totalSubUnits = initialPackQty * unitPerPack; 
-
-                                        let soldSubUnits = rowSoldMap[row.id] || rowSoldMap[String(row.code || '').trim().toLowerCase()] || 0;
-                                        if (soldSubUnits > totalSubUnits) soldSubUnits = totalSubUnits;
-
-                                        let remainingSubUnits = totalSubUnits - soldSubUnits;
-                                        if (remainingSubUnits < 0) remainingSubUnits = 0;
-
-                                        let remainingFullPacks = Math.floor(remainingSubUnits / unitPerPack);
-                                        let leftoverUnits = remainingSubUnits % unitPerPack;
-
-                                        let adjusted = getAdjustedItemPricing(row);
-                                        let cost = adjusted.cost;
-                                        let price = adjusted.price;
-                                        
-                                        let totalCostAmount = cost * remainingFullPacks;
-                                        let totalPriceAmount = price * remainingFullPacks;
-
-                                        let currency = row.currency || 'ກີບ'; 
-                                        let costStr = formatNumberWithCommas(cost) + " " + currency;
-                                        let priceStr = formatNumberWithCommas(price) + " " + currency;
-                                        let totalCostStr = formatNumberWithCommas(totalCostAmount) + " " + currency;
-                                        let totalPriceStr = formatNumberWithCommas(totalPriceAmount) + " " + currency;
-
-                                        let formattedDate = formatDateToDDMMYYYY(row.dateAdded || new Date().toISOString().split('T')[0]);
-                                        let noteStr = `ເຫຼືອ: ${formatNumberWithCommas(remainingFullPacks)}/${leftoverUnits}`;
-
-                                        let shopLabel = (isAdminMaster && row.device_id) ? ` [ຮ້ານ: ${row.device_id}]` : '';
-
-                                        let rightCellHtml = isAdminMaster ? 
-                                            `<input type="checkbox" data-id="${row.id}" class="inventory-row-checkbox w-4 h-4 cursor-pointer accent-cyan-600">` : 
-                                            `<button onclick="openEditInventoryItem('${row.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer shadow flex items-center gap-1 mx-auto">✏️ ແກ້ໄຂ</button>`;
-
-                                        html += `
-                                            <tr class="hover:bg-gray-50 border-b">
-                                                <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
-                                                <td class="p-3 border-r text-center font-bold text-blue-600 font-mono">${row.code || '-'}</td>
-                                                <td class="p-3 border-r font-bold text-gray-900">${row.name || '-'}${shopLabel}</td>
-                                                <td class="p-3 border-r text-center font-semibold text-purple-700">${formattedDate}</td>
-                                                <td class="p-3 border-r text-right font-bold text-cyan-800">${formatNumberWithCommas(remainingFullPacks)}</td>
-                                                <td class="p-3 border-r text-right text-blue-600 font-semibold">${costStr}</td>
-                                                <td class="p-3 border-r text-right text-green-600 font-semibold">${priceStr}</td>
-                                                <td class="p-3 border-r text-right font-bold text-blue-800 bg-blue-50/30">${totalCostStr}</td>
-                                                <td class="p-3 border-r text-right font-bold text-green-800 bg-green-50/30">${totalPriceStr}</td>
-                                                <td class="p-3 border-r text-center text-xs font-extrabold text-amber-600">${noteStr}</td>
-                                                <td class="p-3 text-center">
-                                                    ${rightCellHtml}
-                                                </td>
-                                            </tr>
-                                        `;
-                                    });
-
-                                    tbody.innerHTML = html;
-                                } catch (e) {
-                                    console.error("Error in inventory realtime snapshot:", e);
-                                }
-                            });
-                        }
-
-                        function loadInventory() {
-                            loadInventoryRealtime();
-                        }
+                function loadInventoryRealtime() {
+                    loadInventory();
+                }
 
         // ===== ຟັງຊັນໃໝ່ສຳລັບການໂຫຼດປະຫວັດ Rate (Realtime Listener) =====
         function loadRateAnalysis() {
