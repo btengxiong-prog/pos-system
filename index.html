@@ -2984,47 +2984,34 @@
             }
         }
 
-            async function loadInventory() {
-                let tbody = document.getElementById('inventory-tbody');
-                if (!tbody) return;
-                tbody.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງແບບ Realtime...</td></tr>`;
-
-                let userRole = localStorage.getItem('pos_user_role');
-                let isAdminMaster = (userRole === 'admin' || deviceId === 'POSXIONG');
-                let salesSnapshot = null;
-
-                    if (db) {
-                        try {
-                            let salesRef = isAdminMaster ? 
-                                db.collection("sales_history") : 
-                                db.collection("sales_history").where("device_id", "==", deviceId);
-                            salesSnapshot = await salesRef.get();
-                        } catch (e) {}
+        async function openInventoryModal() {
+                    let modal = document.getElementById('inventory-modal');
+                    if (modal) {
+                        modal.classList.hidden = false;
+                        modal.classList.remove('hidden');
+                        loadInventory();
                     }
+                }
 
-                    let rowSoldMap = {}; 
-                    if (salesSnapshot) {
-                        salesSnapshot.forEach(doc => {
-                            let tx = doc.data();
-                            if (tx.items && Array.isArray(tx.items)) {
-                                tx.items.forEach(it => {
-                                    let rowId = it.product_row_id || ''; 
-                                    let cKey = String(it.code || '').trim().toLowerCase();
-                                    let qty = parseInt(it.qty) || 1;
-                                    if (rowId) {
-                                        rowSoldMap[rowId] = (rowSoldMap[rowId] || 0) + qty;
-                                    } else {
-                                        rowSoldMap[cKey] = (rowSoldMap[cKey] || 0) + qty;
-                                    }
-                                });
-                            }
-                        });
+                function closeInventoryModal() {
+                    let modal = document.getElementById('inventory-modal');
+                    if (modal) {
+                        modal.classList.add('hidden');
                     }
+                }
+
+                function loadInventory() {
+                    let tbody = document.getElementById('inventory-tbody');
+                    if (!tbody) return;
+                    tbody.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
 
                     if (!excelRows || excelRows.length === 0) {
                         tbody.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ</td></tr>`;
                         return;
                     }
+
+                    let userRole = localStorage.getItem('pos_user_role');
+                    let isAdminMaster = (userRole === 'admin' || deviceId === 'POSXIONG');
 
                     let html = '';
                     let countIndex = 1;
@@ -3041,16 +3028,8 @@
                     excelRows.forEach((row) => {
                         let initialPackQty = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1; 
                         let unitPerPack = parseInt(row.unitPerPack || 12);
-                        let totalSubUnits = initialPackQty * unitPerPack; 
-
-                        let soldSubUnits = rowSoldMap[row.id] || rowSoldMap[String(row.code || '').trim().toLowerCase()] || 0;
-                        if (soldSubUnits > totalSubUnits) soldSubUnits = totalSubUnits;
-
-                        let remainingSubUnits = totalSubUnits - soldSubUnits;
-                        if (remainingSubUnits < 0) remainingSubUnits = 0;
-
-                        let remainingFullPacks = Math.floor(remainingSubUnits / unitPerPack);
-                        let leftoverUnits = remainingSubUnits % unitPerPack;
+                        let remainingFullPacks = initialPackQty;
+                        let leftoverUnits = 0;
 
                         let adjusted = getAdjustedItemPricing(row);
                         let cost = adjusted.cost;
