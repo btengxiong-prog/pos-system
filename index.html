@@ -49,10 +49,11 @@
             #expiry-modal, #expiry-modal *,
             #history-modal, #history-modal *,
             #report-modal, #report-modal *,
-            #checkout-method-modal, #checkout-method-modal * {
+            #checkout-method-modal, #checkout-method-modal *,
+            #sales-popup-modal, #sales-popup-modal * {
                 visibility: visible !important;
             }
-            #inventory-modal, #price-compare-modal, #rate-analysis-modal, #expiry-modal, #history-modal, #report-modal {
+            #sales-popup-modal {
                 position: absolute !important;
                 left: 0 !important;
                 top: 0 !important;
@@ -60,8 +61,6 @@
                 height: auto !important;
                 background: white !important;
                 z-index: 999999 !important;
-                overflow: visible !important;
-                max-height: none !important;
             }
             @page {
                 size: auto;
@@ -697,7 +696,7 @@
                                 </button>
                             </div>
                         </div>
-                        <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); openScanner();" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-blue-700 flex items-center gap-2 text-left cursor-pointer transition border-t border-blue-500" id="menu-stock-out">
+                        <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); openSalesPopup();" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-blue-700 flex items-center gap-2 text-left cursor-pointer transition border-t border-blue-500" id="menu-stock-out">
                             📦 ນຳອອກສິນຄ້າ
                         </button>
                     </div>
@@ -747,11 +746,9 @@
                         <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); openReport();" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-emerald-700 flex items-center gap-2 text-left cursor-pointer transition">
                             📈 ລາຍງານ
                         </button>
-                        <!-- ວິເຄາະ ແລະ ສົມທຽບລາຄາສິນຄ້າ -->
                         <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); openPriceCompareModal();" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-emerald-700 flex items-center gap-2 text-left cursor-pointer transition border-t border-emerald-500">
                             📊 ວິເຄາະ ແລະ ສົມທຽບລາຄາສິນຄ້າ
                         </button>
-                        <!-- Rate ແລະ ອັດຕາຂາຍ -->
                         <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); openRateAnalysisModal();" class="w-full px-4 py-2.5 text-xs font-semibold text-white hover:bg-emerald-700 flex items-center gap-2 text-left cursor-pointer transition border-t border-emerald-500">
                             💱 Rate ແລະ ອັດຕາຂາຍ
                         </button>
@@ -768,7 +765,6 @@
                     ⚙️ ຈັດການລະບົບ
                 </button>
 
-                <!-- ປຸ່ມ QR Code ເຊື່ອມຕໍ່ພະນັກງານ -->
                 <button id="header-connect-qr-btn" onclick="openAdminQrModal()" class="hidden w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs sm:text-sm">
                     📱 QR Code ເຊື່ອມຕໍ່ພະນັກງານ
                 </button>
@@ -780,7 +776,7 @@
         </div>
     </header>
 
-    <!-- Main Content -->
+    <!-- Main Content / Scanner Container -->
     <main class="container mx-auto px-4 mt-6 max-w-4xl">
         <div id="scanner-container" class="hidden mb-6 bg-white p-4 rounded-xl shadow border">
             <div class="flex justify-between items-center mb-2">
@@ -818,6 +814,86 @@
             <button onclick="closeStockInScanner()" class="mt-3 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded w-full font-bold cursor-pointer">ປິດກ້ອງ</button>
         </div>
 
+        <!-- 🛒 ປ໊ອບອັບ "ຢືນຢັນລາຍການຂາຍ ແລະ ຊຳລະເງິນ" (Sales Popup Modal) -->
+        <div id="sales-popup-modal" class="hidden fixed inset-0 bg-black/60 z-[350] flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+                <div class="flex justify-between items-center border-b pb-3">
+                    <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+                        <span>🛒 ຢືນຢັນລາຍການຂາຍ ແລະ ຊຳລະເງິນ</span>
+                    </h3>
+                    <button onclick="closeSalesPopup()" class="text-gray-400 hover:text-gray-600 font-bold text-xl cursor-pointer">✕</button>
+                </div>
+
+                <!-- ຕາຕະລາງດ້ານເທິງໃນຮູບ -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <div class="bg-gray-50 p-2.5 rounded-xl border flex items-center justify-between">
+                        <span class="font-bold text-gray-700 text-xs">ຊື່ສິນຄ້າ:</span>
+                        <span id="display-scanned-product-name" class="font-semibold text-blue-700 text-xs truncate max-w-[150px]">-</span>
+                    </div>
+                    <div class="bg-gray-50 p-2.5 rounded-xl border flex items-center justify-between">
+                        <span class="font-bold text-gray-700 text-xs">ປະເພດການຂາຍ:</span>
+                        <div class="flex items-center gap-2 text-xs font-bold">
+                            <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="sale_type_mode" value="wholesale" checked onchange="setSaleTypeMode('wholesale')" class="accent-red-600"> ຂາຍສົ່ງ</label>
+                            <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="sale_type_mode" value="retail" onchange="setSaleTypeMode('retail')" class="accent-blue-600"> ຂາຍຍ່ອຍ</label>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 p-2.5 rounded-xl border flex items-center justify-between">
+                        <span class="font-bold text-gray-700 text-xs">ສິນຄ້າຄ້າງສາງ:</span>
+                        <span id="display-scanned-stock-remaining" class="font-bold text-cyan-800 text-sm">0</span>
+                    </div>
+                    <div class="bg-gray-50 p-2.5 rounded-xl border flex items-center justify-between">
+                        <span class="font-bold text-gray-700 text-xs">ຈ/ນສິນຄ້າຂາຍ:</span>
+                        <input type="text" id="display-scanned-product-qty-input" value="1" oninput="formatInputMoney(this); updateCartQtyFromInput(this.value);" class="w-20 border rounded-lg px-2 py-1 text-center font-bold text-green-600 text-sm bg-white outline-none">
+                    </div>
+                </div>
+
+                <!-- ຍອດເງິນຕ່າງໆ -->
+                <div class="bg-blue-50/50 border border-blue-100 rounded-xl p-4 space-y-3 text-sm">
+                    <div class="flex justify-between items-center font-semibold text-gray-700">
+                        <span>ລວມຍອດຊື້:</span>
+                        <span id="grand-total-cost" class="text-blue-700 font-bold">0 ກີບ</span>
+                    </div>
+                    <div class="flex justify-between items-center font-semibold text-gray-700">
+                        <span>ລວມຍອດຂາຍ (ກ່ອນຫຼຸດ):</span>
+                        <span id="grand-total" class="text-gray-800 font-bold">0 ກີບ</span>
+                    </div>
+                    <div class="flex justify-between items-center text-gray-700 border-t pt-2">
+                        <span class="font-medium text-red-600 text-xs">ລາຄາຂາຍຕົວຈິງ (ພິມແກ້ໄຂໄດ້):</span>
+                        <input type="text" id="custom-final-price" oninput="formatInputMoney(this); calculateChange();" placeholder="ປ້ອນລາຄາຂາຍຕົວຈິງ" class="border rounded-lg px-3 py-1.5 text-right w-44 focus:ring-2 focus:ring-red-500 outline-none font-bold text-red-600 bg-white text-xs">
+                    </div>
+                    <div class="flex justify-between items-center font-bold text-gray-800 border-t pt-2">
+                        <span>ລາຄາຂາຍຕົວຈິງ (ສະແດງຜົນ):</span>
+                        <span id="final-total" class="text-green-600 text-base">0 ກີບ</span>
+                    </div>
+                    <div class="flex justify-between items-center font-bold text-gray-800 border-t pt-2">
+                        <span>ກຳໄລເບື້ອງຕົ້ນ (ຂາຍຕົວຈິງ - ຊື້):</span>
+                        <span id="grand-total-profit" class="text-emerald-700 text-base">0 ກີບ</span>
+                    </div>
+                    <div class="flex justify-between items-center text-gray-700 border-t pt-2 text-xs">
+                        <span class="font-medium">ເງິນລູກຄ້າຈ່າຍ (ຖ້າມີທອນ):</span>
+                        <input type="text" id="cash-given" oninput="formatInputMoney(this); calculateChange();" placeholder="ຈ່າຍພໍດີ ບໍ່ທ້ອງປ້ອນ" class="border rounded-lg px-3 py-1.5 text-right w-44 focus:ring-2 focus:ring-blue-500 outline-none bg-white text-xs">
+                    </div>
+                    <div class="flex justify-between items-center font-bold text-gray-800 border-t pt-2">
+                        <span>ເງິນທອນ:</span>
+                        <span id="change-amount" class="text-orange-600 text-base">0 ກີບ (ຈ່າຍພໍດີ)</span>
+                    </div>
+                </div>
+
+                <!-- 3 ປຸ່ມຄຳສັ່ງດ້ານລຸ່ມຕາມຮູບ -->
+                <div class="grid grid-cols-3 gap-2 pt-2">
+                    <button onclick="printCurrentReceipt()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl shadow transition flex items-center justify-center gap-1 text-xs cursor-pointer">
+                        🖨️ ພິມບິນຂາຍ
+                    </button>
+                    <button onclick="cancelCurrentSaleTransaction()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl shadow transition flex items-center justify-center gap-1 text-xs cursor-pointer">
+                        ❌ ຍົກເລີກ
+                    </button>
+                    <button onclick="openCheckoutMethodModal()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl shadow transition flex items-center justify-center gap-1 text-xs cursor-pointer">
+                        💰 ຊຳລະເງິນ
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Modal ກຳນົດຂໍ້ມູນສິນຄ້າ -->
         <div id="confirm-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
@@ -838,7 +914,6 @@
                         <input type="text" id="modal-price" oninput="formatInputMoney(this)" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-right font-bold text-green-600 text-lg" placeholder="ຕົວຢ່າງ: 0">
                     </div>
 
-                    <!-- ປຸ່ມ ຂາຍສົ່ງ ແລະ ຂາຍຍ່ອຍ -->
                     <div class="flex gap-2 pt-1">
                         <button type="button" id="btn-wholesale" onclick="setSaleType('wholesale')" class="flex-1 bg-red-600 text-white font-bold py-2 rounded-xl text-xs transition shadow cursor-pointer">📦 ຂາຍສົ່ງ (ຫໍ່, ແພັກ, ລາງ...)</button>
                         <button type="button" id="btn-retail" onclick="setSaleType('retail')" class="flex-1 bg-gray-200 text-gray-700 font-bold py-2 rounded-xl text-xs transition shadow cursor-pointer">🥤 ຂາຍຍ່ອຍ (ແກ້ວ, ວດ...)</button>
@@ -873,7 +948,6 @@
                 <div class="bg-gray-50 p-4 rounded-xl text-left text-sm space-y-3 border">
                     <p><b>ລະຫັດ Barcode/QR:</b> <span id="stock-in-code" class="text-pink-600 font-bold text-xs break-all"></span></p>
                     
-                    <!-- ປຸ່ມ "ຄຳນວນ (%)" ໄວ້ໃນກ່ອງສີແດງ (ກ່ອນວັນທີ) -->
                     <div class="flex justify-between items-center bg-amber-50 p-2.5 rounded-xl border border-amber-200">
                         <span class="text-xs font-bold text-amber-800">🧮 ຊ່ວຍຄຳນວນເປີເຊັນ (%):</span>
                         <button type="button" onclick="openCalcModal()" class="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer shadow flex items-center gap-1">
@@ -887,7 +961,7 @@
                     </div>
 
                     <div>
-                        <label class="block font-semibold text-gray-700 mb-1">🏷️ ຊື່ສິນຄ້າ (ບໍ່ປ້ອນກໍ່ໄດ້):</label>
+                        <label class="block font-semibold text-gray-700 mb-1">🏷️ ຊື່ສິນຄ້າ (ບໍ່ປ້ອນກໍ່ได้):</label>
                         <input type="text" id="stock-in-custom-name" list="existing-product-names-list" class="w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-pink-500 font-semibold text-gray-800 bg-white" placeholder="ປ້ອນຊື່ສິນຄ້າ (ຖ້າມີ)">
                     </div>
 
@@ -948,7 +1022,7 @@
                 <h3 class="text-lg font-bold text-amber-800 text-center">ເຄື່ອງມືຄຳນວນເປີເຊັນຂາຍ (%)</h3>
                 <div class="space-y-3 text-xs">
                     <div>
-                        <label class="block font-bold text-gray-700 mb-1">ຊື່ສິນຄ້າ (ບໍ່ປ້ອນກໍ່ໄດ້):</label>
+                        <label class="block font-bold text-gray-700 mb-1">ຊື່ສິນຄ້າ (ບໍ່ປ້ອນກໍ່ได้):</label>
                         <input type="text" id="calc-modal-name" list="existing-product-names-list" class="w-full border rounded-lg px-3 py-2 font-semibold text-gray-800 bg-white outline-none" placeholder="ປ້ອນຊື່ສິນຄ້າ (ຖ້າມີ)">
                     </div>
                     <div>
@@ -973,79 +1047,6 @@
                     <button onclick="confirmCalcModal()" class="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">ຕົກລົງ</button>
                 </div>
             </div>
-        </div>
-
-        <!-- ຕາຕະລາງດ້ານເທິງ -->
-        <div class="bg-white rounded-xl shadow p-4 mb-6 space-y-3">
-            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-center text-sm">
-                <!-- 5) ຊື່ສິນຄ້າ -->
-                <div class="bg-gray-50 p-2.5 rounded-xl border flex items-center justify-between">
-                    <span class="font-bold text-gray-700 text-xs">ຊື່ສິນຄ້າ:</span>
-                    <span id="display-scanned-product-name" class="font-semibold text-blue-700 text-xs truncate max-w-[130px]">-</span>
-                </div>
-                <!-- 2, 3, 4) ປະເພດການຂາຍ: ຂາຍສົ່ງ / ຂາຍຍ່ອຍ -->
-                <div class="bg-gray-50 p-2.5 rounded-xl border flex items-center justify-between">
-                    <span class="font-bold text-gray-700 text-xs">ປະເພດການຂາຍ:</span>
-                    <div class="flex items-center gap-2 text-xs font-bold">
-                        <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="sale_type_mode" value="wholesale" checked onchange="setSaleTypeMode('wholesale')" class="accent-red-600"> ຂາຍສົ່ງ</label>
-                        <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="sale_type_mode" value="retail" onchange="setSaleTypeMode('retail')" class="accent-blue-600"> ຂາຍຍ່ອຍ</label>
-                    </div>
-                </div>
-                <!-- 6) ສິນຄ້າຄ້າງສາງ -->
-                <div class="bg-gray-50 p-2.5 rounded-xl border flex items-center justify-between">
-                    <span class="font-bold text-gray-700 text-xs">ສິນຄ້າຄ້າງສາງ:</span>
-                    <span id="display-scanned-stock-remaining" class="font-bold text-cyan-800 text-sm">0</span>
-                </div>
-                <!-- 7) ຈຳນວນສິນຄ້າຂາຍ -->
-                <div class="bg-gray-50 p-2.5 rounded-xl border flex items-center justify-between">
-                    <span class="font-bold text-gray-700 text-xs">ຈ/ນສິນຄ້າຂາຍ:</span>
-                    <input type="text" id="display-scanned-product-qty-input" value="1" oninput="formatInputMoney(this); updateCartQtyFromInput(this.value);" class="w-16 border rounded-lg px-2 py-1 text-center font-bold text-green-600 text-sm bg-white outline-none">
-                </div>
-            </div>
-        </div>
-
-        <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 shadow mb-6 space-y-3">
-            <div class="flex justify-between items-center text-base font-semibold text-gray-700">
-                <span id="lbl-total-cost">ລວມຍອດຊື້:</span>
-                <span id="grand-total-cost" class="text-blue-700 text-lg">0 ກີບ</span>
-            </div>
-            <div class="flex justify-between items-center text-base font-semibold text-gray-700">
-                <span id="lbl-total-sale">ລວມຍອດຂາຍ (ກ່ອນຫຼຸດ):</span>
-                <span id="grand-total" class="text-gray-800 text-lg">0 ກີບ</span>
-            </div>
-            <div class="flex justify-between items-center text-gray-700 border-t pt-2">
-                <span id="lbl-actual-editable" class="font-medium text-red-600">ລາຄາຂາຍຕົວຈິງ (ພິມແກ້ໄຂໄດ້):</span>
-                <input type="text" id="custom-final-price" oninput="formatInputMoney(this); calculateChange();" onkeydown="handleCustomPriceKeydown(event)" placeholder="ປ້ອນລາຄາຂາຍຕົວຈິງ" class="border rounded-lg px-3 py-1.5 text-right w-52 focus:ring-2 focus:ring-red-500 outline-none font-bold text-red-600 bg-white">
-            </div>
-            <div class="flex justify-between items-center text-lg font-bold text-gray-800 border-t pt-2">
-                <span id="lbl-actual-display">ລາຄາຂາຍຕົວຈິງ (ສະແດງຜົນ):</span>
-                <span id="final-total" class="text-green-600 text-xl">0 ກີບ</span>
-            </div>
-            <div class="flex justify-between items-center text-base font-bold text-gray-800 border-t pt-2">
-                <span id="lbl-profit">ກຳໄລເບື້ອງຕົ້ນ (ຂາຍຕົວຈິງ - ຊື້):</span>
-                <span id="grand-total-profit" class="text-emerald-700 text-lg">0 ກີບ</span>
-            </div>
-            <div class="flex justify-between items-center text-gray-700 border-t pt-2">
-                <span id="lbl-cash-given" class="font-medium">ເງິນລູກຄ້າຈ່າຍ (ຖ້າມີທອນ):</span>
-                <input type="text" id="cash-given" oninput="formatInputMoney(this); calculateChange();" onkeydown="handleCashKeydown(event)" placeholder="ບໍ່ຈຳເປັນຕ້ອງປ້ອນ ຖ້າຈ່າຍພໍດີ" class="border rounded-lg px-3 py-1.5 text-right w-52 focus:ring-2 focus:ring-blue-500 outline-none bg-white">
-            </div>
-            <div class="flex justify-between items-center text-lg font-bold text-gray-800 border-t pt-2">
-                <span id="lbl-change">ເງິນທອນ:</span>
-                <span id="change-amount" class="text-orange-600 text-xl">0 ກີບ (ຈ່າຍພໍດີ)</span>
-            </div>
-        </div>
-
-        <!-- 3 ປຸ່ມຄຳສັ່ງດ້ານລຸ່ມ -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
-            <button onclick="printCurrentReceipt()" class="w-full bg-purple-600 hover:bg-purple-700 text-white text-base font-bold py-3.5 rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
-                🖨️ ພິມບິນຂາຍ
-            </button>
-            <button onclick="cancelCurrentSaleTransaction()" class="w-full bg-red-600 hover:bg-red-700 text-white text-base font-bold py-3.5 rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
-                ❌ ຍົກເລີກ
-            </button>
-            <button onclick="openCheckoutMethodModal()" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-base font-bold py-3.5 rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
-                💰 ຊຳລະເງິນ ແລະ ເລືອກບັນຊີ
-            </button>
         </div>
     </main>
 
@@ -1217,7 +1218,6 @@
 
             <!-- ລາຍລະອຽດການຊື້/ຂາຍ ແຍກສະກຸນເງິນ ພ້ອມເງິນສົດ/ເງິນໂອນ -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <!-- ຝ່າຍເງິນກີບ -->
                 <div class="bg-gray-50 p-4 rounded-xl border space-y-2">
                     <h4 class="font-bold text-blue-900 text-xs border-b pb-1">📊 ຜົນການລວມຍອດ (ເງິນກີບລາວ):</h4>
                     <div class="flex justify-between text-xs font-semibold text-gray-600">
@@ -1242,7 +1242,6 @@
                     </div>
                 </div>
 
-                <!-- ຝ່າຍເງິນບາດ -->
                 <div class="bg-gray-50 p-4 rounded-xl border space-y-2">
                     <h4 class="font-bold text-purple-900 text-xs border-b pb-1">📊 ຜົນການລວມຍອດ (ເງິນບາດໄທ):</h4>
                     <div class="flex justify-between text-xs font-semibold text-gray-600">
@@ -2802,7 +2801,6 @@
             showAlert("ສຳເລັດ", "ອັບເດດ ແລະ ແກ້ໄຂຂໍ້ມູນສິນຄ້າໃນສາງສຳເລັດຮຽບຮ້ອຍ!", "✅");
         }
 
-        // --- ຟັງຊັນເປີດ/ປິດ Modal ຄຳນວນເປີເຊັນ (%) ---
         function openCalcModal() {
             document.getElementById('calc-modal-name').value = document.getElementById('stock-in-custom-name').value || "";
             document.getElementById('calc-modal-cost').value = document.getElementById('stock-in-cost').value || "";
@@ -2960,7 +2958,6 @@
             }
         }
 
-        // --- ຟັງຊັນເປີດກ້ອງສະແກນນຳເຂົ້າສິນຄ້າທີ່ຖືກຕ້ອງ 100% ---
         function openStockInScannerWithExpiry(hasExpiry) {
             isExpiryMode = hasExpiry;
             let titleElem = document.getElementById('stock-in-title');
@@ -3466,42 +3463,30 @@
             await Promise.all(promises);
         }
 
-        // --- ຟັງຊັນການສະແກນຂາຍສິນຄ້າ (ນຳອອກສິນຄ້າ) ---
+        // --- ຟັງຊັນເປີດ/ປິດ ປ໊ອບອັບ "ຢືນຢັນລາຍການຂາຍ ແລະ ຊຳລະເງິນ" ---
+        function openSalesPopup() {
+            let modal = document.getElementById('sales-popup-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                renderCart();
+            }
+        }
+
+        function closeSalesPopup() {
+            let modal = document.getElementById('sales-popup-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+            }
+        }
+
         function openScanner() {
-            let container = document.getElementById('scanner-container');
-            if (container) {
-                container.classList.remove('hidden');
-            }
-            if (!html5QrCode) {
-                try {
-                    html5QrCode = new Html5Qrcode("reader");
-                } catch (e) {
-                    console.error("Html5Qrcode init error:", e);
-                    return;
-                }
-            }
-            html5QrCode.start(
-                { facingMode: "environment" },
-                { fps: 10, qrbox: 250 },
-                (decodedText) => {
-                    handleScannedCodeResult(decodedText);
-                },
-                (errorMessage) => {}
-            ).catch(err => {
-                console.error("Scanner start error:", err);
-            });
+            openSalesPopup();
+            // ສາມາດເປີດກ້ອງສະແກນເພີ່ມເຕີມຖ້າຕ້ອງການ
         }
 
         function closeScanner() {
-            if (html5QrCode) {
-                html5QrCode.stop().then(() => {
-                    let container = document.getElementById('scanner-container');
-                    if (container) container.classList.add('hidden');
-                }).catch(() => {});
-            } else {
-                let container = document.getElementById('scanner-container');
-                if (container) container.classList.add('hidden');
-            }
+            let container = document.getElementById('scanner-container');
+            if (container) container.classList.add('hidden');
         }
 
         function handleScanBarcodeInput(event) {
@@ -3582,6 +3567,7 @@
                     unitPerPack: unitPerPack
                 });
             }
+            openSalesPopup();
             renderCart();
         }
 
@@ -3661,6 +3647,7 @@
             if (elProfit) elProfit.innerText = "0 ກີບ";
             if (changeElem) changeElem.innerText = "0 ກີບ (ຈ່າຍພໍດີ)";
 
+            closeSalesPopup();
             showAlert("ສຳເລັດ", "ຍົກເລີກຂໍ້ມູນການສະແກນ ແລະ ລາຍການໃນໜ້າຂາຍສຳເລັດຮຽບຮ້ອຍ!", "❌");
         }
 
@@ -3745,21 +3732,6 @@
             }
         }
 
-        function handleCustomPriceKeydown(event) {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                openCheckoutMethodModal();
-            }
-        }
-
-        function handleCashKeydown(event) {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                openCheckoutMethodModal();
-            }
-        }
-
-        // --- ພິມບິນຂາຍ & ຊຳລະເງິນ ---
         function printCurrentReceipt() {
             try {
                 window.print();
@@ -3898,6 +3870,7 @@
             }
 
             closeCheckoutMethodModal();
+            closeSalesPopup();
 
             cart = [];
             renderCart();
@@ -3919,11 +3892,6 @@
             if (cashGivenInput) cashGivenInput.value = "";
 
             showAlert("ສຳເລັດ", "ບັນທຶກການຊຳລະເງິນ ແລະ Reset ຂໍ້ມູນສຳເລັດຮຽບຮ້ອຍ!", "✅");
-
-            let scanInput = document.getElementById('scan-barcode-input');
-            if (scanInput) {
-                scanInput.focus();
-            }
         }
 
         // --- 📊 ຟັງຊັນຈັດການປະຫວັດການຂາຍ ---
@@ -4239,7 +4207,7 @@
             document.getElementById('alert-title').innerText = title;
             document.getElementById('alert-message').innerText = message;
             document.getElementById('alert-icon').innerText = icon;
-            modal.classList.add('hidden');
+            modal.classList.remove('hidden');
         }
 
         function closeCustomAlert() {
