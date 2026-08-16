@@ -663,7 +663,7 @@
                 </div>
 
                 <div class="flex items-center gap-2">
-                    <button onclick="openRateInputModal()" class="bg-amber-500 hover:bg-amber-600 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shadow flex items-center gap-1">
+                    <button id="btn-update-rate" onclick="openRateInputModal()" class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shadow flex items-center gap-1">
                         <span>💱</span> ປັບປຸງ Rate
                     </button>
                     <select id="language-select" onchange="changeLanguage(this.value)" class="bg-slate-700 hover:bg-slate-800 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shadow outline-none border border-slate-600">
@@ -2272,7 +2272,7 @@
         }
 
         function openRateInputModal() {
-            let savedDate = localStorage.getItem('pos_custom_manual_rate_date') || new Date().toISOString().split('T')[0];
+            let savedDate = localStorage.getItem('pos_custom_manual_rate_date_' + deviceId) || new Date().toISOString().split('T')[0];
             document.getElementById('input-custom-rate-date').value = savedDate;
             loadRateForDate(savedDate);
             document.getElementById('rate-input-modal').classList.remove('hidden');
@@ -2296,6 +2296,7 @@
             }
         }
 
+        // 💡 ແກ້ໄຂບັນຫາ Rate ມົ້ວຫາກັນ: ຜູກວັນທີ ແລະ Rate ກັບ deviceId ຂອງຮ້ານນັ້ນໆຢ່າງເດັດຂາດ
         async function applyCustomRateToTable() {
             let buyRateVal = parseFloat(document.getElementById('input-custom-buy-rate').value.replace(/,/g, '')) || 0;
             let sellRateVal = parseFloat(document.getElementById('input-custom-sell-rate').value.replace(/,/g, '')) || 0;
@@ -2308,7 +2309,7 @@
 
             localStorage.setItem('pos_custom_buy_rate_' + deviceId + '_' + dateVal, buyRateVal);
             localStorage.setItem('pos_custom_sell_rate_' + deviceId + '_' + dateVal, sellRateVal);
-            localStorage.setItem('pos_custom_manual_rate_date', dateVal);
+            localStorage.setItem('pos_custom_manual_rate_date_' + deviceId, dateVal);
 
             closeRateInputModal();
             
@@ -2358,7 +2359,7 @@
             let profitPct = parseFloat(String(item.profitPct !== undefined ? item.profitPct : 20)) || 20;
             let buyRateOnImport = parseFloat(item.buyingRate) || 650;
 
-            let currentDateStr = localStorage.getItem('pos_custom_manual_rate_date') || new Date().toISOString().split('T')[0];
+            let currentDateStr = localStorage.getItem('pos_custom_manual_rate_date_' + deviceId) || new Date().toISOString().split('T')[0];
             let currentSellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate_' + deviceId + '_' + currentDateStr)) || parseFloat(localStorage.getItem('pos_custom_sell_rate_' + deviceId)) || 670;
 
             let adjustedCost = originalCost;
@@ -3796,7 +3797,7 @@
                 if (!isNaN(parsedCustom)) finalSaleAmount = parsedCustom;
             }
 
-            let currentDateStr = localStorage.getItem('pos_custom_manual_rate_date') || new Date().toISOString().split('T')[0];
+            let currentDateStr = localStorage.getItem('pos_custom_manual_rate_date_' + deviceId) || new Date().toISOString().split('T')[0];
             let buyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate_' + deviceId + '_' + currentDateStr)) || 650;
             let totalThb = buyRate > 0 ? Math.ceil(finalSaleAmount / buyRate) : 0;
 
@@ -3882,7 +3883,7 @@
             }
 
             let currency = (payMode === 'cash_thb' || payMode === 'transfer_thb') ? 'ບາດ' : 'ກີບ';
-            let currentDateStr = localStorage.getItem('pos_custom_manual_rate_date') || new Date().toISOString().split('T')[0];
+            let currentDateStr = localStorage.getItem('pos_custom_manual_rate_date_' + deviceId) || new Date().toISOString().split('T')[0];
             let buyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate_' + deviceId + '_' + currentDateStr)) || 650;
             
             if (currency === 'ບາດ' && buyRate > 0) {
@@ -4238,7 +4239,7 @@
             document.getElementById('rep-total-price-thb').innerText = formatNumberWithCommas(totalPriceThb) + " ບາດ";
             document.getElementById('rep-total-profit-thb').innerText = formatNumberWithCommas(totalPriceThb - totalCostThb) + " ບາດ";
             document.getElementById('rep-cash-thb').innerText = formatNumberWithCommas(cashThb) + " ບາດ";
-            document.getElementById('rep-transfer-thb').innerText = formatNumberWithCommas(transferThb) + " ບາດ";
+            document.getElementById('rep-transfer-thb').innerText = formatNumberWithThb(transferThb) + " ບາດ";
         }
 
         function showAlert(title, message, icon = "✅") {
