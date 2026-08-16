@@ -2610,13 +2610,12 @@
             showAlert("ສຳເລັດ", `ບັນທຶກ Rate ສຳລັບວັນທີ [${dateVal}] ສຳເລັດຮຽບຮ້ອຍ ແລະ ຣີເຟຣຊຕາຕະລາງທັນທີ!`, "💱");
         }
 
-        // --- 📦 ຈັດການສະແດງຜົນ "ສິນຄ້າຄ້າງສາງ" ໃຫ້ເຮັດວຽກ 100% ໂດຍບໍ່ກວນໂຄດອື່ນ ---
-                async function openInventoryModal() {
+        // --- 📦 ຟັງຊັນເປີດ/ປິດ Modal ສິນຄ້າຄ້າງສາງ (ປອດໄພ 100%, ບໍ່ຊ້ຳຊ້ອນ) ---
+                function openInventoryModal() {
                     let modal = document.getElementById('inventory-modal');
                     if (modal) {
-                        modal.classList.hidden = false;
                         modal.classList.remove('hidden');
-                        await loadInventory();
+                        loadInventory();
                     }
                 }
 
@@ -2627,53 +2626,18 @@
                     }
                 }
 
-                async function loadInventory() {
+                function loadInventory() {
                     let tbody = document.getElementById('inventory-tbody');
                     if (!tbody) return;
                     tbody.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
-
-                    // 1. ດຶງຂໍ້ມູນຫຼ້າສຸດຈາກ Firestore ໂດຍກົງເພື່ອຮັບປະກັນວ່າຂໍ້ມູນບໍ່ຫວ່າງເປົ່າ
-                    let userRole = localStorage.getItem('pos_user_role');
-                    let isAdminMaster = (userRole === 'admin' || deviceId === 'POSXIONG');
-                    
-                    if (db) {
-                        try {
-                            let prodRef = isAdminMaster ? 
-                                db.collection("products") : 
-                                db.collection("products").where("device_id", "==", deviceId);
-                            
-                            let snapshot = await prodRef.get();
-                            excelRows = [];
-                            snapshot.forEach(doc => {
-                                let item = doc.data();
-                                excelRows.push({
-                                    id: doc.id,
-                                    code: item.code,
-                                    name: item.name || item.code,
-                                    cost: item.cost,
-                                    originalCost: item.original_cost || item.cost,
-                                    profitPct: item.profit_pct,
-                                    price: item.price,
-                                    qty: item.qty || 1, 
-                                    unitPerPack: item.unit_per_pack || 12,
-                                    dateAdded: item.date_added || new Date().toISOString().split('T')[0],
-                                    mfgDate: item.mfg_date || '',
-                                    expiryDate: item.expiry_date || '',
-                                    currency: item.currency || 'ກີບ',
-                                    buyingRate: item.buying_rate || 650,
-                                    sellingRate: item.selling_rate || 670,
-                                    device_id: item.device_id || '-'
-                                });
-                            });
-                        } catch (e) {
-                            console.error("Error fetching products in loadInventory:", e);
-                        }
-                    }
 
                     if (!excelRows || excelRows.length === 0) {
                         tbody.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ</td></tr>`;
                         return;
                     }
+
+                    let userRole = localStorage.getItem('pos_user_role');
+                    let isAdminMaster = (userRole === 'admin' || deviceId === 'POSXIONG');
 
                     let html = '';
                     let countIndex = 1;
