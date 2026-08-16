@@ -2654,12 +2654,11 @@
             let userRole = localStorage.getItem('pos_user_role');
             let queryRef;
 
+            // 💡 ປັບປຸງ: ตัด .orderBy("date", "desc") ອອກ ເພື່ອຫຼີກເວັ້ນບັນຫາ Missing Index Error ຈາກ Firestore
             if (userRole === 'admin' || deviceId === 'POSXIONG') {
-                queryRef = db.collection("daily_rates").orderBy("date", "desc");
+                queryRef = db.collection("daily_rates");
             } else {
-                queryRef = db.collection("daily_rates")
-                    .where("device_id", "==", deviceId)
-                    .orderBy("date", "desc");
+                queryRef = db.collection("daily_rates").where("device_id", "==", deviceId);
             }
 
             queryRef.onSnapshot((snapshot) => {
@@ -2668,11 +2667,18 @@
                     return;
                 }
 
+                let rawList = [];
+                snapshot.forEach(doc => {
+                    rawList.push({ id: doc.id, ...doc.data() });
+                });
+
+                // 💡 ຈັດລຽງຂໍ້ມູນດ້ວຍ JavaScript ຈາກວັນທີໃໝ່ໄປຫາເກົ່າ (Newest to Oldest)
+                rawList.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+
                 let htmlHist = '';
                 let countIdx = 1;
 
-                snapshot.forEach(doc => {
-                    let item = doc.data();
+                rawList.forEach(item => {
                     let devLabel = '';
                     
                     if (userRole === 'admin' || deviceId === 'POSXIONG') {
