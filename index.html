@@ -151,7 +151,7 @@
                 </button>
             </div>
             <div class="pt-2 border-t text-[11px] text-gray-400 font-semibold">
-                Ver: 2.0.0 (Master Edition - Rate Conditions Added)
+                Ver: 2.0.1 (Master Edition - Realtime Rate Sync Added)
             </div>
         </div>
     </div>
@@ -914,7 +914,7 @@
 
             <!-- Footer ທີ່ຖືກຍ້າຍມາລວມໄວ້ໃນ Header -->
             <div class="pt-2 border-t border-blue-800/80 text-center text-[11px] text-blue-200">
-                ✨ ສ້າງ ແລະ ພັດທະນາໂດຍ: <span class="text-yellow-400 font-semibold">ອາຈານ ບຸນແຕ່ງ ຊົ່ງຕົງມົວ</span> | 📞 ໂທ: 020 59456999, 020 99444448 | Ver: 2.0.0 (Master Edition - Rate Conditions)
+                ✨ ສ້າງ ແລະ ພັດທະນາໂດຍ: <span class="text-yellow-400 font-semibold">ອາຈານ ບຸນແຕ່ງ ຊົ່ງຕົງມົວ</span> | 📞 ໂທ: 020 59456999, 020 99444448 | Ver: 2.0.1 (Master Edition - Realtime Rate Sync)
             </div>
         </div>
     </header>
@@ -1725,7 +1725,7 @@
             return new Date().toISOString().split('T')[0];
         }
 
-        // ===== 🆕 Rate Conditions Functions & History Table =====
+        // ===== 🆕 Rate Conditions Functions & History Table (Realtime Update) =====
         function openRateConditionsModal() {
             document.getElementById('rate-conditions-modal').classList.remove('hidden');
             loadRateConditions();
@@ -1782,24 +1782,20 @@
                 let response = await fetch(apiUrl);
                 let htmlText = await response.text();
                 
-                // ພະຍາຍາມສະກັດອັດຕາແລກປ່ຽນກີບ/ບາດ ຈາກ BCEL Website
-                // ໂຄງສ້າງຂອງ BCEL ຈະມີຕາຕະລາງ HTML
-                let buyRate = 650; // Default fallback
-                let sellRate = 670; // Default fallback
+                let buyRate = 650; 
+                let sellRate = 670; 
                 
-                // Regex ທົ່ວໄປເພື່ອຈັບຄ່າໃນຕາຕະລາງທີ່ມີ ກີບ/ບາດ
-                // ການຈັບແບບນີ້ອາດຕ້ອງປັບຕາມໂຄງສ້າງຈິງຂອງ BCEL ຖ້າປ່ຽນ
                 let match = htmlText.match(/(\d{1,3}(?:,\d{3})*)\s*ກີບ\/ບາດ/);
                 if (match) {
                     let rawRate = match[1].replace(/,/g, '');
                     let rate = parseFloat(rawRate);
                     if (!isNaN(rate) && rate > 0) {
                         buyRate = rate;
-                        sellRate = Math.round(rate * 1.03); // ເພີ່ມ Spread 3%
+                        sellRate = Math.round(rate * 1.03);
                     }
                 }
 
-                localStorage.setItem('rate_current_value', sellRate); // ໃຊ້ Rate ຂາຍເປັນຄ່າຫຼັກ
+                localStorage.setItem('rate_current_value', sellRate);
                 updateCurrentRateDisplay();
                 showAlert("ສຳເລັດ", `ດຶງຂໍ້ມູນອັດຕາແລກປ່ຽນຈາກ BCEL ໄດ້: ຊື້ ${formatNumberWithCommas(buyRate)}, ຂາຍ ${formatNumberWithCommas(sellRate)}`, "✅");
             } catch (e) {
@@ -1839,22 +1835,34 @@
             showAlert("ສຳເລັດ", "ບັນທຶກເງື່ອນໄຂອັດຕາແລກປ່ຽນສຳເລັດຮຽບຮ້ອຍ!", "✅");
         }
 
-        // ===== ຟັງຊັນປັບປຸງສຳລັບການບັນທຶກປະຫວັດ Rate =====
-        function saveRateHistoryRecord(dateStr, buyRate, sellRate, note = 'ປັບປຸງດ້ວຍມື') {
-            let historyKey = 'pos_rate_history';
-            let history = JSON.parse(localStorage.getItem(historyKey) || '[]');
-            
-            // ກວດສອບວ່າວັນທີນີ້ມີການບັນທຶກແລ້ວຫຼືບໍ່ ຖ້າມີໃຫ້ອັບເດດ
-            let existingIndex = history.findIndex(item => item.date === dateStr);
-            if (existingIndex !== -1) {
-                history[existingIndex] = { date: dateStr, buyRate: buyRate, sellRate: sellRate, note: note };
-            } else {
-                history.push({ date: dateStr, buyRate: buyRate, sellRate: sellRate, note: note });
-                // ຈັດລຽງຈາກວັນທີຫຼ້າສຸດຫາເກົ່າ
-                history.sort((a, b) => new Date(b.date) - new Date(a.date));
+        // ===== ຟັງຊັນປັບປຸງສຳລັບການບັນທຶກປະຫວັດ Rate (Realtime Sync to Firebase) =====
+        async function saveRateHistoryRecord(dateStr, buyRate, sellRate, note = 'ປັບປຸງດ້ວຍມື') {
+            if (!db) return; 
+
+            let recordData = {
+                device_id: deviceId,
+                date: dateStr,
+                buyRate: buyRate,
+                sellRate: sellRate,
+                note: note,
+                updated_at: new Date().toISOString()
+            };
+
+            try {
+                let snapshot = await db.collection("daily_rates")
+                    .where("device_id", "==", deviceId)
+                    .where("date", "==", dateStr)
+                    .get();
+
+                if (!snapshot.empty) {
+                    let docId = snapshot.docs[0].id;
+                    await db.collection("daily_rates").doc(docId).update(recordData);
+                } else {
+                    await db.collection("daily_rates").add(recordData);
+                }
+            } catch (e) {
+                console.error("Error saving rate to Firebase:", e);
             }
-            
-            localStorage.setItem(historyKey, JSON.stringify(history));
         }
 
         function getAdjustedItemPricing(item) {
@@ -1862,7 +1870,6 @@
             let profitPct = parseFloat(String(item.profitPct !== undefined ? item.profitPct : 20)) || 20;
             let buyRateOnImport = parseFloat(item.buyingRate) || 650;
 
-            // ໃຊ້ Rate ທີ່ຄຳນວນຕາມເງື່ອນໄຂ
             let currentSellRate = parseFloat(localStorage.getItem('rate_current_value')) || 688;
 
             let adjustedCost = originalCost;
@@ -1910,7 +1917,6 @@
                     }
                 } catch (e) {}
             }
-            // ໂຫຼດ Rate Conditions ເມື່ອເລີ່ມຕົ້ນ
             loadRateConditions();
         }
 
@@ -2589,8 +2595,8 @@
             localStorage.setItem('pos_custom_manual_rate', sellRateVal);
             localStorage.setItem('pos_custom_manual_rate_date', dateVal);
 
-            // ບັນທຶກລົງປະຫວັດ Rate
-            saveRateHistoryRecord(dateVal, buyRateVal, sellRateVal);
+            // ບັນທຶກລົງປະຫວັດ Rate (Realtime Sync via Firebase)
+            await saveRateHistoryRecord(dateVal, buyRateVal, sellRateVal);
 
             closeRateInputModal();
             
@@ -2635,23 +2641,46 @@
             document.getElementById('rate-analysis-modal').classList.add('hidden');
         }
 
-        async function loadRateAnalysis() {
+        // ===== ຟັງຊັນໃໝ່ສຳລັບການໂຫຼດປະຫວັດ Rate (Realtime Listener) =====
+        function loadRateAnalysis() {
             let tbodyHistory = document.getElementById('rate-history-tbody');
-            
-            // 1. ໂຫຼດປະຫວັດ Rate (ພຽງຢ່າງດຽວ)
-            let historyKey = 'pos_rate_history';
-            let history = JSON.parse(localStorage.getItem(historyKey) || '[]');
-            
-            if (history.length === 0) {
-                tbodyHistory.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີປະຫວັດການບັນທຶກ Rate</td></tr>`;
+            tbodyHistory.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດປະຫວັດ Rate...</td></tr>`;
+
+            if (!db) return;
+
+            let userRole = localStorage.getItem('pos_user_role');
+            let queryRef;
+
+            if (userRole === 'admin' || deviceId === 'POSXIONG') {
+                queryRef = db.collection("daily_rates").orderBy("date", "desc");
             } else {
+                queryRef = db.collection("daily_rates")
+                    .where("device_id", "==", deviceId)
+                    .orderBy("date", "desc");
+            }
+
+            queryRef.onSnapshot((snapshot) => {
+                if (snapshot.empty) {
+                    tbodyHistory.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີປະຫວັດການບັນທຶກ Rate</td></tr>`;
+                    return;
+                }
+
                 let htmlHist = '';
                 let countIdx = 1;
-                history.forEach(item => {
+
+                snapshot.forEach(doc => {
+                    let item = doc.data();
+                    let devLabel = '';
+                    
+                    if (userRole === 'admin' || deviceId === 'POSXIONG') {
+                        let shopName = localStorage.getItem('pos_shop_name_' + item.device_id) || item.device_id;
+                        devLabel = ` <span class="text-[10px] text-purple-600 bg-purple-50 px-1 py-0.5 rounded border">[${shopName}]</span>`;
+                    }
+
                     htmlHist += `
                         <tr class="hover:bg-gray-50 border-b text-xs text-center">
                             <td class="p-2 border-r font-bold text-gray-500">${countIdx++}</td>
-                            <td class="p-2 border-r font-semibold text-purple-700">${formatDateToDDMMYYYY(item.date)}</td>
+                            <td class="p-2 border-r font-semibold text-purple-700">${formatDateToDDMMYYYY(item.date)}${devLabel}</td>
                             <td class="p-2 border-r font-bold text-blue-600">${formatNumberWithCommas(item.buyRate)}</td>
                             <td class="p-2 border-r font-bold text-green-600">${formatNumberWithCommas(item.sellRate)}</td>
                             <td class="p-2 font-semibold text-gray-600">${item.note || '-'}</td>
@@ -2659,7 +2688,7 @@
                     `;
                 });
                 tbodyHistory.innerHTML = htmlHist;
-            }
+            });
         }
 
         async function loadPriceComparison() {
@@ -4478,7 +4507,6 @@
         }
 
         function handleExcelFileImport(event) {
-            // ສາມາດເພີ່ມໂຄດຈັດການ Excel Import ໄດ້ຕາມຕ້ອງການ
             showAlert("ຂໍ້ມູນ", "ຟັງຊັນ Excel Import ກຳລັງພັດທະນາ", "📊");
         }
 
@@ -4493,7 +4521,6 @@
         }
 
         function confirmScannedItemDirect() {
-            // ຟັງຊັນນີ້ສາມາດເພີ່ມໂຄດໄດ້ຕາມຕ້ອງການ
             showAlert("ຂໍ້ມູນ", "ຟັງຊັນນີ້ກຳລັງພັດທະນາ", "🛠️");
         }
 
@@ -4517,7 +4544,6 @@
         }
 
         function openPrintDateModal() {
-            // ສາມາດເພີ່ມໂຄດໄດ້
         }
 
         function closePrintDateModal() {
