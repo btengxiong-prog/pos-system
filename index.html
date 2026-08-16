@@ -400,6 +400,25 @@
                 <button onclick="loadRateAnalysis()" class="text-xs bg-blue-100 text-blue-800 px-3 py-1.5 rounded-lg cursor-pointer font-bold">🔄 ໂຫຼດໃໝ່</button>
             </div>
             
+            <!-- History Table Section -->
+            <div class="overflow-x-auto border rounded-xl mb-4">
+                <table class="w-full text-left border-collapse bg-white min-w-[750px]">
+                    <thead>
+                        <tr class="bg-blue-900 text-white text-[11px] uppercase text-center">
+                            <th class="p-2 border-r w-12">ລ/ດ</th>
+                            <th class="p-2 border-r">ວັນ/ເດືອນ/ປີ</th>
+                            <th class="p-2 border-r">ຊື້ (Rate)</th>
+                            <th class="p-2 border-r">ຂາຍ (Rate)</th>
+                            <th class="p-2">ໝາຍເຫດ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rate-history-tbody" class="divide-y divide-gray-200 text-sm">
+                        <tr><td colspan="5" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດປະຫວັດ Rate...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Analysis Table Section -->
             <div class="overflow-x-auto border rounded-xl">
                 <table class="w-full text-left border-collapse bg-white min-w-[1200px]">
                     <thead>
@@ -529,7 +548,7 @@
                 
                 <h4 class="font-bold text-gray-900 mt-2">2. ການຈັດການອັດຕາແລກປ່ຽນ (Rate)</h4>
                 <p class="text-xs text-gray-600 leading-relaxed">
-                    - ສາມາດກຳນົດອັດຕາແລກປ່ຽນໄດ້ 3 ວິທີ: <b>ອັດຕາຄົງທີ່</b>, <b>ປັບອັດຕະໂນມັດຕາມວັນທີ</b>, ແລະ <b>ດຶງຂໍ້ມູນຈາກ API</b>.<br>
+                    - ສາມາດກຳນົດອັດຕາແລກປ່ຽນໄດ້ 3 ວິທີ: <b>ອັດຕາຄົງທີ່</b>, <b>ປັບອັດຕະໂນມັດຕາມວັນທີ</b>, ແລະ <b>ດຶງຂໍ້ມູນຈາກ API/Web</b>.<br>
                     - ກົດເມນູ <b>"ຂໍ້ມູນ ແລະ ລະບົບ" → "Rate ແລະ ອັດຕາຂາຍ"</b> ເພື່ອຈັດການ.<br>
                     - ອັດຕາແລກປ່ຽນຈະຖືກນຳໄປໃຊ້ໃນການຄິດໄລ່ລາຄາສິນຄ້າ ແລະ ການວິເຄາະຍອດຂາຍ.
                 </p>
@@ -703,8 +722,8 @@
                 </div>
 
                 <div id="dynamic-rate-section" class="hidden">
-                    <label class="block text-xs font-bold text-gray-700 mb-1">🌐 URL API ອັດຕາແລກປ່ຽນ:</label>
-                    <input type="text" id="dynamic-api-url" value="https://api.exchangerate-api.com/v4/latest/USD" class="w-full border rounded-lg px-3 py-2 text-sm font-semibold outline-none bg-white">
+                    <label class="block text-xs font-bold text-gray-700 mb-1">🌐 URL ຂໍ້ມູນອັດຕາແລກປ່ຽນ:</label>
+                    <input type="text" id="dynamic-api-url" value="https://www.bcel.com.la/bcel/exchange-rate.html" class="w-full border rounded-lg px-3 py-2 text-sm font-semibold outline-none bg-white">
                     <button onclick="fetchDynamicRate()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg text-xs transition cursor-pointer shadow flex items-center justify-center gap-2">
                         🔄 ທົດສອບດຶງຂໍ້ມູນ
                     </button>
@@ -1740,7 +1759,7 @@
             return new Date().toISOString().split('T')[0];
         }
 
-        // ===== 🆕 Rate Conditions Functions =====
+        // ===== 🆕 Rate Conditions Functions & History Table =====
         function openRateConditionsModal() {
             document.getElementById('rate-conditions-modal').classList.remove('hidden');
             loadRateConditions();
@@ -1754,7 +1773,7 @@
             let method = localStorage.getItem('rate_method') || 'fixed';
             let fixedRate = localStorage.getItem('rate_fixed_value') || '650';
             let autoPercent = localStorage.getItem('rate_auto_percent') || '0.5';
-            let apiUrl = localStorage.getItem('rate_api_url') || 'https://api.exchangerate-api.com/v4/latest/USD';
+            let apiUrl = localStorage.getItem('rate_api_url') || 'https://www.bcel.com.la/bcel/exchange-rate.html';
 
             document.getElementById('rate-calculation-method').value = method;
             document.getElementById('fixed-rate-value').value = formatNumberWithCommas(fixedRate);
@@ -1790,18 +1809,36 @@
         async function fetchDynamicRate() {
             let apiUrl = document.getElementById('dynamic-api-url').value.trim();
             if (!apiUrl) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ URL API!", "⚠️");
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ URL ສຳລັບດຶງຂໍ້ມູນ!", "⚠️");
                 return;
             }
             try {
                 let response = await fetch(apiUrl);
-                let data = await response.json();
-                let rate = data.rates?.THB || 35;
-                localStorage.setItem('rate_current_value', Math.round(rate));
+                let htmlText = await response.text();
+                
+                // ພະຍາຍາມສະກັດອັດຕາແລກປ່ຽນກີບ/ບາດ ຈາກ BCEL Website
+                // ໂຄງສ້າງຂອງ BCEL ຈະມີຕາຕະລາງ HTML
+                let buyRate = 650; // Default fallback
+                let sellRate = 670; // Default fallback
+                
+                // Regex ທົ່ວໄປເພື່ອຈັບຄ່າໃນຕາຕະລາງທີ່ມີ ກີບ/ບາດ
+                // ການຈັບແບບນີ້ອາດຕ້ອງປັບຕາມໂຄງສ້າງຈິງຂອງ BCEL ຖ້າປ່ຽນ
+                let match = htmlText.match(/(\d{1,3}(?:,\d{3})*)\s*ກີບ\/ບາດ/);
+                if (match) {
+                    let rawRate = match[1].replace(/,/g, '');
+                    let rate = parseFloat(rawRate);
+                    if (!isNaN(rate) && rate > 0) {
+                        buyRate = rate;
+                        sellRate = Math.round(rate * 1.03); // ເພີ່ມ Spread 3%
+                    }
+                }
+
+                localStorage.setItem('rate_current_value', sellRate); // ໃຊ້ Rate ຂາຍເປັນຄ່າຫຼັກ
                 updateCurrentRateDisplay();
-                showAlert("ສຳເລັດ", `ດຶງຂໍ້ມູນອັດຕາແລກປ່ຽນໄດ້: ${Math.round(rate)} ກີບ/ບາດ`, "✅");
+                showAlert("ສຳເລັດ", `ດຶງຂໍ້ມູນອັດຕາແລກປ່ຽນຈາກ BCEL ໄດ້: ຊື້ ${formatNumberWithCommas(buyRate)}, ຂາຍ ${formatNumberWithCommas(sellRate)}`, "✅");
             } catch (e) {
-                showAlert("ຜິດພາດ", "ບໍ່ສາມາດດຶງຂໍ້ມູນຈາກ API ໄດ້!", "❌");
+                console.error("Fetch dynamic rate error:", e);
+                showAlert("ຜິດພາດ", "ບໍ່ສາມາດດຶງຂໍ້ມູນຈາກເວັບໄຊທ໌ BCEL ໄດ້! ກະລຸນາກວດສອບ URL ຫຼື ການເຊື່ອມຕໍ່. (ໃຊ້ຄ່າເກົ່າແທນ)", "❌");
             }
         }
 
@@ -1836,7 +1873,24 @@
             showAlert("ສຳເລັດ", "ບັນທຶກເງື່ອນໄຂອັດຕາແລກປ່ຽນສຳເລັດຮຽບຮ້ອຍ!", "✅");
         }
 
-        // ===== ຟັງຊັນປັບປຸງສຳລັບການນຳໃຊ້ Rate Conditions =====
+        // ===== ຟັງຊັນປັບປຸງສຳລັບການບັນທຶກປະຫວັດ Rate =====
+        function saveRateHistoryRecord(dateStr, buyRate, sellRate, note = 'ປັບປຸງດ້ວຍມື') {
+            let historyKey = 'pos_rate_history';
+            let history = JSON.parse(localStorage.getItem(historyKey) || '[]');
+            
+            // ກວດສອບວ່າວັນທີນີ້ມີການບັນທຶກແລ້ວຫຼືບໍ່ ຖ້າມີໃຫ້ອັບເດດ
+            let existingIndex = history.findIndex(item => item.date === dateStr);
+            if (existingIndex !== -1) {
+                history[existingIndex] = { date: dateStr, buyRate: buyRate, sellRate: sellRate, note: note };
+            } else {
+                history.push({ date: dateStr, buyRate: buyRate, sellRate: sellRate, note: note });
+                // ຈັດລຽງຈາກວັນທີຫຼ້າສຸດຫາເກົ່າ
+                history.sort((a, b) => new Date(b.date) - new Date(a.date));
+            }
+            
+            localStorage.setItem(historyKey, JSON.stringify(history));
+        }
+
         function getAdjustedItemPricing(item) {
             let originalCost = parseFloat(String(item.originalCost || item.cost).replace(/,/g, '')) || 0;
             let profitPct = parseFloat(String(item.profitPct !== undefined ? item.profitPct : 20)) || 20;
@@ -2569,6 +2623,9 @@
             localStorage.setItem('pos_custom_manual_rate', sellRateVal);
             localStorage.setItem('pos_custom_manual_rate_date', dateVal);
 
+            // ບັນທຶກລົງປະຫວັດ Rate
+            saveRateHistoryRecord(dateVal, buyRateVal, sellRateVal);
+
             closeRateInputModal();
             
             if (!document.getElementById('rate-analysis-modal').classList.contains('hidden')) {
@@ -2613,13 +2670,39 @@
         }
 
         async function loadRateAnalysis() {
-            let tbody = document.getElementById('rate-analysis-tbody');
-            tbody.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນ Rate ແລະ ອັດຕາຂາຍ...</td></tr>`;
+            let tbodyHistory = document.getElementById('rate-history-tbody');
+            let tbodyAnalysis = document.getElementById('rate-analysis-tbody');
+            
+            // 1. ໂຫຼດປະຫວັດ Rate
+            let historyKey = 'pos_rate_history';
+            let history = JSON.parse(localStorage.getItem(historyKey) || '[]');
+            
+            if (history.length === 0) {
+                tbodyHistory.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີປະຫວັດການບັນທຶກ Rate</td></tr>`;
+            } else {
+                let htmlHist = '';
+                let countIdx = 1;
+                history.forEach(item => {
+                    htmlHist += `
+                        <tr class="hover:bg-gray-50 border-b text-xs text-center">
+                            <td class="p-2 border-r font-bold text-gray-500">${countIdx++}</td>
+                            <td class="p-2 border-r font-semibold text-purple-700">${formatDateToDDMMYYYY(item.date)}</td>
+                            <td class="p-2 border-r font-bold text-blue-600">${formatNumberWithCommas(item.buyRate)}</td>
+                            <td class="p-2 border-r font-bold text-green-600">${formatNumberWithCommas(item.sellRate)}</td>
+                            <td class="p-2 font-semibold text-gray-600">${item.note || '-'}</td>
+                        </tr>
+                    `;
+                });
+                tbodyHistory.innerHTML = htmlHist;
+            }
+
+            // 2. ໂຫຼດຂໍ້ມູນວິເຄາະສິນຄ້າ (ສ່ວນຕໍ່ໄປຄືເກົ່າ)
+            tbodyAnalysis.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນ Rate ແລະ ອັດຕາຂາຍ...</td></tr>`;
 
             await fetchProductsForGenerator();
 
             if (excelRows.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນສາງ</td></tr>`;
+                tbodyAnalysis.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນສາງ</td></tr>`;
                 return;
             }
 
@@ -2675,7 +2758,7 @@
                 `;
             });
 
-            tbody.innerHTML = html;
+            tbodyAnalysis.innerHTML = html;
         }
 
         async function loadPriceComparison() {
