@@ -418,40 +418,6 @@
                 </table>
             </div>
 
-            <!-- Analysis Table Section -->
-            <div class="overflow-x-auto border rounded-xl">
-                <table class="w-full text-left border-collapse bg-white min-w-[1200px]">
-                    <thead>
-                        <tr class="bg-blue-900 text-white text-[11px] uppercase text-center">
-                            <th rowspan="2" class="p-2 border-r align-middle w-12">ລ/ດ</th>
-                            <th rowspan="2" class="p-2 border-r align-middle">ລະຫັດສິນຄ້າ</th>
-                            <th rowspan="2" class="p-2 border-r align-middle">ຊື່ສິນຄ້າ</th>
-                            <th rowspan="2" class="p-2 border-r align-middle">ວັນນຳເຂົ້າສິນຄ້າ</th>
-                            <th rowspan="2" class="p-2 border-r align-middle">ວັນ/ເດືອນ/ປີ ປະຈຸບັນ</th>
-                            <th rowspan="2" class="p-2 border-r align-middle">ອັດຕາຂາຍ (%)</th>
-                            <th colspan="2" class="p-2 border-r align-middle">ອັດຕາ Rate (ເດີມ)</th>
-                            <th colspan="2" class="p-2 border-r align-middle">ລາຄາຊື້/ຂາຍ (ເດີມ)</th>
-                            <th colspan="2" class="p-2 border-r align-middle">ອັດຕາ Rate (ໃໝ່)</th>
-                            <th colspan="2" class="p-2 border-r align-middle">ລາຄາຊື້/ຂາຍ (ໃໝ່)</th>
-                            <th rowspan="2" class="p-2 align-middle">ໝາຍເຫດ</th>
-                        </tr>
-                        <tr class="bg-blue-800 text-white text-[10px] uppercase text-center">
-                            <th class="p-2 border-r">Rate ຊື້</th>
-                            <th class="p-2 border-r">Rate ຂາຍ</th>
-                            <th class="p-2 border-r">ລາຄາຊື້ (ເດີມ)</th>
-                            <th class="p-2 border-r">ລາຄາຂາຍ (ເດີມ)</th>
-                            <th class="p-2 border-r">Rate ຊື້</th>
-                            <th class="p-2 border-r">Rate ຂາຍ</th>
-                            <th class="p-2 border-r">ລາຄາຊື້ (ໃໝ່)</th>
-                            <th class="p-2 border-r">ລາຄາຂາຍ (ໃໝ່)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="rate-analysis-tbody" class="divide-y divide-gray-200 text-sm">
-                        <tr><td colspan="15" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນ Rate ແລະ ອັດຕາຂາຍ...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-
             <div class="flex gap-2 pt-2">
                 <button onclick="window.print()" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">🖨️ ພິມລາຍງານ</button>
                 <button onclick="closeRateAnalysisModal()" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ປິດ</button>
@@ -2671,9 +2637,8 @@
 
         async function loadRateAnalysis() {
             let tbodyHistory = document.getElementById('rate-history-tbody');
-            let tbodyAnalysis = document.getElementById('rate-analysis-tbody');
             
-            // 1. ໂຫຼດປະຫວັດ Rate
+            // 1. ໂຫຼດປະຫວັດ Rate (ພຽງຢ່າງດຽວ)
             let historyKey = 'pos_rate_history';
             let history = JSON.parse(localStorage.getItem(historyKey) || '[]');
             
@@ -2695,70 +2660,6 @@
                 });
                 tbodyHistory.innerHTML = htmlHist;
             }
-
-            // 2. ໂຫຼດຂໍ້ມູນວິເຄາະສິນຄ້າ (ສ່ວນຕໍ່ໄປຄືເກົ່າ)
-            tbodyAnalysis.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນ Rate ແລະ ອັດຕາຂາຍ...</td></tr>`;
-
-            await fetchProductsForGenerator();
-
-            if (excelRows.length === 0) {
-                tbodyAnalysis.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນສາງ</td></tr>`;
-                return;
-            }
-
-            let html = '';
-            let countIndex = 1;
-
-            let nowSysDate = new Date();
-            let sysYear = nowSysDate.getFullYear();
-            let sysMonth = String(nowSysDate.getMonth() + 1).padStart(2, '0');
-            let sysDay = String(nowSysDate.getDate()).padStart(2, '0');
-            let formattedCurrentDate = `${sysDay}/${sysMonth}/${sysYear}`;
-            let currentDateStr = `${sysYear}-${sysMonth}-${sysDay}`;
-
-            excelRows.forEach((row) => {
-                let originalCost = parseFloat(String(row.originalCost || row.cost).replace(/,/g, '')) || 0;
-                let originalPrice = parseFloat(String(row.price).replace(/,/g, '')) || 0;
-                let profitPct = parseFloat(String(row.profitPct !== undefined ? row.profitPct : 20)) || 20;
-
-                let rowDate = row.dateAdded || new Date().toISOString().split('T')[0];
-                
-                let importBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate_' + rowDate)) || parseFloat(row.buyingRate) || 650;
-                let importSellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate_' + rowDate)) || parseFloat(row.sellingRate) || 670;
-
-                let currentBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate_' + currentDateStr)) || parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 675;
-                let currentSellRate = parseFloat(localStorage.getItem('rate_current_value')) || 688;
-
-                let rawNewCost = originalCost * (currentSellRate / importBuyRate);
-                let newCost = Math.ceil(rawNewCost / 1000) * 1000;
-
-                let rawNewPrice = newCost * (1 + profitPct / 100);
-                let newPrice = Math.ceil(rawNewPrice / 1000) * 1000;
-
-                let formattedImportDate = formatDateToDDMMYYYY(rowDate);
-
-                html += `
-                    <tr class="hover:bg-gray-50 border-b text-center text-xs">
-                        <td class="p-2 border-r font-bold text-gray-500">${countIndex++}</td>
-                        <td class="p-2 border-r font-bold text-blue-600 font-mono">${row.code || '-'}</td>
-                        <td class="p-2 border-r font-bold text-gray-900 text-left">${row.name || '-'}</td>
-                        <td class="p-2 border-r font-semibold text-purple-700">${formattedImportDate}</td>
-                        <td class="p-2 border-r font-semibold text-blue-700">${formattedCurrentDate}</td>
-                        <td class="p-2 border-r font-bold text-amber-700">${profitPct}%</td>
-                        <td class="p-2 border-r font-semibold text-gray-700">${importBuyRate.toFixed(2)}</td>
-                        <td class="p-2 border-r font-semibold text-gray-700">${importSellRate.toFixed(2)}</td>
-                        <td class="p-2 border-r text-right text-blue-600 font-semibold">${formatNumberWithCommas(originalCost)}</td>
-                        <td class="p-2 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(originalPrice)}</td>
-                        <td class="p-2 border-r font-bold text-blue-800 bg-blue-50/20">${currentBuyRate.toFixed(2)}</td>
-                        <td class="p-2 border-r font-bold text-blue-800 bg-blue-50/20">${currentSellRate.toFixed(2)}</td>
-                        <td class="p-2 border-r text-right text-blue-900 font-bold bg-blue-50/30">${formatNumberWithCommas(newCost)}</td>
-                        <td class="p-2 border-r text-right text-green-900 font-bold bg-green-50/30">${formatNumberWithCommas(newPrice)}</td>
-                        <td class="p-2 font-bold text-gray-600">-</td>
-                    </tr>
-                `;
-            });
-
-            tbodyAnalysis.innerHTML = html;
         }
 
         async function loadPriceComparison() {
