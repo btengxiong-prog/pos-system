@@ -650,7 +650,7 @@
         </div>
     </div>
 
-    <!-- Header & Navigation (ຮວມສ່ວນຫົວ, ເມນູ ແລະ Footer ເຂົ້າເປັນຜืนດຽວກັນແບບບໍ່ມີຊ່ອງຫວ່າງຂາວ) -->
+    <!-- Header & Navigation (ຮວມສ່ວນຫົວ, ເມນູ ແລະ Footer ເຂົ້າເປັນຜືນດຽວກັນແບບບໍ່ມີຊ່ອງຫວ່າງສີຂາວ) -->
     <header class="bg-[#1e3a8a] text-white pt-3 pb-3 shadow-lg border-b border-blue-900">
         <div class="container mx-auto px-4 max-w-5xl">
             <!-- ກ່ອງ 1: ຊື່ຮ້ານ -->
@@ -700,7 +700,8 @@
                                     </button>
                                 </div>
                             </div>
-                            <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); openSalesPopup();" class="w-full px-4 py-2.5 text-xs font-semibold hover:bg-blue-50 flex items-center gap-2 text-left cursor-pointer transition border-t border-gray-100 text-blue-600" id="menu-stock-out">
+                            <!-- 🛒 ປຸ່ມນຳອອກສິນຄ້າ (ຂາຍ) ເປີດກ້ອງສະແກນ QR/Barcode ໂດຍກົງ -->
+                            <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); openScanner();" class="w-full px-4 py-2.5 text-xs font-semibold hover:bg-blue-50 flex items-center gap-2 text-left cursor-pointer transition border-t border-gray-100 text-blue-600" id="menu-stock-out">
                                 🛒 ນຳອອກສິນຄ້າ (ຂາຍ)
                             </button>
                         </div>
@@ -797,7 +798,7 @@
                 ✨ ວ່ອງໄວ ທັນໃຈ, ຍອດເງິນຖືກຕ້ອງ ຊັດເຈນ 100%, ບໍ່ເສຍເວລາ — ໃຜກໍ່ຂາຍເປັນ ບໍ່ມີພື້ນຖານໄອທີກໍ່ໃຊ້ໄດ້ສະບາຍ!
             </div>
 
-            <!-- Footer ທີ່ຖືກຍ້າຍມารວມໄວ້ໃນ Header ເພື່ອກຳຈັດເສັ້ນສີຂາວອອກຢ່າງສົມບູນ -->
+            <!-- Footer ທີ່ຖືກຍ້າຍມາລວມໄວ້ໃນ Header ເພື່ອກຳຈັດເສັ້ນສີຂາວອອກຢ່າງສົມບູນ -->
             <div class="pt-2 border-t border-blue-800/80 text-center text-[11px] text-blue-200">
                 ✨ ສ້າງ ແລະ ພັດທະນາໂດຍ: <span class="text-yellow-400 font-semibold">ອາຈານ ບຸນແຕ່ງ ຊົ່ງຕົງມົວ</span> | 📞 ໂທ: 020 59456999, 020 99444448 | Ver: 1.0.0 (Master Edition)
             </div>
@@ -3500,12 +3501,40 @@
         }
 
         function openScanner() {
-            openSalesPopup();
+            let scannerContainer = document.getElementById('scanner-container');
+            if (scannerContainer) {
+                scannerContainer.classList.remove('hidden');
+            }
+            if (!html5QrCode) {
+                try {
+                    html5QrCode = new Html5Qrcode("reader");
+                } catch (e) {
+                    console.error("Html5Qrcode init error:", e);
+                    return;
+                }
+            }
+            html5QrCode.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: 250 },
+                (decodedText) => {
+                    handleScannedCodeResult(decodedText);
+                },
+                (errorMessage) => {}
+            ).catch(err => {
+                console.error("Scanner start error:", err);
+            });
         }
 
         function closeScanner() {
-            let container = document.getElementById('scanner-container');
-            if (container) container.classList.add('hidden');
+            if (html5QrCode) {
+                html5QrCode.stop().then(() => {
+                    let container = document.getElementById('scanner-container');
+                    if (container) container.classList.add('hidden');
+                }).catch(() => {});
+            } else {
+                let container = document.getElementById('scanner-container');
+                if (container) container.classList.add('hidden');
+            }
         }
 
         function handleScanBarcodeInput(event) {
@@ -3586,6 +3615,7 @@
                     unitPerPack: unitPerPack
                 });
             }
+            closeScanner();
             openSalesPopup();
             renderCart();
         }
@@ -4218,7 +4248,7 @@
             document.getElementById('rep-total-price-thb').innerText = formatNumberWithCommas(totalPriceThb) + " ບາດ";
             document.getElementById('rep-total-profit-thb').innerText = formatNumberWithCommas(totalPriceThb - totalCostThb) + " ບາດ";
             document.getElementById('rep-cash-thb').innerText = formatNumberWithCommas(cashThb) + " ບາດ";
-            document.getElementById('rep-transfer-thb').innerText = formatNumberWithCommas(transferThb) + " ບາດ";
+            document.getElementById('rep-transfer-thb').innerText = formatNumberWithThb(transferThb) + " ບາດ";
         }
 
         function showAlert(title, message, icon = "✅") {
