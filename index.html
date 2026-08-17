@@ -1937,16 +1937,22 @@
         }
 
         function initFirebaseRealtime() {
-                    if (!db) return;
-                    try {
-                        let userRole = localStorage.getItem('pos_user_role');
-                        let productQuery = db.collection("products");
+                if (!db) return;
+                try {
+                    let userRole = localStorage.getItem('pos_user_role');
 
-                        productQuery.onSnapshot((snapshot) => {
-                            globalHistoryList = [];
-                            let tempArr = [];
-                            snapshot.forEach((doc) => {
-                                let item = doc.data();
+                    // 1. ດຶງຂໍ້ມູນສິນຄ້າທັງໝົດ ແລ້ວມາ filter ແຍກຕາມ device_id ດ້ວຍ JavaScript
+                    let productQuery = db.collection("products");
+
+                    productQuery.onSnapshot((snapshot) => {
+                        globalHistoryList = [];
+                        let tempArr = [];
+                        snapshot.forEach((doc) => {
+                            let item = doc.data();
+                            let itemDeviceId = item.device_id || '-';
+
+                            // 🔍 ກັ່ນຕອງສິດ: ຖ້າບໍ່ແມ່ນ Admin ໃຫ້ເຫັນສະເພาະ device_id ຂອງຕົນເອງ (ຍົກເວັ້ນຖ้าร້ານໃດຍັງເປັນ '-' ໃຫ້ເຫັນນຳເພື່ອບໍ່ໃຫ້ຂໍ້ມູນຕົກหล่น)
+                            if (userRole === 'admin' || deviceId === 'POSXIONG' || itemDeviceId === deviceId || itemDeviceId === '-') {
                                 tempArr.push({
                                     id: doc.id,
                                     code: item.code,
@@ -1963,25 +1969,47 @@
                                     currency: item.currency || 'ກີບ',
                                     buyingRate: item.buying_rate || 650,
                                     sellingRate: item.selling_rate || 670,
-                                    device_id: item.device_id || '-'
+                                    device_id: itemDeviceId
                                 });
-                            });
-                            excelRows = tempArr;
-                            updateExistingProductNamesDatalist();
-                            // ... 
+                            }
                         });
-                    } catch (e) {}
-                }
+                        excelRows = tempArr;
+                        updateExistingProductNamesDatalist();
 
-        function checkRoleAndLicense() {
-            let roleModal = document.getElementById('role-select-modal');
-            let isLogged = localStorage.getItem('pos_logged_in');
-            if (isLogged === 'true' && deviceId) {
-                if (roleModal) roleModal.classList.add('hidden');
-            } else {
-                if (roleModal) roleModal.classList.remove('hidden');
-            }
-            checkAdminButtonVisibility();
+                        if (!document.getElementById('inventory-modal').classList.contains('hidden')) {
+                            loadInventory();
+                        }
+                        if (!document.getElementById('price-compare-modal').classList.contains('hidden')) {
+                            loadPriceComparison();
+                        }
+                        if (!document.getElementById('rate-analysis-modal').classList.contains('hidden')) {
+                            loadRateAnalysis();
+                        }
+                        if (!document.getElementById('expiry-modal').classList.contains('hidden')) {
+                            loadExpiryCheck();
+                        }
+                        if (!document.getElementById('excel-generator-modal').classList.contains('hidden')) {
+                            renderExcelTable();
+                        }
+                        if (!document.getElementById('report-modal').classList.contains('hidden')) {
+                            calculateReport();
+                        }
+                    });
+
+                    // 2. ດຶງປະຫວັດການຂາຍ ແລ້ວ filter ແຍກຕາມ device_id ເຊັ່ນດຽວກັນ
+                    let historyQuery = db.collection("sales_history");
+
+                    historyQuery.onSnapshot((snapshot) => {
+                        if (!document.getElementById('history-modal').classList.contains('hidden')) {
+                            loadCloudHistory();
+                        }
+                        if (!document.getElementById('report-modal').classList.contains('hidden')) {
+                            calculateReport();
+                        }
+                    });
+                } catch (e) {
+                    console.error("Firebase Realtime error:", e);
+                }
         }
 
         function checkAdminButtonVisibility() {
