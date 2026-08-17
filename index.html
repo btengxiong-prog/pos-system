@@ -3241,6 +3241,83 @@
             function printCurrentReceipt() {
                 window.print();
             }
+
+// --- ⏳ ຟັງຊັນຈັດການກວດສອບວັນໝົດອາຍຸສິນຄ້າ ---
+    function openExpiryModal() {
+        let modal = document.getElementById('expiry-modal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            loadExpiryCheck();
+        }
+    }
+
+    function closeExpiryModal() {
+        let modal = document.getElementById('expiry-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+    }
+
+    function loadExpiryCheck() {
+        let tbody = document.getElementById('expiry-tbody');
+        if (!tbody) return;
+        tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ກຳລັງກວດສອບວັນໝົດອາຍຸສິນຄ້າ...</td></tr>`;
+
+        if (!excelRows || excelRows.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ</td></tr>`;
+            return;
+        }
+
+        let html = '';
+        let countIndex = 1;
+        let today = new Date();
+
+        excelRows.forEach((row) => {
+            let expDateStr = row.expiryDate || row.expiry_date || '';
+            let mfgDateStr = row.mfgDate || row.mfg_date || '-';
+            let formattedImportDate = formatDateToDDMMYYYY(row.dateAdded || '-');
+            let formattedMfgDate = formatDateToDDMMYYYY(mfgDateStr);
+            let formattedExpDate = formatDateToDDMMYYYY(expDateStr);
+
+            let noteStatus = '<span class="text-green-600 font-bold">ປົກກະຕິ</span>';
+
+            if (expDateStr && expDateStr !== '-') {
+                let expDate = new Date(parseDDMMYYYYToISO(expDateStr));
+                if (!isNaN(expDate.getTime())) {
+                    let diffTime = expDate - today;
+                    let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                    if (diffDays < 0) {
+                        noteStatus = '<span class="text-red-600 font-extrabold">❌ ໝົດອາຍຸແລ້ວ</span>';
+                    } else if (diffDays <= 60) {
+                        noteStatus = `<span class="text-amber-600 font-bold">⚠️ ใກ້ໝົດອາຍຸ (${diffDays} ວັນ)</span>`;
+                    }
+                }
+            } else {
+                noteStatus = '<span class="text-gray-400">ບໍ່ມີກຳນົດ</span>';
+            }
+
+            let currency = row.currency || 'ກີບ';
+            let costStr = formatNumberWithCommas(row.cost) + " " + currency;
+            let priceStr = formatNumberWithCommas(row.price) + " " + currency;
+
+            html += `
+                <tr class="hover:bg-gray-50 border-b">
+                    <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
+                    <td class="p-3 border-r font-bold text-gray-900">${row.name || row.code || '-'}</td>
+                    <td class="p-3 border-r text-center font-semibold text-purple-700">${formattedImportDate}</td>
+                    <td class="p-3 border-r text-center font-semibold text-gray-600">${formattedMfgDate}</td>
+                    <td class="p-3 border-r text-center font-bold text-red-600">${formattedExpDate}</td>
+                    <td class="p-3 border-r text-right text-blue-600 font-semibold">${costStr}</td>
+                    <td class="p-3 border-r text-right text-green-600 font-semibold">${priceStr}</td>
+                    <td class="p-3 text-center text-xs">${noteStatus}</td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = html;
+    }
+
     </script>
 </body>
 </html>
