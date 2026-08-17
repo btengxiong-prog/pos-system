@@ -1919,18 +1919,33 @@
             datalist.innerHTML = html;
         }
 
-function initFirebaseRealtime() {
+        function initFirebaseRealtime() {
             if (!db) return;
             try {
                 let productQuery = db.collection("products");
 
-                productQuery.onSnapshot((snapshot) => {
+                productQuery.onSnapshot(async (snapshot) => {
                     globalHistoryList = [];
                     let tempArr = [];
+                    let batch = db.batch();
+                    let hasChanges = false;
+                    let currentShop = String(deviceId || localStorage.getItem('pos_active_shop_username') || 'POSXIONG').trim().toUpperCase();
+
                     snapshot.forEach((doc) => {
                         let item = doc.data();
+                        let docId = doc.id;
+                        let rowDevId = String(item.device_id || '').trim();
+
+                        // 🛡️ Auto-Fix: ຖ້າສິນຄ້ານີ້ຍັງບໍ່ມີ device_id ຫລືເປັນค่าว่าง/ขีด ให้ປັບມາเป็นຮ້ານປັດຈຸບັນໂດຍອໍໂຕທັນທີ
+                        if (!rowDevId || rowDevId === '-' || rowDevId === 'undefined' || rowDevId === 'null') {
+                            let docRef = db.collection("products").doc(docId);
+                            batch.update(docRef, { device_id: currentShop });
+                            item.device_id = currentShop;
+                            hasChanges = true;
+                        }
+
                         tempArr.push({
-                            id: doc.id,
+                            id: docId,
                             code: item.code,
                             name: item.name || '',
                             cost: item.cost,
@@ -1945,9 +1960,15 @@ function initFirebaseRealtime() {
                             currency: item.currency || 'ກີບ',
                             buyingRate: item.buying_rate || 650,
                             sellingRate: item.selling_rate || 670,
-                            device_id: item.device_id || '-'
+                            device_id: item.device_id || currentShop
                         });
                     });
+
+                    // ບັນທຶກການອັບເດດ Auto-Fix ໄປຍัง Firestore ແບບ ບຼອດ (Batch) ບໍ່ໃຫ້เปลืองโควต้า
+                    if (hasChanges) {
+                        await batch.commit().catch(err => console.error("Auto-fix batch error:", err));
+                    }
+
                     excelRows = tempArr;
                     updateExistingProductNamesDatalist();
 
