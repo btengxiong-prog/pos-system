@@ -2272,16 +2272,16 @@
             if (event.key === 'Enter') { verifyUnifiedLogin(); }
         }
 
-        // 🚪 ຟັງຊັນປ່ຽນໂໝດ / ອອກລະບົບ (ເຮັດວຽກ 2 ໜ້າທີ່ສົມບູນແບບ)
+        // 🚪 ຟັງຊັນປ່ຽນໂໝດ / ອອກລະບົບ (ລ້າງຄ່າທັງໝົດ ແລະ ກັບຄືນໜ້າ Login 100%)
         function adminLogout() {
-            // 1. ບັນທຶກ ID ຖາວອນ ແລະ Hardware Key ປະຈຳເຄື່ອງໄວ້ (ເພື່ອບໍ່ໃຫ້ ID ປ່ຽນແປງ)
+            // 1. ບັນທຶກສະເພາະ ID ຖາວອນປະຈຳເຄື່ອງໄວ້ (ເພື່ອບໍ່ໃຫ້ ID ເຄື່ອງປ່ຽນ)
             let savedPermanentId = localStorage.getItem('pos_permanent_device_id') || localStorage.getItem('pos_device_id');
             let savedHardwareKey = localStorage.getItem('pos_hardware_locked_id');
 
-            // 2. ລ້າງສະຖານະການລັອກອິນ ແລະ ຢູເຊີຮ້ານເກົ່າອອກໃຫ້ກ້ຽງ
+            // 2. ລ້າງຂໍ້ມູນການລັອກອິນ ແລະ ຢູເຊີເກົ່າອອກທັງໝົດແບບກ້ຽງສະອາດ
             localStorage.clear();
 
-            // 3. ດຶງເອົາ ID ຖາວອນກັບຄືນມາໃສ່ໄວ້ຄືເກົ່າอย่างປອດໄພ
+            // 3. ເອົາ ID ຖາວອນກັບຄືນມາໃສ່ໄວ້ຄືເກົ່າ
             if (savedPermanentId) {
                 localStorage.setItem('pos_permanent_device_id', savedPermanentId);
                 localStorage.setItem('pos_device_id', savedPermanentId);
@@ -2290,8 +2290,7 @@
                 localStorage.setItem('pos_hardware_locked_id', savedHardwareKey);
             }
 
-            // 4. ບັງຄັບຣີເຟຣຊແບບລ້າງ Cache (Hard Refresh) ເພື່ອໃຫ້ລະບົບໃໝ່ທັງໝົດ 
-            // ແລະ ດີດກັບຄືນໄປໜ້າຕ່າງ Login / ເລືອກໂໝດທັນທີ 100%
+            // 4. ບັງຄັບໂຫຼດໜ້າຈໍໃໝ່ພ້ອມສົ່ງ Parameter ພິເສດ ເພື່ອບໍ່ໃຫ້ Browser จำค่าเก่า ແລະ ດີດກັບໄປໜ້າ Login ທັນທີ
             window.location.href = window.location.pathname + '?logout=' + new Date().getTime();
         }
 
@@ -3128,10 +3127,20 @@
             await initDeviceId();
             initFirebaseRealtime(); 
             await fetchProductsForGenerator(); 
+
             let userRole = localStorage.getItem('pos_user_role');
             let shopOwner = localStorage.getItem('pos_shop_owner');
             let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
-            if (userRole === 'admin' || shopOwner === 'true' || linkedAdminId) {
+            let isLoggedIn = localStorage.getItem('pos_logged_in');
+
+            // 🛡️ ຖ້າຫາກຍັງບໍ່ທັນໄດ້ລັອກອິນ (ກົດອອກຈາກລະບົບມາ) ໃຫ້ບັງຄັບເປີດໜ້າຕ່າງເລືອກໂໝດ (Login) 
+            if (!isLoggedIn || isLoggedIn !== 'true') {
+                let roleModal = document.getElementById('role-select-modal');
+                if (roleModal) {
+                    roleModal.classList.remove('hidden');
+                    roleModal.style.setProperty('display', 'flex', 'important');
+                }
+            } else if (userRole === 'admin' || shopOwner === 'true' || linkedAdminId) {
                 let roleModal = document.getElementById('role-select-modal');
                 if (roleModal) roleModal.classList.add('hidden');
                 let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
@@ -3139,6 +3148,7 @@
                 let rateBtn = document.getElementById('header-rate-btn');
                 if (rateBtn) rateBtn.classList.remove('hidden');
             }
+
             let savedLang = localStorage.getItem('pos_current_lang') || 'lo';
             let langSelect = document.getElementById('language-select');
             if (langSelect) langSelect.value = savedLang;
@@ -3146,7 +3156,7 @@
 
             updateHeaderTitle();
             checkRoleAndLicense();
-            checkAdminButtonVisibility(); // 👈 ເเพີ່ມບັດນີ້ເພື່ອໃຫ້ກວດສອບສະຖານະປຸ່ມທັນທີທີ່ເປີດໜ້າເວັບ
+            checkAdminButtonVisibility();
         });
 
         let salesScannerInstance = null;
