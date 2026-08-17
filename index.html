@@ -2469,40 +2469,55 @@
             }
         }
 
-        async function promptEditUser(targetDevId) {
-            editingDeviceId = targetDevId;
-            document.getElementById('edit-modal-device-id').innerText = targetDevId;
-            
-            let shopName = localStorage.getItem('pos_shop_name_' + targetDevId) || targetDevId;
-            let phone = localStorage.getItem('pos_shop_phone_' + targetDevId) || '';
-            let username = localStorage.getItem('pos_shop_user_' + targetDevId) || targetDevId;
-            let pass = localStorage.getItem('pos_shop_pass_' + targetDevId) || localStorage.getItem('pos_shop_pass_' + username) || '';
-            let lakAcc = localStorage.getItem('pos_shop_lak_acc_' + targetDevId) || '1006000000470';
-            let thbAcc = localStorage.getItem('pos_shop_thb_acc_' + targetDevId) || '';
+        async function saveEditedUser() {
+            let shopName = document.getElementById('edit-modal-shop-name').value.trim();
+            let phone = document.getElementById('edit-modal-phone').value.trim();
+            let username = document.getElementById('edit-modal-username').value.trim().toUpperCase();
+            let newPass = document.getElementById('edit-modal-password').value.trim();
+            let lakAcc = document.getElementById('edit-modal-lak-acc').value.trim();
+            let thbAcc = document.getElementById('edit-modal-thb-acc').value.trim();
+
+            if (!username) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ Username!", "⚠️");
+                return;
+            }
+
+            // 🛡️ ຖ້າຜູ້ໃຊ້ບໍ່ໄດ້ປ້ອນ Password ໃໝ່ ໃຫ້ດຶງ Password ເກົ່າມາໃຊ້ແທນ
+            if (!newPass) {
+                newPass = localStorage.getItem('pos_shop_pass_' + editingDeviceId) || localStorage.getItem('pos_shop_pass_' + username) || '123456';
+            }
+
+            localStorage.setItem('pos_shop_name_' + editingDeviceId, shopName);
+            localStorage.setItem('pos_shop_phone_' + editingDeviceId, phone);
+            localStorage.setItem('pos_shop_user_' + editingDeviceId, username);
+            localStorage.setItem('pos_shop_pass_' + username, newPass);
+            localStorage.setItem('pos_shop_pass_' + editingDeviceId, newPass);
+            localStorage.setItem('pos_shop_dev_' + username, editingDeviceId);
+            localStorage.setItem('pos_shop_lak_acc_' + editingDeviceId, lakAcc);
+            localStorage.setItem('pos_shop_thb_acc_' + editingDeviceId, thbAcc);
 
             if (db) {
                 try {
-                    let docSnap = await db.collection("devices_registry").doc(targetDevId).get();
-                    if (docSnap.exists) {
-                        let data = docSnap.data();
-                        if (data.shop_name) shopName = data.shop_name;
-                        if (data.phone) phone = data.phone;
-                        if (data.username) username = data.username;
-                        if (data.password) pass = data.password;
-                        if (data.lak_acc) lakAcc = data.lak_acc;
-                        if (data.thb_acc) thbAcc = data.thb_acc;
-                    }
+                    await db.collection("devices_registry").doc(editingDeviceId).set({
+                        device_id: editingDeviceId,
+                        type: 'permanent',
+                        shop_name: shopName,
+                        phone: phone,
+                        username: username,
+                        password: newPass,
+                        lak_acc: lakAcc,
+                        thb_acc: thbAcc,
+                        updated_at: new Date().toISOString()
+                    }, { merge: true });
                 } catch (e) {}
             }
 
-            document.getElementById('edit-modal-shop-name').value = shopName;
-            document.getElementById('edit-modal-phone').value = phone;
-            document.getElementById('edit-modal-username').value = username;
-            document.getElementById('edit-modal-password').value = pass; // 👈 ດຶງ Password ເກົ່າຂຶ້ນມາໃສ່ໃຫ້ອັດຕະໂນມັດ
-            document.getElementById('edit-modal-lak-acc').value = lakAcc;
-            document.getElementById('edit-modal-thb-acc').value = thbAcc;
-
-            document.getElementById('edit-user-modal').classList.remove('hidden');
+            // 🛑 ສັ່ງປິດປ໊ອບອັບ ແລະ โຫຼດຂໍ້ມູນໃໝ່ທັນທີ
+            closeEditUserModal();
+            await loadAllDevices();
+            updateHeaderTitle();
+            
+            showAlert("ສຳເລັດ", "ບັນທຶກ ແລະ ແກ້ໄຂຂໍ້ມູນຢູເຊີສຳເລັດຮຽບຮ້ອຍ!", "✅");
         }
 
         function closeEditUserModal() {
