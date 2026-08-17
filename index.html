@@ -3318,116 +3318,190 @@
                 tbody.innerHTML = html;
             }
 
-// --- 📱 ຟັງຊັນສ້າງ QR Code ແລະ Barcode ສຳລັບສິນຄ້າ ---
-    function openExcelGenerator() {
-        let modal = document.getElementById('excel-generator-modal');
-        if (modal) {
-            modal.classList.remove('hidden');
-            renderExcelTable();
-        }
-    }
-
-    function closeExcelGenerator() {
-        let modal = document.getElementById('excel-generator-modal');
-        if (modal) {
-            modal.classList.add('hidden');
-        }
-    }
-
-    async function fetchProductsForGenerator() {
-        // ຟັງຊັນຮອງຮັບການດຶງຂໍ້ມູນສິນຄ້າ
-    }
-
-    function renderExcelTable() {
-        let tbody = document.getElementById('excel-tbody');
-        if (!tbody) return;
-        
-        if (!excelRows || excelRows.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400">ຍັງບໍ່มีຂໍ້ມູນສິນຄ້າໃນສາງ</td></tr>`;
-            return;
-        }
-
-        let html = '';
-        let index = 1;
-        excelRows.forEach((row) => {
-            html += `
-                <tr class="border-b">
-                    <td class="p-2.5 border-r text-center text-xs font-bold text-gray-500">${index++}</td>
-                    <td class="p-2.5 border-r text-center font-mono font-bold text-blue-600 text-xs">${row.code || '-'}</td>
-                    <td class="p-2.5 border-r font-bold text-gray-900 text-xs">${row.name || '-'}</td>
-                    <td class="p-2.5 border-r text-center font-semibold text-xs">${row.qty || 1}</td>
-                    <td class="p-2.5 border-r text-right font-semibold text-blue-700 text-xs">${formatNumberWithCommas(row.cost || 0)}</td>
-                    <td class="p-2.5 text-right font-semibold text-green-700 text-xs">${formatNumberWithCommas(row.price || 0)}</td>
-                </tr>
-            `;
-        });
-        tbody.innerHTML = html;
-        generateExcelCodes();
-    }
-
-    function generateExcelCodes() {
-        let previewContainer = document.getElementById('excel-preview-cards');
-        let titleText = document.getElementById('excel-modal-title-text');
-        
-        if (titleText) {
-            titleText.innerText = currentCodeType === 'qrcode' ? "📱 ຕາຕະລາງສ້າງ QR Code ສິນຄ້າ" : "📊 ຕາຕະລາງສ້າງ Barcode ສິນຄ້າ";
-        }
-
-        if (!previewContainer) return;
-        if (!excelRows || excelRows.length === 0) {
-            previewContainer.innerHTML = `<p class="text-center text-gray-400 col-span-3">ບໍ່ມີຂໍ້ມູນສິນຄ້າສຳລັບສ້າງປ້າຍ</p>`;
-            return;
-        }
-
-        let html = '';
-        excelRows.forEach((row, idx) => {
-            let codeVal = row.code || 'POS000';
-            let nameVal = row.name || 'ສິນຄ້າ';
-            let priceVal = formatNumberWithCommas(row.price || 0) + ' ກີບ';
-            let canvasId = `code-canvas-${idx}`;
-
-            html += `
-                <div class="bg-white p-4 rounded-xl border shadow-sm text-center space-y-2 flex flex-col items-center justify-center">
-                    <div class="font-bold text-gray-800 text-xs truncate max-w-[200px]">${nameVal}</div>
-                    <div class="text-emerald-700 font-extrabold text-sm">${priceVal}</div>
-                    <div class="py-1 bg-gray-50 border rounded-lg w-full flex justify-center items-center min-h-[90px]">
-                        ${currentCodeType === 'qrcode' ? `<div id="${canvasId}-qr" class="inline-block"></div>` : `<canvas id="${canvasId}-barcode" class="max-w-full"></canvas>`}
-                    </div>
-                    <div class="font-mono text-xs font-bold text-blue-600">${codeVal}</div>
-                </div>
-            `;
-        });
-
-        previewContainer.innerHTML = html;
-
-        // Render QR Code ຫຼື Barcode ລົງແຕ່ລະກາດ
-        excelRows.forEach((row, idx) => {
-            let codeVal = row.code || 'POS000';
-            let canvasId = `code-canvas-${idx}`;
-
-            if (currentCodeType === 'qrcode') {
-                let qrEl = document.getElementById(`${canvasId}-qr`);
-                if (qrEl && window.QRCode) {
-                    qrEl.innerHTML = "";
-                    QRCode.toString(codeVal, { type: 'svg', width: 90, margin: 1 }, function (err, svgString) {
-                        if (!err && qrEl) qrEl.innerHTML = svgString;
-                    });
-                }
-            } else {
-                let barcodeEl = document.getElementById(`${canvasId}-barcode`);
-                if (barcodeEl && window.JsBarcode) {
-                    try {
-                        JsBarcode(barcodeEl, codeVal, {
-                            format: "CODE128",
-                            width: 1.5,
-                            height: 40,
-                            displayValue: false
-                        });
-                    } catch (e) {}
+        // --- 📱 ຟັງຊັນສ້າງ QR Code ແລະ Barcode ສຳລັບສິນຄ້າ ---
+            function openExcelGenerator() {
+                let modal = document.getElementById('excel-generator-modal');
+                if (modal) {
+                    modal.classList.remove('hidden');
+                    renderExcelTable();
                 }
             }
-        });
-    }
+
+            function closeExcelGenerator() {
+                let modal = document.getElementById('excel-generator-modal');
+                if (modal) {
+                    modal.classList.add('hidden');
+                }
+            }
+
+            async function fetchProductsForGenerator() {
+                // ຟັງຊັນຮອງຮັບການດຶງຂໍ້ມູນສິນຄ້າ
+            }
+
+            function renderExcelTable() {
+                let tbody = document.getElementById('excel-tbody');
+                if (!tbody) return;
+                
+                if (!excelRows || excelRows.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400">ຍັງບໍ່มีຂໍ້ມູນສິນຄ້າໃນສາງ</td></tr>`;
+                    return;
+                }
+
+                let html = '';
+                let index = 1;
+                excelRows.forEach((row) => {
+                    html += `
+                        <tr class="border-b">
+                            <td class="p-2.5 border-r text-center text-xs font-bold text-gray-500">${index++}</td>
+                            <td class="p-2.5 border-r text-center font-mono font-bold text-blue-600 text-xs">${row.code || '-'}</td>
+                            <td class="p-2.5 border-r font-bold text-gray-900 text-xs">${row.name || '-'}</td>
+                            <td class="p-2.5 border-r text-center font-semibold text-xs">${row.qty || 1}</td>
+                            <td class="p-2.5 border-r text-right font-semibold text-blue-700 text-xs">${formatNumberWithCommas(row.cost || 0)}</td>
+                            <td class="p-2.5 text-right font-semibold text-green-700 text-xs">${formatNumberWithCommas(row.price || 0)}</td>
+                        </tr>
+                    `;
+                });
+                tbody.innerHTML = html;
+                generateExcelCodes();
+            }
+
+            function generateExcelCodes() {
+                let previewContainer = document.getElementById('excel-preview-cards');
+                let titleText = document.getElementById('excel-modal-title-text');
+                
+                if (titleText) {
+                    titleText.innerText = currentCodeType === 'qrcode' ? "📱 ຕາຕະລາງສ້າງ QR Code ສິນຄ້າ" : "📊 ຕາຕະລາງສ້າງ Barcode ສິນຄ້າ";
+                }
+
+                if (!previewContainer) return;
+                if (!excelRows || excelRows.length === 0) {
+                    previewContainer.innerHTML = `<p class="text-center text-gray-400 col-span-3">ບໍ່ມີຂໍ້ມູນສິນຄ້າສຳລັບສ້າງປ້າຍ</p>`;
+                    return;
+                }
+
+                let html = '';
+                excelRows.forEach((row, idx) => {
+                    let codeVal = row.code || 'POS000';
+                    let nameVal = row.name || 'ສິນຄ້າ';
+                    let priceVal = formatNumberWithCommas(row.price || 0) + ' ກີບ';
+                    let canvasId = `code-canvas-${idx}`;
+
+                    html += `
+                        <div class="bg-white p-4 rounded-xl border shadow-sm text-center space-y-2 flex flex-col items-center justify-center">
+                            <div class="font-bold text-gray-800 text-xs truncate max-w-[200px]">${nameVal}</div>
+                            <div class="text-emerald-700 font-extrabold text-sm">${priceVal}</div>
+                            <div class="py-1 bg-gray-50 border rounded-lg w-full flex justify-center items-center min-h-[90px]">
+                                ${currentCodeType === 'qrcode' ? `<div id="${canvasId}-qr" class="inline-block"></div>` : `<canvas id="${canvasId}-barcode" class="max-w-full"></canvas>`}
+                            </div>
+                            <div class="font-mono text-xs font-bold text-blue-600">${codeVal}</div>
+                        </div>
+                    `;
+                });
+
+                previewContainer.innerHTML = html;
+
+                // Render QR Code ຫຼື Barcode ລົງແຕ່ລະກາດ
+                excelRows.forEach((row, idx) => {
+                    let codeVal = row.code || 'POS000';
+                    let canvasId = `code-canvas-${idx}`;
+
+                    if (currentCodeType === 'qrcode') {
+                        let qrEl = document.getElementById(`${canvasId}-qr`);
+                        if (qrEl && window.QRCode) {
+                            qrEl.innerHTML = "";
+                            QRCode.toString(codeVal, { type: 'svg', width: 90, margin: 1 }, function (err, svgString) {
+                                if (!err && qrEl) qrEl.innerHTML = svgString;
+                            });
+                        }
+                    } else {
+                        let barcodeEl = document.getElementById(`${canvasId}-barcode`);
+                        if (barcodeEl && window.JsBarcode) {
+                            try {
+                                JsBarcode(barcodeEl, codeVal, {
+                                    format: "CODE128",
+                                    width: 1.5,
+                                    height: 40,
+                                    displayValue: false
+                                });
+                            } catch (e) {}
+                        }
+                    }
+                });
+            }
+
+        // --- 📊 ຟັງຊັນຈັດການວິເຄາະ ແລະ ສົມທຽບລາຄາສິນຄ້າ (ເດີມ vs ປະຈຸບັນ) ---
+            function openPriceCompareModal() {
+                let modal = document.getElementById('price-compare-modal');
+                if (modal) {
+                    modal.classList.remove('hidden');
+                    loadPriceComparison();
+                }
+            }
+
+            function closePriceCompareModal() {
+                let modal = document.getElementById('price-compare-modal');
+                if (modal) {
+                    modal.classList.add('hidden');
+                }
+            }
+
+            function loadPriceComparison() {
+                let tbody = document.getElementById('price-compare-tbody');
+                if (!tbody) return;
+                tbody.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນວິເຄາະລາຄາສິນຄ້າ...</td></tr>`;
+
+                if (!excelRows || excelRows.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ</td></tr>`;
+                    return;
+                }
+
+                let html = '';
+                let countIndex = 1;
+                let currentRate = parseFloat(localStorage.getItem('rate_current_value')) || 650;
+
+                excelRows.forEach((row) => {
+                    let originalCost = parseFloat(String(row.originalCost || row.cost).replace(/,/g, '')) || 0;
+                    let originalPrice = parseFloat(String(row.price).replace(/,/g, '')) || 0;
+                    let importRate = parseFloat(row.buyingRate) || 650;
+                    let qty = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1;
+
+                    let adjusted = getAdjustedItemPricing(row);
+                    let newCost = adjusted.cost;
+                    let newPrice = adjusted.price;
+
+                    let totalOldCost = originalCost * qty;
+                    let totalNewCost = newCost * qty;
+                    let totalOldPrice = originalPrice * qty;
+                    let totalNewPrice = newPrice * qty;
+
+                    let formattedImportDate = formatDateToDDMMYYYY(row.dateAdded || '-');
+                    let todayStr = new Date().toLocaleDateString('en-GB');
+
+                    let currency = row.currency || 'ກີບ';
+
+                    html += `
+                        <tr class="hover:bg-gray-50 border-b text-center">
+                            <td class="p-2 border-r font-bold text-gray-500 text-xs">${countIndex++}</td>
+                            <td class="p-2 border-r font-bold text-blue-600 font-mono text-xs">${row.code || '-'}</td>
+                            <td class="p-2 border-r font-bold text-gray-900 text-left text-xs">${row.name || '-'}</td>
+                            <td class="p-2 border-r text-xs text-purple-700">${formattedImportDate}</td>
+                            <td class="p-2 border-r text-xs text-gray-700">${todayStr}</td>
+                            <td class="p-2 border-r text-right font-bold text-cyan-800 text-xs">${formatNumberWithCommas(qty)}</td>
+                            <td class="p-2 border-r text-right text-blue-600 text-xs">${formatNumberWithCommas(originalCost)}</td>
+                            <td class="p-2 border-r text-right font-bold text-blue-800 bg-emerald-50/50 text-xs">${formatNumberWithCommas(newCost)}</td>
+                            <td class="p-2 border-r text-right text-green-600 text-xs">${formatNumberWithCommas(originalPrice)}</td>
+                            <td class="p-2 border-r text-right font-bold text-green-800 bg-emerald-50/50 text-xs">${formatNumberWithCommas(newPrice)}</td>
+                            <td class="p-2 border-r text-right text-blue-700 text-xs">${formatNumberWithCommas(totalOldCost)}</td>
+                            <td class="p-2 border-r text-right font-bold text-blue-900 bg-emerald-50/50 text-xs">${formatNumberWithCommas(totalNewCost)}</td>
+                            <td class="p-2 border-r text-right text-green-700 text-xs">${formatNumberWithCommas(totalOldPrice)}</td>
+                            <td class="p-2 border-r text-right font-bold text-green-900 bg-emerald-50/50 text-xs">${formatNumberWithCommas(totalNewPrice)}</td>
+                            <td class="p-2 text-xs font-semibold text-gray-600">${importRate} / ${currentRate}</td>
+                        </tr>
+                    `;
+                });
+
+                tbody.innerHTML = html;
+            }
 
     </script>
 </body>
