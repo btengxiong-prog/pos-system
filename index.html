@@ -1885,23 +1885,67 @@
             return { cost: adjustedCost, price: adjustedPrice };
         }
 
-            async function initDeviceId() {
-                        // 🔍 ດຶງ Username ຂອງຮ້ານທີ່ລັອກອິນເຂົ້າມາລ້າສຸດມາເປັນ ID ຫຼັກຂອງຮ້ານນັ້ນໆ
-                        let activeUser = localStorage.getItem('pos_active_shop_username') || localStorage.getItem('pos_shop_user') || '';
-                        
-                        if (activeUser && activeUser.trim() !== '') {
-                            deviceId = activeUser.trim().toUpperCase();
-                        } else {
-                            let storedId = localStorage.getItem('pos_permanent_device_id') || localStorage.getItem('pos_device_id');
-                            if (!storedId) {
-                                storedId = 'POS-' + Math.floor(1000 + Math.random() * 9000);
-                            }
-                            deviceId = storedId;
-                        }
+        async function initDeviceId() {
+            // 🛡️ ກວດສອບວ່າເຄີຍມີ ID ถาวร หรือ Username ที่ล็อกอินค้างไว้หรือไม่
+            let activeUser = localStorage.getItem('pos_active_shop_username') || localStorage.getItem('pos_shop_user') || '';
+            let storedPermanentId = localStorage.getItem('pos_permanent_device_id');
 
-                        localStorage.setItem('pos_permanent_device_id', deviceId);
-                        localStorage.setItem('pos_device_id', deviceId);
+            if (activeUser && activeUser.trim() !== '') {
+                deviceId = activeUser.trim().toUpperCase();
+            } else if (storedPermanentId && storedPermanentId.trim() !== '') {
+                // 🔒 ໃຊ້ ID ເດີມທີ່ເຄີຍສ້າງໄວ້ແລ້ວ (ບໍ່ສ້າງໃໝ່ເດັດຂາດ)
+                deviceId = storedPermanentId.trim();
+            } else {
+                // 🆕 ສ້າງ ID ໃໝ່ພຽງຄັ້ງດຽວໃນຊີວິດຂອງ Browser ນີ້
+                let newId = 'POS-' + Math.floor(1000 + Math.random() * 9000);
+                deviceId = newId;
+                localStorage.setItem('pos_permanent_device_id', deviceId);
+            }
+
+            localStorage.setItem('pos_device_id', deviceId);
+        }
+
+        async function selectRole(role) {
+            localStorage.setItem('pos_logged_in', 'true');
+            localStorage.setItem('pos_shop_owner', 'false');
+            
+            // 🔒 ຮັບປະກັນວ່າ ID จะไม่ถูกเปลี่ยนใหม่เมื่อเข้าสู่โหมดทดลองใช้ 15 วัน
+            let currentStoredId = localStorage.getItem('pos_permanent_device_id');
+            if (!currentStoredId) {
+                localStorage.setItem('pos_permanent_device_id', deviceId);
+            } else {
+                deviceId = currentStoredId;
+            }
+
+            let roleModal = document.getElementById('role-select-modal');
+            let loginModal = document.getElementById('unified-login-modal');
+            if (roleModal) roleModal.classList.add('hidden');
+            if (loginModal) loginModal.classList.add('hidden');
+
+            if (db && deviceId.startsWith('POS-')) {
+                try {
+                    let docRef = db.collection("devices_registry").doc(deviceId);
+                    let docSnap = await docRef.get();
+                    if (!docSnap.exists) {
+                        let expiryDate = new Date();
+                        expiryDate.setDate(expiryDate.getDate() + 15);
+                        await docRef.set({
+                            device_id: deviceId,
+                            type: 'trial',
+                            shop_name: deviceId,
+                            phone: '',
+                            username: deviceId,
+                            created_at: new Date().toISOString(),
+                            expiry_date: expiryDate.toISOString().split('T')[0]
+                        }, { merge: true });
                     }
+                } catch (e) {}
+            }
+
+            checkRoleAndLicense();
+            checkAdminButtonVisibility();
+            location.reload();
+        }
 
         function updateExistingProductNamesDatalist() {
             let datalist = document.getElementById('existing-product-names-list');
