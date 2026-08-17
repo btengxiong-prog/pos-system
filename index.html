@@ -3655,6 +3655,41 @@ function initFirebaseRealtime() {
                 });
             }
 
+    // 🛠️ ຟັງຊັນຊ່ວຍຜູກຂໍ້ມູນເກົ່າທັງໝົດໃນສາງໃຫ້ເປັນຂອງຮ້ານປັດຈຸບັນ (ໃຊ້ກໍລະນີຂໍ້ມູນເກົ່າບໍ່ສະແດງ)
+            async function fixOldProductsShopId() {
+                if (!db) return;
+                try {
+                    let currentShop = String(deviceId || localStorage.getItem('pos_active_shop_username') || 'POSXIONG').trim().toUpperCase();
+                    let snapshot = await db.collection("products").get();
+                    
+                    let batch = db.batch();
+                    let count = 0;
+                    
+                    snapshot.forEach(doc => {
+                        let data = doc.data();
+                        let devId = String(data.device_id || '').trim();
+                        
+                        // ຖ້າສິນຄ້າໃดยັງບໍ່ມີ device_id ຫລື ເປັນ '-' ຫລື 'POSXIONG' ໃຫ້ອັບເດດມາເປັນຮ້ານປັດຈຸບັນ
+                        if (!devId || devId === '-' || devId === 'POSXIONG') {
+                            let ref = db.collection("products").doc(doc.id);
+                            batch.update(ref, { device_id: currentShop });
+                            count++;
+                        }
+                    });
+
+                    if (count > 0) {
+                        await batch.commit();
+                        showAlert("ສຳເລັດ", `ອັບເດດຜูกຂໍ້ມູນເກົ່າ ${count} ລາຍການ ໃຫ້ມາເປັນຂອງຮ້ານ [${currentShop}] ຮຽບຮ້ອຍແລ້ວ!`, "✅");
+                        location.reload();
+                    } else {
+                        showAlert("ແຈ້ງເຕືອນ", "ບໍ່ພົບຂໍ້ມູນເກົ່າທີ່ຕ້ອງແກ້ໄຂ (ທຸກລາຍການຜູກຖືກຕ້ອງແລ້ວ)", "ℹ️");
+                    }
+                } catch (e) {
+                    console.error("Error fixing products:", e);
+                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດອັບເດດຂໍ້ມູນໄດ້: " + e.message, "❌");
+                }
+            }
+
     </script>
 </body>
 </html>
