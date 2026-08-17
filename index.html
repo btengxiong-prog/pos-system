@@ -1949,52 +1949,74 @@
             return null;
         }
 
-        // ⏳ 2. ຟັງຊັນເມື່ອລູກຄ້າກົດປຸ່ມ "ທົດລອງໃຊ້ 15 ວັນ" (ບັງຄັບໃຊ້ ID ເດີມ ຫ້າມສ້າງໃຫມ່ເດັດຂາດ)
+        // ⏳ ຟັງຊັນເມື່ອລູກຄ້າກົດປຸ່ມ "ທົດລອງໃຊ້ 15 ວັນ / ພະນັກງານຂາຍ" (ສະບັບຖືກຕ້ອງ 100%)
         async function selectRole(role) {
-            localStorage.setItem('pos_logged_in', 'true');
-            localStorage.setItem('pos_shop_owner', 'false');
-            
-            // 🛡️ ບັງຄັບດຶງ ID ຖາວອນປະຈຳເຄື່ອງມາໃຊ້ສະເໝີ
-            let ລະຫັດຖາວອນ = localStorage.getItem('pos_permanent_device_id') || localStorage.getItem('pos_hardware_locked_id') || getCookie('pos_permanent_device_id');
-            if (ລະຫັດຖາວອນ) {
-                deviceId = ລະຫັດຖາວອນ.trim();
-            }
+            try {
+                // 1. ຕັ້ງຄ່າສະຖານະວ່າບໍ່ແມ່ນເຈົ້າຂອງຮ້ານ (Shop Owner) ແລະ ບໍ່ແມ່ນ Admin ຫຼັກ
+                localStorage.setItem('pos_logged_in', 'true');
+                localStorage.setItem('pos_shop_owner', 'false');
+                localStorage.removeItem('pos_user_role'); // ປ້ອງກັນບໍ່ให้ຕິດสิทธิ์ Admin ຫຼັກ
+                localStorage.removeItem('pos_active_shop_username');
 
-            let roleModal = document.getElementById('role-select-modal');
-            let loginModal = document.getElementById('unified-login-modal');
-            if (roleModal) roleModal.classList.add('hidden');
-            if (loginModal) loginModal.classList.add('hidden');
-
-            // ☁️ ບັນທຶກ ແລະ ກວດສອບວັນໝົດອາຍຸ 15 ວັນໃນ Firebase Cloud Firestore
-            if (db && deviceId) {
-                try {
-                    let docRef = db.collection("devices_registry").doc(deviceId);
-                    let docSnap = await docRef.get();
-                    
-                    // 📌 สำคัญมาก: ຖ້າຫາກລະບົບເຄີຍບັນທຶກເຄື່ອງນີ້ໄວ້ແລ້ວ "ຫ້າມຂຽນທັບວັນໝົດອາຍຸເດີມເດັດຂາດ!"
-                    // ເພື່ອປ້ອງກັນບໍ່ໃຫ້ມີການໂກງກົດເຂົ້າອອກເພື່ອຣີເຊັດວັນครบກຳນົດ 15 ວັນໃຫມ່
-                    if (!docSnap.exists) {
-                        let ວັນໝົດອາຍຸ = new Date();
-                        ວັນໝົດອາຍຸ.setDate(ວັນໝົດອາຍຸ.getDate() + 15); // กำหนดให้ 15 ວັນ
-                        
-                        await docRef.set({
-                            device_id: deviceId,
-                            type: 'trial',
-                            shop_name: deviceId,
-                            phone: '',
-                            username: deviceId,
-                            created_at: new Date().toISOString(),
-                            expiry_date: ວັນໝົດອາຍຸ.toISOString().split('T')[0]
-                        }, { merge: true });
-                    }
-                } catch (e) {
-                    console.error("Error managing trial device in Firebase:", e);
+                // 2. ດຶງເອົາ ID ຖາວອນປະຈຳເຄື່ອງ (Hardware / Permanent Device ID) 
+                // ຮັບປະກັນວ່າຈະບໍ່ອອກມາเป็น POSXIONG ເດັດຂາດ!
+                let currentStoredId = localStorage.getItem('pos_permanent_device_id') || localStorage.getItem('pos_device_id');
+                
+                if (!currentStoredId || currentStoredId === 'POSXIONG' || currentStoredId.trim() === '') {
+                    let ຂໍ້ມູນສະເພາະເຄື່ອງ = navigator.userAgent + screen.width + screen.height + (navigator.language || 'lo');
+                    currentStoredId = 'POS-DEV-' + Math.abs(hashCode(ຂໍ້ມູນສະເພາະເຄື່ອງ));
+                    localStorage.setItem('pos_permanent_device_id', currentStoredId);
+                    localStorage.setItem('pos_hardware_locked_id', currentStoredId);
                 }
-            }
+                
+                deviceId = currentStoredId.trim();
+                localStorage.setItem('pos_device_id', deviceId);
 
-            checkRoleAndLicense();
-            checkAdminButtonVisibility();
-            location.reload();
+                // 3. ເຊື່ອງ Modal ເລືອກໂໝດ ແລະ Modal ລັອກອິນທັງໝົດ
+                let roleModal = document.getElementById('role-select-modal');
+                let loginModal = document.getElementById('unified-login-modal');
+                if (roleModal) roleModal.classList.add('hidden');
+                if (loginModal) loginModal.classList.add('hidden');
+
+                // 4. ບັນທຶກລົງ Firebase Cloud Firestore ເພື່ອກຳນົດວັນໝົດອາຍຸ 15 ວັນ (ຄັ້ງດຽວຈົບ)
+                if (typeof db !== 'undefined' && db && deviceId) {
+                    try {
+                        let docRef = db.collection("devices_registry").doc(deviceId);
+                        let docSnap = await docRef.get();
+                        
+                        if (!docSnap.exists) {
+                            let expiryDate = new Date();
+                            expiryDate.setDate(expiryDate.getDate() + 15); // กำหนดให้ 15 ວັນ
+                            
+                            await docRef.set({
+                                device_id: deviceId,
+                                type: 'trial',
+                                shop_name: deviceId,
+                                phone: '',
+                                username: deviceId,
+                                created_at: new Date().toISOString(),
+                                expiry_date: expiryDate.toISOString().split('T')[0]
+                            }, { merge: true });
+                        }
+                    } catch (firebaseErr) {
+                        console.error("Firebase trial save error:", firebaseErr);
+                    }
+                }
+
+                // 5. ເອີ້ນຟັງຊັນກວດສອບสิทธิ์ (ເຊື່ອງປຸ່ມ "ຈັດການລະບົບ" ໃຫ້ທັນທີ)
+                if (typeof checkRoleAndLicense === 'function') {
+                    checkRoleAndLicense();
+                }
+                if (typeof checkAdminButtonVisibility === 'function') {
+                    checkAdminButtonVisibility();
+                }
+
+                // 6. ຣີເຟຣຊໜ້າຈໍທັນທີ ເພື່ອเข้าສູ່ລະບົບ POS ດ້ວຍ ID ຂອງເຄື່ອງນັ້ນໆ
+                location.reload();
+            } catch (err) {
+                console.error("selectRole error:", err);
+                location.reload();
+            }
         }
 
         async function selectRole(role) {
