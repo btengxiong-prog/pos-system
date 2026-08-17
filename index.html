@@ -1937,144 +1937,70 @@
         }
 
         function initFirebaseRealtime() {
-                if (!db) return;
-                try {
-                    let userRole = localStorage.getItem('pos_user_role');
 
-                    // 1. ດຶງຂໍ້ມູນສິນຄ້າທັງໝົດ ແລ້ວມາ filter ແຍກຕາມ device_id ດ້ວຍ JavaScript
-                    let productQuery = db.collection("products");
+            function checkAdminButtonVisibility() {
+                let userRole = localStorage.getItem('pos_user_role');
+                let shopOwner = localStorage.getItem('pos_shop_owner');
+                let adminBtn = document.getElementById('admin-manage-btn');
+                let connectQrBtn = document.getElementById('header-connect-qr-btn');
+                let deleteInvBtn = document.getElementById('btn-delete-inventory');
 
-                    productQuery.onSnapshot((snapshot) => {
-                        globalHistoryList = [];
-                        let tempArr = [];
-                        snapshot.forEach((doc) => {
-                            let item = doc.data();
-                            let itemDeviceId = item.device_id || '-';
-
-                            // 🔍 ກັ່ນຕອງສິດ: ຖ້າບໍ່ແມ່ນ Admin ໃຫ້ເຫັນສະເພาະ device_id ຂອງຕົນເອງ (ຍົກເວັ້ນຖ้าร້ານໃດຍັງເປັນ '-' ໃຫ້ເຫັນນຳເພື່ອບໍ່ໃຫ້ຂໍ້ມູນຕົກหล่น)
-                            if (userRole === 'admin' || deviceId === 'POSXIONG' || itemDeviceId === deviceId || itemDeviceId === '-') {
-                                tempArr.push({
-                                    id: doc.id,
-                                    code: item.code,
-                                    name: item.name || '',
-                                    cost: item.cost,
-                                    originalCost: item.original_cost || item.cost,
-                                    profitPct: item.profit_pct !== undefined ? item.profit_pct : 20,
-                                    price: item.price,
-                                    qty: item.qty || 1,
-                                    unitPerPack: item.unit_per_pack || 12,
-                                    dateAdded: item.date_added || new Date().toISOString().split('T')[0],
-                                    mfgDate: item.mfg_date || '',
-                                    expiryDate: item.expiry_date || '',
-                                    currency: item.currency || 'ກີບ',
-                                    buyingRate: item.buying_rate || 650,
-                                    sellingRate: item.selling_rate || 670,
-                                    device_id: itemDeviceId
-                                });
-                            }
-                        });
-                        excelRows = tempArr;
-                        updateExistingProductNamesDatalist();
-
-                        if (!document.getElementById('inventory-modal').classList.contains('hidden')) {
-                            loadInventory();
-                        }
-                        if (!document.getElementById('price-compare-modal').classList.contains('hidden')) {
-                            loadPriceComparison();
-                        }
-                        if (!document.getElementById('rate-analysis-modal').classList.contains('hidden')) {
-                            loadRateAnalysis();
-                        }
-                        if (!document.getElementById('expiry-modal').classList.contains('hidden')) {
-                            loadExpiryCheck();
-                        }
-                        if (!document.getElementById('excel-generator-modal').classList.contains('hidden')) {
-                            renderExcelTable();
-                        }
-                        if (!document.getElementById('report-modal').classList.contains('hidden')) {
-                            calculateReport();
-                        }
-                    });
-
-                    // 2. ດຶງປະຫວັດການຂາຍ ແລ້ວ filter ແຍກຕາມ device_id ເຊັ່ນດຽວກັນ
-                    let historyQuery = db.collection("sales_history");
-
-                    historyQuery.onSnapshot((snapshot) => {
-                        if (!document.getElementById('history-modal').classList.contains('hidden')) {
-                            loadCloudHistory();
-                        }
-                        if (!document.getElementById('report-modal').classList.contains('hidden')) {
-                            calculateReport();
-                        }
-                    });
-                } catch (e) {
-                    console.error("Firebase Realtime error:", e);
-                }
-        }
-
-        function checkAdminButtonVisibility() {
-            let userRole = localStorage.getItem('pos_user_role');
-            let shopOwner = localStorage.getItem('pos_shop_owner');
-            let adminBtn = document.getElementById('admin-manage-btn');
-            let connectQrBtn = document.getElementById('header-connect-qr-btn');
-            let deleteInvBtn = document.getElementById('btn-delete-inventory');
-
-            if (adminBtn) {
-                if (userRole === 'admin') {
-                    adminBtn.classList.remove('hidden');
-                } else {
-                    adminBtn.classList.add('hidden');
-                }
-            }
-
-            if (connectQrBtn) {
-                if (userRole === 'admin' || shopOwner === 'true' || deviceId === 'POSXIONG') {
-                    connectQrBtn.classList.remove('hidden');
-                } else {
-                    connectQrBtn.classList.add('hidden');
-                }
-            }
-
-            if (deleteInvBtn) {
-                if (userRole === 'admin' || deviceId === 'POSXIONG') {
-                    deleteInvBtn.classList.remove('hidden');
-                } else {
-                    deleteInvBtn.classList.add('hidden');
-                }
-            }
-        }
-
-        async function selectRole(role) {
-            localStorage.setItem('pos_logged_in', 'true');
-            localStorage.setItem('pos_shop_owner', 'false');
-            let roleModal = document.getElementById('role-select-modal');
-            let loginModal = document.getElementById('unified-login-modal');
-            if (roleModal) roleModal.classList.add('hidden');
-            if (loginModal) loginModal.classList.add('hidden');
-
-            if (db && deviceId.startsWith('POS-')) {
-                try {
-                    let docRef = db.collection("devices_registry").doc(deviceId);
-                    let docSnap = await docRef.get();
-                    if (!docSnap.exists) {
-                        let expiryDate = new Date();
-                        expiryDate.setDate(expiryDate.getDate() + 15);
-                        await docRef.set({
-                            device_id: deviceId,
-                            type: 'trial',
-                            shop_name: deviceId,
-                            phone: '',
-                            username: deviceId,
-                            created_at: new Date().toISOString(),
-                            expiry_date: expiryDate.toISOString().split('T')[0]
-                        }, { merge: true });
+                if (adminBtn) {
+                    if (userRole === 'admin') {
+                        adminBtn.classList.remove('hidden');
+                    } else {
+                        adminBtn.classList.add('hidden');
                     }
-                } catch (e) {}
+                }
+
+                if (connectQrBtn) {
+                    if (userRole === 'admin' || shopOwner === 'true' || deviceId === 'POSXIONG') {
+                        connectQrBtn.classList.remove('hidden');
+                    } else {
+                        connectQrBtn.classList.add('hidden');
+                    }
+                }
+
+                if (deleteInvBtn) {
+                    if (userRole === 'admin' || deviceId === 'POSXIONG') {
+                        deleteInvBtn.classList.remove('hidden');
+                    } else {
+                        deleteInvBtn.classList.add('hidden');
+                    }
+                }
             }
 
-            checkRoleAndLicense();
-            checkAdminButtonVisibility();
-        }
+            async function selectRole(role) {
+                localStorage.setItem('pos_logged_in', 'true');
+                localStorage.setItem('pos_shop_owner', 'false');
+                let roleModal = document.getElementById('role-select-modal');
+                let loginModal = document.getElementById('unified-login-modal');
+                if (roleModal) roleModal.classList.add('hidden');
+                if (loginModal) loginModal.classList.add('hidden');
+
+                if (db && deviceId.startsWith('POS-')) {
+                    try {
+                        let docRef = db.collection("devices_registry").doc(deviceId);
+                        let docSnap = await docRef.get();
+                        if (!docSnap.exists) {
+                            let expiryDate = new Date();
+                            expiryDate.setDate(expiryDate.getDate() + 15);
+                            await docRef.set({
+                                device_id: deviceId,
+                                type: 'trial',
+                                shop_name: deviceId,
+                                phone: '',
+                                username: deviceId,
+                                created_at: new Date().toISOString(),
+                                expiry_date: expiryDate.toISOString().split('T')[0]
+                            }, { merge: true });
+                        }
+                    } catch (e) {}
+                }
+
+                checkRoleAndLicense();
+                checkAdminButtonVisibility();
+            }
 
         function showUnifiedLoginModal() {
             let roleModal = document.getElementById('role-select-modal');
