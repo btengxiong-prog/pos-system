@@ -1886,27 +1886,17 @@
         }
 
         async function initDeviceId() {
-            // 1. ໃຫ້ກວດສອບກ່ອນວ່າ ເຄື່ອງນີ້ເຄີຍມີ Device ID ບັນທຶກໄວ້ໃນ localStorage ແລ້ວຫຼືຍັງ
-            let permanentId = localStorage.getItem('pos_permanent_device_id') || localStorage.getItem('pos_device_id');
+            // 🔍 ໃຫ້ກວດສອບກ່ອນວ່າ ເຄື່ອງນີ້ເຄີຍມີ ID ບັນທຶກໄວ້ໃນ Browser ແລ້ວຫຼືຍັງ (ห้ามสร้างใหม่เด็ดขาดถ้ามีแล้ว)
+            let permanentId = localStorage.getItem('pos_permanent_device_id');
             
-            // 2. ຖ້າຍັງບໍ່ເຄີຍມີເລີຍ ໃຫ້ສ້າງ ID ປະຈຳເຄື່ອງຂຶ້ນມາໃໝ່ພຽງຄັ້ງດຽວແລ້ວລັອກໄວ້ຕະຫຼອດໄປ
-            if (!permanentId || permanentId.trim() === '' || permanentId.startsWith('POS-') && permanentId.length < 8) {
-                // ສ້າງ ID ປະຈຳເຄື່ອງແບບຄົງທີ່ (Unique Machine Fingerprint / UUID ຢ່າງງ່າຍ)
-                permanentId = 'POS-DEV-' + Math.random().toString(36).substring(2, 9).toUpperCase() + '-' + Date.now().toString(36).toUpperCase();
+            if (!permanentId || permanentId.trim() === '') {
+                // ຖ້າບໍ່ມີແທ้ໆ ໃຫ້ສ້າງຂຶ້ນມາພຽງຄັ້ງດຽວແລ້ວບັນທຶກໄວ້ຖາວອນ
+                permanentId = 'POS-DEV-' + Math.random().toString(36).substring(2, 9).toUpperCase();
+                localStorage.setItem('pos_permanent_device_id', permanentId);
             }
 
-            // 3. ບັນທຶກລົງ localStorage ໃຫ້ເປັນຄ່າຄົງທີ່ຂອງເຄື່ອງນີ້
-            localStorage.setItem('pos_permanent_device_id', permanentId);
-            
-            // 4. ຖ້າມີການລັອກອິນດ້ວຍ Username ຂອງຢູເຊີ ໃຫ້ໃຊ້ Username ນั้นເປັນ ID ຫຼັກໃນການຊິ້ງຂໍ້ມູນ (Realtime Sync)
-            let activeUser = localStorage.getItem('pos_active_shop_username') || localStorage.getItem('pos_shop_user');
-            
-            if (activeUser && activeUser.trim() !== '') {
-                deviceId = activeUser.trim().toUpperCase();
-            } else {
-                deviceId = permanentId; // ຖ້າ​ຍັງບໍ່ລັອກອິນ ໃຫ້ໃຊ້ Device ID ប្រจำเครื่องນີ້ກ່ອນ
-            }
-
+            // ໃຊ້ ID ຖາວອນນີ້ເປັນ ID ຫຼັກຂອງເຄື່ອງ
+            deviceId = permanentId;
             localStorage.setItem('pos_device_id', deviceId);
         }
 
@@ -3530,14 +3520,25 @@
 
         // --- 🔐 ຟັງຊັນຈັດການເລືອກໂໝດເຂົ້າໃຊ້ງານ ແລະ ລັອກອິນ ---
             async function selectRole(role) {
+                // 🛡️ ໃຫ້ຄົງຄ່າ Device ID ເດີມໄວ້ສະເໝີ ບໍ່ໃຫ້ສ້າງໃໝ່
+                let currentDeviceId = localStorage.getItem('pos_permanent_device_id');
+                if (!currentDeviceId) {
+                    currentDeviceId = 'POS-DEV-' + Math.random().toString(36).substring(2, 9).toUpperCase();
+                    localStorage.setItem('pos_permanent_device_id', currentDeviceId);
+                }
+                deviceId = currentDeviceId;
+                localStorage.setItem('pos_device_id', deviceId);
+
                 localStorage.setItem('pos_logged_in', 'true');
                 localStorage.setItem('pos_shop_owner', 'false');
+                
                 let roleModal = document.getElementById('role-select-modal');
                 let loginModal = document.getElementById('unified-login-modal');
                 if (roleModal) roleModal.classList.add('hidden');
                 if (loginModal) loginModal.classList.add('hidden');
 
-                if (db && deviceId.startsWith('POS-')) {
+                // ບັນທຶກສະຖານະລົງ Firebase (ຖ້າເປັນໂໝດທົດລອງ)
+                if (db && role === 'trial') {
                     try {
                         let docRef = db.collection("devices_registry").doc(deviceId);
                         let docSnap = await docRef.get();
@@ -3557,8 +3558,6 @@
                     } catch (e) {}
                 }
 
-                checkRoleAndLicense();
-                checkAdminButtonVisibility();
                 location.reload();
             }
 
