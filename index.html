@@ -2863,28 +2863,152 @@
             if (modal) modal.classList.add('hidden');
         }
 
-        // ຟັງຊັນທີ່ຍັງຂາດ (dummy functions ເພື່ອຫຼີກເວັ້ນ error)
-        function triggerExcelImport() {
-            document.getElementById('excel-file-input').click();
+// ➕ ຟັງຊັນກຳນົດໂໝດວັນໝົດອາຍຸ ແລະ ເປີດກ້ອງສະແກນນຳເຂົ້າສິນຄ້າ
+    function openStockInScannerWithExpiry(withExpiry) {
+        isExpiryMode = withExpiry;
+        let titleEl = document.getElementById('stock-in-title');
+        let expiryGroup = document.getElementById('expiry-input-group');
+        
+        if (titleEl) {
+            titleEl.innerText = withExpiry ? "📥 ນຳເຂົ້າສິນຄ້າ (ມີວັນໝົດອາຍຸ)" : "📥 ນຳເຂົ້າສິນຄ້າ (ບໍ່ມີວັນໝົດອາຍຸ)";
+        }
+        if (expiryGroup) {
+            expiryGroup.classList.toggle('hidden', !withExpiry);
         }
 
-        function handleExcelFileImport(event) {
-            showAlert("ຂໍ້ມູນ", "ຟັງຊັນ Excel Import ກຳລັງພັດທະນາ", "📊");
+        // ເປີດ Container ສຳລັບສະແກນນຳເຂົ້າສິນຄ້າ
+        let scannerContainer = document.getElementById('stock-in-scanner-container');
+        if (scannerContainer) {
+            scannerContainer.classList.remove('hidden');
+            startStockInScanner();
+        }
+    }
+
+    let stockInScannerInstance = null;
+    function startStockInScanner() {
+        if (!stockInScannerInstance) {
+            try {
+                stockInScannerInstance = new Html5Qrcode("stock-in-reader");
+            } catch (e) {}
+        }
+        stockInScannerInstance.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: 250 },
+            (decodedText) => {
+                handleStockInBarcodeScanned(decodedText.trim());
+            },
+            (err) => {}
+        ).catch(err => {
+            console.error("Stock-in scanner start error:", err);
+        });
+    }
+
+    function closeStockInScanner() {
+        let scannerContainer = document.getElementById('stock-in-scanner-container');
+        if (scannerContainer) scannerContainer.classList.add('hidden');
+        if (stockInScannerInstance) {
+            stockInScannerInstance.stop().catch(() => {});
+        }
+    }
+
+    function handleStockInBarcodeScanned(code) {
+        closeStockInScanner();
+        currentStockInCode = code;
+        document.getElementById('stock-in-code').innerText = code;
+        
+        // ตั้งค่าวันที่ปัจจุบัน (dd/mm/yyyy)
+        let today = new Date();
+        let dd = String(today.getDate()).padStart(2, '0');
+        let mm = String(today.getMonth() + 1).padStart(2, '0');
+        let yyyy = today.getFullYear();
+        let todayStr = `${dd}/${mm}/${yyyy}`;
+
+        let importDateInput = document.getElementById('stock-in-import-date');
+        if (importDateInput && !importDateInput.value) {
+            importDateInput.value = todayStr;
         }
 
-        function setSaleType(type) {
-            currentSaleType = type;
-            document.getElementById('btn-wholesale').className = (type === 'wholesale') ? 
-                'flex-1 bg-red-600 text-white font-bold py-2 rounded-xl text-xs transition shadow cursor-pointer' : 
-                'flex-1 bg-gray-200 text-gray-700 font-bold py-2 rounded-xl text-xs transition shadow cursor-pointer';
-            document.getElementById('btn-retail').className = (type === 'retail') ? 
-                'flex-1 bg-blue-600 text-white font-bold py-2 rounded-xl text-xs transition shadow cursor-pointer' : 
-                'flex-1 bg-gray-200 text-gray-700 font-bold py-2 rounded-xl text-xs transition shadow cursor-pointer';
+        document.getElementById('stock-in-modal').classList.remove('hidden');
+    }
+
+    function closeStockInModal() {
+        document.getElementById('stock-in-modal').classList.add('hidden');
+    }
+
+    function handleManualBarcodeInput(event) {
+        if (event.key === 'Enter') {
+            submitManualBarcode();
+        }
+    }
+
+    function submitManualBarcode() {
+        let input = document.getElementById('manual-barcode-input');
+        if (input && input.value.trim() !== "") {
+            let code = input.value.trim();
+            input.value = "";
+            handleStockInBarcodeScanned(code);
+        }
+    }
+
+    function calculateStockInPrice() {
+        let costInput = document.getElementById('stock-in-cost').value.replace(/,/g, '');
+        let cost = parseFloat(costInput) || 0;
+        let pct = parseFloat(document.getElementById('stock-in-profit-pct').value) || 20;
+        let calcPrice = cost * (1 + pct / 100);
+        document.getElementById('stock-in-calculated-price').value = formatNumberWithCommas(Math.round(calcPrice));
+    }
+
+    function calculateTotalUnit() {
+        let qty = parseInt(document.getElementById('stock-in-qty').value) || 1;
+        let unitPerPack = parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12;
+        document.getElementById('stock-in-total-calculated').value = qty * unitPerPack;
+    }
+
+    async function confirmStockIn() {
+        let code = currentStockInCode;
+        let name = document.getElementById('stock-in-custom-name').value.trim() || code;
+        let cost = parseFloat(document.getElementById('stock-in-cost').value.replace(/,/g, '')) || 0;
+        let price = parseFloat(document.getElementById('stock-in-calculated-price').value.replace(/,/g, '')) || 0;
+        let qty = parseInt(document.getElementById('stock-in-qty').value) || 1;
+        let unitPerPack = parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12;
+        let importDate = document.getElementById('stock-in-import-date').value.trim();
+        let mfgDate = isExpiryMode ? document.getElementById('stock-in-mfg-date').value.trim() : '';
+        let expiryDate = isExpiryMode ? document.getElementById('stock-in-exp-date').value.trim() : '';
+
+        if (cost <= 0) {
+            showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນລາຄາຊື້ໃຫ້ຖືກຕ້ອງ!", "⚠️");
+            return;
         }
 
-        function confirmScannedItemDirect() {
-            showAlert("ຂໍ້ມູນ", "ຟັງຊັນນີ້ກຳລັງພັດທະນາ", "🛠️");
+        let newProduct = {
+            code: code,
+            name: name,
+            cost: cost,
+            original_cost: cost,
+            profit_pct: parseFloat(document.getElementById('stock-in-profit-pct').value) || 20,
+            price: price,
+            qty: qty,
+            unit_per_pack: unitPerPack,
+            date_added: parseDDMMYYYYToISO(importDate),
+            mfg_date: mfgDate,
+            expiry_date: expiryDate,
+            currency: 'ກີບ',
+            buying_rate: parseFloat(localStorage.getItem('rate_current_value')) || 650,
+            device_id: deviceId,
+            updated_at: new Date().toISOString()
+        };
+
+        if (db) {
+            try {
+                await db.collection("products").add(newProduct);
+            } catch (e) {
+                console.error("Error adding product to Firebase:", e);
+            }
         }
+
+        closeStockInModal();
+        showAlert("ສຳເລັດ", "ນຳເຂົ້າສິນຄ້າ ແລະ ບັນທຶກລົງສາງສຳເລັດຮຽບຮ້ອຍ!", "📦");
+    }
 
         function cancelScannedItem() {
             document.getElementById('confirm-modal').classList.add('hidden');
