@@ -1498,7 +1498,7 @@
         let currentStockInCode = "";
         let customConfirmCallback = null;
         let editingDeviceId = null;
-        let deviceId = localStorage.getItem('pos_permanent_device_id') || localStorage.getItem('pos_device_id') || 'POSXIONG';
+        let deviceId = localStorage.getItem('pos_permanent_device_id') || localStorage.getItem('pos_device_id') || 'POS-DEFAULT';
         let currentSaleType = 'wholesale'; 
         let activeScannedItem = null; 
         
@@ -1886,17 +1886,17 @@
         }
 
         async function initDeviceId() {
-            // 🔍 ໃຫ້ກວດສອບກ່ອນວ່າ ເຄື່ອງນີ້ເຄີຍມີ ID ບັນທຶກໄວ້ໃນ Browser ແລ້ວຫຼືຍັງ (ห้ามสร้างใหม่เด็ดขาดถ้ามีแล้ว)
-            let permanentId = localStorage.getItem('pos_permanent_device_id');
+            // 🛡️ ດຶງຄ່າຈາກ pos_permanent_device_id ມາເປັນຫຼັກ
+            let savedId = localStorage.getItem('pos_permanent_device_id');
             
-            if (!permanentId || permanentId.trim() === '') {
-                // ຖ້າບໍ່ມີແທ้ໆ ໃຫ້ສ້າງຂຶ້ນມາພຽງຄັ້ງດຽວແລ້ວບັນທຶກໄວ້ຖາວອນ
-                permanentId = 'POS-DEV-' + Math.random().toString(36).substring(2, 9).toUpperCase();
-                localStorage.setItem('pos_permanent_device_id', permanentId);
+            // ຖ້າບໍ່ມີຄ່າ ຫຼື ເປັນຄ່າຫວ່າງ ໃຫ້ສ້າງຂຶ້ນມາພຽງຄັ້ງດຽວແລ້ວລັອກໄວ້
+            if (!savedId || savedId.trim() === '') {
+                savedId = 'POS-DEV-' + Math.random().toString(36).substring(2, 8).toUpperCase() + '-' + Date.now().toString(36).substring(4);
+                localStorage.setItem('pos_permanent_device_id', savedId);
             }
-
-            // ໃຊ້ ID ຖາວອນນີ້ເປັນ ID ຫຼັກຂອງເຄື່ອງ
-            deviceId = permanentId;
+            
+            // ບັງຄັບໃຫ້ deviceId ເປັນຄ່າທີ່ລັອກໄວ້ນີ້ຕະຫຼອດ
+            deviceId = savedId;
             localStorage.setItem('pos_device_id', deviceId);
         }
 
@@ -2969,9 +2969,13 @@
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
+            // 1. ຣັ່ນໂຕນີ້ກ່ອນໝູ່ ເພື່ອລັອກ Device ID ບໍ່ໃຫ້ປ່ຽນ
             await initDeviceId();
+            
+            // 2. ຫຼັງຈາກນັ້ນຈຶ່ງໄປຣັ່ນຟັງຊັນອื่นໆ
             initFirebaseRealtime(); 
             await fetchProductsForGenerator(); 
+            
             let userRole = localStorage.getItem('pos_user_role');
             let shopOwner = localStorage.getItem('pos_shop_owner');
             let linkedAdminId = localStorage.getItem('pos_linked_admin_id');
@@ -2983,6 +2987,7 @@
                 let rateBtn = document.getElementById('header-rate-btn');
                 if (rateBtn) rateBtn.classList.remove('hidden');
             }
+            
             let savedLang = localStorage.getItem('pos_current_lang') || 'lo';
             let langSelect = document.getElementById('language-select');
             if (langSelect) langSelect.value = savedLang;
@@ -2990,7 +2995,7 @@
 
             updateHeaderTitle();
             checkRoleAndLicense();
-            checkAdminButtonVisibility(); // 👈 ເเพີ່ມບັດນີ້ເພື່ອໃຫ້ກວດສອບສະຖານະປຸ່ມທັນທີທີ່ເປີດໜ້າເວັບ
+            checkAdminButtonVisibility();
         });
 
         let salesScannerInstance = null;
