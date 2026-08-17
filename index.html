@@ -1886,20 +1886,27 @@
         }
 
         async function initDeviceId() {
-            // 🔍 ໃຫ້ກວດສອບ Username ຂອງຮ້ານທີ່ລັອກອິນເຂົ້າມາເປັນ ຫຼັກ (ຖ້າບໍ່ມີ ໃຫ້ໃຊ້ค่าเดิม)
-            let activeUser = localStorage.getItem('pos_active_shop_username') || localStorage.getItem('pos_shop_user') || localStorage.getItem('pos_device_id') || '';
+            // 1. ໃຫ້ກວດສອບກ່ອນວ່າ ເຄື່ອງນີ້ເຄີຍມີ Device ID ບັນທຶກໄວ້ໃນ localStorage ແລ້ວຫຼືຍັງ
+            let permanentId = localStorage.getItem('pos_permanent_device_id') || localStorage.getItem('pos_device_id');
+            
+            // 2. ຖ້າຍັງບໍ່ເຄີຍມີເລີຍ ໃຫ້ສ້າງ ID ປະຈຳເຄື່ອງຂຶ້ນມາໃໝ່ພຽງຄັ້ງດຽວແລ້ວລັອກໄວ້ຕະຫຼອດໄປ
+            if (!permanentId || permanentId.trim() === '' || permanentId.startsWith('POS-') && permanentId.length < 8) {
+                // ສ້າງ ID ປະຈຳເຄື່ອງແບບຄົງທີ່ (Unique Machine Fingerprint / UUID ຢ່າງງ່າຍ)
+                permanentId = 'POS-DEV-' + Math.random().toString(36).substring(2, 9).toUpperCase() + '-' + Date.now().toString(36).toUpperCase();
+            }
+
+            // 3. ບັນທຶກລົງ localStorage ໃຫ້ເປັນຄ່າຄົງທີ່ຂອງເຄື່ອງນີ້
+            localStorage.setItem('pos_permanent_device_id', permanentId);
+            
+            // 4. ຖ້າມີການລັອກອິນດ້ວຍ Username ຂອງຢູເຊີ ໃຫ້ໃຊ້ Username ນั้นເປັນ ID ຫຼັກໃນການຊິ້ງຂໍ້ມູນ (Realtime Sync)
+            let activeUser = localStorage.getItem('pos_active_shop_username') || localStorage.getItem('pos_shop_user');
             
             if (activeUser && activeUser.trim() !== '') {
                 deviceId = activeUser.trim().toUpperCase();
             } else {
-                let storedId = localStorage.getItem('pos_permanent_device_id') || localStorage.getItem('pos_device_id');
-                if (!storedId) {
-                    storedId = 'POS-' + Math.floor(1000 + Math.random() * 9000);
-                }
-                deviceId = storedId;
+                deviceId = permanentId; // ຖ້າ​ຍັງບໍ່ລັອກອິນ ໃຫ້ໃຊ້ Device ID ប្រจำเครื่องນີ້ກ່ອນ
             }
 
-            localStorage.setItem('pos_permanent_device_id', deviceId);
             localStorage.setItem('pos_device_id', deviceId);
         }
 
