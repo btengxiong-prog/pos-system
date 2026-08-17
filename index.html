@@ -1920,91 +1920,86 @@
         }
 
         function initFirebaseRealtime() {
-            if (!db) return;
-            try {
-                let productQuery = db.collection("products");
-
-                productQuery.onSnapshot(async (snapshot) => {
-                    globalHistoryList = [];
-                    let tempArr = [];
-                    let batch = db.batch();
-                    let hasChanges = false;
-                    let currentShop = String(deviceId || localStorage.getItem('pos_active_shop_username') || 'POSXIONG').trim().toUpperCase();
-
-                    snapshot.forEach((doc) => {
-                        let item = doc.data();
-                        let docId = doc.id;
-                        let rowDevId = String(item.device_id || '').trim();
-
-                        // 🛡️ Auto-Fix: ຖ້າສິນຄ້ານີ້ຍັງບໍ່ມີ device_id ຫລືເປັນค่าว่าง/ขีด ให้ປັບມາเป็นຮ້ານປັດຈຸບັນໂດຍອໍໂຕທັນທີ
-                        if (!rowDevId || rowDevId === '-' || rowDevId === 'undefined' || rowDevId === 'null') {
-                            let docRef = db.collection("products").doc(docId);
-                            batch.update(docRef, { device_id: currentShop });
-                            item.device_id = currentShop;
-                            hasChanges = true;
+                    if (!db) return;
+                    try {
+                        let currentShop = String(localStorage.getItem('pos_active_shop_username') || localStorage.getItem('pos_device_id') || deviceId || '').trim().toUpperCase();
+                        let userRole = localStorage.getItem('pos_user_role');
+                        
+                        // 🔍 ຖ້າເປັນ Super Admin ໃຫ້ເຫັນທັງໝົດ, ແຕ່ຖ້າເປັນຮ້ານທຳມະດາ ໃຫ້ດຶງສະເພາະ device_id ຂອງຕົນເອງ
+                        let productQuery = db.collection("products");
+                        if (userRole !== 'admin' && currentShop !== 'POSXIONG') {
+                            productQuery = productQuery.where("device_id", "==", currentShop);
                         }
 
-                        tempArr.push({
-                            id: docId,
-                            code: item.code,
-                            name: item.name || '',
-                            cost: item.cost,
-                            originalCost: item.original_cost || item.cost,
-                            profitPct: item.profit_pct !== undefined ? item.profit_pct : 20,
-                            price: item.price,
-                            qty: item.qty || 1,
-                            unitPerPack: item.unit_per_pack || 12,
-                            dateAdded: item.date_added || new Date().toISOString().split('T')[0],
-                            mfgDate: item.mfg_date || '',
-                            expiryDate: item.expiry_date || '',
-                            currency: item.currency || 'ກີບ',
-                            buyingRate: item.buying_rate || 650,
-                            sellingRate: item.selling_rate || 670,
-                            device_id: item.device_id || currentShop
+                        productQuery.onSnapshot(async (snapshot) => {
+                            globalHistoryList = [];
+                            let tempArr = [];
+                            let batch = db.batch();
+                            let hasChanges = false;
+
+                            snapshot.forEach((doc) => {
+                                let item = doc.data();
+                                let docId = doc.id;
+                                let rowDevId = String(item.device_id || '').trim();
+
+                                if (!rowDevId || rowDevId === '-' || rowDevId === 'undefined' || rowDevId === 'null') {
+                                    let docRef = db.collection("products").doc(docId);
+                                    batch.update(docRef, { device_id: currentShop });
+                                    item.device_id = currentShop;
+                                    hasChanges = true;
+                                }
+
+                                tempArr.push({
+                                    id: docId,
+                                    code: item.code,
+                                    name: item.name || '',
+                                    cost: item.cost,
+                                    originalCost: item.original_cost || item.cost,
+                                    profitPct: item.profit_pct !== undefined ? item.profit_pct : 20,
+                                    price: item.price,
+                                    qty: item.qty || 1,
+                                    unitPerPack: item.unit_per_pack || 12,
+                                    dateAdded: item.date_added || new Date().toISOString().split('T')[0],
+                                    mfgDate: item.mfg_date || '',
+                                    expiryDate: item.expiry_date || '',
+                                    currency: item.currency || 'ກີບ',
+                                    buyingRate: item.buying_rate || 650,
+                                    sellingRate: item.selling_rate || 670,
+                                    device_id: item.device_id || currentShop
+                                });
+                            });
+
+                            if (hasChanges) {
+                                await batch.commit().catch(err => console.error("Auto-fix batch error:", err));
+                            }
+
+                            excelRows = tempArr;
+                            updateExistingProductNamesDatalist();
+
+                            // ຣີເຟຣຊຕາຕະລາງຕ່າງໆ
+                            if (!document.getElementById('inventory-modal').classList.contains('hidden')) loadInventory();
+                            if (!document.getElementById('price-compare-modal').classList.contains('hidden')) loadPriceComparison();
+                            if (!document.getElementById('rate-analysis-modal').classList.contains('hidden')) loadRateAnalysis();
+                            if (!document.getElementById('expiry-modal').classList.contains('hidden')) loadExpiryCheck();
+                            if (!document.getElementById('excel-generator-modal').classList.contains('hidden')) renderExcelTable();
+                            if (!document.getElementById('report-modal').classList.contains('hidden')) calculateReport();
                         });
-                    });
 
-                    // ບັນທຶກການອັບເດດ Auto-Fix ໄປຍัง Firestore ແບບ ບຼອດ (Batch) ບໍ່ໃຫ້เปลืองโควต้า
-                    if (hasChanges) {
-                        await batch.commit().catch(err => console.error("Auto-fix batch error:", err));
-                    }
+                        // ເຊັ່ນດຽວກັນກັບປະຫວັດການຂາຍ (sales_history)
+                        let historyQuery = db.collection("sales_history");
+                        if (userRole !== 'admin' && currentShop !== 'POSXIONG') {
+                            historyQuery = historyQuery.where("device_id", "==", currentShop);
+                        }
+                        
+                        historyQuery.onSnapshot((snapshot) => {
+                            if (!document.getElementById('history-modal').classList.contains('hidden')) loadCloudHistory();
+                            if (!document.getElementById('report-modal').classList.contains('hidden')) calculateReport();
+                        });
 
-                    excelRows = tempArr;
-                    updateExistingProductNamesDatalist();
-
-                    if (!document.getElementById('inventory-modal').classList.contains('hidden')) {
-                        loadInventory();
+                    } catch (e) {
+                        console.error("Firebase Realtime error:", e);
                     }
-                    if (!document.getElementById('price-compare-modal').classList.contains('hidden')) {
-                        loadPriceComparison();
-                    }
-                    if (!document.getElementById('rate-analysis-modal').classList.contains('hidden')) {
-                        loadRateAnalysis();
-                    }
-                    if (!document.getElementById('expiry-modal').classList.contains('hidden')) {
-                        loadExpiryCheck();
-                    }
-                    if (!document.getElementById('excel-generator-modal').classList.contains('hidden')) {
-                        renderExcelTable();
-                    }
-                    if (!document.getElementById('report-modal').classList.contains('hidden')) {
-                        calculateReport();
-                    }
-                });
-
-                let historyQuery = db.collection("sales_history");
-                historyQuery.onSnapshot((snapshot) => {
-                    if (!document.getElementById('history-modal').classList.contains('hidden')) {
-                        loadCloudHistory();
-                    }
-                    if (!document.getElementById('report-modal').classList.contains('hidden')) {
-                        calculateReport();
-                    }
-                });
-            } catch (e) {
-                console.error("Firebase Realtime error:", e);
-            }
-        }
+                }
 
         function backToRoleSelectFromUnified() {
             let roleModal = document.getElementById('role-select-modal');
