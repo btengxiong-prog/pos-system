@@ -2083,28 +2083,19 @@ function initFirebaseRealtime() {
                 }
             }
 
-            if (loginSuccess) {
-                deviceId = matchedDevId;
-                localStorage.setItem('pos_device_id', deviceId);
-                localStorage.setItem('pos_permanent_device_id', deviceId);
-                localStorage.setItem('pos_shop_owner', 'true');
-                localStorage.setItem('pos_logged_in', 'true');
+        if (loginSuccess) {
+                    deviceId = matchedDevId;
+                    localStorage.setItem('pos_device_id', deviceId);
+                    localStorage.setItem('pos_permanent_device_id', deviceId);
+                    localStorage.setItem('pos_active_shop_username', u); // 👈 บันทึก Username ของร้านที่ล็อกอิน
+                    localStorage.setItem('pos_shop_owner', 'true');
+                    localStorage.setItem('pos_logged_in', 'true');
 
-                document.getElementById('unified-login-modal').classList.add('hidden');
-                document.getElementById('role-select-modal').classList.add('hidden');
-
-                let adminBtn = document.getElementById('admin-manage-btn');
-                if (adminBtn) adminBtn.classList.add('hidden');
-
-                let rateBtn = document.getElementById('header-rate-btn');
-                if (rateBtn) rateBtn.classList.remove('hidden');
-                let headerConnectQrBtn = document.getElementById('header-connect-qr-btn');
-                if (headerConnectQrBtn) headerConnectQrBtn.classList.remove('hidden');
-                document.getElementById('license-status-badge').innerText = `⭐ ສະຖານະ: ເຈົ້າຂອງຮ້ານ [${deviceId}] (Shop Owner Admin)`;
-                updateHeaderTitle();
-                checkAdminButtonVisibility();
-                return;
-            }
+                    document.getElementById('unified-login-modal').classList.add('hidden');
+                    document.getElementById('role-select-modal').classList.add('hidden');
+                    location.reload();
+                    return;
+                }
 
             showAlert("ຜິດພາດ", "Username ຫຼື Password ບໍ່ຖືກຕ້ອງ!", "❌");
         }
@@ -2523,79 +2514,97 @@ function initFirebaseRealtime() {
             }
 
             function loadInventory() {
-                let tbody = document.getElementById('inventory-tbody');
-                if (!tbody) return;
-                tbody.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
+                        let tbody = document.getElementById('inventory-tbody');
+                        if (!tbody) return;
+                        tbody.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
 
-                if (!excelRows || excelRows.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ</td></tr>`;
-                    return;
-                }
+                        if (!excelRows || excelRows.length === 0) {
+                            tbody.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ</td></tr>`;
+                            return;
+                        }
 
-                let userRole = localStorage.getItem('pos_user_role');
-                let isAdminMaster = (userRole === 'admin' || deviceId === 'POSXIONG');
+                        let userRole = localStorage.getItem('pos_user_role');
+                        let isAdminMaster = (userRole === 'admin' || deviceId === 'POSXIONG');
 
-                let html = '';
-                let countIndex = 1;
+                        // 🔍 ກັ່ນຕອງຂໍ້ມູນ: ຖ້າບໍ່ແມ່ນ Admin ໃຫ້ເຫັນສະເພາະ device_id ທີ່ກົງກັບຮ້ານຕົນເອງ
+                        let currentShopId = String(deviceId || '').trim().toLowerCase();
+                        let displayRows = excelRows;
 
-                let actionHeader = document.getElementById('inventory-col-action-header');
-                if (actionHeader) {
-                    if (isAdminMaster) {
-                        actionHeader.innerHTML = `<input type="checkbox" id="select-all-checkbox" onclick="toggleSelectAllInventory(this)" class="w-4 h-4 cursor-pointer accent-cyan-600" title="ເລືອກທັງໝົດ">`;
-                    } else {
-                        actionHeader.innerHTML = `ຈັດການ`;
+                        if (!isAdminMaster && currentShopId !== 'posxiong') {
+                            displayRows = excelRows.filter(row => {
+                                let rowDev = String(row.device_id || '').trim().toLowerCase();
+                                // ຖ້າไม่มี device_id ຫຼື ເປັນ '-' ໃຫ້ເຊື່ອງໄວ້ (ຫຼື ຖ້າຕ້ອງການໃຫ້ເຫັນສະເພາະທີ່ກົງກັນເທົ່ານັ້ນ)
+                                if (!rowDev || rowDev === '-' || rowDev === 'undefined') return false;
+                                return rowDev === currentShopId;
+                            });
+                        }
+
+                        if (displayRows.length === 0) {
+                            tbody.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າຂອງຮ້ານນີ້ໃນສາງ</td></tr>`;
+                            return;
+                        }
+
+                        let html = '';
+                        let countIndex = 1;
+
+                        let actionHeader = document.getElementById('inventory-col-action-header');
+                        if (actionHeader) {
+                            if (isAdminMaster) {
+                                actionHeader.innerHTML = `<input type="checkbox" id="select-all-checkbox" onclick="toggleSelectAllInventory(this)" class="w-4 h-4 cursor-pointer accent-cyan-600" title="ເລືອກທັງໝົດ">`;
+                            } else {
+                                actionHeader.innerHTML = `ຈັດການ`;
+                            }
+                        }
+
+                        displayRows.forEach((row) => {
+                            let initialPackQty = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1; 
+                            let unitPerPack = parseInt(row.unitPerPack || 12);
+                            let remainingFullPacks = initialPackQty;
+                            let leftoverUnits = 0;
+
+                            let adjusted = getAdjustedItemPricing(row);
+                            let cost = adjusted.cost;
+                            let price = adjusted.price;
+                            
+                            let totalCostAmount = cost * remainingFullPacks;
+                            let totalPriceAmount = price * remainingFullPacks;
+
+                            let currency = row.currency || 'ກີບ'; 
+                            let costStr = formatNumberWithCommas(cost) + " " + currency;
+                            let priceStr = formatNumberWithCommas(price) + " " + currency;
+                            let totalCostStr = formatNumberWithCommas(totalCostAmount) + " " + currency;
+                            let totalPriceStr = formatNumberWithCommas(totalPriceAmount) + " " + currency;
+
+                            let formattedDate = formatDateToDDMMYYYY(row.dateAdded || new Date().toISOString().split('T')[0]);
+                            let noteStr = `ເຫຼືອ: ${formatNumberWithCommas(remainingFullPacks)}/${leftoverUnits}`;
+
+                            let shopLabel = (isAdminMaster && row.device_id) ? ` [ຮ້ານ: ${row.device_id}]` : '';
+
+                            let rightCellHtml = isAdminMaster ? 
+                                `<input type="checkbox" data-id="${row.id}" class="inventory-row-checkbox w-4 h-4 cursor-pointer accent-cyan-600">` : 
+                                `<button onclick="openEditInventoryItem('${row.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer shadow flex items-center gap-1 mx-auto">✏️ ແກ້ໄຂ</button>`;
+
+                            html += `
+                                <tr class="hover:bg-gray-50 border-b">
+                                    <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
+                                    <td class="p-3 border-r text-center font-bold text-blue-600 font-mono">${row.code || '-'}</td>
+                                    <td class="p-3 border-r font-bold text-gray-900">${row.name || '-'}${shopLabel}</td>
+                                    <td class="p-3 border-r text-center font-semibold text-purple-700">${formattedDate}</td>
+                                    <td class="p-3 border-r text-right font-bold text-cyan-800">${formatNumberWithCommas(remainingFullPacks)}</td>
+                                    <td class="p-3 border-r text-right text-blue-600 font-semibold">${costStr}</td>
+                                    <td class="p-3 border-r text-right text-green-600 font-semibold">${priceStr}</td>
+                                    <td class="p-3 border-r text-right font-bold text-blue-800 bg-blue-50/30">${totalCostStr}</td>
+                                    <td class="p-3 border-r text-right font-bold text-green-800 bg-green-50/30">${totalPriceStr}</td>
+                                    <td class="p-3 border-r text-center text-xs font-extrabold text-amber-600">${noteStr}</td>
+                                    <td class="p-3 text-center">
+                                        ${rightCellHtml}
+                                    </td>
+                                </tr>
+                            `;
+                        });
+
+                        tbody.innerHTML = html;
                     }
-                }
-
-                excelRows.forEach((row) => {
-                    let initialPackQty = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1; 
-                    let unitPerPack = parseInt(row.unitPerPack || 12);
-                    let remainingFullPacks = initialPackQty;
-                    let leftoverUnits = 0;
-
-                    let adjusted = getAdjustedItemPricing(row);
-                    let cost = adjusted.cost;
-                    let price = adjusted.price;
-                    
-                    let totalCostAmount = cost * remainingFullPacks;
-                    let totalPriceAmount = price * remainingFullPacks;
-
-                    let currency = row.currency || 'ກີບ'; 
-                    let costStr = formatNumberWithCommas(cost) + " " + currency;
-                    let priceStr = formatNumberWithCommas(price) + " " + currency;
-                    let totalCostStr = formatNumberWithCommas(totalCostAmount) + " " + currency;
-                    let totalPriceStr = formatNumberWithCommas(totalPriceAmount) + " " + currency;
-
-                    let formattedDate = formatDateToDDMMYYYY(row.dateAdded || new Date().toISOString().split('T')[0]);
-                    let noteStr = `ເຫຼືອ: ${formatNumberWithCommas(remainingFullPacks)}/${leftoverUnits}`;
-
-                    let shopLabel = (isAdminMaster && row.device_id) ? ` [ຮ້ານ: ${row.device_id}]` : '';
-
-                    let rightCellHtml = isAdminMaster ? 
-                        `<input type="checkbox" data-id="${row.id}" class="inventory-row-checkbox w-4 h-4 cursor-pointer accent-cyan-600">` : 
-                        `<button onclick="openEditInventoryItem('${row.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer shadow flex items-center gap-1 mx-auto">✏️ ແກ້ໄຂ</button>`;
-
-                    html += `
-                        <tr class="hover:bg-gray-50 border-b">
-                            <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
-                            <td class="p-3 border-r text-center font-bold text-blue-600 font-mono">${row.code || '-'}</td>
-                            <td class="p-3 border-r font-bold text-gray-900">${row.name || '-'}${shopLabel}</td>
-                            <td class="p-3 border-r text-center font-semibold text-purple-700">${formattedDate}</td>
-                            <td class="p-3 border-r text-right font-bold text-cyan-800">${formatNumberWithCommas(remainingFullPacks)}</td>
-                            <td class="p-3 border-r text-right text-blue-600 font-semibold">${costStr}</td>
-                            <td class="p-3 border-r text-right text-green-600 font-semibold">${priceStr}</td>
-                            <td class="p-3 border-r text-right font-bold text-blue-800 bg-blue-50/30">${totalCostStr}</td>
-                            <td class="p-3 border-r text-right font-bold text-green-800 bg-green-50/30">${totalPriceStr}</td>
-                            <td class="p-3 border-r text-center text-xs font-extrabold text-amber-600">${noteStr}</td>
-                            <td class="p-3 text-center">
-                                ${rightCellHtml}
-                            </td>
-                        </tr>
-                    `;
-                });
-
-                tbody.innerHTML = html;
-            }
 
             function loadInventoryRealtime() {
                 loadInventory();
