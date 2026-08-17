@@ -3242,80 +3242,191 @@
                 window.print();
             }
 
-// --- ⏳ ຟັງຊັນຈັດການກວດສອບວັນໝົດອາຍຸສິນຄ້າ ---
-    function openExpiryModal() {
-        let modal = document.getElementById('expiry-modal');
+        // --- ⏳ ຟັງຊັນຈັດການກວດສອບວັນໝົດອາຍຸສິນຄ້າ ---
+            function openExpiryModal() {
+                let modal = document.getElementById('expiry-modal');
+                if (modal) {
+                    modal.classList.remove('hidden');
+                    loadExpiryCheck();
+                }
+            }
+
+            function closeExpiryModal() {
+                let modal = document.getElementById('expiry-modal');
+                if (modal) {
+                    modal.classList.add('hidden');
+                }
+            }
+
+            function loadExpiryCheck() {
+                let tbody = document.getElementById('expiry-tbody');
+                if (!tbody) return;
+                tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ກຳລັງກວດສອບວັນໝົດອາຍຸສິນຄ້າ...</td></tr>`;
+
+                if (!excelRows || excelRows.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ</td></tr>`;
+                    return;
+                }
+
+                let html = '';
+                let countIndex = 1;
+                let today = new Date();
+
+                excelRows.forEach((row) => {
+                    let expDateStr = row.expiryDate || row.expiry_date || '';
+                    let mfgDateStr = row.mfgDate || row.mfg_date || '-';
+                    let formattedImportDate = formatDateToDDMMYYYY(row.dateAdded || '-');
+                    let formattedMfgDate = formatDateToDDMMYYYY(mfgDateStr);
+                    let formattedExpDate = formatDateToDDMMYYYY(expDateStr);
+
+                    let noteStatus = '<span class="text-green-600 font-bold">ປົກກະຕິ</span>';
+
+                    if (expDateStr && expDateStr !== '-') {
+                        let expDate = new Date(parseDDMMYYYYToISO(expDateStr));
+                        if (!isNaN(expDate.getTime())) {
+                            let diffTime = expDate - today;
+                            let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                            if (diffDays < 0) {
+                                noteStatus = '<span class="text-red-600 font-extrabold">❌ ໝົດອາຍຸແລ້ວ</span>';
+                            } else if (diffDays <= 60) {
+                                noteStatus = `<span class="text-amber-600 font-bold">⚠️ ใກ້ໝົດອາຍຸ (${diffDays} ວັນ)</span>`;
+                            }
+                        }
+                    } else {
+                        noteStatus = '<span class="text-gray-400">ບໍ່ມີກຳນົດ</span>';
+                    }
+
+                    let currency = row.currency || 'ກີບ';
+                    let costStr = formatNumberWithCommas(row.cost) + " " + currency;
+                    let priceStr = formatNumberWithCommas(row.price) + " " + currency;
+
+                    html += `
+                        <tr class="hover:bg-gray-50 border-b">
+                            <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
+                            <td class="p-3 border-r font-bold text-gray-900">${row.name || row.code || '-'}</td>
+                            <td class="p-3 border-r text-center font-semibold text-purple-700">${formattedImportDate}</td>
+                            <td class="p-3 border-r text-center font-semibold text-gray-600">${formattedMfgDate}</td>
+                            <td class="p-3 border-r text-center font-bold text-red-600">${formattedExpDate}</td>
+                            <td class="p-3 border-r text-right text-blue-600 font-semibold">${costStr}</td>
+                            <td class="p-3 border-r text-right text-green-600 font-semibold">${priceStr}</td>
+                            <td class="p-3 text-center text-xs">${noteStatus}</td>
+                        </tr>
+                    `;
+                });
+
+                tbody.innerHTML = html;
+            }
+
+// --- 📱 ຟັງຊັນສ້າງ QR Code ແລະ Barcode ສຳລັບສິນຄ້າ ---
+    function openExcelGenerator() {
+        let modal = document.getElementById('excel-generator-modal');
         if (modal) {
             modal.classList.remove('hidden');
-            loadExpiryCheck();
+            renderExcelTable();
         }
     }
 
-    function closeExpiryModal() {
-        let modal = document.getElementById('expiry-modal');
+    function closeExcelGenerator() {
+        let modal = document.getElementById('excel-generator-modal');
         if (modal) {
             modal.classList.add('hidden');
         }
     }
 
-    function loadExpiryCheck() {
-        let tbody = document.getElementById('expiry-tbody');
-        if (!tbody) return;
-        tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ກຳລັງກວດສອບວັນໝົດອາຍຸສິນຄ້າ...</td></tr>`;
+    async function fetchProductsForGenerator() {
+        // ຟັງຊັນຮອງຮັບການດຶງຂໍ້ມູນສິນຄ້າ
+    }
 
+    function renderExcelTable() {
+        let tbody = document.getElementById('excel-tbody');
+        if (!tbody) return;
+        
         if (!excelRows || excelRows.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400">ຍັງບໍ່มีຂໍ້ມູນສິນຄ້າໃນສາງ</td></tr>`;
             return;
         }
 
         let html = '';
-        let countIndex = 1;
-        let today = new Date();
-
+        let index = 1;
         excelRows.forEach((row) => {
-            let expDateStr = row.expiryDate || row.expiry_date || '';
-            let mfgDateStr = row.mfgDate || row.mfg_date || '-';
-            let formattedImportDate = formatDateToDDMMYYYY(row.dateAdded || '-');
-            let formattedMfgDate = formatDateToDDMMYYYY(mfgDateStr);
-            let formattedExpDate = formatDateToDDMMYYYY(expDateStr);
-
-            let noteStatus = '<span class="text-green-600 font-bold">ປົກກະຕິ</span>';
-
-            if (expDateStr && expDateStr !== '-') {
-                let expDate = new Date(parseDDMMYYYYToISO(expDateStr));
-                if (!isNaN(expDate.getTime())) {
-                    let diffTime = expDate - today;
-                    let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-                    if (diffDays < 0) {
-                        noteStatus = '<span class="text-red-600 font-extrabold">❌ ໝົດອາຍຸແລ້ວ</span>';
-                    } else if (diffDays <= 60) {
-                        noteStatus = `<span class="text-amber-600 font-bold">⚠️ ใກ້ໝົດອາຍຸ (${diffDays} ວັນ)</span>`;
-                    }
-                }
-            } else {
-                noteStatus = '<span class="text-gray-400">ບໍ່ມີກຳນົດ</span>';
-            }
-
-            let currency = row.currency || 'ກີບ';
-            let costStr = formatNumberWithCommas(row.cost) + " " + currency;
-            let priceStr = formatNumberWithCommas(row.price) + " " + currency;
-
             html += `
-                <tr class="hover:bg-gray-50 border-b">
-                    <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
-                    <td class="p-3 border-r font-bold text-gray-900">${row.name || row.code || '-'}</td>
-                    <td class="p-3 border-r text-center font-semibold text-purple-700">${formattedImportDate}</td>
-                    <td class="p-3 border-r text-center font-semibold text-gray-600">${formattedMfgDate}</td>
-                    <td class="p-3 border-r text-center font-bold text-red-600">${formattedExpDate}</td>
-                    <td class="p-3 border-r text-right text-blue-600 font-semibold">${costStr}</td>
-                    <td class="p-3 border-r text-right text-green-600 font-semibold">${priceStr}</td>
-                    <td class="p-3 text-center text-xs">${noteStatus}</td>
+                <tr class="border-b">
+                    <td class="p-2.5 border-r text-center text-xs font-bold text-gray-500">${index++}</td>
+                    <td class="p-2.5 border-r text-center font-mono font-bold text-blue-600 text-xs">${row.code || '-'}</td>
+                    <td class="p-2.5 border-r font-bold text-gray-900 text-xs">${row.name || '-'}</td>
+                    <td class="p-2.5 border-r text-center font-semibold text-xs">${row.qty || 1}</td>
+                    <td class="p-2.5 border-r text-right font-semibold text-blue-700 text-xs">${formatNumberWithCommas(row.cost || 0)}</td>
+                    <td class="p-2.5 text-right font-semibold text-green-700 text-xs">${formatNumberWithCommas(row.price || 0)}</td>
                 </tr>
             `;
         });
-
         tbody.innerHTML = html;
+        generateExcelCodes();
+    }
+
+    function generateExcelCodes() {
+        let previewContainer = document.getElementById('excel-preview-cards');
+        let titleText = document.getElementById('excel-modal-title-text');
+        
+        if (titleText) {
+            titleText.innerText = currentCodeType === 'qrcode' ? "📱 ຕາຕະລາງສ້າງ QR Code ສິນຄ້າ" : "📊 ຕາຕະລາງສ້າງ Barcode ສິນຄ້າ";
+        }
+
+        if (!previewContainer) return;
+        if (!excelRows || excelRows.length === 0) {
+            previewContainer.innerHTML = `<p class="text-center text-gray-400 col-span-3">ບໍ່ມີຂໍ້ມູນສິນຄ້າສຳລັບສ້າງປ້າຍ</p>`;
+            return;
+        }
+
+        let html = '';
+        excelRows.forEach((row, idx) => {
+            let codeVal = row.code || 'POS000';
+            let nameVal = row.name || 'ສິນຄ້າ';
+            let priceVal = formatNumberWithCommas(row.price || 0) + ' ກີບ';
+            let canvasId = `code-canvas-${idx}`;
+
+            html += `
+                <div class="bg-white p-4 rounded-xl border shadow-sm text-center space-y-2 flex flex-col items-center justify-center">
+                    <div class="font-bold text-gray-800 text-xs truncate max-w-[200px]">${nameVal}</div>
+                    <div class="text-emerald-700 font-extrabold text-sm">${priceVal}</div>
+                    <div class="py-1 bg-gray-50 border rounded-lg w-full flex justify-center items-center min-h-[90px]">
+                        ${currentCodeType === 'qrcode' ? `<div id="${canvasId}-qr" class="inline-block"></div>` : `<canvas id="${canvasId}-barcode" class="max-w-full"></canvas>`}
+                    </div>
+                    <div class="font-mono text-xs font-bold text-blue-600">${codeVal}</div>
+                </div>
+            `;
+        });
+
+        previewContainer.innerHTML = html;
+
+        // Render QR Code ຫຼື Barcode ລົງແຕ່ລະກາດ
+        excelRows.forEach((row, idx) => {
+            let codeVal = row.code || 'POS000';
+            let canvasId = `code-canvas-${idx}`;
+
+            if (currentCodeType === 'qrcode') {
+                let qrEl = document.getElementById(`${canvasId}-qr`);
+                if (qrEl && window.QRCode) {
+                    qrEl.innerHTML = "";
+                    QRCode.toString(codeVal, { type: 'svg', width: 90, margin: 1 }, function (err, svgString) {
+                        if (!err && qrEl) qrEl.innerHTML = svgString;
+                    });
+                }
+            } else {
+                let barcodeEl = document.getElementById(`${canvasId}-barcode`);
+                if (barcodeEl && window.JsBarcode) {
+                    try {
+                        JsBarcode(barcodeEl, codeVal, {
+                            format: "CODE128",
+                            width: 1.5,
+                            height: 40,
+                            displayValue: false
+                        });
+                    } catch (e) {}
+                }
+            }
+        });
     }
 
     </script>
