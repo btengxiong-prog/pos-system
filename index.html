@@ -2582,16 +2582,22 @@
                 let html = '';
                 let countIndex = 1;
                 let userRole = localStorage.getItem('pos_user_role');
-                let isAdminMaster = (userRole === 'admin' || deviceId === 'POSXIONG');
+                    let isAdminMaster = (userRole === 'admin' || deviceId === 'POSXIONG');
+                    let displayRows = excelRows;
 
-                let actionHeader = document.getElementById('inventory-col-action-header');
-                if (actionHeader) {
                     if (isAdminMaster) {
-                        actionHeader.innerHTML = `<input type="checkbox" id="select-all-checkbox" onclick="toggleSelectAllInventory(this)" class="w-4 h-4 cursor-pointer accent-cyan-600" title="ເລືອກທັງໝົດ">`;
+                        // ຖ້າເປັນ Admin ໃຫຍ່ ໃຫ້ກັ່ນຕອງຕາມທີ່ເລືອກໃນ Popup "ເລືອກຮ້ານ"
+                        if (adminSelectedShop && adminSelectedShop !== "ALL") {
+                            displayRows = excelRows.filter(row => String(row.device_id || '').trim() === adminSelectedShop);
+                        }
                     } else {
-                        actionHeader.innerHTML = `ຈັດການ`;
+                        // ຖ້າເປັນຢູເຊີທຳມະດາ ໃຫ້ເຫັນສະເພາະຮ້ານຂອງຕົນเอง
+                        let activeShopUser = String(localStorage.getItem('pos_active_shop_username') || deviceId || '').trim().toLowerCase();
+                        displayRows = excelRows.filter(row => {
+                            let rowDev = String(row.device_id || '').trim().toLowerCase();
+                            return rowDev === activeShopUser || !rowDev || rowDev === '-' || rowDev === 'posxiong';
+                        });
                     }
-                }
 
                 displayRows.forEach((row) => {
                     let initialPackQty = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1; 
@@ -3772,6 +3778,43 @@
                 loadInventory();
                 renderShopSelectionList();
                 closeSelectShopModal();
+            }
+
+            let adminSelectedShop = "ALL"; // ຕົວແปรເກັບຮ້ານທີ່ Admin ເລືອກ (ค่าเริ่มต้นคือแสดงทั้งหมด)
+
+            function openSelectShopModal() {
+                let selectEl = document.getElementById('admin-shop-select');
+                if (!selectEl) return;
+
+                // ດຶງรายຊື່ຮ້ານທັງໝົດທີ່ມີຢູ່ໃນ excelRows ມາໃສ່ Dropdown
+                let uniqueShops = new Set();
+                excelRows.forEach(row => {
+                    if (row.device_id && row.device_id.trim() !== '') {
+                        uniqueShops.add(row.device_id.trim());
+                    }
+                });
+
+                let html = `<option value="ALL">🌐 ສະແດງທຸກຮ້ານ (Admin View)</option>`;
+                uniqueShops.forEach(shopId => {
+                    let selected = (adminSelectedShop === shopId) ? 'selected' : '';
+                    html += `<option value="${shopId}" ${selected}>🏪 ຮ້ານ: ${shopId}</option>`;
+                });
+
+                selectEl.innerHTML = html;
+                document.getElementById('select-shop-modal').classList.remove('hidden');
+            }
+
+            function closeSelectShopModal() {
+                document.getElementById('select-shop-modal').classList.add('hidden');
+            }
+
+            function applyAdminShopFilter() {
+                let selectEl = document.getElementById('admin-shop-select');
+                if (selectEl) {
+                    adminSelectedShop = selectEl.value;
+                }
+                closeSelectShopModal();
+                loadInventory(); // ໂຫຼດຕາຕະລາງໃໝ່ຕາມຮ້ານທີ່ເລືອກ
             }
 
     </script>
