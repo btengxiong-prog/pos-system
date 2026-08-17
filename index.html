@@ -2526,22 +2526,27 @@ function initFirebaseRealtime() {
                         let userRole = localStorage.getItem('pos_user_role');
                         let isAdminMaster = (userRole === 'admin' || deviceId === 'POSXIONG');
 
-                        // 🔍 ປັບປຸງການກັ່ນຕອງ: ໃຫ້ສະແດງສະເພາະຂອງຮ້ານນັ້ນໆ ຫຼຶ ຖ້າຂໍ້ມູນເກົ່າຍັງບໍ່ມີ device_id ທີ່ຊັດເຈນ ກໍ່ໃຫ້ສະແດງຮ່ວມນຳເພື່ອບໍ່ໃຫ້ຂໍ້ມູນຫາຍ
                         let currentShopId = String(deviceId || '').trim().toLowerCase();
                         let activeShopUser = String(localStorage.getItem('pos_active_shop_username') || '').trim().toLowerCase();
                         let displayRows = excelRows;
 
+                        // 🔍 ປັບປຸງການກັ່ນຕອງໃຫ້ສະຫຼາດຂຶ້ນ:
                         if (!isAdminMaster && currentShopId !== 'posxiong') {
                             displayRows = excelRows.filter(row => {
                                 let rowDev = String(row.device_id || '').trim().toLowerCase();
                                 
-                                // ຖ້າ device_id ວ່າງ, ເປັນ '-' ຫຼຶ ບໍ່ມີ, ໃຫ້ຖືວ່າເປັນຂໍ້ມູນເກົ່າຂອງຮ້ານນີ້ ໃຫ້ນຳມາສະແດງນຳ
-                                if (!rowDev || rowDev === '-' || rowDev === 'undefined' || rowDev === 'null') {
+                                // 1. ຖ້າ device_id ຕົກລົງກົງກັບຮ້ານປັດຈຸບັນ ໃຫ້ສະແດງທັນທີ
+                                if (rowDev === currentShopId || rowDev === activeShopUser) {
+                                    return true;
+                                }
+
+                                // 2. ຖ້າເປັນຂໍ້ມູນເກົ່າ (device_id ເປັນ '-', ຫວ່າງເປົ່າ, ຫຼຶ POSXIONG ທີ່ເຄີຍໃຊ້ຮ່ວມກັນ) 
+                                // ໃຫ້ຖືວ່າເປັນຂໍ້ມູນເລີ່ມຕົ້ນຂອງຮ້ານນີ້ ໃຫ້ນຳມາສະແດງຂຶ້ນມາກ່ອນ ເພື່ອບໍ່ໃຫ້ຂໍ້ມູນຫາຍ
+                                if (!rowDev || rowDev === '-' || rowDev === 'undefined' || rowDev === 'null' || rowDev === 'posxiong') {
                                     return true; 
                                 }
 
-                                // ກວດສອບວ່າກົງກັບ deviceId ຫຼຶ activeShopUser ບໍ
-                                return rowDev === currentShopId || rowDev === activeShopUser;
+                                return false;
                             });
                         }
 
@@ -2611,10 +2616,6 @@ function initFirebaseRealtime() {
 
                         tbody.innerHTML = html;
                     }
-
-            function loadInventoryRealtime() {
-                loadInventory();
-            }
 
             // --- 📊 ຟັງຊັນຈັດການປະຫວັດການຂາຍ ---
             function openHistory() {
