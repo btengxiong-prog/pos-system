@@ -1497,8 +1497,13 @@
         let isExpiryMode = false;
         let currentStockInCode = "";
         let customConfirmCallback = null;
-        let editingDeviceId = null;
-        let deviceId = localStorage.getItem('pos_permanent_device_id') || localStorage.getItem('pos_device_id') || 'POS-DEFAULT';
+        let editingDeviceId = null;        
+        let permanentDeviceId = localStorage.getItem('pos_permanent_device_id');
+        if (!permanentDeviceId) {
+            permanentDeviceId = 'POS-DEV-' + Math.random().toString(36).substring(2, 8).toUpperCase() + '-' + Date.now().toString(36).substring(4);
+            localStorage.setItem('pos_permanent_device_id', permanentDeviceId);
+        }
+        let deviceId = permanentDeviceId; // ໃຫ້ deviceId ຍຶດຄ່າຄົງທີ່ນີ້ສະເໝີ
         let currentSaleType = 'wholesale'; 
         let activeScannedItem = null; 
         
@@ -1886,16 +1891,11 @@
         }
 
         async function initDeviceId() {
-            // 🛡️ ດຶງຄ່າຈາກ pos_permanent_device_id ມາເປັນຫຼັກ
             let savedId = localStorage.getItem('pos_permanent_device_id');
-            
-            // ຖ້າບໍ່ມີຄ່າ ຫຼື ເປັນຄ່າຫວ່າງ ໃຫ້ສ້າງຂຶ້ນມາພຽງຄັ້ງດຽວແລ້ວລັອກໄວ້
-            if (!savedId || savedId.trim() === '') {
+            if (!savedId) {
                 savedId = 'POS-DEV-' + Math.random().toString(36).substring(2, 8).toUpperCase() + '-' + Date.now().toString(36).substring(4);
                 localStorage.setItem('pos_permanent_device_id', savedId);
             }
-            
-            // ບັງຄັບໃຫ້ deviceId ເປັນຄ່າທີ່ລັອກໄວ້ນີ້ຕະຫຼອດ
             deviceId = savedId;
             localStorage.setItem('pos_device_id', deviceId);
         }
@@ -1919,12 +1919,12 @@
         function initFirebaseRealtime() {
             if (!db) return;
             try {
-                // 🔑 ໃຊ້ Username / Shop ID ທີ່ລັອກອິນຢູ່ເປັນตัวกรองหลัก
-                let currentShop = String(localStorage.getItem('pos_active_shop_username') || localStorage.getItem('pos_shop_user') || deviceId || '').trim().toUpperCase();
+                // ໃຊ້ Username ຖ້າມີການລັອກອິນ, ຖ້າບໍ່ມີໃຫ້ໃຊ້ deviceId ປະຈຳເຄື່ອງ
+                let activeUser = localStorage.getItem('pos_active_shop_username') || localStorage.getItem('pos_shop_user');
+                let currentShop = activeUser ? activeUser.trim().toUpperCase() : deviceId;
                 let userRole = localStorage.getItem('pos_user_role');
                 
                 let productQuery = db.collection("products");
-                // 🛡️ ຖ້າບໍ່ແມ່ນ Super Admin (POSXIONG) ໃຫ້ດຶງສະເພາະຂໍ້ມູນຂອງ Username ນັ້ນໆ (ຢູເຊີ 1 ແລະ 2 ຈະບໍ່ເຫັນຂໍ້ມູນກັນ)
                 if (userRole !== 'admin' && currentShop !== 'POSXIONG') {
                     productQuery = productQuery.where("device_id", "==", currentShop);
                 }
@@ -1939,7 +1939,6 @@
                         let docId = doc.id;
                         let rowDevId = String(item.device_id || '').trim();
 
-                        // ຖ້າຂໍ້ມູນໃดยังບໍ່ມີ device_id ໃຫ້ผูกກັບ Username ປັດຈຸບັນໂດຍອໍໂຕ
                         if (!rowDevId || rowDevId === '-' || rowDevId === 'undefined' || rowDevId === 'null') {
                             let docRef = db.collection("products").doc(docId);
                             batch.update(docRef, { device_id: currentShop });
@@ -1968,13 +1967,12 @@
                     });
 
                     if (hasChanges) {
-                        await batch.commit().catch(err => console.error("Auto-fix batch error:", err));
+                        await batch.commit().catch(err => console.error("Batch error:", err));
                     }
 
                     excelRows = tempArr;
                     updateExistingProductNamesDatalist();
 
-                    // ຣີເຟຣຊຕາຕະລາງທຸກໜ້າຈໍແບບ Realtime
                     if (!document.getElementById('inventory-modal').classList.contains('hidden')) loadInventory();
                     if (!document.getElementById('price-compare-modal').classList.contains('hidden')) loadPriceComparison();
                     if (!document.getElementById('rate-analysis-modal').classList.contains('hidden')) loadRateAnalysis();
@@ -1982,18 +1980,6 @@
                     if (!document.getElementById('excel-generator-modal').classList.contains('hidden')) renderExcelTable();
                     if (!document.getElementById('report-modal').classList.contains('hidden')) calculateReport();
                 });
-
-                // ປະຫວັດການຂາຍ (sales_history) ກ็กรองตาม Username ເຊັ່ນດຽວກັນ
-                let historyQuery = db.collection("sales_history");
-                if (userRole !== 'admin' && currentShop !== 'POSXIONG') {
-                    historyQuery = historyQuery.where("device_id", "==", currentShop);
-                }
-                
-                historyQuery.onSnapshot((snapshot) => {
-                    if (!document.getElementById('history-modal').classList.contains('hidden')) loadCloudHistory();
-                    if (!document.getElementById('report-modal').classList.contains('hidden')) calculateReport();
-                });
-
             } catch (e) {
                 console.error("Firebase Realtime error:", e);
             }
