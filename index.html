@@ -3064,6 +3064,183 @@
             checkRoleAndLicense();
             checkAdminButtonVisibility();
         });
+        let salesScannerInstance = null;
+
+            function openScanner() {
+                closeAllCustomDropdowns();
+                let container = document.getElementById('scanner-container');
+                if (container) {
+                    container.classList.remove('hidden');
+                }
+                if (!salesScannerInstance) {
+                    try {
+                        salesScannerInstance = new Html5Qrcode("reader");
+                    } catch (e) {}
+                }
+                salesScannerInstance.start(
+                    { facingMode: "environment" },
+                    { fps: 10, qrbox: 250 },
+                    (decodedText) => {
+                        handleSalesBarcodeScanned(decodedText.trim());
+                    },
+                    (err) => {}
+                ).catch(err => {
+                    console.error("Sales scanner start error:", err);
+                });
+            }
+
+            function closeScanner() {
+                let container = document.getElementById('scanner-container');
+                if (container) container.classList.add('hidden');
+                if (salesScannerInstance) {
+                    salesScannerInstance.stop().catch(() => {});
+                }
+            }
+
+            function handleScanBarcodeInput(event) {
+                if (event.key === 'Enter') {
+                    submitScanBarcode();
+                }
+            }
+
+            function submitScanBarcode() {
+                let input = document.getElementById('scan-barcode-input');
+                if (input && input.value.trim() !== "") {
+                    let code = input.value.trim();
+                    input.value = "";
+                    handleSalesBarcodeScanned(code);
+                }
+            }
+
+            function handleSalesBarcodeScanned(code) {
+                closeScanner();
+                
+                let foundItem = excelRows.find(item => String(item.code).trim().toLowerCase() === code.toLowerCase());
+
+                if (!foundItem) {
+                    showAlert("ບໍ່ພົບສິນຄ້າ", `ບໍ່ພົບລະຫັດສິນຄ້າ [${code}] ໃນສາງ! ກະລຸນານຳເຂົ້າສິນຄ້ານີ້ກ່ອນ.`, "⚠️");
+                    return;
+                }
+
+                activeScannedItem = foundItem;
+                
+                document.getElementById('display-scanned-product-name').innerText = foundItem.name || foundItem.code;
+                document.getElementById('display-scanned-stock-remaining').innerText = formatNumberWithCommas(foundItem.qty || 1);
+                document.getElementById('display-scanned-product-qty-input').value = "1";
+
+                let unitPrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
+                let unitCost = parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0;
+
+                document.getElementById('grand-total-cost').innerText = formatNumberWithCommas(unitCost) + " " + (foundItem.currency || 'ກີບ');
+                document.getElementById('grand-total').innerText = formatNumberWithCommas(unitPrice) + " " + (foundItem.currency || 'ກີບ');
+                document.getElementById('custom-final-price').value = formatNumberWithCommas(unitPrice);
+                document.getElementById('final-total').innerText = formatNumberWithCommas(unitPrice) + " " + (foundItem.currency || 'ກີບ');
+                document.getElementById('grand-total-profit').innerText = formatNumberWithCommas(unitPrice - unitCost) + " " + (foundItem.currency || 'ກີບ');
+                document.getElementById('change-amount').innerText = "0 " + (foundItem.currency || 'ກີບ') + " (ຈ່າຍພໍດີ)";
+
+                document.getElementById('sales-popup-modal').classList.remove('hidden');
+            }
+
+            function closeSalesPopup() {
+                document.getElementById('sales-popup-modal').classList.add('hidden');
+            }
+
+            function calculateChange() {
+                let finalPriceStr = document.getElementById('custom-final-price').value.replace(/,/g, '');
+                let finalPrice = parseFloat(finalPriceStr) || 0;
+                let cashGivenStr = document.getElementById('cash-given').value.replace(/,/g, '');
+                let cashGiven = parseFloat(cashGivenStr) || 0;
+
+                document.getElementById('final-total').innerText = formatNumberWithCommas(finalPrice) + " " + (activeScannedItem ? (activeScannedItem.currency || 'ກີບ') : 'ກີບ');
+
+                if (activeScannedItem) {
+                    let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
+                    let qty = parseInt(document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '')) || 1;
+                    let totalCost = unitCost * qty;
+                    let profit = finalPrice - totalCost;
+                    document.getElementById('grand-total-profit').innerText = formatNumberWithCommas(profit) + " " + (activeScannedItem.currency || 'ກີບ');
+                }
+
+                if (cashGiven > 0) {
+                    let change = cashGiven - finalPrice;
+                    let curr = activeScannedItem ? (activeScannedItem.currency || 'ກີບ') : 'ກີບ';
+                    if (change >= 0) {
+                        document.getElementById('change-amount').innerText = formatNumberWithCommas(change) + " " + curr;
+                    } else {
+                        document.getElementById('change-amount').innerText = "ເງິນສົດຍັງບໍ່ພໍ!";
+                    }
+                } else {
+                    let curr = activeScannedItem ? (activeScannedItem.currency || 'ກີບ') : 'ກີບ';
+                    document.getElementById('change-amount').innerText = "0 " + curr + " (ຈ່າຍພໍດີ)";
+                }
+            }
+
+            function updateCartQtyFromInput(qtyVal) {
+                let q = parseInt(qtyVal.replace(/,/g, '')) || 1;
+                if (activeScannedItem) {
+                    let unitPrice = parseFloat(String(activeScannedItem.price).replace(/,/g, '')) || 0;
+                    let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
+                    
+                    let totalP = unitPrice * q;
+                    let totalC = unitCost * q;
+
+                    document.getElementById('grand-total-cost').innerText = formatNumberWithCommas(totalC) + " " + (activeScannedItem.currency || 'ກີບ');
+                    document.getElementById('grand-total').innerText = formatNumberWithCommas(totalP) + " " + (activeScannedItem.currency || 'ກີບ');
+                    document.getElementById('custom-final-price').value = formatNumberWithCommas(totalP);
+                    calculateChange();
+                }
+            }
+
+            function setSaleTypeMode(mode) {
+                if (activeScannedItem) {
+                    let price = mode === 'wholesale' ? (parseFloat(activeScannedItem.price) || 0) : (parseFloat(activeScannedItem.price) * 0.95);
+                    document.getElementById('custom-final-price').value = formatNumberWithCommas(Math.round(price));
+                    calculateChange();
+                }
+            }
+
+            async function confirmCheckoutPayment() {
+                if (!activeScannedItem) return;
+
+                let finalPrice = parseFloat(document.getElementById('custom-final-price').value.replace(/,/g, '')) || 0;
+                let qty = parseInt(document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '')) || 1;
+                let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
+
+                let saleRecord = {
+                    date: new Date().toISOString(),
+                    device_id: deviceId,
+                    items: [{
+                        code: activeScannedItem.code,
+                        name: activeScannedItem.name,
+                        cost: unitCost,
+                        price: finalPrice / qty,
+                        qty: qty
+                    }],
+                    currency: activeScannedItem.currency || 'ກີບ',
+                    pay_mode: 'cash',
+                    total_amount: finalPrice,
+                    created_at: new Date().toISOString()
+                };
+
+                if (db) {
+                    try {
+                        await db.collection("sales_history").add(saleRecord);
+                    } catch (e) {
+                        console.error("Error saving sale history:", e);
+                    }
+                }
+
+                closeSalesPopup();
+                showAlert("ສຳເລັດ", "ບັນທຶກການຂາຍສຳເລັດຮຽບຮ້ອຍ!", "🛒");
+            }
+
+            function cancelCurrentSaleTransaction() {
+                closeSalesPopup();
+            }
+
+            function printCurrentReceipt() {
+                window.print();
+            }
     </script>
 </body>
 </html>
