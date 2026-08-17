@@ -3503,6 +3503,81 @@
                 tbody.innerHTML = html;
             }
 
+        // --- 💱 ຟັງຊັນຈັດການລາຍງານ Rate ແລະ ອັດຕາຂາຍປະຈຳວັນ ---
+            function openRateAnalysisModal() {
+                let modal = document.getElementById('rate-analysis-modal');
+                if (modal) {
+                    modal.classList.remove('hidden');
+                    loadRateAnalysis();
+                }
+            }
+
+            function closeRateAnalysisModal() {
+                let modal = document.getElementById('rate-analysis-modal');
+                if (modal) {
+                    modal.classList.add('hidden');
+                }
+            }
+
+            async function loadRateAnalysis() {
+                let tbody = document.getElementById('rate-history-tbody');
+                if (!tbody) return;
+                tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດປະຫວັດ Rate...</td></tr>`;
+
+                let rateRecords = [];
+
+                if (db) {
+                    try {
+                        let snapshot = await db.collection("daily_rates")
+                            .where("device_id", "==", deviceId)
+                            .get();
+                        snapshot.forEach(doc => {
+                            rateRecords.push(doc.data());
+                        });
+                    } catch (e) {
+                        console.error("Error loading rates from Firebase:", e);
+                    }
+                }
+
+                if (rateRecords.length === 0) {
+                    // ດຶງຈາກ localStorage ມາສະແດງເປັນຄ່າເລີ່ມຕົ້ນຖ້າ Firebase ຍັງບໍ່ມີ
+                    let defaultDate = localStorage.getItem('pos_custom_manual_rate_date') || new Date().toISOString().split('T')[0];
+                    let defaultBuy = localStorage.getItem('pos_custom_buy_rate') || '650';
+                    let defaultSell = localStorage.getItem('pos_custom_sell_rate') || '670';
+                    rateRecords.push({
+                        date: defaultDate,
+                        buyRate: defaultBuy,
+                        sellRate: defaultSell,
+                        note: 'ຄ່າເລີ່ມຕົ້ນລະບົບ'
+                    });
+                }
+
+                // เรียงลำดับตามวันที่จากใหม่ไปเก่า
+                rateRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+                let html = '';
+                let index = 1;
+
+                rateRecords.forEach((rec) => {
+                    let formattedDate = formatDateToDDMMYYYY(rec.date);
+                    let buyRateStr = formatNumberWithCommas(rec.buyRate) + " ກີບ";
+                    let sellRateStr = formatNumberWithCommas(rec.sellRate) + " ກີບ";
+                    let note = rec.note || 'ປັບປຸງດ້ວຍມື';
+
+                    html += `
+                        <tr class="hover:bg-gray-50 border-b text-center">
+                            <td class="p-2 border-r font-bold text-gray-500 text-xs">${index++}</td>
+                            <td class="p-2 border-r font-semibold text-purple-700 text-xs">${formattedDate}</td>
+                            <td class="p-2 border-r text-right font-bold text-blue-600 text-xs">${buyRateStr}</td>
+                            <td class="p-2 border-r text-right font-bold text-green-600 text-xs">${sellRateStr}</td>
+                            <td class="p-2 text-xs font-semibold text-gray-600">${note}</td>
+                        </tr>
+                    `;
+                });
+
+                tbody.innerHTML = html;
+            }
+
     </script>
 </body>
 </html>
