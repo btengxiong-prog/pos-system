@@ -3505,6 +3505,131 @@ function initFirebaseRealtime() {
                 }
             }
 
+        // --- 🔐 ຟັງຊັນຈັດການເລືອກໂໝດເຂົ້າໃຊ້ງານ ແລະ ລັອກອິນ ---
+            async function selectRole(role) {
+                localStorage.setItem('pos_logged_in', 'true');
+                localStorage.setItem('pos_shop_owner', 'false');
+                let roleModal = document.getElementById('role-select-modal');
+                let loginModal = document.getElementById('unified-login-modal');
+                if (roleModal) roleModal.classList.add('hidden');
+                if (loginModal) loginModal.classList.add('hidden');
+
+                if (db && deviceId.startsWith('POS-')) {
+                    try {
+                        let docRef = db.collection("devices_registry").doc(deviceId);
+                        let docSnap = await docRef.get();
+                        if (!docSnap.exists) {
+                            let expiryDate = new Date();
+                            expiryDate.setDate(expiryDate.getDate() + 15);
+                            await docRef.set({
+                                device_id: deviceId,
+                                type: 'trial',
+                                shop_name: deviceId,
+                                phone: '',
+                                username: deviceId,
+                                created_at: new Date().toISOString(),
+                                expiry_date: expiryDate.toISOString().split('T')[0]
+                            }, { merge: true });
+                        }
+                    } catch (e) {}
+                }
+
+                checkRoleAndLicense();
+                checkAdminButtonVisibility();
+                location.reload();
+            }
+
+            function showUnifiedLoginModal() {
+                let roleModal = document.getElementById('role-select-modal');
+                let loginModal = document.getElementById('unified-login-modal');
+                if (roleModal) roleModal.classList.add('hidden');
+                if (loginModal) loginModal.classList.remove('hidden');
+            }
+
+            function backToRoleSelectFromUnified() {
+                let roleModal = document.getElementById('role-select-modal');
+                let loginModal = document.getElementById('unified-login-modal');
+                if (loginModal) loginModal.classList.add('hidden');
+                if (roleModal) roleModal.classList.remove('hidden');
+            }
+
+            async function verifyUnifiedLogin() {
+                let uInput = document.getElementById('unified-login-username');
+                let pInput = document.getElementById('unified-login-password');
+                if (!uInput || !pInput) return;
+
+                let u = uInput.value.trim().toUpperCase();
+                let p = pInput.value.trim();
+
+                if (!u || !p) {
+                    showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນ Username ແລະ Password!", "⚠️");
+                    return;
+                }
+
+                if (u === "POSXIONG" && p === "POS@21082007") {
+                    localStorage.setItem('pos_user_role', 'admin');
+                    localStorage.setItem('pos_logged_in', 'true');
+                    deviceId = 'POSXIONG';
+                    localStorage.setItem('pos_device_id', 'POSXIONG');
+                    localStorage.setItem('pos_permanent_device_id', 'POSXIONG');
+                    
+                    document.getElementById('unified-login-modal').classList.add('hidden');
+                    document.getElementById('role-select-modal').classList.add('hidden');
+                    location.reload();
+                    return;
+                }
+
+                let loginSuccess = false;
+                let matchedDevId = '';
+
+                if (db) {
+                    try {
+                        let snapshot = await db.collection("devices_registry").get();
+                        snapshot.forEach(doc => {
+                            let dev = doc.data();
+                            let regUser = (dev.username || '').trim().toUpperCase();
+                            if (regUser === u && dev.password === p) {
+                                loginSuccess = true;
+                                matchedDevId = dev.device_id;
+                                if (dev.shop_name) {
+                                    localStorage.setItem('pos_shop_name_' + dev.device_id, dev.shop_name);
+                                }
+                            }
+                        });
+                    } catch (e) {}
+                }
+
+                if (!loginSuccess) {
+                    let shopPass = localStorage.getItem('pos_shop_pass_' + u);
+                    let shopDevId = localStorage.getItem('pos_shop_dev_' + u);
+                    if (shopPass && shopPass === p && shopDevId) {
+                        loginSuccess = true;
+                        matchedDevId = shopDevId;
+                    }
+                }
+
+                if (loginSuccess) {
+                    deviceId = matchedDevId;
+                    localStorage.setItem('pos_device_id', deviceId);
+                    localStorage.setItem('pos_permanent_device_id', deviceId);
+                    localStorage.setItem('pos_shop_owner', 'true');
+                    localStorage.setItem('pos_logged_in', 'true');
+
+                    document.getElementById('unified-login-modal').classList.add('hidden');
+                    document.getElementById('role-select-modal').classList.add('hidden');
+                    location.reload();
+                    return;
+                }
+
+                showAlert("ຜິດພາດ", "Username ຫຼື Password ບໍ່ຖືກຕ້ອງ!", "❌");
+            }
+
+            function handleUnifiedLoginKeydown(event) {
+                if (event.key === 'Enter') {
+                    verifyUnifiedLogin();
+                }
+            }
+
     </script>
 </body>
 </html>
