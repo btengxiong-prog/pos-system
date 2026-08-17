@@ -1940,68 +1940,64 @@
             if (!db) return;
             try {
                 let userRole = localStorage.getItem('pos_user_role');
-                let productQuery = (userRole === 'admin' || deviceId === 'POSXIONG') ? 
-                    db.collection("products") : 
-                    db.collection("products").where("device_id", "==", deviceId);
+                let productQuery = db.collection("products");
 
                 productQuery.onSnapshot((snapshot) => {
-                     globalHistoryList = [];
-                     let tempArr = [];
-                     snapshot.forEach((doc) => {
-                          let item = doc.data();
-                          tempArr.push({
-                              id: doc.id,
-                              code: item.code,
-                              name: item.name || '',
-                              cost: item.cost,
-                              originalCost: item.original_cost || item.cost,
-                              profitPct: item.profit_pct !== undefined ? item.profit_pct : 20,
-                              price: item.price,
-                              qty: item.qty || 1,
-                              unitPerPack: item.unit_per_pack || 12,
-                              dateAdded: item.date_added || new Date().toISOString().split('T')[0],
-                              mfgDate: item.mfg_date || '',
-                              expiryDate: item.expiry_date || '',
-                              currency: item.currency || 'ກີບ',
-                              buyingRate: item.buying_rate || 650,
-                              sellingRate: item.selling_rate || 670,
-                              device_id: item.device_id || '-'
-                          });
-                     });
-                     excelRows = tempArr;
-                     updateExistingProductNamesDatalist();
+                    globalHistoryList = [];
+                    let tempArr = [];
+                    snapshot.forEach((doc) => {
+                        let item = doc.data();
+                        tempArr.push({
+                            id: doc.id,
+                            code: item.code,
+                            name: item.name || '',
+                            cost: item.cost,
+                            originalCost: item.original_cost || item.cost,
+                            profitPct: item.profit_pct !== undefined ? item.profit_pct : 20,
+                            price: item.price,
+                            qty: item.qty || 1,
+                            unitPerPack: item.unit_per_pack || 12,
+                            dateAdded: item.date_added || new Date().toISOString().split('T')[0],
+                            mfgDate: item.mfg_date || '',
+                            expiryDate: item.expiry_date || '',
+                            currency: item.currency || 'ກີບ',
+                            buyingRate: item.buying_rate || 650,
+                            sellingRate: item.selling_rate || 670,
+                            device_id: item.device_id || '-'
+                        });
+                    });
+                    excelRows = tempArr;
+                    updateExistingProductNamesDatalist();
 
-                     if (!document.getElementById('inventory-modal').classList.contains('hidden')) {
-                          loadInventory();
-                     }
-                     if (!document.getElementById('price-compare-modal').classList.contains('hidden')) {
-                          loadPriceComparison();
-                     }
-                     if (!document.getElementById('rate-analysis-modal').classList.contains('hidden')) {
-                          loadRateAnalysis();
-                     }
-                     if (!document.getElementById('expiry-modal').classList.contains('hidden')) {
-                          loadExpiryCheck();
-                     }
-                     if (!document.getElementById('excel-generator-modal').classList.contains('hidden')) {
-                          renderExcelTable();
-                     }
-                     if (!document.getElementById('report-modal').classList.contains('hidden')) {
-                          calculateReport();
-                     }
+                    if (!document.getElementById('inventory-modal').classList.contains('hidden')) {
+                        loadInventory();
+                    }
+                    if (!document.getElementById('price-compare-modal').classList.contains('hidden')) {
+                        loadPriceComparison();
+                    }
+                    if (!document.getElementById('rate-analysis-modal').classList.contains('hidden')) {
+                        loadRateAnalysis();
+                    }
+                    if (!document.getElementById('expiry-modal').classList.contains('hidden')) {
+                        loadExpiryCheck();
+                    }
+                    if (!document.getElementById('excel-generator-modal').classList.contains('hidden')) {
+                        renderExcelTable();
+                    }
+                    if (!document.getElementById('report-modal').classList.contains('hidden')) {
+                        calculateReport();
+                    }
                 });
 
-                let historyQuery = (userRole === 'admin' || deviceId === 'POSXIONG') ?
-                    db.collection("sales_history") :
-                    db.collection("sales_history").where("device_id", "==", deviceId);
+                let historyQuery = db.collection("sales_history");
 
                 historyQuery.onSnapshot((snapshot) => {
-                     if (!document.getElementById('history-modal').classList.contains('hidden')) {
-                          loadCloudHistory();
-                     }
-                     if (!document.getElementById('report-modal').classList.contains('hidden')) {
-                          calculateReport();
-                     }
+                    if (!document.getElementById('history-modal').classList.contains('hidden')) {
+                        loadCloudHistory();
+                    }
+                    if (!document.getElementById('report-modal').classList.contains('hidden')) {
+                        calculateReport();
+                    }
                 });
             } catch (e) {
                 console.error("Firebase Realtime error:", e);
@@ -3720,25 +3716,26 @@
                         if (row.dateAdded && row.dateAdded.includes('/')) {
                             isoDate = parseDDMMYYYYToISO(row.dateAdded);
                         }
-                        let docRef = db.collection("products").doc();
-                        newBatch.set(docRef, {
-                            device_id: deviceId,
-                            code: row.code,
-                            name: row.name || row.code,
-                            cost: parseFloat(String(row.cost).replace(/,/g, '')) || 0,
-                            original_cost: parseFloat(String(row.originalCost || row.cost).replace(/,/g, '')) || 0,
-                            profit_pct: parseFloat(String(row.profitPct).replace(/,/g, '')) || 20,
-                            price: parseFloat(String(row.price).replace(/,/g, '')) || 0,
-                            qty: parseInt(String(row.qty).replace(/,/g, '')) || 1,
-                            unit_per_pack: row.unitPerPack || 12,
-                            date_added: isoDate,
-                            mfg_date: row.mfgDate || null,
-                            expiry_date: row.expiryDate || null,
-                            currency: row.currency || 'ກີບ',
-                            buying_rate: row.buyingRate || 650,
-                            selling_rate: row.sellingRate || 670,
-                            updated_at: new Date().toISOString()
-                        });
+                        let shopGroupKey = localStorage.getItem('pos_shop_name_' + deviceId) || deviceId;
+                                                newBatch.set(docRef, {
+                                                    device_id: deviceId,
+                                                    shop_group: shopGroupKey, // 🆕 ເພີ່ມກຸ່ມຮ້ານເພື່ອໃຫ້ເຄື່ອງ A ແລະ B ອ່ານຂໍ້ມູນຊຸດດຽວກັນ
+                                                    code: row.code,
+                                                    name: row.name || row.code,
+                                                    cost: parseFloat(String(row.cost).replace(/,/g, '')) || 0,
+                                                    original_cost: parseFloat(String(row.originalCost || row.cost).replace(/,/g, '')) || 0,
+                                                    profit_pct: parseFloat(String(row.profitPct).replace(/,/g, '')) || 20,
+                                                    price: parseFloat(String(row.price).replace(/,/g, '')) || 0,
+                                                    qty: parseInt(String(row.qty).replace(/,/g, '')) || 1,
+                                                    unit_per_pack: row.unitPerPack || 12,
+                                                    date_added: isoDate,
+                                                    mfg_date: row.mfgDate || null,
+                                                    expiry_date: row.expiryDate || null,
+                                                    currency: row.currency || 'ກີບ',
+                                                    buying_rate: row.buyingRate || 650,
+                                                    selling_rate: row.sellingRate || 670,
+                                                    updated_at: new Date().toISOString()
+                                                });
                     });
                     await newBatch.commit();
                 } catch (e) {}
