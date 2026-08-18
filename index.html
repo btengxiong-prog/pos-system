@@ -2259,26 +2259,34 @@
         }
 
         function updateHeaderTitle() {
-                    let headerTitle = document.getElementById('main-header-title');
-                    if (!headerTitle) return;
-                    
-                    let currentLang = localStorage.getItem('pos_current_lang') || 'lo';
-                    let t = translations[currentLang] || translations['lo'];
+            let headerTitle = document.getElementById('main-header-title');
+            if (!headerTitle) return;
+            
+            let currentLang = localStorage.getItem('pos_current_lang') || 'lo';
+            let t = translations[currentLang] || translations['lo'];
 
-                    let userRole = localStorage.getItem('pos_user_role');
-                    if (userRole === 'admin') {
-                        headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ ລະດັບສູງສຸດ — Super Admin Control Center [ Full Management & Realtime Sync System ]`;
-                        return;
-                    }
+            let userRole = localStorage.getItem('pos_user_role');
+            if (userRole === 'admin') {
+                headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ ລະດັບສູງສຸດ — Super Admin Control Center [ Full Management & Realtime Sync System ]`;
+                return;
+            }
 
-                    // 🔍 ດຶງຊື່ຮ້ານທີ່ບັນທຶກໄວ້ (ເຊັ່ນ: ຈາກການແກ້ໄຂ ຫຼື ຕັ້ງຊື່)
-                    let shopName = localStorage.getItem('pos_shop_name_' + deviceId);
-                    
-                    // 📌 ຕາມເງື່ອນໄຂ: ຖ້າຮ້ານມີຊື່ ໃຫ້ດຶງຊື່ມາ, ຖ້າບໍ່ມີ (ຄ່າຫວ່າງ) ໃຫ້ດຶງ ID ເຄື່ອງ (deviceId) ມາສະແດງແທນ
-                    let displayName = (shopName && shopName.trim() !== '' && shopName.trim().toUpperCase() !== deviceId.toUpperCase()) ? shopName : deviceId;
+            // ກວດສອບວ່າເປັນຢູເຊີຖາວອນທີ່ມີຊື່ຮ້ານ ຫຼື ຢູເຊີທົດລອງ 15 ວັນ
+            let shopName = localStorage.getItem('pos_shop_name_' + deviceId);
+            let isShopOwner = localStorage.getItem('pos_shop_owner') === 'true';
+            
+            let displayName = "";
+            
+            if (isShopOwner && shopName && shopName.trim() !== '' && shopName.trim().toUpperCase() !== deviceId.toUpperCase()) {
+                // 1) ຖ້າເປັນຢູເຊີຖາວອນ ແລະ ມີຊື່ຮ້ານ ໃຫ້ສະແດງຊື່ຮ້ານ
+                displayName = shopName.trim();
+            } else {
+                // 2) ຖ້າເປັນຢູເຊີທົດລອງ 15 ວັນ ໃຫ້ສະແດງ ID ຂອງເຄື່ອງນັ້ນ
+                displayName = deviceId;
+            }
 
-                    headerTitle.innerHTML = `🛒 ${t.title} &nbsp; <span class="text-yellow-300 font-extrabold">[ ${displayName} ]</span>`;
-                }
+            headerTitle.innerHTML = `🛒 ${t.title} &nbsp; <span class="text-yellow-300 font-extrabold">[ ${displayName} ]</span>`;
+        }
 
         function handleUnifiedLoginKeydown(event) {
             if (event.key === 'Enter') { verifyUnifiedLogin(); }
@@ -3716,31 +3724,36 @@
         // ⏳ ຟັງຊັນເມື່ອລູກຄ້າກົດປຸ່ມ "ທົດລອງໃຊ້ 15 ວັນ / ພະນັກງານຂາຍ" (ສະບັບຖືກຕ້ອງຕາມກົດ)
             async function selectRole(role) {
                         try {
-                            // ລ້າງຄ່າ Username ແລະ Shop Owner ເກົ່າອອກໃຫ້ໝົດທັງໝົດ
+                            // 1. ຕັ້ງຄ່າສະຖານະທົດລອງ ແລະ ລ້າງຄ່າຊື່ຮ້ານເກົ່າທີ່ຄ້າງຢູ່ໃນເຄື່ອງອອກໃຫ້ໝົດ
                             localStorage.setItem('pos_logged_in', 'true');
                             localStorage.setItem('pos_shop_owner', 'false');
                             localStorage.removeItem('pos_user_role');
                             localStorage.removeItem('pos_active_shop_username');
-                            localStorage.removeItem('pos_shop_user');
-
-                            // ດຶງ Hardware ID ຖາວອນປະຈຳເຄື່ອງອອກມາໃຊ້
-                            let hardwareId = localStorage.getItem('pos_permanent_device_id') || localStorage.getItem('pos_hardware_locked_id');
-                            if (!hardwareId || hardwareId.startsWith('@')) {
-                                let ຂໍ້ມູນສະເພາະເຄື່ອງ = navigator.userAgent + screen.width + screen.height + (navigator.language || 'lo');
-                                hardwareId = 'POS-DEV-' + Math.abs(ສ້າງຄ່າແຮດ(ຂໍ້ມູນສະເພາະເຄື່ອງ));
-                                localStorage.setItem('pos_permanent_device_id', hardwareId);
-                                localStorage.setItem('pos_hardware_locked_id', hardwareId);
+                            
+                            // 🛑 ລ້າງຊື່ຮ້ານເກົ່າອອກ ເພື່ອໃຫ້ເວລາດຶງມາສະແດງ ມັນອອກເປັນ ID ຂອງເຄື່ອງທົດລອງແທ้ໆ
+                            let currentStoredId = localStorage.getItem('pos_permanent_device_id') || localStorage.getItem('pos_device_id');
+                            if (currentStoredId) {
+                                localStorage.removeItem('pos_shop_name_' + currentStoredId);
                             }
 
-                            deviceId = hardwareId.trim();
+                            // 2. ດຶງເອົາ ID ຖາວອນປະຈຳເຄື່ອງ (Hardware / Permanent Device ID)
+                            if (!currentStoredId || currentStoredId === 'POSXIONG' || currentStoredId.trim() === '') {
+                                let ຂໍ້ມູນສະເພາະເຄື່ອງ = navigator.userAgent + screen.width + screen.height + (navigator.language || 'lo');
+                                currentStoredId = 'POS-DEV-' + Math.abs(ສ້າງຄ່າແຮດ(ຂໍ້ມູນສະເພາະເຄື່ອງ));
+                                localStorage.setItem('pos_permanent_device_id', currentStoredId);
+                                localStorage.setItem('pos_hardware_locked_id', currentStoredId);
+                            }
+                            
+                            deviceId = currentStoredId.trim();
                             localStorage.setItem('pos_device_id', deviceId);
-                            localStorage.removeItem('pos_shop_name_' + deviceId); // ລ້າງຊື່ຮ້ານເກົ່າ
 
+                            // 3. ເຊື່ອງ Modal ເລືອກໂໝດ ແລະ Modal ລັອກອິນທັງໝົດ
                             let roleModal = document.getElementById('role-select-modal');
                             let loginModal = document.getElementById('unified-login-modal');
                             if (roleModal) roleModal.classList.add('hidden');
                             if (loginModal) loginModal.classList.add('hidden');
 
+                            // 4. ບັນທຶກລົງ Firebase Cloud Firestore ເພື່ອກຳນົດວັນໝົດອາຍຸ 15 ວັນ
                             if (typeof db !== 'undefined' && db && deviceId) {
                                 try {
                                     let docRef = db.collection("devices_registry").doc(deviceId);
@@ -3753,18 +3766,28 @@
                                         await docRef.set({
                                             device_id: deviceId,
                                             type: 'trial',
-                                            shop_name: deviceId,
+                                            shop_name: deviceId, // ໃຊ້ ID ເປັນຄ່າເລີ່ມຕົ້ນ
                                             phone: '',
                                             username: deviceId,
                                             created_at: new Date().toISOString(),
                                             expiry_date: expiryDate.toISOString().split('T')[0]
                                         }, { merge: true });
                                     }
-                                } catch (firebaseErr) {}
+                                } catch (firebaseErr) {
+                                    console.error("Firebase trial save error:", firebaseErr);
+                                }
+                            }
+
+                            if (typeof checkRoleAndLicense === 'function') {
+                                checkRoleAndLicense();
+                            }
+                            if (typeof checkAdminButtonVisibility === 'function') {
+                                checkAdminButtonVisibility();
                             }
 
                             location.reload();
                         } catch (err) {
+                            console.error("selectRole error:", err);
                             location.reload();
                         }
                     }
