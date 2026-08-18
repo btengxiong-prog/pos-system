@@ -513,9 +513,11 @@
                 <h3 class="text-xl font-bold text-cyan-800 flex items-center gap-2">
                     <span>📦 ສິນຄ້າຄ້າງສາງ (Inventory Stock)</span>
                 </h3>
-                <!-- 🔒 ເຊື່ອງປຸ່ມ "ເລືອກທັງໝົດ" ແລະ "ລຶບຂໍ້ມູນ" ໄວ້ ສຳລັບຜູ້ໃຊ້ທົ່ວໄປ (ໃຫ້ເຫັນສະເພາະ Super Admin ເທົ່ານັ້ນ) -->
+                <!-- 🟢 ປ່ຽນຈາກປຸ່ມ "ເລືອກທັງໝົດ" ເປັນ Dropdown "ເລືອກຮ້ານ" ສຳລັບ Admin ໃຫຍ່ -->
                 <div id="inventory-admin-action-buttons" class="hidden items-center gap-2">
-                    <button onclick="selectAllAdminDevices(this)" class="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg cursor-pointer font-bold flex items-center gap-1 shadow">☑️ ເລືອກທັງໝົດ</button>
+                    <select id="inventory-shop-filter" onchange="loadInventory()" class="text-xs bg-blue-50 text-blue-800 border border-blue-300 px-3 py-1.5 rounded-lg cursor-pointer font-bold outline-none shadow">
+                        <option value="ALL">🏪 ທすべてのຮ້ານ (ທັງໝົດ)</option>
+                    </select>
                     <button onclick="promptDeleteSelectedOrAllDevices()" class="text-xs bg-red-100 text-red-700 px-3 py-1.5 rounded-lg cursor-pointer font-bold flex items-center gap-1 shadow">🗑️ ລຶບຂໍ້ມູນ</button>
                 </div>
             </div>
@@ -2843,21 +2845,27 @@
                 let isAdminMaster = (userRole === 'admin' || deviceId === 'POSXIONG');
                 let activeShopUser = String(localStorage.getItem('pos_active_shop_username') || localStorage.getItem('pos_shop_user') || deviceId || '').trim().toLowerCase();
                 
+                // 🔍 ກວດສອບວ່າ Admin ໃຫຍ່ເລືອກຮ້ານໃດຈາກ Dropdown (ກ່ອງແດງ 1)
+                let shopFilterSelect = document.getElementById('inventory-shop-filter');
+                let selectedShopFilter = shopFilterSelect ? shopFilterSelect.value : 'ALL';
+
                 let displayRows = excelRows;
 
-                // 🔍 ຖ້າບໍ່ແມ່ນ Super Admin ໃຫ້ກັ່ນຕອງສະເພາະຮ້ານ ແຕ່ຖ້າຂໍ້ມູນໃນ database ເປັນຄ່າຫວ່າງ ໃຫ້ຜ່ານມາສະແດງໄດ້ເລີຍ (ປ້ອງກັນຈໍຫວ່າງເປົ່າ)
-                if (!isAdminMaster && activeShopUser !== 'posxiong') {
+                if (isAdminMaster) {
+                    // ຖ້າ Admin ໃຫຍ່ເລືອກເຈາະຈົງຮ້ານໃດໜຶ່ງ
+                    if (selectedShopFilter && selectedShopFilter !== 'ALL') {
+                        displayRows = excelRows.filter(row => String(row.device_id || '').trim().toUpperCase() === selectedShopFilter);
+                    }
+                } else {
+                    // ສຳລັບຮ້ານທຳມະດາ ໃຫ້ເຫັນສະເພາະຂອງຕົນເອງ
                     displayRows = excelRows.filter(row => {
                         let rowDev = String(row.device_id || '').trim().toLowerCase();
-                        if (!rowDev || rowDev === '-' || rowDev === activeShopUser || rowDev === String(deviceId).trim().toLowerCase() || rowDev === 'posxiong') {
-                            return true;
-                        }
-                        return false;
+                        return !rowDev || rowDev === '-' || rowDev === activeShopUser || rowDev === String(deviceId).trim().toLowerCase() || rowDev === 'posxiong';
                     });
                 }
 
                 if (displayRows.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າຂອງຮ້ານນີ້ໃນສາງ</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າຂອງຮ້ານທີ່ເລືອກ</td></tr>`;
                     return;
                 }
 
@@ -2866,18 +2874,12 @@
 
                 let actionHeader = document.getElementById('inventory-col-action-header');
                 if (actionHeader) {
-                    if (isAdminMaster) {
-                        actionHeader.innerHTML = `<input type="checkbox" id="select-all-checkbox" onclick="toggleSelectAllInventory(this)" class="w-4 h-4 cursor-pointer accent-cyan-600" title="ເລືອກທັງໝົດ">`;
-                    } else {
-                        actionHeader.innerHTML = `ຈັດການ`;
-                    }
+                    actionHeader.innerHTML = isAdminMaster ? `ຈັດການ` : `ຈັດການ`;
                 }
 
                 displayRows.forEach((row) => {
                     let initialPackQty = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1; 
-                    let unitPerPack = parseInt(row.unitPerPack || 12);
                     let remainingFullPacks = initialPackQty;
-                    let leftoverUnits = 0;
 
                     let adjusted = getAdjustedItemPricing(row);
                     let cost = adjusted.cost;
@@ -2893,8 +2895,7 @@
                     let totalPriceStr = formatNumberWithCommas(totalPriceAmount) + " " + currency;
 
                     let formattedDate = formatDateToDDMMYYYY(row.dateAdded || new Date().toISOString().split('T')[0]);
-                    let noteStr = `ເຫຼືອ: ${formatNumberWithCommas(remainingFullPacks)}/${leftoverUnits}`;
-
+                    let noteStr = `ເຫຼືອ: ${formatNumberWithCommas(remainingFullPacks)}/0`;
                     let shopLabel = (isAdminMaster && row.device_id) ? ` [ຮ້ານ: ${row.device_id}]` : '';
 
                     let rightCellHtml = isAdminMaster ? 
@@ -2913,9 +2914,7 @@
                             <td class="p-3 border-r text-right font-bold text-blue-800 bg-blue-50/30">${totalCostStr}</td>
                             <td class="p-3 border-r text-right font-bold text-green-800 bg-green-50/30">${totalPriceStr}</td>
                             <td class="p-3 border-r text-center text-xs font-extrabold text-amber-600">${noteStr}</td>
-                            <td class="p-3 text-center">
-                                ${rightCellHtml}
-                            </td>
+                            <td class="p-3 text-center">${rightCellHtml}</td>
                         </tr>
                     `;
                 });
@@ -4541,6 +4540,52 @@
                 if (targetInput) {
                     targetInput.value = '';
                 }
+            }
+
+            async function openInventoryModal() {
+                let modal = document.getElementById('inventory-modal');
+                if (modal) {
+                    modal.classList.remove('hidden');
+                    
+                    // 🔒 ກວດສອບສິດ Admin ໃຫຍ່
+                    let userRole = localStorage.getItem('pos_user_role');
+                    let shopOwner = localStorage.getItem('pos_shop_owner');
+                    let adminActionButtons = document.getElementById('inventory-admin-action-buttons');
+                    
+                    if (adminActionButtons) {
+                        if (userRole === 'admin' || deviceId === 'POSXIONG' || (shopOwner === 'true' && deviceId === 'POSXIONG')) {
+                            adminActionButtons.classList.remove('hidden');
+                            adminActionButtons.style.setProperty('display', 'flex', 'important');
+                            await populateInventoryShopDropdown(); // ດຶງລາຍຊື່ຮ້ານມາใส่ Dropdown
+                        } else {
+                            adminActionButtons.classList.add('hidden');
+                            adminActionButtons.style.setProperty('display', 'none', 'important');
+                        }
+                    }
+
+                    loadInventory();
+                }
+            }
+
+            // 📋 ຟັງຊັນດຶງລາຍຊື່ຮ້ານທັງໝົດມາใส่ Dropdown (ກ່ອງແດງ 1)
+            async function populateInventoryShopDropdown() {
+                let selectEl = document.getElementById('inventory-shop-filter');
+                if (!selectEl) return;
+
+                let shopsSet = new Set();
+                excelRows.forEach(row => {
+                    if (row.device_id && row.device_id.trim() !== '' && row.device_id !== '-') {
+                        shopsSet.add(row.device_id.trim().toUpperCase());
+                    }
+                });
+
+                let html = `<option value="ALL">🏪 ທຸກຮ້ານ (ທັງໝົດ)</option>`;
+                shopsSet.forEach(shopId => {
+                    let shopName = localStorage.getItem('pos_shop_name_' + shopId) || shopId;
+                    html += `<option value="${shopId}">${shopName} (${shopId})</option>`;
+                });
+
+                selectEl.innerHTML = html;
             }
 
     </script>
