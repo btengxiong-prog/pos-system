@@ -978,7 +978,7 @@
             <div class="mt-4 p-3 bg-pink-50 rounded-xl border border-pink-200 text-left space-y-2">
                 <label class="block text-xs font-bold text-pink-900">⌨️ ຫຼື ພິມ/ຍິງບາໂຄດດ້ວຍມື ແລ້ວກົດ Enter:</label>
                 <div class="flex gap-2">
-                    <input type="text" id="manual-barcode-input" onkeydown="handleManualBarcodeInput(event)" placeholder="ປ້ອນລະຫັດ Barcode..." class="flex-1 border rounded-lg px-3 py-2 text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-pink-500 bg-white">
+                    <input type="text" id="manual-barcode-input" list="existing-product-names-list" onkeydown="handleManualBarcodeInput(event)" placeholder="ປ້ອນລະຫັດ Barcode ຫຼື ຊື່ສິນຄ້າ..." class="...">
                     <button type="button" onclick="submitManualBarcode()" class="bg-pink-600 hover:bg-pink-700 text-white px-4 py-2 rounded-lg text-xs font-bold cursor-pointer shadow">ຕົກລົງ</button>
                 </div>
             </div>
@@ -3171,10 +3171,53 @@
 
     function submitManualBarcode() {
         let input = document.getElementById('manual-barcode-input');
-        if (input && input.value.trim() !== "") {
-            let code = input.value.trim();
-            input.value = "";
-            handleStockInBarcodeScanned(code);
+        if (!input || input.value.trim() === "") return;
+        let userInput = input.value.trim();
+        input.value = "";
+
+        // 1. ກວດສອບວ່າພິມ "ຊື່ສິນຄ້າ" ທີ່ມີໃນສາງແລ້ວບໍ່
+        let foundByName = excelRows.find(item => item.name && item.name.trim().toLowerCase() === userInput.toLowerCase());
+        if (foundByName) {
+            handleStockInBarcodeScanned(foundByName.code);
+            return;
+        }
+
+        // 2. ກວດສອບວ່າພິມ "ລະຫັດ Barcode" ທີ່ມີໃນສາງແລ້ວບໍ່
+        let foundByCode = excelRows.find(item => String(item.code).trim().toLowerCase() === userInput.toLowerCase());
+
+        if (foundByCode) {
+            // 🎯 ຖ້າພບບาໂຄດໃນສາງ: ດຶງຊື່ ແລະ ລາຄາເກົົາມາສະແດງ ແຕ່ "ຜູ້ໃຊ້ສາມາດປັບແກ້ໄຂເອງໄດ້"
+            closeStockInScanner();
+            currentStockInCode = foundByCode.code;
+            
+            document.getElementById('stock-in-code').innerText = foundByCode.code;
+            
+            // ດຶງຊື່ ແລະ ລາຄາເກົົາມາໃສ່ (ສາມາດພິມທັບ/ປັບແກ້ໄຂໄດ້ຕາມໃຈມັກ)
+            document.getElementById('stock-in-custom-name').value = foundByCode.name || '';
+            document.getElementById('stock-in-cost').value = formatNumberWithCommas(foundByCode.cost || 0);
+            document.getElementById('stock-in-profit-pct').value = foundByCode.profit_pct || 20;
+            
+            // ຄຳນວນລາຄາຂາຍອອກມາຕາມເປີເຊັນ
+            calculateStockInPrice(); 
+
+            document.getElementById('stock-in-modal').classList.remove('hidden');
+            return;
+        }
+
+        // 3. ຖ້າເປັນສິນຄ້າໃໝ່ (ບໍ່ພົບບາໂຄດ)
+        let finalCode = userInput;
+        let isLikelyBarcode = /^\d{6,}$/.test(userInput);
+        
+        if (!isLikelyBarcode) {
+            // ຖ້າພິມເປັນຊື່ສິນຄ້າ ໃຫ້ສ້າງ Barcode ให້ນຳອັດຕະໂນມັດ
+            finalCode = 'POS-' + Math.floor(100000 + Math.random() * 900000);
+            handleStockInBarcodeScanned(finalCode);
+            setTimeout(() => {
+                let nameInput = document.getElementById('stock-in-custom-name');
+                if (nameInput) nameInput.value = userInput;
+            }, 100);
+        } else {
+            handleStockInBarcodeScanned(finalCode);
         }
     }
 
