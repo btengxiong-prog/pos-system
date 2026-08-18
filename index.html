@@ -4124,6 +4124,99 @@
                 headerTitle.innerHTML = `🛒 ${t.title} &nbsp; <span class="text-yellow-300 font-extrabold">[ ${displayName} ]</span>`;
             }
 
+                let currentSelectedPaymentMode = 'cash';
+
+                        function openCheckoutMethodModal() {
+                            let finalPriceStr = document.getElementById('custom-final-price').value.replace(/,/g, '');
+                            let finalPrice = parseFloat(finalPriceStr) || 0;
+                            
+                            let totalAmountText = document.getElementById('popup-total-amount-text');
+                            if (totalAmountText) {
+                                totalAmountText.innerText = formatNumberWithCommas(finalPrice) + " " + (activeScannedItem ? (activeScannedItem.currency || 'ກີບ') : 'ກີບ');
+                            }
+
+                            let currentRate = parseFloat(localStorage.getItem('rate_current_value')) || 650;
+                            let totalThb = currentRate > 0 ? Math.round(finalPrice / currentRate) : 0;
+                            let totalThbText = document.getElementById('popup-total-thb-text');
+                            if (totalThbText) {
+                                totalThbText.innerText = `${formatNumberWithCommas(totalThb)} ບາດ (Rate ຊື້: ${formatNumberWithCommas(currentRate)})`;
+                            }
+
+                            let lakAcc = localStorage.getItem('pos_shop_lak_acc_' + deviceId) || '1006000000470';
+                            let thbAcc = localStorage.getItem('pos_shop_thb_acc_' + deviceId) || '-';
+
+                            let lakDisplay = document.getElementById('modal-lak-acc-display');
+                            if (lakDisplay) lakDisplay.innerText = lakAcc;
+
+                            let thbDisplay = document.getElementById('modal-thb-acc-display');
+                            if (thbDisplay) thbDisplay.innerText = thbAcc;
+
+                            let modal = document.getElementById('checkout-method-modal');
+                            if (modal) modal.classList.remove('hidden');
+                        }
+
+                        function closeCheckoutMethodModal() {
+                            let modal = document.getElementById('checkout-method-modal');
+                            if (modal) modal.classList.add('hidden');
+                        }
+
+                        function selectPaymentMode(mode, labelElement) {
+                            currentSelectedPaymentMode = mode;
+                            
+                            // ຈັດການປ່ຽນສີຂອບຂອງ Radio Option ໃຫ້ສວຍງາມ
+                            let labels = document.querySelectorAll('#checkout-method-modal label');
+                            labels.forEach(l => {
+                                l.classList.remove('border-blue-600', 'bg-blue-50/50');
+                                l.classList.add('border-gray-200');
+                            });
+                            if (labelElement) {
+                                labelElement.classList.remove('border-gray-200');
+                                labelElement.classList.add('border-blue-600', 'bg-blue-50/50');
+                            }
+
+                            let lakSection = document.getElementById('transfer-lak-qr-section');
+                            let thbSection = document.getElementById('transfer-thb-qr-section');
+
+                            if (lakSection) lakSection.classList.toggle('hidden', mode !== 'transfer_lak');
+                            if (thbSection) thbSection.classList.toggle('hidden', mode !== 'transfer_thb');
+                        }
+
+                        async function confirmCheckoutPayment() {
+                            if (!activeScannedItem) return;
+
+                            let finalPrice = parseFloat(document.getElementById('custom-final-price').value.replace(/,/g, '')) || 0;
+                            let qty = parseInt(document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '')) || 1;
+                            let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
+
+                            let saleRecord = {
+                                date: new Date().toISOString(),
+                                device_id: deviceId,
+                                items: [{
+                                    code: activeScannedItem.code,
+                                    name: activeScannedItem.name,
+                                    cost: unitCost,
+                                    price: finalPrice / qty,
+                                    qty: qty
+                                }],
+                                currency: activeScannedItem.currency || 'ກີບ',
+                                pay_mode: currentSelectedPaymentMode,
+                                total_amount: finalPrice,
+                                created_at: new Date().toISOString()
+                            };
+
+                            if (db) {
+                                try {
+                                    await db.collection("sales_history").add(saleRecord);
+                                } catch (e) {
+                                    console.error("Error saving sale history:", e);
+                                }
+                            }
+
+                            closeCheckoutMethodModal();
+                            closeSalesPopup();
+                            showAlert("ສຳເລັດ", `ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ (ວິທີ: ${currentSelectedPaymentMode})!`, "💰");
+                        }
+
     </script>
 </body>
 </html>
