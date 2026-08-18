@@ -2317,26 +2317,86 @@
             if (event.key === 'Enter') { verifyUnifiedLogin(); }
         }
 
-        // 🚪 ຟັງຊັນປ່ຽນໂໝດ / ອອກລະບົບ (ລ້າງຄ່າທັງໝົດ ແລະ ກັບຄືນໜ້າ Login 100%)
+        // 1. ປັບປຸງຟັງຊັນອອກຈາກລະບົບ ໃຫ້ລ້າງຄ່າທั้งໝົດທີ່ກ່ຽວຂ້ອງກັບຮ້ານຖາວອນອອກໃຫ້ໝົດກ້ຽງ
         function adminLogout() {
-            // 1. ບັນທຶກສະເພາະ ID ຖາວອນປະຈຳເຄື່ອງໄວ້ (ເພື່ອບໍ່ໃຫ້ ID ເຄື່ອງປ່ຽນ)
-            let savedPermanentId = localStorage.getItem('pos_permanent_device_id') || localStorage.getItem('pos_device_id');
-            let savedHardwareKey = localStorage.getItem('pos_hardware_locked_id');
+            // 🛡️ ດຶງສະເພາະ ID ຖາວອນປະຈຳເຄື່ອງ (Hardware ID) ໄວ້ໃຊ້ໃນໂໝດທົດລອງ
+            let savedPermanentId = localStorage.getItem('pos_permanent_device_id') || localStorage.getItem('pos_hardware_locked_id');
 
-            // 2. ລ້າງຂໍ້ມູນການລັອກອິນ ແລະ ຢູເຊີເກົ່າອອກທັງໝົດແບບກ້ຽງສະອາດ
-            localStorage.clear();
+            // 🧹 ລ้างຂໍ້ມູນການລັອກອິນ, ຢູເຊີຮ້ານ, ແລະ ສະຖານະທั้งໝົດອອກຈາກ localStorage
+            localStorage.removeItem('pos_logged_in');
+            localStorage.removeItem('pos_shop_owner');
+            localStorage.removeItem('pos_user_role');
+            localStorage.removeItem('pos_active_shop_username');
+            localStorage.removeItem('pos_shop_user');
+            localStorage.removeItem('pos_linked_admin_id');
 
-            // 3. ເອົາ ID ຖາວອນກັບຄືນມາໃສ່ໄວ້ຄືເກົ່າ
+            // 🔄 ຖ້າເຄື່ອງນີ້ມີ Hardware ID ໃຫ້ຕັ້ງຄ່າກັບຄືນມາເປັນ ID ເຄື່ອງສະເພາະຕົວ
             if (savedPermanentId) {
-                localStorage.setItem('pos_permanent_device_id', savedPermanentId);
                 localStorage.setItem('pos_device_id', savedPermanentId);
-            }
-            if (savedHardwareKey) {
-                localStorage.setItem('pos_hardware_locked_id', savedHardwareKey);
+                localStorage.setItem('pos_permanent_device_id', savedPermanentId);
             }
 
-            // 4. ບັງຄັບໂຫຼດໜ້າຈໍໃໝ່ພ້ອມສົ່ງ Parameter ພິເສດ ເພື່ອບໍ່ໃຫ້ Browser จำค่าเก่า ແລະ ດີດກັບໄປໜ້າ Login ທັນທີ
+            // 🚀 ຣີເຟຣຊໜ້າຈໍພ້ອມກັບລ້າງ Cache ພາໃຫ້ກັບຄືນສູ່ໜ້າເລືອກໂໝດ (Role Selection Modal) 100%
             window.location.href = window.location.pathname + '?logout=' + new Date().getTime();
+        }
+
+        // 2. ປັບປຸງຟັງຊັນເລືອກໂໝດທົດລອງ 15 ວັນ ໃຫ້ຕັດການຜูกມັດກັບຢູເຊີຖາວອນເກົ່າ
+        async function selectRole(role) {
+            try {
+                // ບັງຄັບຕັ້ງຄ່າເປັນໂหมดທົດລອງ ແລະ ຕັດສິດຮ້ານຖາວອນອອກທັນທີ
+                localStorage.setItem('pos_logged_in', 'true');
+                localStorage.setItem('pos_shop_owner', 'false');
+                localStorage.removeItem('pos_active_shop_username');
+                localStorage.removeItem('pos_shop_user');
+                localStorage.removeItem('pos_user_role');
+
+                // ໃຊ້ ID ປະຈຳເຄື່ອງ (Hardware / Permanent Device ID) ເປັນ ID ຫຼັກສຳລັບໂໝດທົດລອງ
+                let currentStoredId = localStorage.getItem('pos_permanent_device_id') || localStorage.getItem('pos_hardware_locked_id');
+                
+                if (!currentStoredId || currentStoredId === 'POSXIONG' || currentStoredId.trim() === '') {
+                    let ຂໍ້ມູນສະເພາະເຄື່ອງ = navigator.userAgent + screen.width + screen.height + (navigator.language || 'lo') + window.devicePixelRatio;
+                    currentStoredId = 'POS-DEV-' + Math.abs(ສ້າງຄ່າແຮດ(ຂໍ້ມູນສະເພາະເຄື່ອງ));
+                    localStorage.setItem('pos_permanent_device_id', currentStoredId);
+                    localStorage.setItem('pos_hardware_locked_id', currentStoredId);
+                }
+                
+                deviceId = currentStoredId.trim();
+                localStorage.setItem('pos_device_id', deviceId);
+
+                // ເຊື່ອງ Modal ເລືອກໂໝດທັງໝົດ
+                let roleModal = document.getElementById('role-select-modal');
+                let loginModal = document.getElementById('unified-login-modal');
+                if (roleModal) roleModal.classList.add('hidden');
+                if (loginModal) loginModal.classList.add('hidden');
+
+                // บันทຶกลง Firebase Cloud Firestore ວ່າເປັນເຄື່ອງທົດລອງ 15 ວັນ (ຖ້າຫາກຍັງບໍ່ມີ)
+                if (typeof db !== 'undefined' && db && deviceId) {
+                    try {
+                        let docRef = db.collection("devices_registry").doc(deviceId);
+                        let docSnap = await docRef.get();
+                        
+                        // 🛑 ຖ້າເຄື່ອງນີ້ເຄີຍເປັນຖາວອນมาก่อน ແต่อยากกลับมาທົດລອງ ໃຫ້ອັບເດດ type เป็น trial ແລະ ລ້າງ username ອອກ
+                        let expiryDate = new Date();
+                        expiryDate.setDate(expiryDate.getDate() + 15);
+                        
+                        await docRef.set({
+                            device_id: deviceId,
+                            type: 'trial',
+                            shop_name: deviceId,
+                            username: deviceId,
+                            created_at: new Date().toISOString(),
+                            expiry_date: expiryDate.toISOString().split('T')[0]
+                        }, { merge: true });
+                    } catch (firebaseErr) {
+                        console.error("Firebase trial reset error:", firebaseErr);
+                    }
+                }
+
+                location.reload();
+            } catch (err) {
+                console.error("selectRole error:", err);
+                location.reload();
+            }
         }
 
         function openMyDeviceModal() {
