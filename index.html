@@ -4217,6 +4217,108 @@
                             showAlert("ສຳເລັດ", `ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ (ວິທີ: ${currentSelectedPaymentMode})!`, "💰");
                         }
 
+                        async function loadCloudHistory() {
+                                    let tbody = document.getElementById('history-table-tbody');
+                                    let summaryContainer = document.getElementById('history-summary');
+                                    if (!tbody) return;
+
+                                    tbody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</td></tr>`;
+
+                                    let salesHistory = [];
+
+                                    if (db) {
+                                        try {
+                                            let userRole = localStorage.getItem('pos_user_role');
+                                            let historyRef = (userRole === 'admin' || deviceId === 'POSXIONG') ?
+                                                db.collection("sales_history") :
+                                                db.collection("sales_history").where("device_id", "==", deviceId);
+
+                                            let snapshot = await historyRef.get();
+                                            snapshot.forEach(doc => {
+                                                let data = doc.data();
+                                                salesHistory.push({
+                                                    id: doc.id,
+                                                    date: data.date || data.timestamp || new Date().toISOString(),
+                                                    items: data.items || [],
+                                                    currency: data.currency || 'ກີບ',
+                                                    payMode: data.pay_mode || 'cash',
+                                                    totalAmount: data.total_amount || 0
+                                                });
+                                            });
+                                        } catch (e) {
+                                            console.error("Error loading sales history:", e);
+                                        }
+                                    }
+
+                                    if (salesHistory.length === 0) {
+                                        tbody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີປະຫວັດການຂາຍໃນລະບົບ</td></tr>`;
+                                        if (summaryContainer) summaryContainer.classList.add('hidden');
+                                        return;
+                                    }
+
+                                    // เรียงลำดับจากใหม่ไปเก่า
+                                    salesHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+                                    let html = '';
+                                    let countIndex = 1;
+                                    let totalCostAll = 0;
+                                    let totalPriceAll = 0;
+                                    let cashTotal = 0;
+                                    let transferTotal = 0;
+
+                                    salesHistory.forEach(tx => {
+                                        let formattedDate = formatDateToDDMMYYYY(tx.date);
+                                        if (tx.items && Array.isArray(tx.items)) {
+                                            tx.items.forEach(it => {
+                                                let cost = parseFloat(it.cost) || 0;
+                                                let price = parseFloat(it.price) || 0;
+                                                let qty = parseInt(it.qty) || 1;
+                                                let totalRow = price * qty;
+                                                
+                                                totalCostAll += cost * qty;
+                                                totalPriceAll += totalRow;
+
+                                                if (tx.payMode && tx.payMode.includes('transfer')) {
+                                                    transferTotal += totalRow;
+                                                } else {
+                                                    cashTotal += totalRow;
+                                                }
+
+                                                html += `
+                                                    <tr class="hover:bg-gray-50 border-b text-center">
+                                                        <td class="p-3 border-r font-bold text-gray-500 text-xs">${countIndex++}</td>
+                                                        <td class="p-3 border-r font-semibold text-purple-700 text-xs">${formattedDate}</td>
+                                                        <td class="p-3 border-r font-bold text-blue-600 font-mono text-xs">${it.code || '-'}</td>
+                                                        <td class="p-3 border-r font-bold text-gray-900 text-left text-xs">${it.name || '-'}</td>
+                                                        <td class="p-3 border-r text-right text-blue-600 text-xs">${formatNumberWithCommas(cost)}</td>
+                                                        <td class="p-3 border-r text-right text-green-600 text-xs">${formatNumberWithCommas(price)}</td>
+                                                        <td class="p-3 border-r text-center font-bold text-cyan-800 text-xs">${formatNumberWithCommas(qty)}</td>
+                                                        <td class="p-3 border-r text-right font-bold text-blue-800 bg-blue-50/30 text-xs">${formatNumberWithCommas(totalRow)}</td>
+                                                        <td class="p-3 text-center text-xs font-semibold text-amber-600">${tx.payMode || 'cash'}</td>
+                                                    </tr>
+                                                `;
+                                            });
+                                        }
+                                    });
+
+                                    tbody.innerHTML = html;
+
+                                    // ສະແດງຜົນສະຫຼຸບຍອດຂາຍ
+                                    let sumTotalCostLak = document.getElementById('sum-total-cost-lak');
+                                    let sumTotalPriceLak = document.getElementById('sum-total-price-lak');
+                                    let sumTotalProfitLak = document.getElementById('sum-total-profit-lak');
+                                    let sumCashLak = document.getElementById('sum-cash-lak');
+                                    let sumTransferLak = document.getElementById('sum-transfer-lak');
+
+                                    if (sumTotalCostLak) sumTotalCostLak.innerText = formatNumberWithCommas(totalCostAll) + " ກີບ";
+                                    if (sumTotalPriceLak) sumTotalPriceLak.innerText = formatNumberWithCommas(totalPriceAll) + " ກີບ";
+                                    if (sumTotalProfitLak) sumTotalProfitLak.innerText = formatNumberWithCommas(totalPriceAll - totalCostAll) + " ກີບ";
+                                    if (sumCashLak) sumCashLak.innerText = formatNumberWithCommas(cashTotal) + " ກີບ";
+                                    if (sumTransferLak) sumTransferLak.innerText = formatNumberWithCommas(transferTotal) + " ກີບ";
+
+                                    if (summaryContainer) summaryContainer.classList.remove('hidden');
+                                }
+
     </script>
 </body>
 </html>
