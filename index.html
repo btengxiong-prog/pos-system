@@ -4082,50 +4082,37 @@
 
     // 3. ຟັງຊັນອັບເດດຊື່ຮ້ານສະແດງຜົນເທິງ Header (ຮ້ານມີຊື່ສະແດງຊື່, ຮ້ານບໍ່ມີຊື່ສະແດງ ID)
             async function updateHeaderTitle() {
-                        let headerTitle = document.getElementById('main-header-title');
-                        if (!headerTitle) return;
-                        
-                        let currentLang = localStorage.getItem('pos_current_lang') || 'lo';
-                        let t = translations[currentLang] || translations['lo'];
+                let headerTitle = document.getElementById('main-header-title');
+                if (!headerTitle) return;
+                
+                let currentLang = localStorage.getItem('pos_current_lang') || 'lo';
+                let t = translations[currentLang] || translations['lo'];
 
-                        let userRole = localStorage.getItem('pos_user_role');
-                        if (userRole === 'admin') {
-                            headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ ລະດັບສູງສຸດ — Super Admin Control Center [ Full Management & Realtime Sync System ]`;
-                            return;
-                        }
+                let userRole = localStorage.getItem('pos_user_role');
+                if (userRole === 'admin') {
+                    headerTitle.innerHTML = `🛒 ລະບົບຂາຍເຄື່ອງ POS ອັດສະລິຍະ ລະດັບສູງສຸດ — Super Admin Control Center [ Full Management & Realtime Sync System ]`;
+                    return;
+                }
 
-                        // ດຶງຊື່ຮ້ານ ແລະ ສະຖານະ
-                        let shopName = localStorage.getItem('pos_shop_name_' + deviceId);
-                        let isShopOwner = localStorage.getItem('pos_shop_owner') === 'true';
+                // ດຶງສະຖານະ ແລະ ຊື່ຮ້ານ
+                let isShopOwner = localStorage.getItem('pos_shop_owner') === 'true';
+                let activeUser = localStorage.getItem('pos_active_shop_username') || '';
+                
+                // ດຶງ ID ປະຈຳເຄື່ອງທີ່ແທ້ຈິງ
+                let realDeviceId = localStorage.getItem('pos_permanent_device_id') || localStorage.getItem('pos_hardware_locked_id') || deviceId;
+                let shopName = localStorage.getItem('pos_shop_name_' + realDeviceId) || localStorage.getItem('pos_shop_name_' + activeUser);
 
-                        // ດຶງ ID ທີ່ເປັນ ID ປະຈຳເຄື່ອງແທ້ (Hardware/Permanent ID) ສຳລັບກໍລະນีທົດລອງ 15 ວັນ
-                        let hardwareDeviceId = localStorage.getItem('pos_permanent_device_id') || localStorage.getItem('pos_hardware_locked_id') || deviceId;
+                let displayName = "";
+                
+                // 📌 ເງື່ອນໄຂ: ຖ້າເປັນຮ້ານເປີດຖາວອນ ແລະ ມີຊື່ຮ້ານ ໃຫ້ສະແດງຊື່ຮ້ານ, ແຕ່ຖ້າເປັນທົດລອງ 15 ວັນ ໃຫ້ສະແດງ ID ຂອງເຄື່ອງນັ້ນໆສະເໝີ
+                if (isShopOwner && shopName && shopName.trim() !== '' && shopName.trim().toUpperCase() !== realDeviceId.toUpperCase() && !shopName.startsWith('POS-DEV-')) {
+                    displayName = shopName;
+                } else {
+                    displayName = realDeviceId; // ດຶງ ID ປະຈຳເຄື່ອງມາສະແດງສຳລັບລະບົບທົດລອງ
+                }
 
-                        // ຖ້າໃນ LocalStorage ຍັງບໍ່ມີ ໃຫ້ດຶງຈາກ Firebase มาเช็ค
-                        if ((!shopName || shopName.trim() === '' || shopName.trim() === deviceId) && db) {
-                            try {
-                                let docSnap = await db.collection("devices_registry").doc(deviceId).get();
-                                if (docSnap.exists) {
-                                    let data = docSnap.data();
-                                    if (data.shop_name && data.shop_name.trim() !== '') {
-                                        shopName = data.shop_name;
-                                        localStorage.setItem('pos_shop_name_' + deviceId, shopName);
-                                    }
-                                }
-                            } catch (e) {}
-                        }
-
-                        let displayName = "";
-                        // 📌 ຖ້າເປັນຮ້ານເປີດຖາວອນ (isShopOwner) ແລະ ມີຊື່ຮ້ານແລ້ວ ໃຫ້ສະແດງສະເພາະຊື່ຮ້ານເທົ່ານັ້ນ
-                        if (isShopOwner && shopName && shopName.trim() !== '' && shopName.trim().toUpperCase() !== deviceId.toUpperCase() && !shopName.toUpperCase().startsWith('POS-DEV-')) {
-                            displayName = shopName;
-                        } else {
-                            // 📌 ຖ້າເປັນລະບົບທົດລອງ 15 ວັນ ໃຫ້ສະແດງສະເພາະ Hardware/Permanent ID ຂອງເຄື່ອງນັ້ນໆ (POS-DEV-...) ຢ່າງດຽວ
-                            displayName = hardwareDeviceId;
-                        }
-
-                        headerTitle.innerHTML = `🛒 ${t.title} &nbsp; <span class="text-yellow-300 font-extrabold">[ ${displayName} ]</span>`;
-                    }
+                headerTitle.innerHTML = `🛒 ${t.title} &nbsp; <span class="text-yellow-300 font-extrabold">[ ${displayName} ]</span>`;
+            }
 
                 let currentSelectedPaymentMode = 'cash';
 
