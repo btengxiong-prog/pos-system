@@ -4455,25 +4455,17 @@
                 let checkboxes = document.querySelectorAll('.admin-device-checkbox');
                 let checkedBoxes = Array.from(checkboxes).filter(cb => cb.checked);
 
-                if (checkedBoxes.length > 0) {
-                    // ຖ້າມີການຕິກເລືອກສະເພາະບາງຢູເຊີ
-                    let deviceIdsToDelete = checkedBoxes.map(cb => cb.getAttribute('data-id'));
-                    
-                    // ໃຊ້ Modal Confirm ທີ່ມີໃນລະບົບ ຫຼື confirm ທຳມະດາ
-                    if (confirm(`ທ່ານຕ້ອງການລຶບຢູເຊີທີ່ເລືອກທັງໝົດ ${deviceIdsToDelete.length} ລາຍການນີ້ ແທ້ໆບໍ?`)) {
-                        await deleteDevicesFromFirestore(deviceIdsToDelete);
-                    }
-                } else {
-                    // ຖ້າບໍ່ໄດ້ຕິກເລືອກຈັກອັນ ຖືວ່າຕ້ອງການລຶບທັງໝົດ
-                    if (confirm(`⚠️ ຄຳເຕືອນ: ທ່ານບໍ່ໄດ້ເລືອກຢູເຊີໃດເລີຍ! ຕ້ອງການລຶບຢູເຊີທັງໝົດໃນລະບົບອອກແທ້ໆບໍ?`)) {
-                        let allDeviceIds = Array.from(checkboxes).map(cb => cb.getAttribute('data-id'));
-                        if (allDeviceIds.length === 0) {
-                            showAlert("ແຈ້ງເຕືອນ", "ບໍ່มีຂໍ້ມູນຢູເຊີໃຫ້ລຶບ!", "⚠️");
-                            return;
-                        }
-                        await deleteDevicesFromFirestore(allDeviceIds);
-                    }
+                // 🛑 ຖ້າບໍ່ມີການຕິກເລືອກຈັກອັນ (ບໍ່ມີຂໍ້ມູນຢູເຊີໃຫ້ລຶບ) ໃຫ້ສະແດງປ໊ອບອັບ 2 ວ່າ "ບໍ່ມີຂໍ້ມູນຢູເຊີໃຫ້ລຶບ!"
+                if (checkedBoxes.length === 0) {
+                    showAlert("ແຈ້ງເຕືອນ", "ບໍ່ມີຂໍ້ມູນຢູເຊີໃຫ້ລຶບ!", "⚠️");
+                    return; // ຢຸດການทำงานທັນທີ (ບໍ່ລຶບຫຍັງທັງສิ้น)
                 }
+
+                // 🗑️ ຖ້າມมีการຕິກເລືອກແລ້ວ ໃຫ້ດຳເນີນການລຶບສະເພາະຕົວທີ່ເລືອກ
+                let deviceIdsToDelete = checkedBoxes.map(cb => cb.getAttribute('data-id'));
+                
+                // ໃຊ້ showAlert ແທນ confirm (ປ໊ອບອັບ 1 ຖືກຕັດອອກຮຽບຮ້ອຍ)
+                await deleteDevicesFromFirestore(deviceIdsToDelete);
             }
 
             // 🛠️ ຟັງຊັນດຳເນີນການລຶບອອກຈາກ Firebase Firestore ແລະ LocalStorage
