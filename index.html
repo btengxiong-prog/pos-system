@@ -1889,44 +1889,53 @@
 // 🛡️ 1. ຟັງຊັນດຶງ ແລະ ລັອກ ID ປະຈຳເຄື່ອງ (ໃຫ້ກວດສອບ Hardware ID ເປັນອັນດັບ 1)
         async function initDeviceId() {
             let userRole = localStorage.getItem('pos_user_role');
-            let isShopOwner = localStorage.getItem('pos_shop_owner') === 'true';
-            let activeShopUser = localStorage.getItem('pos_active_shop_username');
-
-            // 1. ຖ້າເປັນ Admin ຫຼັກ (Super Admin)
+            
             if (userRole === 'admin') {
                 deviceId = 'POSXIONG';
                 localStorage.setItem('pos_device_id', 'POSXIONG');
                 return;
             }
 
-            // 2. ຖ້າເປັນຢູເຊີທົດລອງ 15 ວັນ (Trial User / Staff)
-            // ໃຫ້ບັງຄັບໃຊ້ Hardware/Permanent Device ID ປະຈຳເຄື່ອງເທົ່ານັ້ນ ຫ้ามດຶງ Username ຂອງຮ້ານຖາວອນມາທັບເດັດຂາດ!
-            let ລະຫັດທີ່ລັອກໄວ້ = localStorage.getItem('pos_permanent_device_id') || localStorage.getItem('pos_hardware_locked_id');
-
-            if (!isShopOwner && (!activeShopUser || activeShopUser.trim() === '')) {
-                if (!ລະຫັດທີ່ລັອກໄວ້ || ລະຫັດທີ່ລັອກໄວ້ === 'POSXIONG' || ລະຫັດທີ່ລັອກໄວ້.trim() === '') {
-                    let ຂໍ້ມູນສະເພາະເຄື່ອງ = navigator.userAgent + screen.width + screen.height + (navigator.language || 'lo') + window.devicePixelRatio;
-                    ລະຫັດທີ່ລັອກໄວ້ = 'POS-DEV-' + Math.abs(ສ້າງຄ່າແຮດ(ຂໍ້ມູນສະເພາະເຄື່ອງ));
-                    localStorage.setItem('pos_permanent_device_id', ລະຫັດທີ່ລັອກໄວ້);
-                    localStorage.setItem('pos_hardware_locked_id', ລະຫັດທີ່ລັອກໄວ້);
-                    setCookie('pos_permanent_device_id', ລະຫັດທີ່ລັອກໄວ້, 365);
-                }
-                deviceId = ລະຫັດທີ່ລັອກໄວ້.trim();
-                localStorage.setItem('pos_device_id', deviceId);
-                return;
+            // 1. ດຶງ ID ຖາວອນປະຈຳເຄື່ອງໄວ້ກ່ອນ (ສຳລັບໂໝດທົດລອງ)
+            let ລະຫັດເຄື່ອງ = localStorage.getItem('pos_permanent_device_id') || localStorage.getItem('pos_hardware_locked_id');
+            if (!ລະຫັດເຄື່ອງ || ລະຫັດເຄື່ອງ === 'POSXIONG' || ລະຫັດເຄື່ອງ.trim() === '') {
+                let ຂໍ້ມູນສະເພາະເຄື່ອງ = navigator.userAgent + screen.width + screen.height + (navigator.language || 'lo') + window.devicePixelRatio;
+                ລະຫັດເຄື່ອງ = 'DEV-' + Math.abs(ສ້າງຄ່າແຮດ(ຂໍ້ມູນສະເພາະເຄື່ອງ));
+                localStorage.setItem('pos_permanent_device_id', ລະຫັດເຄື່ອງ);
+                localStorage.setItem('pos_hardware_locked_id', ລະຫັດເຄື່ອງ);
+                setCookie('pos_permanent_device_id', ລະຫັດເຄື່ອງ, 365);
             }
 
-            // 3. ຖ້າເປັນຢູເຊີຖາວອນ (Shop Owner) ທີ່ລັອກອິນຖືກຕ້ອງ
-            let ຢູເຊີປັດຈຸບັນ = activeShopUser || localStorage.getItem('pos_shop_user') || '';
-            if (ຢູເຊີປັດຈຸບັນ && ຢູເຊີປັດຈຸບັນ.trim() !== '') {
-                deviceId = ຢູເຊີປັດຈຸບັນ.trim().toUpperCase();
-            } else if (ລະຫັດທີ່ລັອກໄວ້ && ລະຫັດທີ່ລັອກໄວ້ !== 'POSXIONG') {
-                deviceId = ລະຫັດທີ່ລັອກໄວ້.trim();
-            } else {
-                deviceId = 'POSXIONG';
-            }
-
+            // 2. ຕັ້ງຄ່າເບື້ອງຕົ້ນເປັນ ID ເຄື່ອງໄປກ่อน
+            deviceId = ລະຫັດເຄື່ອງ.trim();
             localStorage.setItem('pos_device_id', deviceId);
+
+            // 3. 🔍 ລະບົບ Realtime Sync ກວດສອບກັບ Firebase ວ່າເຄື່ອງນີ້ຖືກອັບເກຣດເປັນຖາວອນແລ້ວຫຼືยัง?
+            if (typeof db !== 'undefined' && db) {
+                try {
+                    // ດຶງຂໍ້ມູນຈາກ Firebase ໂດຍໃຊ້ ID ເຄື່ອງນີ້
+                    let docSnap = await db.collection("devices_registry").doc(deviceId).get();
+                    if (docSnap.exists) {
+                        let data = docSnap.data();
+                        // ຖ້າໃນ Firebase ປ່ຽນ type ເປັນ 'permanent' ແລະ ມີ username ຖາວອນແລ້ວ
+                        if (data.type === 'permanent' && data.username && data.username.trim() !== '' && data.username.trim().toUpperCase() !== deviceId.toUpperCase()) {
+                            let permanentUser = data.username.trim().toUpperCase();
+                            
+                            // 🔄 ຖິ້ມ ID ເكيື່ອງທັນທີ! ແລ້ວປ່ຽນມາໃຊ້ Username ຖາວອນຂອງລະບົບແທນ
+                            deviceId = permanentUser;
+                            localStorage.setItem('pos_device_id', deviceId);
+                            localStorage.setItem('pos_active_shop_username', permanentUser);
+                            localStorage.setItem('pos_shop_owner', 'true');
+                            
+                            if (data.shop_name) {
+                                localStorage.setItem('pos_shop_name_' + deviceId, data.shop_name);
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error("Realtime device check error:", e);
+                }
+            }
         }
 
         // 🛠️ ຟັງຊັນຊ່ວຍແປງຂໍ້ຄວາມເຄື່ອງໃຫ້ເປັນຕົວເລກ ID ທີ່ສະຖຽນ ແລະ ບໍ່ປ່ຽນແປງ
@@ -1978,7 +1987,7 @@
                             
                             if (!currentStoredId || currentStoredId === 'POSXIONG' || currentStoredId.trim() === '') {
                                 let ຂໍ້ມູນສະເພາະເຄື່ອງ = navigator.userAgent + screen.width + screen.height + (navigator.language || 'lo');
-                                currentStoredId = 'POS-DEV-' + Math.abs(ສ້າງຄ່າແຮດ(ຂໍ້ມູນສະເພາະເຄື່ອງ));
+                                currentStoredId = 'DEV-' + Math.abs(ສ້າງຄ່າແຮດ(ຂໍ້ມູນສະເພາະເຄື່ອງ));
                                 localStorage.setItem('pos_permanent_device_id', currentStoredId);
                                 localStorage.setItem('pos_hardware_locked_id', currentStoredId);
                             }
@@ -2036,7 +2045,7 @@
             if (roleModal) roleModal.classList.add('hidden');
             if (loginModal) loginModal.classList.add('hidden');
 
-            if (db && deviceId.startsWith('POS-')) {
+            if (db && deviceId.startsWith('')) {
                 try {
                     let docRef = db.collection("devices_registry").doc(deviceId);
                     let docSnap = await docRef.get();
@@ -3755,7 +3764,7 @@
                             // 2. ດຶງເອົາ ID ຖາວອນປະຈຳເຄື່ອງ (Hardware / Permanent Device ID)
                             if (!currentStoredId || currentStoredId === 'POSXIONG' || currentStoredId.trim() === '') {
                                 let ຂໍ້ມູນສະເພາະເຄື່ອງ = navigator.userAgent + screen.width + screen.height + (navigator.language || 'lo');
-                                currentStoredId = 'POS-DEV-' + Math.abs(ສ້າງຄ່າແຮດ(ຂໍ້ມູນສະເພາະເຄື່ອງ));
+                                currentStoredId = 'DEV-' + Math.abs(ສ້າງຄ່າແຮດ(ຂໍ້ມູນສະເພາະເຄື່ອງ));
                                 localStorage.setItem('pos_permanent_device_id', currentStoredId);
                                 localStorage.setItem('pos_hardware_locked_id', currentStoredId);
                             }
@@ -4150,10 +4159,10 @@
 
                         let displayName = "";
                         // 📌 ຖ້າເປັນຮ້ານເປີດຖາວອນ (isShopOwner) ແລະ ມີຊື່ຮ້ານແລ້ວ ໃຫ້ສະແດງສະເພາະຊື່ຮ້ານເທົ່ານັ້ນ
-                        if (isShopOwner && shopName && shopName.trim() !== '' && shopName.trim().toUpperCase() !== deviceId.toUpperCase() && !shopName.toUpperCase().startsWith('POS-DEV-')) {
+                        if (isShopOwner && shopName && shopName.trim() !== '' && shopName.trim().toUpperCase() !== deviceId.toUpperCase() && !shopName.toUpperCase().startsWith('DEV-')) {
                             displayName = shopName;
                         } else {
-                            // 📌 ຖ້າເປັນລະບົບທົດລອງ 15 ວັນ ໃຫ້ສະແດງສະເພາະ Hardware/Permanent ID ຂອງເຄື່ອງນັ້ນໆ (POS-DEV-...) ຢ່າງດຽວ
+                            // 📌 ຖ້າເປັນລະບົບທົດລອງ 15 ວັນ ໃຫ້ສະແດງສະເພາະ Hardware/Permanent ID ຂອງເຄື່ອງນັ້ນໆ (DEV-...) ຢ່າງດຽວ
                             displayName = hardwareDeviceId;
                         }
 
