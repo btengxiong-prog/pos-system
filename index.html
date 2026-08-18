@@ -4452,20 +4452,46 @@
 
             // 🗑️ ຟັງຊັນກວດສອບການລຶບ (ເລືອກລຶບສະເພາະຕົວທີ່ຕິກ ຫຼື ລຶບອອກທั้งໝົດ)
             async function promptDeleteSelectedOrAllDevices() {
-                let checkboxes = document.querySelectorAll('.admin-device-checkbox');
+                // 🔍 ດຶງ Checkbox ທັງຈາກໜ້າສິນຄ້າຄ້າງສາງ ແລະ ໜ້າຈັດການຢູເຊີ
+                let checkboxes = document.querySelectorAll('.inventory-row-checkbox, .admin-device-checkbox');
                 let checkedBoxes = Array.from(checkboxes).filter(cb => cb.checked);
 
-                // 🛑 ຖ້າບໍ່ມີການຕິກເລືອກຈັກອັນ (ບໍ່ມີຂໍ້ມູນຢູເຊີໃຫ້ລຶບ) ໃຫ້ສະແດງປ໊ອບອັບ 2 ວ່າ "ບໍ່ມີຂໍ້ມູນຢູເຊີໃຫ້ລຶບ!"
                 if (checkedBoxes.length === 0) {
-                    showAlert("ແຈ້ງເຕືອນ", "ບໍ່ມີຂໍ້ມູນຢູເຊີໃຫ້ລຶບ!", "⚠️");
-                    return; // ຢຸດການทำงานທັນທີ (ບໍ່ລຶບຫຍັງທັງສิ้น)
+                    showAlert("ແຈ້ງເຕືອນ", "ບໍ່ມີຂໍ້ມູນທີ່ຖືກເລືອກໃຫ້ລຶບ!", "⚠️");
+                    return;
                 }
 
-                // 🗑️ ຖ້າມมีการຕິກເລືອກແລ້ວ ໃຫ້ດຳເນີນການລຶບສະເພາະຕົວທີ່ເລືອກ
-                let deviceIdsToDelete = checkedBoxes.map(cb => cb.getAttribute('data-id'));
+                // 🗑️ ດຶງ ID ຂອງລາຍການທີ່ຖືກຕິກເລືອກ
+                let idsToDelete = checkedBoxes.map(cb => cb.getAttribute('data-id'));
                 
-                // ໃຊ້ showAlert ແທນ confirm (ປ໊ອບອັບ 1 ຖືກຕັດອອກຮຽບຮ້ອຍ)
-                await deleteDevicesFromFirestore(deviceIdsToDelete);
+                // 🔍 ກວດສອບວ່າເປັນການລຶບສິນຄ້າຄ້າງສາງ ຫຼື ລຶບຢູເຊີ Admin
+                let isInventoryDelete = checkedBoxes.some(cb => cb.classList.contains('inventory-row-checkbox'));
+
+                if (isInventoryDelete) {
+                    // 📦 ດຳເນີນການລຶບສິນຄ້າออกจาก Firebase Firestore (collection "products")
+                    if (!db) {
+                        showAlert("ຜິດພາດ", "ບໍ່ສາມາດເຊື່ອມຕໍ່ Firebase ໄດ້!", "❌");
+                        return;
+                    }
+
+                    try {
+                        let batch = db.batch();
+                        idsToDelete.forEach(docId => {
+                            let docRef = db.collection("products").doc(docId);
+                            batch.delete(docRef);
+                        });
+
+                        await batch.commit();
+                        loadInventory(); // 🔄 ຣີເຟຣຊຕາຕະລາງສິນຄ້າຄ້າງສາງທັນທີ
+                        showAlert("ສຳເລັດ", "ລຶບສິນຄ້າທີ່ເລືອກອອກຈາກສາງຮຽບຮ້ອຍແລ້ວ!", "🗑️");
+                    } catch (e) {
+                        console.error("Error deleting products:", e);
+                        showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການລຶບສິນຄ້າ: " + e.message, "❌");
+                    }
+                } else {
+                    // 👥 ຖ້າເປັນການລຶບຢູເຊີ Admin ຕາມປົກກະຕິ
+                    await deleteDevicesFromFirestore(idsToDelete);
+                }
             }
 
             // 🛠️ ຟັງຊັນດຳເນີນການລຶບອອກຈາກ Firebase Firestore ແລະ LocalStorage
