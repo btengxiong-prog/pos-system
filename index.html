@@ -4447,62 +4447,62 @@
                     }
                 }
 
-                // 🗑️ ຟັງຊັນກວດສອບການລຶບ (ເລືອກລຶບສະເພາະຕົວທີ່ຕິກ ຫຼື ລຶບອອກທั้งໝົດ)
-                async function promptDeleteSelectedOrAllDevices() {
-                    let checkboxes = document.querySelectorAll('.admin-device-checkbox');
-                    let checkedBoxes = Array.from(checkboxes).filter(cb => cb.checked);
+            // 🗑️ ຟັງຊັນກວດສອບການລຶບ (ເລືອກລຶບສະເພາະຕົວທີ່ຕິກ ຫຼື ລຶບອອກທั้งໝົດ)
+            async function promptDeleteSelectedOrAllDevices() {
+                let checkboxes = document.querySelectorAll('.admin-device-checkbox');
+                let checkedBoxes = Array.from(checkboxes).filter(cb => cb.checked);
 
-                    if (checkedBoxes.length > 0) {
-                        // ຖ້າມີການຕິກເລືອກສະເພາະບາງຢູເຊີ
-                        let deviceIdsToDelete = checkedBoxes.map(cb => cb.getAttribute('data-id'));
+                if (checkedBoxes.length > 0) {
+                    // ຖ້າມີການຕິກເລືອກສະເພາະບາງຢູເຊີ
+                    let deviceIdsToDelete = checkedBoxes.map(cb => cb.getAttribute('data-id'));
+                    
+                    // ໃຊ້ Modal Confirm ທີ່ມີໃນລະບົບ ຫຼື confirm ທຳມະດາ
+                    if (confirm(`ທ່ານຕ້ອງການລຶບຢູເຊີທີ່ເລືອກທັງໝົດ ${deviceIdsToDelete.length} ລາຍການນີ້ ແທ້ໆບໍ?`)) {
+                        await deleteDevicesFromFirestore(deviceIdsToDelete);
+                    }
+                } else {
+                    // ຖ້າບໍ່ໄດ້ຕິກເລືອກຈັກອັນ ຖືວ່າຕ້ອງການລຶບທັງໝົດ
+                    if (confirm(`⚠️ ຄຳເຕືອນ: ທ່ານບໍ່ໄດ້ເລືອກຢູເຊີໃດເລີຍ! ຕ້ອງການລຶບຢູເຊີທັງໝົດໃນລະບົບອອກແທ້ໆບໍ?`)) {
+                        let allDeviceIds = Array.from(checkboxes).map(cb => cb.getAttribute('data-id'));
+                        if (allDeviceIds.length === 0) {
+                            showAlert("ແຈ້ງເຕືອນ", "ບໍ່มีຂໍ້ມູນຢູເຊີໃຫ້ລຶບ!", "⚠️");
+                            return;
+                        }
+                        await deleteDevicesFromFirestore(allDeviceIds);
+                    }
+                }
+            }
+
+            // 🛠️ ຟັງຊັນດຳເນີນການລຶບອອກຈາກ Firebase Firestore ແລະ LocalStorage
+            async function deleteDevicesFromFirestore(deviceIdsArray) {
+                if (!db) {
+                    showAlert("ຜິດພາດ", "ບໍ່ສາມາດເຊື່ອມຕໍ່ Firebase ໄດ້!", "❌");
+                    return;
+                }
+
+                try {
+                    let batch = db.batch();
+                    deviceIdsArray.forEach(devId => {
+                        let docRef = db.collection("devices_registry").doc(devId);
+                        batch.delete(docRef);
                         
-                        // ໃຊ້ Modal Confirm ທີ່ມີໃນລະບົບ ຫຼື confirm ທຳມະດາ
-                        if (confirm(`ທ່ານຕ້ອງການລຶບຢູເຊີທີ່ເລືອກທັງໝົດ ${deviceIdsToDelete.length} ລາຍການນີ້ ແທ້ໆບໍ?`)) {
-                            await deleteDevicesFromFirestore(deviceIdsToDelete);
-                        }
-                    } else {
-                        // ຖ້າບໍ່ໄດ້ຕິກເລືອກຈັກອັນ ຖືວ່າຕ້ອງການລຶບທັງໝົດ
-                        if (confirm(`⚠️ ຄຳເຕືອນ: ທ່ານບໍ່ໄດ້ເລືອກຢູເຊີໃດເລີຍ! ຕ້ອງການລຶບຢູເຊີທັງໝົດໃນລະບົບອອກແທ້ໆບໍ?`)) {
-                            let allDeviceIds = Array.from(checkboxes).map(cb => cb.getAttribute('data-id'));
-                            if (allDeviceIds.length === 0) {
-                                showAlert("ແຈ້ງເຕືອນ", "ບໍ່มีຂໍ້ມູນຢູເຊີໃຫ້ລຶບ!", "⚠️");
-                                return;
-                            }
-                            await deleteDevicesFromFirestore(allDeviceIds);
-                        }
-                    }
+                        // ລຶບຂໍ້ມູນອອກຈາກ localStorage ທີ່ກ່ຽວຂ້ອງນຳ
+                        localStorage.removeItem('pos_shop_name_' + devId);
+                        localStorage.removeItem('pos_shop_phone_' + devId);
+                        localStorage.removeItem('pos_shop_user_' + devId);
+                        localStorage.removeItem('pos_shop_pass_' + devId);
+                        localStorage.removeItem('pos_shop_lak_acc_' + devId);
+                        localStorage.removeItem('pos_shop_thb_acc_' + devId);
+                    });
+
+                    await batch.commit();
+                    await loadAllDevices(); // ໂຫຼດລາຍຊື່ໃໝ່
+                    showAlert("ສຳເລັດ", "ລຶບຂໍ້ມູນຢູເຊີທີ່ເລືອກຮຽບຮ້ອຍແລ້ວ!", "🗑️");
+                } catch (e) {
+                    console.error("Error deleting devices:", e);
+                    showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການລຶບຂໍ້ມູນ: " + e.message, "❌");
                 }
-
-                // 🛠️ ຟັງຊັນດຳເນີນການລຶບອອກຈາກ Firebase Firestore ແລະ LocalStorage
-                async function deleteDevicesFromFirestore(deviceIdsArray) {
-                    if (!db) {
-                        showAlert("ຜິດພາດ", "ບໍ່ສາມາດເຊື່ອມຕໍ່ Firebase ໄດ້!", "❌");
-                        return;
-                    }
-
-                    try {
-                        let batch = db.batch();
-                        deviceIdsArray.forEach(devId => {
-                            let docRef = db.collection("devices_registry").doc(devId);
-                            batch.delete(docRef);
-                            
-                            // ລຶບຂໍ້ມູນອອກຈາກ localStorage ທີ່ກ່ຽວຂ້ອງນຳ
-                            localStorage.removeItem('pos_shop_name_' + devId);
-                            localStorage.removeItem('pos_shop_phone_' + devId);
-                            localStorage.removeItem('pos_shop_user_' + devId);
-                            localStorage.removeItem('pos_shop_pass_' + devId);
-                            localStorage.removeItem('pos_shop_lak_acc_' + devId);
-                            localStorage.removeItem('pos_shop_thb_acc_' + devId);
-                        });
-
-                        await batch.commit();
-                        await loadAllDevices(); // ໂຫຼດລາຍຊື່ໃໝ່
-                        showAlert("ສຳເລັດ", "ລຶບຂໍ້ມູນຢູເຊີທີ່ເລືອກຮຽບຮ້ອຍແລ້ວ!", "🗑️");
-                    } catch (e) {
-                        console.error("Error deleting devices:", e);
-                        showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການລຶບຂໍ້ມູນ: " + e.message, "❌");
-                    }
-                }
+            }
 
     </script>
 </body>
