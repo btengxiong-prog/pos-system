@@ -313,7 +313,10 @@
                 </h3>
                 <!-- 🟢 ໃສ່ ID ນີ້ໄວ້ເພື່ອຄວບຄຸມການສະແດງຜົນ -->
                 <div id="inventory-admin-action-buttons" class="hidden items-center gap-2">
-                    <button onclick="selectAllAdminDevices(this)" class="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg cursor-pointer font-bold flex items-center gap-1 shadow">☑️ ເລືອກທັງໝົດ</button>
+                    <!-- ✅ ໂຄດໃໝ່: เปลี่ยนเป็น Dropdown "ເລືອກຮ້ານ" ພ້ອມຟັງຊັນກັ່ນຕອງຂໍ້ມູນ -->
+                    <select id="inventory-shop-filter" onchange="loadInventory()" class="text-xs bg-blue-50 text-blue-800 border border-blue-300 px-3 py-1.5 rounded-lg cursor-pointer font-bold outline-none shadow">
+                        <option value="ALL">🏪 ທຸກຮ້ານ (ທັງໝົດ)</option>
+                    </select>
                     <button onclick="promptDeleteSelectedOrAllDevices()" class="text-xs bg-red-100 text-red-700 px-3 py-1.5 rounded-lg cursor-pointer font-bold flex items-center gap-1 shadow">🗑️ ລຶບຂໍ້ມູນ</button>
                 </div>
             </div>
@@ -4542,51 +4545,119 @@
                 }
             }
 
-            async function openInventoryModal() {
-                let modal = document.getElementById('inventory-modal');
-                if (modal) {
-                    modal.classList.remove('hidden');
-                    
-                    // 🔒 ກວດສອບສິດ Admin ໃຫຍ່
-                    let userRole = localStorage.getItem('pos_user_role');
-                    let shopOwner = localStorage.getItem('pos_shop_owner');
-                    let adminActionButtons = document.getElementById('inventory-admin-action-buttons');
-                    
-                    if (adminActionButtons) {
-                        if (userRole === 'admin' || deviceId === 'POSXIONG' || (shopOwner === 'true' && deviceId === 'POSXIONG')) {
-                            adminActionButtons.classList.remove('hidden');
-                            adminActionButtons.style.setProperty('display', 'flex', 'important');
-                            await populateInventoryShopDropdown(); // ດຶງລາຍຊື່ຮ້ານມາใส่ Dropdown
-                        } else {
-                            adminActionButtons.classList.add('hidden');
-                            adminActionButtons.style.setProperty('display', 'none', 'important');
-                        }
-                    }
+        async function openInventoryModal() {
+            let modal = document.getElementById('inventory-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                await populateInventoryShopDropdown();
+                loadInventory();
+            }
+        }
 
-                    loadInventory();
+        // 📋 ຟັງຊັນດຶງລາຍຊື່ຮ້ານມາใส่ Dropdown ອັດຕະໂນມັດ
+        async function populateInventoryShopDropdown() {
+            let selectEl = document.getElementById('inventory-shop-filter');
+            if (!selectEl) return;
+
+            let shopsSet = new Set();
+            excelRows.forEach(row => {
+                if (row.device_id && row.device_id.trim() !== '' && row.device_id !== '-') {
+                    shopsSet.add(row.device_id.trim().toUpperCase());
                 }
+            });
+
+            let html = `<option value="ALL">🏪 ທຸກຮ້ານ (ທັງໝົດ)</option>`;
+            shopsSet.forEach(shopId => {
+                let shopName = localStorage.getItem('pos_shop_name_' + shopId) || shopId;
+                html += `<option value="${shopId}">${shopName} (${shopId})</option>`;
+            });
+
+            selectEl.innerHTML = html;
+        }
+
+        // 🔄 ປັບປຸງ loadInventory ໃຫ້ກັ່ນຕອງຕາມຮ້ານທີ່ເລືອກ
+        function loadInventory() {
+            let tbody = document.getElementById('inventory-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
+
+            if (!excelRows || excelRows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ</td></tr>`;
+                return;
             }
 
-            // 📋 ຟັງຊັນດຶງລາຍຊື່ຮ້ານທັງໝົດມາใส่ Dropdown (ກ່ອງແດງ 1)
-            async function populateInventoryShopDropdown() {
-                let selectEl = document.getElementById('inventory-shop-filter');
-                if (!selectEl) return;
+            let userRole = localStorage.getItem('pos_user_role');
+            let isAdminMaster = (userRole === 'admin' || deviceId === 'POSXIONG');
+            let activeShopUser = String(localStorage.getItem('pos_active_shop_username') || localStorage.getItem('pos_shop_user') || deviceId || '').trim().toLowerCase();
+            
+            let shopFilterSelect = document.getElementById('inventory-shop-filter');
+            let selectedShopFilter = shopFilterSelect ? shopFilterSelect.value : 'ALL';
 
-                let shopsSet = new Set();
-                excelRows.forEach(row => {
-                    if (row.device_id && row.device_id.trim() !== '' && row.device_id !== '-') {
-                        shopsSet.add(row.device_id.trim().toUpperCase());
-                    }
+            let displayRows = excelRows;
+
+            if (isAdminMaster) {
+                if (selectedShopFilter && selectedShopFilter !== 'ALL') {
+                    displayRows = excelRows.filter(row => String(row.device_id || '').trim().toUpperCase() === selectedShopFilter);
+                }
+            } else {
+                displayRows = excelRows.filter(row => {
+                    let rowDev = String(row.device_id || '').trim().toLowerCase();
+                    return !rowDev || rowDev === '-' || rowDev === activeShopUser || rowDev === String(deviceId).trim().toLowerCase() || rowDev === 'posxiong';
                 });
-
-                let html = `<option value="ALL">🏪 ທຸກຮ້ານ (ທັງໝົດ)</option>`;
-                shopsSet.forEach(shopId => {
-                    let shopName = localStorage.getItem('pos_shop_name_' + shopId) || shopId;
-                    html += `<option value="${shopId}">${shopName} (${shopId})</option>`;
-                });
-
-                selectEl.innerHTML = html;
             }
+
+            if (displayRows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າຂອງຮ້ານທີ່ເລືອກ</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            let countIndex = 1;
+
+            displayRows.forEach((row) => {
+                let initialPackQty = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1; 
+                let remainingFullPacks = initialPackQty;
+
+                let adjusted = getAdjustedItemPricing(row);
+                let cost = adjusted.cost;
+                let price = adjusted.price;
+                
+                let totalCostAmount = cost * remainingFullPacks;
+                let totalPriceAmount = price * remainingFullPacks;
+
+                let currency = row.currency || 'ກີບ'; 
+                let costStr = formatNumberWithCommas(cost) + " " + currency;
+                let priceStr = formatNumberWithCommas(price) + " " + currency;
+                let totalCostStr = formatNumberWithCommas(totalCostAmount) + " " + currency;
+                let totalPriceStr = formatNumberWithCommas(totalPriceAmount) + " " + currency;
+
+                let formattedDate = formatDateToDDMMYYYY(row.dateAdded || new Date().toISOString().split('T')[0]);
+                let noteStr = `ເຫຼືອ: ${formatNumberWithCommas(remainingFullPacks)}/0`;
+                let shopLabel = (isAdminMaster && row.device_id) ? ` [ຮ້ານ: ${row.device_id}]` : '';
+
+                let rightCellHtml = isAdminMaster ? 
+                    `<input type="checkbox" data-id="${row.id}" class="inventory-row-checkbox w-4 h-4 cursor-pointer accent-cyan-600">` : 
+                    `<button onclick="openEditInventoryItem('${row.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer shadow flex items-center gap-1 mx-auto">✏️ ແກ້ໄຂ</button>`;
+
+                html += `
+                    <tr class="hover:bg-gray-50 border-b">
+                        <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
+                        <td class="p-3 border-r text-center font-bold text-blue-600 font-mono">${row.code || '-'}</td>
+                        <td class="p-3 border-r font-bold text-gray-900">${row.name || '-'}${shopLabel}</td>
+                        <td class="p-3 border-r text-center font-semibold text-purple-700">${formattedDate}</td>
+                        <td class="p-3 border-r text-right font-bold text-cyan-800">${formatNumberWithCommas(remainingFullPacks)}</td>
+                        <td class="p-3 border-r text-right text-blue-600 font-semibold">${costStr}</td>
+                        <td class="p-3 border-r text-right text-green-600 font-semibold">${priceStr}</td>
+                        <td class="p-3 border-r text-right font-bold text-blue-800 bg-blue-50/30">${totalCostStr}</td>
+                        <td class="p-3 border-r text-right font-bold text-green-800 bg-green-50/30">${totalPriceStr}</td>
+                        <td class="p-3 border-r text-center text-xs font-extrabold text-amber-600">${noteStr}</td>
+                        <td class="p-3 text-center">${rightCellHtml}</td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+        }
 
     </script>
 </body>
