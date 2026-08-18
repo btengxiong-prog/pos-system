@@ -303,29 +303,43 @@
     </div>
 
     <!-- Inventory Modal (ສິນຄ້າຄ້າງສາງ) -->
-<!-- Inventory Modal (ປ່ຽນເປັນ ອັດຕາແລກປ່ຽນເງິນຕາ) -->
     <div id="inventory-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-xl max-w-4xl w-full p-6 max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl">
+        <div class="bg-white rounded-xl max-w-6xl w-full p-6 max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl">
+        <!-- 🛑 ໂຄດເກົ່າທີ່ມີປຸ່ມ -->
+        <!-- ✅ ໂຄດໃໝ່: ເອົາປຸ່ມ "ເລືອກທັງໝົດ" ແລະ "ລຶບຂໍ້ມູນ" ອອກ 100% -->
             <div class="flex justify-between items-center border-b pb-3 flex-wrap gap-2">
-                <!-- ✅ ໂຄດໃໝ່ -->
                 <h3 class="text-xl font-bold text-cyan-800 flex items-center gap-2">
-                    <span>📦 ອັດຕາແລກປ່ຽນເງິນຕາ</span>
+                    <span>📦 ສິນຄ້າຄ້າງສາງ (Inventory Stock)</span>
                 </h3>
+                <!-- 🟢 ໃສ່ ID ນີ້ໄວ້ເພື່ອຄວບຄຸມການສະແດງຜົນ -->
+                <div id="inventory-admin-action-buttons" class="hidden items-center gap-2">
+                    <!-- ✅ ໂຄດໃໝ່: เปลี่ยนเป็น Dropdown "ເລືອກຮ້ານ" ພ້ອມຟັງຊັນກັ່ນຕອງຂໍ້ມູນ -->
+                    <select id="inventory-shop-filter" onchange="loadInventory()" class="text-xs bg-blue-50 text-blue-800 border border-blue-300 px-3 py-1.5 rounded-lg cursor-pointer font-bold outline-none shadow">
+                        <option value="ALL">🏪 ທຸກຮ້ານ (ທັງໝົດ)</option>
+                    </select>
+                    <button onclick="promptDeleteSelectedOrAllDevices()" class="text-xs bg-red-100 text-red-700 px-3 py-1.5 rounded-lg cursor-pointer font-bold flex items-center gap-1 shadow">🗑️ ລຶບຂໍ້ມູນ</button>
                 </div>
+            </div>
             
             <div class="overflow-x-auto border rounded-xl">
-                <table class="w-full text-left border-collapse bg-white min-w-[700px]">
+                <table class="w-full text-left border-collapse bg-white min-w-[1000px]">
                     <thead>
-                        <tr class="bg-cyan-800 text-white text-xs uppercase text-center">
-                            <th class="p-3 border-r w-12">ລ/ດ</th>
-                            <th class="p-3 border-r">ວັນ/ເດືອນ/ປີ</th>
-                            <th class="p-3 border-r">ຊື້ (RATE)</th>
-                            <th class="p-3 border-r">ຂາຍ (RATE)</th>
-                            <th class="p-3">ໝາຍເຫດ</th>
+                        <tr class="bg-cyan-800 text-white text-xs uppercase">
+                            <th class="p-3 border-r text-center w-12">ລ/ດ</th>
+                            <th class="p-3 border-r text-center">ລະຫັດສິນຄ້າ</th>
+                            <th class="p-3 border-r">ຊື່ສິນຄ້າ</th>
+                            <th class="p-3 border-r text-center">ວັນນຳເຂົ້າສິນຄ້າ</th>
+                            <th class="p-3 border-r text-right">ຈຳນວນ</th>
+                            <th class="p-3 border-r text-right">ລາຄາຊື້/ໜ່ວຍ</th>
+                            <th class="p-3 border-r text-right">ລາຄາຂາຍ/ໜ່ວຍ</th>
+                            <th class="p-3 border-r text-right">ລວມເງິນຊື້</th>
+                            <th class="p-3 border-r text-right">ລວມເງິນຂາຍ</th>
+                            <th class="p-3 border-r text-center">ໝາຍເຫດ</th>
+                            <th id="inventory-col-action-header" class="p-3 text-center w-20">ຈັດການ</th>
                         </tr>
                     </thead>
                     <tbody id="inventory-tbody" class="divide-y divide-gray-200 text-sm">
-                        <tr><td colspan="5" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນອັດຕາແລກປ່ຽນເງິນຕາ...</td></tr>
+                        <tr><td colspan="11" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -4607,58 +4621,82 @@
         }
 
         // 🔄 ປັບປຸງ loadInventory ໃຫ້ກັ່ນຕອງຕາມຮ້ານທີ່ເລືອກ
-        async function loadInventory() {
+        function loadInventory() {
             let tbody = document.getElementById('inventory-tbody');
             if (!tbody) return;
-            tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນອັດຕາແລກປ່ຽນເງິນຕາ...</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
 
-            let rateRecords = [];
-
-            if (db) {
-                try {
-                    let snapshot = await db.collection("daily_rates")
-                        .where("device_id", "==", deviceId)
-                        .get();
-                    snapshot.forEach(doc => {
-                        rateRecords.push(doc.data());
-                    });
-                } catch (e) {
-                    console.error("Error loading rates from Firebase:", e);
-                }
+            if (!excelRows || excelRows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ</td></tr>`;
+                return;
             }
 
-            if (rateRecords.length === 0) {
-                // ດຶງຈາກ localStorage ມາສະແດງເປັນຄ່າເລີ່ມຕົ້ນຖ້າ Firebase ຍັງບໍ່ມີ
-                let defaultDate = localStorage.getItem('pos_custom_manual_rate_date') || new Date().toISOString().split('T')[0];
-                let defaultBuy = localStorage.getItem('pos_custom_buy_rate') || '670';
-                let defaultSell = localStorage.getItem('pos_custom_sell_rate') || '680';
-                rateRecords.push({
-                    date: defaultDate,
-                    buyRate: defaultBuy,
-                    sellRate: defaultSell,
-                    note: 'ຄ່າເລີ່ມຕົ້ນລະບົບ'
+            let userRole = localStorage.getItem('pos_user_role');
+            let isAdminMaster = (userRole === 'admin' || deviceId === 'POSXIONG');
+            let activeShopUser = String(localStorage.getItem('pos_active_shop_username') || localStorage.getItem('pos_shop_user') || deviceId || '').trim().toLowerCase();
+            
+            let shopFilterSelect = document.getElementById('inventory-shop-filter');
+            let selectedShopFilter = shopFilterSelect ? shopFilterSelect.value : 'ALL';
+
+            let displayRows = excelRows;
+
+            if (isAdminMaster) {
+                if (selectedShopFilter && selectedShopFilter !== 'ALL') {
+                    displayRows = excelRows.filter(row => String(row.device_id || '').trim().toUpperCase() === selectedShopFilter);
+                }
+            } else {
+                displayRows = excelRows.filter(row => {
+                    let rowDev = String(row.device_id || '').trim().toLowerCase();
+                    return !rowDev || rowDev === '-' || rowDev === activeShopUser || rowDev === String(deviceId).trim().toLowerCase() || rowDev === 'posxiong';
                 });
             }
 
-            // เรียงลำดับตามวันที่จากใหม่ไปเก่า
-            rateRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
+            if (displayRows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າຂອງຮ້ານທີ່ເລືອກ</td></tr>`;
+                return;
+            }
 
             let html = '';
-            let index = 1;
+            let countIndex = 1;
 
-            rateRecords.forEach((rec) => {
-                let formattedDate = formatDateToDDMMYYYY(rec.date);
-                let buyRateStr = formatNumberWithCommas(rec.buyRate) + " ກີບ";
-                let sellRateStr = formatNumberWithCommas(rec.sellRate) + " ກີບ";
-                let note = rec.note || 'ປັບປຸງດ້ວຍມື';
+            displayRows.forEach((row) => {
+                let initialPackQty = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1; 
+                let remainingFullPacks = initialPackQty;
+
+                let adjusted = getAdjustedItemPricing(row);
+                let cost = adjusted.cost;
+                let price = adjusted.price;
+                
+                let totalCostAmount = cost * remainingFullPacks;
+                let totalPriceAmount = price * remainingFullPacks;
+
+                let currency = row.currency || 'ກີບ'; 
+                let costStr = formatNumberWithCommas(cost) + " " + currency;
+                let priceStr = formatNumberWithCommas(price) + " " + currency;
+                let totalCostStr = formatNumberWithCommas(totalCostAmount) + " " + currency;
+                let totalPriceStr = formatNumberWithCommas(totalPriceAmount) + " " + currency;
+
+                let formattedDate = formatDateToDDMMYYYY(row.dateAdded || new Date().toISOString().split('T')[0]);
+                let noteStr = `ເຫຼືອ: ${formatNumberWithCommas(remainingFullPacks)}/0`;
+                let shopLabel = (isAdminMaster && row.device_id) ? ` [ຮ້ານ: ${row.device_id}]` : '';
+
+                let rightCellHtml = isAdminMaster ? 
+                    `<input type="checkbox" data-id="${row.id}" class="inventory-row-checkbox w-4 h-4 cursor-pointer accent-cyan-600">` : 
+                    `<button onclick="openEditInventoryItem('${row.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer shadow flex items-center gap-1 mx-auto">✏️ ແກ້ໄຂ</button>`;
 
                 html += `
-                    <tr class="hover:bg-gray-50 border-b text-center">
-                        <td class="p-3 border-r font-bold text-gray-500 text-xs">${index++}</td>
-                        <td class="p-3 border-r font-semibold text-purple-700 text-xs">${formattedDate}</td>
-                        <td class="p-3 border-r text-right font-bold text-blue-600 text-xs">${buyRateStr}</td>
-                        <td class="p-3 border-r text-right font-bold text-green-600 text-xs">${sellRateStr}</td>
-                        <td class="p-3 text-xs font-semibold text-gray-600">${note}</td>
+                    <tr class="hover:bg-gray-50 border-b">
+                        <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
+                        <td class="p-3 border-r text-center font-bold text-blue-600 font-mono">${row.code || '-'}</td>
+                        <td class="p-3 border-r font-bold text-gray-900">${row.name || '-'}${shopLabel}</td>
+                        <td class="p-3 border-r text-center font-semibold text-purple-700">${formattedDate}</td>
+                        <td class="p-3 border-r text-right font-bold text-cyan-800">${formatNumberWithCommas(remainingFullPacks)}</td>
+                        <td class="p-3 border-r text-right text-blue-600 font-semibold">${costStr}</td>
+                        <td class="p-3 border-r text-right text-green-600 font-semibold">${priceStr}</td>
+                        <td class="p-3 border-r text-right font-bold text-blue-800 bg-blue-50/30">${totalCostStr}</td>
+                        <td class="p-3 border-r text-right font-bold text-green-800 bg-green-50/30">${totalPriceStr}</td>
+                        <td class="p-3 border-r text-center text-xs font-extrabold text-amber-600">${noteStr}</td>
+                        <td class="p-3 text-center">${rightCellHtml}</td>
                     </tr>
                 `;
             });
