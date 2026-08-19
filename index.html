@@ -3210,16 +3210,14 @@
         currentStockInCode = code;
         document.getElementById('stock-in-code').innerText = code;
         
-        // ตั้งค่าวันที่ปัจจุบัน (dd/mm/yyyy)
-        let today = new Date();
-        let dd = String(today.getDate()).padStart(2, '0');
-        let mm = String(today.getMonth() + 1).padStart(2, '0');
-        let yyyy = today.getFullYear();
-        let todayStr = `${dd}/${mm}/${yyyy}`;
-
+        // 🛑 ຢ່າໄປบังคับ set ค่าวันที่ปัจจุบันทັບช่อง input ຖ້າผู้ใช้มีค่าเดิมอยู่แล้ว
         let importDateInput = document.getElementById('stock-in-import-date');
         if (importDateInput && !importDateInput.value) {
-            importDateInput.value = todayStr;
+            let today = new Date();
+            let dd = String(today.getDate()).padStart(2, '0');
+            let mm = String(today.getMonth() + 1).padStart(2, '0');
+            let yyyy = today.getFullYear();
+            importDateInput.value = `${dd}/${mm}/${yyyy}`;
         }
 
         document.getElementById('stock-in-modal').classList.remove('hidden');
@@ -3309,9 +3307,17 @@
             let qty = parseInt(document.getElementById('stock-in-qty').value) || 1;
             let unitPerPack = parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12;
             
-            // ດຶງວັນທີນຳເຂົ້າທີ່ผู้ໃຊ້ປ້ອນໃນ Input ໂດຍກົງ
+            // 🔍 ດຶງວັນທີຈາກ Input ໂດຍກົງ
             let importDateInput = document.getElementById('stock-in-import-date').value.trim();
-            let finalDateAdded = importDateInput ? parseDDMMYYYYToISO(importDateInput) : new Date().toISOString().split('T')[0];
+            let finalDateAdded = new Date().toISOString().split('T')[0];
+
+            if (importDateInput) {
+                let parts = importDateInput.split('/');
+                if (parts.length === 3) {
+                    // parts[0] = day, parts[1] = month, parts[2] = year
+                    finalDateAdded = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                }
+            }
 
             let mfgDate = isExpiryMode ? document.getElementById('stock-in-mfg-date').value.trim() : '';
             let expiryDate = isExpiryMode ? document.getElementById('stock-in-exp-date').value.trim() : '';
@@ -3330,7 +3336,7 @@
                 price: price,
                 qty: qty,
                 unit_per_pack: unitPerPack,
-                date_added: finalDateAdded, // 🔒 บันทึกวันที่นำเข้าจริงที่ถูกต้อง
+                date_added: finalDateAdded, // 🔒 ບັນທຶກວັນທີທີ່ถูกต้อง 100%
                 mfg_date: mfgDate,
                 expiry_date: expiryDate,
                 currency: 'ກີບ',
