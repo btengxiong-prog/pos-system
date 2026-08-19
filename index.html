@@ -3390,11 +3390,20 @@
         }
 
     function calculateStockInPrice() {
-        let costInput = document.getElementById('stock-in-cost').value.replace(/,/g, '');
-        let cost = parseFloat(costInput) || 0;
-        let pct = parseFloat(document.getElementById('stock-in-profit-pct').value) || 20;
-        let calcPrice = cost * (1 + pct / 100);
-        document.getElementById('stock-in-calculated-price').value = formatNumberWithCommas(Math.round(calcPrice));
+            let costInput = document.getElementById('stock-in-cost').value.replace(/,/g, '');
+            let cost = parseFloat(costInput) || 0;
+            let pct = parseFloat(document.getElementById('stock-in-profit-pct').value) || 20;
+            
+            // 1. ດຶງຄ່າດັດສະນີອັດຕາແລກປ່ຽນ (ກ່ອງ 2) ມາຄຳນວນຮ່ວມນຳ
+            let currentSellRate = parseFloat(localStorage.getItem('rate_current_value')) || 670;
+            let currentBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate') || localStorage.getItem('rate_fixed_value')) || 650;
+            let exchangeRatio = currentBuyRate > 0 ? (currentSellRate / currentBuyRate) : 1;
+
+            // 2. สูตรຄຳນວນ: ກ່ອງ 4 = ກ່ອງ 1 x ກ່ອງ 2 x ກ່ອງ 3 (ປັດປັດຈຸບັນັດຂຶ້ນເປັນຈຳນວນເຕັມພັນ)
+            let rawPrice = cost * exchangeRatio * (1 + pct / 100);
+            let calcPrice = Math.ceil(rawPrice / 1000) * 1000; // ປັດຂຶ້ນເປັນຫຼັກພັນ
+
+            document.getElementById('stock-in-calculated-price').value = formatNumberWithCommas(calcPrice);
     }
 
     function calculateTotalUnit() {
