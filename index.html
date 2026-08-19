@@ -4845,6 +4845,77 @@
             });
         }
 
+        // 💱 ຟັງຊັນຄຳນວນດັດສະນີ້ອັດຕາ (Rate) = ອັດຕາຂາຍ ÷ ອັດຕາຊື້ ຕາມວັນນຳເຂົ້າ
+        async function calculateRateIndexForStockIn() {
+            let importDateInput = document.getElementById('stock-in-import-date');
+            if (!importDateInput) return;
+            
+            let dateStr = importDateInput.value.trim();
+            let targetDateISO = parseDDMMYYYYToISO(dateStr);
+            
+            let buyRate = 650;
+            let sellRate = 670;
+            let foundRate = false;
+
+            if (typeof db !== 'undefined' && db) {
+                try {
+                    let rateSnap = await db.collection("daily_rates")
+                        .where("device_id", "==", deviceId)
+                        .get();
+                    
+                    let rateMap = {};
+                    rateSnap.forEach(doc => {
+                        let rData = doc.data();
+                        if (rData.date && rData.buyRate && rData.sellRate) {
+                            rateMap[rData.date.trim()] = {
+                                buy: parseFloat(rData.buyRate) || 650,
+                                sell: parseFloat(rData.sellRate) || 670
+                            };
+                        }
+                    });
+
+                    let checkDate = new Date(targetDateISO);
+                    
+                    // 🔄 ວົນລູບຄົ້ນຫາວັນທີ່ກົງກັນ ຫຼື ວັນກ່ອນໜ້າທີ່ໃກ້ທີ່ສຸດ (ກວດສອບສູງສຸດ 30 ວັນ)
+                    for (let i = 0; i < 30; i++) {
+                        let checkISO = checkDate.toISOString().split('T')[0];
+                        let checkGB = `${String(checkDate.getDate()).padStart(2, '0')}/${String(checkDate.getMonth() + 1).padStart(2, '0')}/${checkDate.getFullYear()}`;
+
+                        if (rateMap[checkISO]) {
+                            buyRate = rateMap[checkISO].buy;
+                            sellRate = rateMap[checkISO].sell;
+                            foundRate = true;
+                            break;
+                        } else if (rateMap[checkGB]) {
+                            buyRate = rateMap[checkGB].buy;
+                            sellRate = rateMap[checkGB].sell;
+                            foundRate = true;
+                            break;
+                        } else if (rateMap[targetDateISO]) {
+                            buyRate = rateMap[targetDateISO].buy;
+                            sellRate = rateMap[targetDateISO].sell;
+                            foundRate = true;
+                            break;
+                        }
+                        checkDate.setDate(checkDate.getDate() - 1);
+                    }
+
+                    if (!foundRate) {
+                        buyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate_' + targetDateISO) || localStorage.getItem('pos_custom_buy_rate') || '650');
+                        sellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate_' + targetDateISO) || localStorage.getItem('pos_custom_sell_rate') || localStorage.getItem('rate_current_value') || '670');
+                    }
+                } catch (e) {
+                    console.error("Error fetching rate index from cloud:", e);
+                }
+            }
+
+            let rateIndex = buyRate > 0 ? (sellRate / buyRate).toFixed(4) : "1.00";
+            let indexInput = document.getElementById('stock-in-rate-index');
+            if (indexInput) {
+                indexInput.value = `${rateIndex} (ຂາຍ: ${formatNumberWithCommas(sellRate)} ÷ ຊື້: ${formatNumberWithCommas(buyRate)})`;
+            }
+        }
+
     </script>
 </body>
 </html>
