@@ -1162,6 +1162,11 @@
                         <input type="text" id="stock-in-cost" oninput="formatInputMoney(this); calculateStockInPrice();" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 text-right font-bold text-blue-600 text-lg" placeholder="ປ້ອນລາຄາຊື້">
                     </div>
 
+                    <div>
+                        <label class="block font-semibold text-gray-700 mb-1">💱 ດັດສະນີອັດຕາແລກປ່ຽນ: ອັດຕາຂາຍ/ອັດຕາຊື້:</label>
+                        <input type="text" id="stock-in-exchange-rate-display" readonly class="w-full border rounded-lg px-3 py-2.5 outline-none font-bold text-purple-700 bg-gray-100 text-center cursor-not-allowed text-sm" value="ກຳລັງໂຫຼດ Rate...">
+                    </div>
+
                     <div class="grid grid-cols-2 gap-2 bg-purple-50/50 p-3 rounded-xl border border-purple-200">
                         <div>
                             <label class="block font-[11px] font-bold text-purple-900 mb-1">📈 ເປີເຊັນຂາຍ (%):</label>
@@ -3290,21 +3295,28 @@
     }
 
     function handleStockInBarcodeScanned(code) {
-        closeStockInScanner();
-        currentStockInCode = code;
-        document.getElementById('stock-in-code').innerText = code;
-        
-        // 🛑 ຢ່າໄປบังคับ set ค่าวันที่ปัจจุบันทັບช่อง input ຖ້າผู้ใช้มีค่าเดิมอยู่แล้ว
-        let importDateInput = document.getElementById('stock-in-import-date');
-        if (importDateInput && !importDateInput.value) {
-            let today = new Date();
-            let dd = String(today.getDate()).padStart(2, '0');
-            let mm = String(today.getMonth() + 1).padStart(2, '0');
-            let yyyy = today.getFullYear();
-            importDateInput.value = `${dd}/${mm}/${yyyy}`;
-        }
+            closeStockInScanner();
+            currentStockInCode = code;
+            document.getElementById('stock-in-code').innerText = code;
+            
+            let importDateInput = document.getElementById('stock-in-import-date');
+            if (importDateInput && !importDateInput.value) {
+                let today = new Date();
+                let dd = String(today.getDate()).padStart(2, '0');
+                let mm = String(today.getMonth() + 1).padStart(2, '0');
+                let yyyy = today.getFullYear();
+                importDateInput.value = `${dd}/${mm}/${yyyy}`;
+            }
 
-        document.getElementById('stock-in-modal').classList.remove('hidden');
+            // 💱 ດັດສະນີອັດຕາແລກປ່ຽນ (ຂາຍ/ຊື້) ປະຈຸບັນແບບ Readonly
+            let currentSellRate = localStorage.getItem('rate_current_value') || '670';
+            let currentBuyRate = localStorage.getItem('pos_custom_buy_rate') || localStorage.getItem('rate_fixed_value') || '650';
+            let rateDisplayInput = document.getElementById('stock-in-exchange-rate-display');
+            if (rateDisplayInput) {
+                rateDisplayInput.value = `${formatNumberWithCommas(currentSellRate)} / ${formatNumberWithCommas(currentBuyRate)} ບາດ`;
+            }
+
+            document.getElementById('stock-in-modal').classList.remove('hidden');
     }
 
     function closeStockInModal() {
@@ -3318,56 +3330,59 @@
     }
 
     function submitManualBarcode() {
-        let input = document.getElementById('manual-barcode-input');
-        if (!input || input.value.trim() === "") return;
-        let userInput = input.value.trim();
-        input.value = "";
+            let input = document.getElementById('manual-barcode-input');
+            if (!input || input.value.trim() === "") return;
+            let userInput = input.value.trim();
+            input.value = "";
 
-        // 1. ກວດສອບວ່າພິມ "ຊື່ສິນຄ້າ" ທີ່ມີໃນສາງແລ້ວບໍ່
-        let foundByName = excelRows.find(item => item.name && item.name.trim().toLowerCase() === userInput.toLowerCase());
-        if (foundByName) {
-            handleStockInBarcodeScanned(foundByName.code);
-            return;
-        }
+            // 1. ກວດສອບວ່າພິມ "ຊື່ສິນຄ້າ" ທີ່ມີໃນສາງແລ້ວບໍ່
+            let foundByName = excelRows.find(item => item.name && item.name.trim().toLowerCase() === userInput.toLowerCase());
+            if (foundByName) {
+                handleStockInBarcodeScanned(foundByName.code);
+                return;
+            }
 
-        // 2. ກວດສອບວ່າພິມ "ລະຫັດ Barcode" ທີ່ມີໃນສາງແລ້ວບໍ່
-        let foundByCode = excelRows.find(item => String(item.code).trim().toLowerCase() === userInput.toLowerCase());
+            // 2. ກວດສອບວ່າພິມ "ລະຫັດ Barcode" ທີ່ມີໃນສາງແລ້ວບໍ່
+            let foundByCode = excelRows.find(item => String(item.code).trim().toLowerCase() === userInput.toLowerCase());
 
-        if (foundByCode) {
-            // 🎯 ຖ້າພບບาໂຄດໃນສາງ: ດຶງຊື່ ແລະ ລາຄາເກົົາມາສະແດງ ແຕ່ "ຜູ້ໃຊ້ສາມາດປັບແກ້ໄຂເອງໄດ້"
-            closeStockInScanner();
-            currentStockInCode = foundByCode.code;
+            if (foundByCode) {
+                closeStockInScanner();
+                currentStockInCode = foundByCode.code;
+                
+                document.getElementById('stock-in-code').innerText = foundByCode.code;
+                document.getElementById('stock-in-custom-name').value = foundByCode.name || '';
+                document.getElementById('stock-in-cost').value = formatNumberWithCommas(foundByCode.cost || 0);
+                document.getElementById('stock-in-profit-pct').value = foundByCode.profit_pct || 20;
+                
+                calculateStockInPrice(); 
+
+                // 💱 ເອີ້ນໃس່ບ່ອນນີ້ໄດ້ (ກໍລະນີພິມ Barcode ທີ່ມີໃນສາງແລ້ວ)
+                let currentSellRate = localStorage.getItem('rate_current_value') || '670';
+                let currentBuyRate = localStorage.getItem('pos_custom_buy_rate') || localStorage.getItem('rate_fixed_value') || '650';
+                let rateDisplayInput = document.getElementById('stock-in-exchange-rate-display');
+                if (rateDisplayInput) {
+                    rateDisplayInput.value = `${formatNumberWithCommas(currentSellRate)} / ${formatNumberWithCommas(currentBuyRate)} ບາດ`;
+                }
+
+                document.getElementById('stock-in-modal').classList.remove('hidden');
+                return;
+            }
+
+            // 3. ຖ້າເປັນສິນຄ້າໃໝ່ (ບໍ່ພົບບາໂຄດ)
+            let finalCode = userInput;
+            let isLikelyBarcode = /^\d{6,}$/.test(userInput);
             
-            document.getElementById('stock-in-code').innerText = foundByCode.code;
-            
-            // ດຶງຊື່ ແລະ ລາຄາເກົົາມາໃສ່ (ສາມາດພິມທັບ/ປັບແກ້ໄຂໄດ້ຕາມໃຈມັກ)
-            document.getElementById('stock-in-custom-name').value = foundByCode.name || '';
-            document.getElementById('stock-in-cost').value = formatNumberWithCommas(foundByCode.cost || 0);
-            document.getElementById('stock-in-profit-pct').value = foundByCode.profit_pct || 20;
-            
-            // ຄຳນວນລາຄາຂາຍອອກມາຕາມເປີເຊັນ
-            calculateStockInPrice(); 
-
-            document.getElementById('stock-in-modal').classList.remove('hidden');
-            return;
+            if (!isLikelyBarcode) {
+                finalCode = 'POS-' + Math.floor(100000 + Math.random() * 900000);
+                handleStockInBarcodeScanned(finalCode);
+                setTimeout(() => {
+                    let nameInput = document.getElementById('stock-in-custom-name');
+                    if (nameInput) nameInput.value = userInput;
+                }, 100);
+            } else {
+                handleStockInBarcodeScanned(finalCode);
+            }
         }
-
-        // 3. ຖ້າເປັນສິນຄ້າໃໝ່ (ບໍ່ພົບບາໂຄດ)
-        let finalCode = userInput;
-        let isLikelyBarcode = /^\d{6,}$/.test(userInput);
-        
-        if (!isLikelyBarcode) {
-            // ຖ້າພິມເປັນຊື່ສິນຄ້າ ໃຫ້ສ້າງ Barcode ให້ນຳອັດຕະໂນມັດ
-            finalCode = 'POS-' + Math.floor(100000 + Math.random() * 900000);
-            handleStockInBarcodeScanned(finalCode);
-            setTimeout(() => {
-                let nameInput = document.getElementById('stock-in-custom-name');
-                if (nameInput) nameInput.value = userInput;
-            }, 100);
-        } else {
-            handleStockInBarcodeScanned(finalCode);
-        }
-    }
 
     function calculateStockInPrice() {
         let costInput = document.getElementById('stock-in-cost').value.replace(/,/g, '');
