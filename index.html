@@ -2871,8 +2871,8 @@
                 }
             }
 
-        // 🔄 ປັບປຸງ loadInventory ໃຫ້ກັ່ນຕອງຕາມຮ້ານທີ່ເລືອກ
-                function loadInventory() {
+// 🔄 ປັບປຸງ loadInventory ໃຫ້ດຶງ Rate ຕາມວັນທີນຳເຂົ້າ (ເດີມ) ແລະ ວັນທີປະຈຸບັນ (ໃໝ່) ຢ່າງຖືກຕ້ອງ
+                async function loadInventory() {
                     let tbody = document.getElementById('inventory-tbody');
                     if (!tbody) return;
 
@@ -2881,11 +2881,30 @@
                     let isAdminMaster = (userRole === 'admin' || deviceId === 'POSXIONG' || (shopOwner === 'true' && deviceId === 'POSXIONG'));
 
                     let colSpanCount = isAdminMaster ? 21 : 20;
-                    tbody.innerHTML = `<tr><td colspan="${colSpanCount}" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="${colSpanCount}" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ ແລະ ອັດຕາແລກປ່ຽນ...</td></tr>`;
 
                     if (!excelRows || excelRows.length === 0) {
                         tbody.innerHTML = `<tr><td colspan="${colSpanCount}" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ</td></tr>`;
                         return;
+                    }
+
+                    // ດຶງປະຫວັດ Rate ທັງໝົດຈາກ Firestore ມາ Sue (ຖົ່ມໄວ້ກວດສອບຕາມວັນທີ)
+                    let rateRecordsMap = {};
+                    if (db) {
+                        try {
+                            let rateSnap = await db.collection("daily_rates").where("device_id", "==", deviceId).get();
+                            rateSnap.forEach(doc => {
+                                let rData = doc.data();
+                                if (rData.date) {
+                                    rateRecordsMap[rData.date.trim()] = {
+                                        buy: parseFloat(rData.buyRate) || 650,
+                                        sell: parseFloat(rData.sellRate) || 670
+                                    };
+                                }
+                            });
+                        } catch (e) {
+                            console.error("Error loading daily rates for inventory:", e);
+                        }
                     }
 
                     let activeShopUser = String(localStorage.getItem('pos_active_shop_username') || localStorage.getItem('pos_shop_user') || deviceId || '').trim().toLowerCase();
@@ -2904,7 +2923,6 @@
                         });
                     }
 
-                    // 🟢 ຄວບຄຸມການສະແດງຜົນຫົວຂໍ້ Checkbox ທາງຂວາສຸດ
                     let actionHeader = document.getElementById('inventory-col-action-header');
                     if (actionHeader) {
                         if (isAdminMaster) {
@@ -2921,18 +2939,59 @@
 
                     let html = '';
                     let countIndex = 1;
-                    let todayStr = new Date().toLocaleDateString('en-GB');
-                    let currentSellRate = parseFloat(localStorage.getItem('rate_current_value')) || 670;
-                    let currentBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate') || localStorage.getItem('rate_fixed_value')) || 650;
+                    let todayDateStr = new Date().toLocaleDateString('en-GB'); // ວັນທີປະຈຸບັນ (ຮູບແບບ DD/MM/YYYY)
+                    let todayISOStr = new Date().toISOString().split('T')[0];   // ວັນທີ ISO (YYYY-MM-DD)
 
                     displayRows.forEach((row) => {
                         let qty = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1; 
                         let originalCost = parseFloat(String(row.original_cost || row.cost).replace(/,/g, '')) || 0;
                         let originalPrice = parseFloat(String(row.price).replace(/,/g, '')) || 0;
                         let profitPct = row.profit_pct !== undefined ? row.profit_pct : 20;
+
+                        // 1. ດຶງວັນທີນຳເຂົ້າສິນຄ້າ (ຄໍລຳ 1 ຂອງຮູບ 1)
+                        let rawImportDate = row.date_added || row.dateAdded || '';
+                        let formattedImportDate = '-';
+                        let importDateISO = '';
+
+                        if (rawImportDate) {
+                            if (rawImportDate.includes('/')) {
+                                formattedImportDate = rawImportDate;
+                                importDateISO = parseDDMMYYYYToISO(rawImportDate);
+                            } else {
+                                formattedImportDate = formatDateToDDMMYYYY(rawImportDate);
+                                importDateISO = rawImportDate;
+                            }
+                        }
+
+                        // 2. 🔍 ຄົ້ນຫາ Rate ເດີມ (ຄໍລຳ 3 ແລະ 4) ໃຫ້ກົງกับວັນນຳເຂົ້າ (ຄໍລຳ 1 ໃນຮູບ 1) ຈາກຕາຕະລາງ Rate (ຮູບ 2)
+                        let importBuyRate = 650;
+                        let importSellRate = 670;
                         
-                        let importBuyRate = parseFloat(row.buying_rate) || 650;
-                        let importSellRate = parseFloat(row.selling_rate) || (importBuyRate * 1.03);
+                        if (importDateISO && rateRecordsMap[importDateISO]) {
+                            importBuyRate = rateRecordsMap[importDateISO].buy;
+                            importSellRate = rateRecordsMap[importDateISO].sell;
+                        } else if (rawImportDate && rateRecordsMap[rawImportDate]) {
+                            importBuyRate = rateRecordsMap[rawImportDate].buy;
+                            importSellRate = rateRecordsMap[rawImportDate].sell;
+                        } else if (row.buying_rate) {
+                            importBuyRate = parseFloat(row.buying_rate) || 650;
+                            importSellRate = parseFloat(row.selling_rate) || 670;
+                        }
+
+                        // 3. 🔍 ຄົ້ນຫາ Rate ໃໝ່ / ປະຈຸບັນ (ຄໍລຳ 5 ແລະ 6) ໃຫ້ກົງกับວັນປະຈຸບັນ (ຄໍລຳ 2 ໃນຮູບ 1) ຈາກຕາຕະລາງ Rate (ຮູບ 2)
+                        let currentBuyRate = 650;
+                        let currentSellRate = 670;
+
+                        if (rateRecordsMap[todayISOStr]) {
+                            currentBuyRate = rateRecordsMap[todayISOStr].buy;
+                            currentSellRate = rateRecordsMap[todayISOStr].sell;
+                        } else if (rateRecordsMap[todayDateStr]) {
+                            currentBuyRate = rateRecordsMap[todayDateStr].buy;
+                            currentSellRate = rateRecordsMap[todayDateStr].sell;
+                        } else {
+                            currentBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate') || localStorage.getItem('rate_fixed_value')) || 650;
+                            currentSellRate = parseFloat(localStorage.getItem('rate_current_value')) || 670;
+                        }
 
                         let adjusted = getAdjustedItemPricing(row);
                         let newCost = adjusted.cost; 
@@ -2943,21 +3002,7 @@
                         let totalNewCost = newCost * qty;
                         let totalNewPrice = newPrice * qty;
 
-                        // 🔍 ດຶງວັນທີນຳເຂົ້າຈາກ Database ໂດຍກົງ (ຮອງຮັບທຸກຊື່ field)
-                        let rawImportDate = row.date_added || row.dateAdded || '';
-                        let formattedImportDate = '-';
-
-                        if (rawImportDate) {
-                            // ຖ້າເປັນ Format "DD/MM/YYYY" ໃຫ້ໃຊ້ເລີຍ, ຖ້າເປັນ "YYYY-MM-DD" ให้แปลง
-                            if (rawImportDate.includes('/')) {
-                                formattedImportDate = rawImportDate;
-                            } else {
-                                formattedImportDate = formatDateToDDMMYYYY(rawImportDate);
-                            }
-                        }
                         let shopLabel = (isAdminMaster && row.device_id) ? ` [ຮ້ານ: ${row.device_id}]` : '';
-
-                        // 🟢 ຖ້າເປັນ Admin ໃຫຍ່ ໃຫ້ສະແດງ Checkbox ໄວ້ທາງຂວາສຸດ (ໃນກ່ອງສີແດງ)
                         let rightCellHtml = isAdminMaster ? 
                             `<td class="p-2 text-center"><input type="checkbox" data-id="${row.id}" class="inventory-row-checkbox w-4 h-4 cursor-pointer accent-cyan-600"></td>` : ``;
 
@@ -2967,12 +3012,12 @@
                                 <td class="p-2 border-r font-bold text-blue-600 font-mono">${row.code || '-'}</td>
                                 <td class="p-2 border-r font-bold text-gray-900 text-left">${row.name || '-'}${shopLabel}</td>
                                 <td class="p-2 border-r text-purple-700 font-semibold">${formattedImportDate}</td>
-                                <td class="p-2 border-r text-gray-700 font-semibold">${todayStr}</td>
+                                <td class="p-2 border-r text-gray-700 font-semibold">${todayDateStr}</td>
                                 <td class="p-2 border-r font-bold text-cyan-800">${formatNumberWithCommas(qty)}</td>
-                                <td class="p-2 border-r text-blue-600">${importBuyRate}</td>
-                                <td class="p-2 border-r text-blue-600">${Math.round(importSellRate)}</td>
-                                <td class="p-2 border-r text-blue-800">${currentBuyRate}</td>
-                                <td class="p-2 border-r text-blue-800">${currentSellRate}</td>
+                                <td class="p-2 border-r text-blue-600 font-bold">${formatNumberWithCommas(importBuyRate)}</td>
+                                <td class="p-2 border-r text-blue-600 font-bold">${formatNumberWithCommas(importSellRate)}</td>
+                                <td class="p-2 border-r text-blue-800 font-bold">${formatNumberWithCommas(currentBuyRate)}</td>
+                                <td class="p-2 border-r text-blue-800 font-bold">${formatNumberWithCommas(currentSellRate)}</td>
                                 <td class="p-2 border-r text-purple-700 font-bold">${profitPct}%</td>
                                 <td class="p-2 border-r text-right text-blue-600">${formatNumberWithCommas(originalCost)}</td>
                                 <td class="p-2 border-r text-right text-green-600">${formatNumberWithCommas(originalPrice)}</td>
