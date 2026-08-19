@@ -3302,7 +3302,6 @@
         currentStockInCode = code;
         document.getElementById('stock-in-code').innerText = code;
         
-        // 🛑 ຢ່າໄປบังคับ set ค่าวันที่ปัจจุบันทັບช่อง input ຖ້າผู้ใช้มีค่าเดิมอยู่แล้ว
         let importDateInput = document.getElementById('stock-in-import-date');
         if (importDateInput && !importDateInput.value) {
             let today = new Date();
@@ -3313,6 +3312,9 @@
         }
 
         document.getElementById('stock-in-modal').classList.remove('hidden');
+        
+        // 💱 ເອີ້ນໃຊ້ງານຄຳນວນດັດສະນີ້ Rate ຢູ່ນີ້
+        calculateRateIndexForStockIn();
     }
 
     function closeStockInModal() {
@@ -4846,8 +4848,11 @@
         }
 
         async function calculateRateIndexForStockIn() {
-            let importDateInput = document.getElementById('stock-in-import-date').value.trim();
-            let dateISO = parseDDMMYYYYToISO(importDateInput);
+            let importDateInput = document.getElementById('stock-in-import-date');
+            if (!importDateInput) return;
+            
+            let dateStr = importDateInput.value.trim();
+            let dateISO = parseDDMMYYYYToISO(dateStr);
             
             let buyRate = 650;
             let sellRate = 670;
@@ -4863,9 +4868,13 @@
                         let rData = rateSnap.docs[0].data();
                         buyRate = parseFloat(rData.buyRate) || 650;
                         sellRate = parseFloat(rData.sellRate) || 670;
+                    } else {
+                        // ຖ້າບໍ່ພົບວັນທີ່ລະບົບເຈາະຈົງ ໃຫ້ດຶງ Rate ທີ່ບັນທຶກໄວ້ລ້າສຸດ
+                        buyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate_' + dateISO) || localStorage.getItem('pos_custom_buy_rate') || '650');
+                        sellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate_' + dateISO) || localStorage.getItem('pos_custom_sell_rate') || localStorage.getItem('rate_current_value') || '670');
                     }
                 } catch (e) {
-                    console.error("Error fetching rate for index:", e);
+                    console.error("Error fetching rate index:", e);
                 }
             }
 
