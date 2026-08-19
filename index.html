@@ -1101,6 +1101,14 @@
                         <label class="block font-semibold text-gray-700 mb-1">ລາຄາຊື້ (ກີບ):</label>
                         <input type="text" id="modal-cost" oninput="formatInputMoney(this)" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-right font-bold text-blue-600 text-lg" placeholder="ຕົວຢ່າງ: 0">
                     </div>
+                    <!-- 💱 ດັດສະນີ້ອັດຕາ (Rate) -->
+                    <div class="bg-blue-50/50 p-3 rounded-xl border border-blue-200 space-y-1">
+                        <label class="block font-bold text-blue-900 text-xs">💱 ດັດສະນີ້ອັດຕາ (Rate):</label>
+                        <div class="flex items-center justify-between">
+                            <input type="text" id="stock-in-rate-index" readonly class="w-full border rounded-lg px-2 py-1.5 text-right font-extrabold text-blue-700 text-sm bg-blue-100 cursor-not-allowed" value="1.00">
+                            <span class="text-[10px] text-gray-500 ml-2">(ອັດຕາຂາຍ ÷ ອັດຕາຊື້)</span>
+                        </div>
+                    </div>
                     <div>
                         <label class="block font-semibold text-gray-700 mb-1">ລາຄາຂາຍ (ກີບ):</label>
                         <input type="text" id="modal-price" oninput="formatInputMoney(this)" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-right font-bold text-green-600 text-lg" placeholder="ຕົວຢ່າງ: 0">
@@ -4835,6 +4843,37 @@
             checkboxes.forEach(cb => {
                 cb.checked = masterCheckbox.checked;
             });
+        }
+
+        async function calculateRateIndexForStockIn() {
+            let importDateInput = document.getElementById('stock-in-import-date').value.trim();
+            let dateISO = parseDDMMYYYYToISO(importDateInput);
+            
+            let buyRate = 650;
+            let sellRate = 670;
+
+            if (db) {
+                try {
+                    let rateSnap = await db.collection("daily_rates")
+                        .where("device_id", "==", deviceId)
+                        .where("date", "==", dateISO)
+                        .get();
+                    
+                    if (!rateSnap.empty) {
+                        let rData = rateSnap.docs[0].data();
+                        buyRate = parseFloat(rData.buyRate) || 650;
+                        sellRate = parseFloat(rData.sellRate) || 670;
+                    }
+                } catch (e) {
+                    console.error("Error fetching rate for index:", e);
+                }
+            }
+
+            let rateIndex = buyRate > 0 ? (sellRate / buyRate).toFixed(4) : "1.00";
+            let indexInput = document.getElementById('stock-in-rate-index');
+            if (indexInput) {
+                indexInput.value = `${rateIndex} (ຊື້: ${formatNumberWithCommas(buyRate)} / ຂາຍ: ${formatNumberWithCommas(sellRate)})`;
+            }
         }
 
     </script>
