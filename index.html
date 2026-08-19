@@ -2165,7 +2165,7 @@
                                     price: item.price,
                                     qty: item.qty || 1,
                                     unitPerPack: item.unit_per_pack || 12,
-                                    dateAdded: item.date_added || new Date().toISOString().split('T')[0],
+                                    dateAdded: item.date_added || item.dateAdded || new Date().toISOString().split('T')[0], // 🔒 ປ້ອງກັນການອ່ານຄ່າຜິດพลาด
                                     mfgDate: item.mfg_date || '',
                                     expiryDate: item.expiry_date || '',
                                     currency: item.currency || 'ກີບ',
@@ -3304,51 +3304,55 @@
         document.getElementById('stock-in-total-calculated').value = qty * unitPerPack;
     }
 
-    async function confirmStockIn() {
-        let code = currentStockInCode;
-        let name = document.getElementById('stock-in-custom-name').value.trim() || code;
-        let cost = parseFloat(document.getElementById('stock-in-cost').value.replace(/,/g, '')) || 0;
-        let price = parseFloat(document.getElementById('stock-in-calculated-price').value.replace(/,/g, '')) || 0;
-        let qty = parseInt(document.getElementById('stock-in-qty').value) || 1;
-        let unitPerPack = parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12;
-        let importDate = document.getElementById('stock-in-import-date').value.trim();
-        let mfgDate = isExpiryMode ? document.getElementById('stock-in-mfg-date').value.trim() : '';
-        let expiryDate = isExpiryMode ? document.getElementById('stock-in-exp-date').value.trim() : '';
+        async function confirmStockIn() {
+            let code = currentStockInCode;
+            let name = document.getElementById('stock-in-custom-name').value.trim() || code;
+            let cost = parseFloat(document.getElementById('stock-in-cost').value.replace(/,/g, '')) || 0;
+            let price = parseFloat(document.getElementById('stock-in-calculated-price').value.replace(/,/g, '')) || 0;
+            let qty = parseInt(document.getElementById('stock-in-qty').value) || 1;
+            let unitPerPack = parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12;
+            
+            // ດຶງວັນທີນຳເຂົ້າທີ່ผู้ໃຊ້ປ້ອນໃນ Input ໂດຍກົງ
+            let importDateInput = document.getElementById('stock-in-import-date').value.trim();
+            let finalDateAdded = importDateInput ? parseDDMMYYYYToISO(importDateInput) : new Date().toISOString().split('T')[0];
 
-        if (cost <= 0) {
-            showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນລາຄາຊື້ໃຫ້ຖືກຕ້ອງ!", "⚠️");
-            return;
-        }
+            let mfgDate = isExpiryMode ? document.getElementById('stock-in-mfg-date').value.trim() : '';
+            let expiryDate = isExpiryMode ? document.getElementById('stock-in-exp-date').value.trim() : '';
 
-        let newProduct = {
-            code: code,
-            name: name,
-            cost: cost,
-            original_cost: cost,
-            profit_pct: parseFloat(document.getElementById('stock-in-profit-pct').value) || 20,
-            price: price,
-            qty: qty,
-            unit_per_pack: unitPerPack,
-            date_added: parseDDMMYYYYToISO(importDate),
-            mfg_date: mfgDate,
-            expiry_date: expiryDate,
-            currency: 'ກີບ',
-            buying_rate: parseFloat(localStorage.getItem('rate_current_value')) || 650,
-            device_id: deviceId,
-            updated_at: new Date().toISOString()
-        };
-
-        if (db) {
-            try {
-                await db.collection("products").add(newProduct);
-            } catch (e) {
-                console.error("Error adding product to Firebase:", e);
+            if (cost <= 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນລາຄາຊື້ໃຫ້ຖືກຕ້ອງ!", "⚠️");
+                return;
             }
-        }
 
-        closeStockInModal();
-        showAlert("ສຳເລັດ", "ນຳເຂົ້າສິນຄ້າ ແລະ ບັນທຶກລົງສາງສຳເລັດຮຽບຮ້ອຍ!", "📦");
-    }
+            let newProduct = {
+                code: code,
+                name: name,
+                cost: cost,
+                original_cost: cost,
+                profit_pct: parseFloat(document.getElementById('stock-in-profit-pct').value) || 20,
+                price: price,
+                qty: qty,
+                unit_per_pack: unitPerPack,
+                date_added: finalDateAdded, // 🔒 บันทึกวันที่นำเข้าจริงที่ถูกต้อง
+                mfg_date: mfgDate,
+                expiry_date: expiryDate,
+                currency: 'ກີບ',
+                buying_rate: parseFloat(localStorage.getItem('rate_current_value')) || 650,
+                device_id: deviceId,
+                updated_at: new Date().toISOString()
+            };
+
+            if (db) {
+                try {
+                    await db.collection("products").add(newProduct);
+                } catch (e) {
+                    console.error("Error adding product to Firebase:", e);
+                }
+            }
+
+            closeStockInModal();
+            showAlert("ສຳເລັດ", "ນຳເຂົ້າສິນຄ້າ ແລະ ບັນທຶກລົງສາງສຳເລັດຮຽບຮ້ອຍ!", "📦");
+        }
 
         function cancelScannedItem() {
             document.getElementById('confirm-modal').classList.add('hidden');
@@ -3627,7 +3631,7 @@
                 excelRows.forEach((row) => {
                     let expDateStr = row.expiryDate || row.expiry_date || '';
                     let mfgDateStr = row.mfgDate || row.mfg_date || '-';
-                    let formattedImportDate = formatDateToDDMMYYYY(row.dateAdded || '-');
+                    let formattedImportDate = formatDateToDDMMYYYY(row.dateAdded || row.date_added || '-');
                     let formattedMfgDate = formatDateToDDMMYYYY(mfgDateStr);
                     let formattedExpDate = formatDateToDDMMYYYY(expDateStr);
 
@@ -3826,7 +3830,7 @@
                     let totalOldPrice = originalPrice * qty;
                     let totalNewPrice = newPrice * qty;
 
-                    let formattedImportDate = formatDateToDDMMYYYY(row.dateAdded || '-');
+                    let formattedImportDate = formatDateToDDMMYYYY(row.dateAdded || row.date_added || '-');
                     let todayStr = new Date().toLocaleDateString('en-GB');
 
                     let currency = row.currency || 'ກີບ';
