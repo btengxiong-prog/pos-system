@@ -2863,17 +2863,20 @@
             function loadInventory() {
                 let tbody = document.getElementById('inventory-tbody');
                 if (!tbody) return;
-                tbody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
+
+                let userRole = localStorage.getItem('pos_user_role');
+                let shopOwner = localStorage.getItem('pos_shop_owner');
+                let isAdminMaster = (userRole === 'admin' || deviceId === 'POSXIONG' || (shopOwner === 'true' && deviceId === 'POSXIONG'));
+
+                let colSpanCount = isAdminMaster ? 11 : 10;
+                tbody.innerHTML = `<tr><td colspan="${colSpanCount}" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
 
                 if (!excelRows || excelRows.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="${colSpanCount}" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ</td></tr>`;
                     return;
                 }
 
-                let userRole = localStorage.getItem('pos_user_role');
-                let isAdminMaster = (userRole === 'admin' || deviceId === 'POSXIONG');
                 let activeShopUser = String(localStorage.getItem('pos_active_shop_username') || localStorage.getItem('pos_shop_user') || deviceId || '').trim().toLowerCase();
-                
                 let shopFilterSelect = document.getElementById('inventory-shop-filter');
                 let selectedShopFilter = shopFilterSelect ? shopFilterSelect.value : 'ALL';
 
@@ -2890,8 +2893,25 @@
                     });
                 }
 
+                // 🔄 ປັບປຸງ Header ຂອງຕາຕະລາງຕາມສິດ Admin ໃຫຍ່
+                let theadTr = document.querySelector('#inventory-modal table thead tr');
+                if (theadTr) {
+                    if (isAdminMaster) {
+                        if (!document.getElementById('inventory-col-action-header')) {
+                            theadTr.insertAdjacentHTML('beforeend', `
+                                <th id="inventory-col-action-header" class="p-3 text-center w-16">
+                                    <input type="checkbox" id="select-all-inventory-checkbox" onclick="toggleSelectAllInventory(this)" class="w-4 h-4 cursor-pointer accent-cyan-600" title="ເລືອກທັງໝົດ">
+                                </th>
+                            `);
+                        }
+                    } else {
+                        let actionTh = document.getElementById('inventory-col-action-header');
+                        if (actionTh) actionTh.remove();
+                    }
+                }
+
                 if (displayRows.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າຂອງຮ້ານທີ່ເລືອກ</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="${colSpanCount}" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າຂອງຮ້ານທີ່ເລືອກ</td></tr>`;
                     return;
                 }
 
@@ -2919,6 +2939,10 @@
                     let noteStr = `ເຫຼືອ: ${formatNumberWithCommas(remainingFullPacks)}/0`;
                     let shopLabel = (isAdminMaster && row.device_id) ? ` [ຮ້ານ: ${row.device_id}]` : '';
 
+                    // 🎯 ຖ້າເປັນ Admin ໃຫຍ່ ໃຫ້ເພີ່ມຄໍລຳ Checkbox ທາງຂວາສຸດ
+                    let rightCellHtml = isAdminMaster ? 
+                        `<td class="p-3 text-center"><input type="checkbox" data-id="${row.id}" class="inventory-row-checkbox w-4 h-4 cursor-pointer accent-cyan-600"></td>` : ``;
+
                     html += `
                         <tr class="hover:bg-gray-50 border-b">
                             <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
@@ -2930,12 +2954,21 @@
                             <td class="p-3 border-r text-right text-green-600 font-semibold">${priceStr}</td>
                             <td class="p-3 border-r text-right font-bold text-blue-800 bg-blue-50/30">${totalCostStr}</td>
                             <td class="p-3 border-r text-right font-bold text-green-800 bg-green-50/30">${totalPriceStr}</td>
-                            <td class="p-3 text-center text-xs font-extrabold text-amber-600">${noteStr}</td>
+                            <td class="p-3 border-r text-center text-xs font-extrabold text-amber-600">${noteStr}</td>
+                            ${rightCellHtml}
                         </tr>
                     `;
                 });
 
                 tbody.innerHTML = html;
+            }
+
+            // 📋 ຟັງຊັນຕິກເລືອກທັງໝົດໃນຕາຕະລາງສິນຄ້າຄ້າງສາງ
+            function toggleSelectAllInventory(masterCheckbox) {
+                let checkboxes = document.querySelectorAll('.inventory-row-checkbox');
+                checkboxes.forEach(cb => {
+                    cb.checked = masterCheckbox.checked;
+                });
             }
 
             // --- 📊 ຟັງຊັນຈັດການປະຫວັດການຂາຍ ---
