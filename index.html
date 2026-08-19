@@ -1919,17 +1919,27 @@
             }
         }
 
-        function getAdjustedItemPricing(item) {
-            // 🔒 ล็อกລາຄາຊື້ໃຫ້ເປັນລາຄາຕົ້ນທຶນເດີມທີ່ນຳເຂົ້າເຂົ້າມາແທ້ໆ 100% (ບໍ່ໃຫ້ Rate ມາຄູນປ່ຽນ)
-            let originalCost = parseFloat(String(item.originalCost || item.cost).replace(/,/g, '')) || 0;
-            let profitPct = parseFloat(String(item.profitPct !== undefined ? item.profitPct : 20)) || 20;
+    function getAdjustedItemPricing(item) {
+        // 🔒 ລ็อกລາຄາຊື້ເດີມ (ຄໍລຳ 9 - ລາຄາຊື້ຕໍ່ໜ່ວຍ ເດີມ)
+        let originalCost = parseFloat(String(item.originalCost || item.cost).replace(/,/g, '')) || 0;
+        
+        // 📈 ເປີເຊັນຂາຍ (ຄໍລຳ 8)
+        let profitPct = parseFloat(String(item.profitPct !== undefined ? item.profitPct : 20)) || 20;
 
-            // ຄິດໄລ່ລາຄາຂາຍໂດຍອີງໃສ່ລາຄາຊື້ຕົ້ນທຶນເດີມ ແລະ ເປີເຊັນ (%) ທີ່ຕັ້ງໄວ້
-            let rawPrice = originalCost * (1 + profitPct / 100);
-            let adjustedPrice = Math.ceil(rawPrice / 1000) * 1000;
+        // 💱 ດຶງ Rate ທີ່ກ່ຽວຂ້ອງ (ຄໍລຳ 4 ແລະ ຄໍລຳ 6) ຕາມວັນທີນຳເຂົ້າ ແລະ ວັນທີປະຈຸບັນ
+        // ໝາຍເຫດ: ລະບົບດຶງ Rate ມາຈາກ importBuyRate (ຄໍລຳ 4) ແລະ currentBuyRate (ຄໍລຳ 6) 
+        let importBuyRate = parseFloat(item.importBuyRate) || parseFloat(item.buying_rate) || 670; // ຄໍລຳ 4
+        let currentBuyRate = parseFloat(item.currentBuyRate) || parseFloat(localStorage.getItem('rate_current_value')) || 680; // ຄໍລຳ 6
 
-            return { cost: originalCost, price: adjustedPrice };
-        }
+        // 🧮 ປະຕິບັດຕາມສູດ: ຄໍລຳ 9 x (1 + ຄໍລຳ 8 / 100) x (ຄໍລຳ 6 / ຄໍລຳ 4)
+        let ratio = importBuyRate > 0 ? (currentBuyRate / importBuyRate) : 1;
+        let rawPrice = originalCost * (1 + profitPct / 100) * ratio;
+        
+        // ປັດຂຶ້ນເປັນຫຼັກພັນ (ຫຼື ປັດຕາມເງື່ອນໄຂ)
+        let adjustedPrice = Math.ceil(rawPrice / 1000) * 1000;
+
+        return { cost: originalCost, price: adjustedPrice };
+    }
 
         // 🛡️ 1. ຟັງຊັນດຶງ ແລະ ລັອກ ID ປະຈຳເຄື່ອງ (ໃຫ້ກວດສອບ Hardware ID ເປັນອັນດັບ 1)
             async function initDeviceId() {
