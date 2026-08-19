@@ -2978,19 +2978,47 @@
                             importSellRate = parseFloat(row.selling_rate) || 670;
                         }
 
-                        // 3. 🔍 ຄົ້ນຫາ Rate ໃໝ່ / ປະຈຸບັນ (ຄໍລຳ 5 ແລະ 6) ໃຫ້ກົງกับວັນປະຈຸບັນ (ຄໍລຳ 2 ໃນຮູບ 1) ຈາກຕາຕະລາງ Rate (ຮູບ 2)
+                // 3. 🔍 ຄົ້ນຫາ Rate ໃໝ່ / ປະຈຸບັນ (ຄໍລຳ 5 ແລະ 6) ພ້ອມລະບົບ Fallback ຫາ Rate ຫຼ້າສຸດ
                         let currentBuyRate = 650;
                         let currentSellRate = 670;
 
-                        if (rateRecordsMap[todayISOStr]) {
-                            currentBuyRate = rateRecordsMap[todayISOStr].buy;
-                            currentSellRate = rateRecordsMap[todayISOStr].sell;
-                        } else if (rateRecordsMap[todayDateStr]) {
-                            currentBuyRate = rateRecordsMap[todayDateStr].buy;
-                            currentSellRate = rateRecordsMap[todayDateStr].sell;
-                        } else {
-                            currentBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate') || localStorage.getItem('rate_fixed_value')) || 650;
-                            currentSellRate = parseFloat(localStorage.getItem('rate_current_value')) || 670;
+                        // ຕັ້ງຄ່າກວດສອບວັນທີປັດຈຸບັນ
+                        let targetCheckDate = new Date(); // ປັບເປັນວັນທີປັດຈຸບັນ ຫຼື ວັນທີ່ປະຈຸບັນໃນຕາຕະລາງ
+                        let foundRate = false;
+
+                        // ລອງຄົ້ນຫາຖອຍຫຼັງໄປສູງສຸດ 7 ວັນ (ກໍລະນີກາຍວັນເສົາ-ອາທິດ)
+                        for (let i = 0; i < 7; i++) {
+                            let checkISO = targetCheckDate.toISOString().split('T')[0];
+                            let checkGB = targetCheckDate.toLocaleDateString('en-GB');
+
+                            if (rateRecordsMap[checkISO]) {
+                                currentBuyRate = rateRecordsMap[checkISO].buy;
+                                currentSellRate = rateRecordsMap[checkISO].sell;
+                                foundRate = true;
+                                break;
+                            } else if (rateRecordsMap[checkGB]) {
+                                currentBuyRate = rateRecordsMap[checkGB].buy;
+                                currentSellRate = rateRecordsMap[checkGB].sell;
+                                foundRate = true;
+                                break;
+                            }
+                            // ຖອຍຫຼັງໄປ 1 ວັນ
+                            targetCheckDate.setDate(targetCheckDate.getDate() - 1);
+                        }
+
+                        // ຖ້າຫາກຍังບໍ່ພົບເລີຍ ໃຫ້ດຶງ Rate ທີ່ບັນທຶກໄວ້ລ่าສຸດໃນ Map ມາໃຊ້ແທນ
+                        if (!foundRate) {
+                            let allRateKeys = Object.keys(rateRecordsMap);
+                            if (allRateKeys.length > 0) {
+                                // เรียงลำดับเอาวันที่ล่าสุด
+                                allRateKeys.sort((a, b) => new Date(b) - new Date(a));
+                                let latestKey = allRateKeys[0];
+                                currentBuyRate = rateRecordsMap[latestKey].buy;
+                                currentSellRate = rateRecordsMap[latestKey].sell;
+                            } else {
+                                currentBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate') || localStorage.getItem('rate_fixed_value')) || 650;
+                                currentSellRate = parseFloat(localStorage.getItem('rate_current_value')) || 670;
+                            }
                         }
 
                         let adjusted = getAdjustedItemPricing(row);
