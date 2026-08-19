@@ -2082,15 +2082,35 @@
         function updateExistingProductNamesDatalist() {
             let datalist = document.getElementById('existing-product-names-list');
             if (!datalist) return;
-            let uniqueNames = new Set();
-            excelRows.forEach(row => {
-                if (row.name && row.name.trim() !== '' && row.name.trim().toLowerCase() !== String(row.code).trim().toLowerCase()) {
-                    uniqueNames.add(row.name.trim());
+
+            let userRole = localStorage.getItem('pos_user_role');
+            let activeShopUser = String(localStorage.getItem('pos_active_shop_username') || localStorage.getItem('pos_shop_user') || deviceId || '').trim().toUpperCase();
+            let currentDevId = String(deviceId || '').trim().toUpperCase();
+
+            // 🔍 ກັ່ນຕອງສະເພາະສິນຄ້າຂອງຮ້ານປັດຈຸບັນ (ຖ້າບໍ່ແມ່ນ Super Admin ຫຼັກ)
+            let filteredRows = excelRows;
+            if (userRole !== 'admin' && currentDevId !== 'POSXIONG') {
+                filteredRows = excelRows.filter(row => {
+                    let rowDev = String(row.device_id || '').trim().toUpperCase();
+                    if (!rowDev || rowDev === '-' || rowDev === 'UNDEFINED' || rowDev === 'NULL') return false;
+                    return rowDev === currentDevId || (activeShopUser !== '' && rowDev === activeShopUser);
+                });
+            }
+
+            let uniqueValues = new Set();
+            filteredRows.forEach(row => {
+                // ເກັບທັງຊື່ສິນຄ້າ ແລະ ລະຫັດ Barcode ໄວ້ໃຫ້ເລືອກສະເພາະຂອງຮ້ານຕົນເອງ
+                if (row.name && row.name.trim() !== '') {
+                    uniqueValues.add(row.name.trim());
+                }
+                if (row.code && row.code.trim() !== '') {
+                    uniqueValues.add(row.code.trim());
                 }
             });
+
             let html = '';
-            uniqueNames.forEach(name => {
-                html += `<option value="${name}">`;
+            uniqueValues.forEach(val => {
+                html += `<option value="${val}">`;
             });
             datalist.innerHTML = html;
         }
