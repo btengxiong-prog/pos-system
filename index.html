@@ -1919,27 +1919,17 @@
             }
         }
 
-    function getAdjustedItemPricing(item) {
-        // 🔒 ລ็อกລາຄາຊື້ເດີມ (ຄໍລຳ 9 - ລາຄາຊື້ຕໍ່ໜ່ວຍ ເດີມ)
-        let originalCost = parseFloat(String(item.originalCost || item.cost).replace(/,/g, '')) || 0;
-        
-        // 📈 ເປີເຊັນຂາຍ (ຄໍລຳ 8)
-        let profitPct = parseFloat(String(item.profitPct !== undefined ? item.profitPct : 20)) || 20;
+        function getAdjustedItemPricing(item) {
+            // 🔒 ล็อกລາຄາຊື້ໃຫ້ເປັນລາຄາຕົ້ນທຶນເດີມທີ່ນຳເຂົ້າເຂົ້າມາແທ້ໆ 100% (ບໍ່ໃຫ້ Rate ມາຄູນປ່ຽນ)
+            let originalCost = parseFloat(String(item.originalCost || item.cost).replace(/,/g, '')) || 0;
+            let profitPct = parseFloat(String(item.profitPct !== undefined ? item.profitPct : 20)) || 20;
 
-        // 💱 ດຶງ Rate ທີ່ກ່ຽວຂ້ອງ (ຄໍລຳ 4 ແລະ ຄໍລຳ 6) ຕາມວັນທີນຳເຂົ້າ ແລະ ວັນທີປະຈຸບັນ
-        // ໝາຍເຫດ: ລະບົບດຶງ Rate ມາຈາກ importBuyRate (ຄໍລຳ 4) ແລະ currentBuyRate (ຄໍລຳ 6) 
-        let importBuyRate = parseFloat(item.importBuyRate) || parseFloat(item.buying_rate) || 670; // ຄໍລຳ 4
-        let currentBuyRate = parseFloat(item.currentBuyRate) || parseFloat(localStorage.getItem('rate_current_value')) || 680; // ຄໍລຳ 6
+            // ຄິດໄລ່ລາຄາຂາຍໂດຍອີງໃສ່ລາຄາຊື້ຕົ້ນທຶນເດີມ ແລະ ເປີເຊັນ (%) ທີ່ຕັ້ງໄວ້
+            let rawPrice = originalCost * (1 + profitPct / 100);
+            let adjustedPrice = Math.ceil(rawPrice / 1000) * 1000;
 
-        // 🧮 ປະຕິບັດຕາມສູດ: ຄໍລຳ 9 x (1 + ຄໍລຳ 8 / 100) x (ຄໍລຳ 6 / ຄໍລຳ 4)
-        let ratio = importBuyRate > 0 ? (currentBuyRate / importBuyRate) : 1;
-        let rawPrice = originalCost * (1 + profitPct / 100) * ratio;
-        
-        // ປັດຂຶ້ນເປັນຫຼັກພັນ (ຫຼື ປັດຕາມເງື່ອນໄຂ)
-        let adjustedPrice = Math.ceil(rawPrice / 1000) * 1000;
-
-        return { cost: originalCost, price: adjustedPrice };
-    }
+            return { cost: originalCost, price: adjustedPrice };
+        }
 
         // 🛡️ 1. ຟັງຊັນດຶງ ແລະ ລັອກ ID ປະຈຳເຄື່ອງ (ໃຫ້ກວດສອບ Hardware ID ເປັນອັນດັບ 1)
             async function initDeviceId() {
@@ -3318,19 +3308,12 @@
                 importDateInput.value = `${dd}/${mm}/${yyyy}`;
             }
 
-            // 🔍 ຄົ້ນຫາຊື່ສິນຄ້າຈາກສາງ (excelRows) ຕາມລະຫັດ Barcode ທີ່ສະແກນໄດ້
-            let foundProduct = excelRows.find(item => String(item.code).trim().toLowerCase() === String(code).trim().toLowerCase());
-            let nameInput = document.getElementById('stock-in-custom-name');
-            if (nameInput) {
-                // ຖ້າພົບຊື່ໃນສາງ ໃຫ້ດຶງມաս໌ແດງ, ຖ້າບໍ່ພົບໃຫ້ປ່ອຍຫວ່າງໄວ້
-                nameInput.value = foundProduct ? (foundProduct.name || '') : '';
-            }
-
-            // 💱 ຄຳນວນດັດສະນີອັດຕາແລກປ່ຽນ (ອັດຕາຂາຍ / ອັດຕາຊື້) ພ້ອມປັດຈຸບັນັດ 2 ຕຳແໜ່ງ
+            // 💱 ຄຳນວນດັດສະນີອັດຕາແລກປ່ຽນ (ອັດຕາຂາຍ / ອັດຕາຊື້) ພ້ອມປັດຈຸບັນັດ 2 ຕຳແໜ່ງ (ຈັບ 5 ປັດຂຶ້ນ)
             let currentSellRate = parseFloat(localStorage.getItem('rate_current_value')) || 670;
             let currentBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate') || localStorage.getItem('rate_fixed_value')) || 650;
             
             let ratio = currentBuyRate > 0 ? (currentSellRate / currentBuyRate) : 0;
+            // ໃຊ້ Math.round ສຳລັບປັດຈຸບັນັດ 2 ຕຳແໜ່ງ (ຖ້າ .035 ຈະປັດຂຶ້ນເປັນ .04)
             let formattedRatio = (Math.round(ratio * 100) / 100).toFixed(2);
 
             let rateDisplayInput = document.getElementById('stock-in-exchange-rate-display');
@@ -3407,20 +3390,11 @@
         }
 
     function calculateStockInPrice() {
-            let costInput = document.getElementById('stock-in-cost').value.replace(/,/g, '');
-            let cost = parseFloat(costInput) || 0;
-            let pct = parseFloat(document.getElementById('stock-in-profit-pct').value) || 20;
-            
-            // 1. ດຶງຄ່າດັດສະນີອັດຕາແລກປ່ຽນ (ກ່ອງ 2) ມາຄຳນວນຮ່ວມນຳ
-            let currentSellRate = parseFloat(localStorage.getItem('rate_current_value')) || 670;
-            let currentBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate') || localStorage.getItem('rate_fixed_value')) || 650;
-            let exchangeRatio = currentBuyRate > 0 ? (currentSellRate / currentBuyRate) : 1;
-
-            // 2. สูตรຄຳນວນ: ກ່ອງ 4 = ກ່ອງ 1 x ກ່ອງ 2 x ກ່ອງ 3 (ປັດປັດຈຸບັນັດຂຶ້ນເປັນຈຳນວນເຕັມພັນ)
-            let rawPrice = cost * exchangeRatio * (1 + pct / 100);
-            let calcPrice = Math.ceil(rawPrice / 1000) * 1000; // ປັດຂຶ້ນເປັນຫຼັກພັນ
-
-            document.getElementById('stock-in-calculated-price').value = formatNumberWithCommas(calcPrice);
+        let costInput = document.getElementById('stock-in-cost').value.replace(/,/g, '');
+        let cost = parseFloat(costInput) || 0;
+        let pct = parseFloat(document.getElementById('stock-in-profit-pct').value) || 20;
+        let calcPrice = cost * (1 + pct / 100);
+        document.getElementById('stock-in-calculated-price').value = formatNumberWithCommas(Math.round(calcPrice));
     }
 
     function calculateTotalUnit() {
