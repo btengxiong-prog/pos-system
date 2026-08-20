@@ -2773,9 +2773,11 @@
         function updatePopupPricing(isRetail) {
             if (!activeScannedItem) return;
 
-            let qtyInput = parseInt(document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '')) || 1;
+            // 💡 ແກ້ໄຂການດຶງຄ່າ: ຖ້າລຶບຈົນຫວ່າງ ຫຼື ປ້ອນ 0 ໃຫ້ມີຄ່າເທົ່າກັບ 0 (ບໍ່ໃຫ້ປ່ຽນເປັນ 1 ອັດຕະໂນມັດ)
+            let rawQty = document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '');
+            let qtyInput = parseInt(rawQty);
+            if (isNaN(qtyInput)) qtyInput = 0; 
             
-            // ດຶງຈຳນວນລາງໃນສາງ (ເຊັ່ນ: 100)
             let packsInDB = parseInt(String(activeScannedItem.qty || 0).replace(/,/g, '')) || 0;
             let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 24;
 
@@ -2783,22 +2785,22 @@
             let remainingSinglesY = 0;
 
             if (isRetail) {
-                // 🥤 ຂາຍຍ່ອຍ: ແປງລາງເປັນປ໋ອງທັງໝົດ ແລ້ວລົບອອກຕາມຈຳນວນປ໋ອງທີ່ຂາຍ
+                // 🥤 ຂາຍຍ່ອຍ: ຖ້າປ້ອນ 0 ກໍ່ຈະລົບ 0 ເຮັດໃຫ້ເຫຼືອ 100/0 ຄືເກົ່າ
                 let totalSingles = (packsInDB * unitPerPack) - qtyInput;
                 if (totalSingles < 0) totalSingles = 0;
 
                 remainingPacksX = Math.floor(totalSingles / unitPerPack);
                 remainingSinglesY = totalSingles % unitPerPack;
             } else {
-                // 📦 ຂາຍສົ່ງ: ລົບອອກຈາກຈຳນວນລາງໂດຍກົງ
+                // 📦 ຂາຍສົ່ງ: ຖ້າປ້ອນ 0 ກໍ່ຈະລົບ 0 ເຮັດໃຫ້ເຫຼືອ 100/0 ຄືເກົ່າ
                 remainingPacksX = Math.max(0, packsInDB - qtyInput);
                 remainingSinglesY = 0;
             }
 
-            // ສະແດງຜົນ X / Y (ເຊັ່ນ: 90 / 0 ຫຼື 99 / 14)
+            // ອັບເດດສະແດງຜົນໃນບ໋ອກ 4 ລ່ຽມສີແດງ
             document.getElementById('display-scanned-stock-remaining').innerText = `${remainingPacksX} / ${remainingSinglesY}`;
 
-            // --- ຄຳນວນລາຄາເງິນ ---
+            // --- ສ່ວນການຄຳນວນເງິນ ---
             let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
             let unitPrice = parseFloat(String(activeScannedItem.price).replace(/,/g, '')) || 0;
 
