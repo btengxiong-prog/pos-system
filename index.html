@@ -2326,23 +2326,18 @@
             let todayDateStr = new Date().toLocaleDateString('en-GB');
 
             displayRows.forEach((row) => {
-                // 🔍 ສູດຄິດໄລ່ຈຳນວນລາງ ແລະ ປ໋ອງທີ່ຖືກຕ້ອງ
-                let totalUnitsInDB = parseInt(String(row.qty || 0).replace(/,/g, '')) || 0; // สมมติเก็บเป็นจำนวนລາງ ຫຼື ປ໋ອງລວມ
+                let totalUnits = parseFloat(String(row.qty || 1).replace(/,/g, '')) || 1; 
                 let unitPerPack = parseInt(row.unitPerPack || row.unit_per_pack) || 24;
 
-                // ຖ້າໃນ Database ເກັບເປັນຈຳນວນລາງ (ເຊັ່ນ: 100 ລາງ) 
-                // ໃຫ້ແປງເປັນປ໋ອງລວມ: 100 * 24 = 2,400 ປ໋ອງ (ຖ້າຫາກ database ເກັບເປັນລາງ)
-                // ແຕ່ຖ້າ row.qty ເກັບເປັນຈຳນວນລາງໂດຍກົງ ແລະ ມີການຫັກລົບຕາມຈຳນວນທີ່ຂາຍ (ສົ່ງ/ຍ່ອຍ):
-                let totalPacks = Math.floor(totalUnitsInDB);
-                let totalSingles = Math.round((totalUnitsInDB - totalPacks) * unitPerPack);
+                // 🔍 ປັບປຸງການຄິດໄລ່ແຍກ ລາງ / ປ໋ອງ ໃຫ້ປອດໄພບໍ່ໃຫ້ເກີດ Error ຄ้าง
+                let packsX = unitPerPack > 1 ? Math.floor(totalUnits / unitPerPack) : Math.floor(totalUnits);
+                let singlesY = unitPerPack > 1 ? Math.round((totalUnits - packsX) * unitPerPack) : 0;
+                if (singlesY >= unitPerPack) {
+                    packsX += Math.floor(singlesY / unitPerPack);
+                    singlesY = singlesY % unitPerPack;
+                }
 
-                // ຕົວຢ່າງ: ຖ້າເຫຼືອ 2,150 ປ໋ອງ (ຈາກ 2,400 - 250)
-                let totalAllSingles = Math.round(totalUnitsInDB * unitPerPack); // ຖ້າ row.qty ເປັນລາງ
-                // ໃຫ້ໃຊ້ສູດຫານ:
-                let finalPacks = Math.floor(totalUnitsInDB / unitPerPack); // ຫຼື ຕາມຄ່າທີ່ຖືກຫັກລົບຈິງ
-                let finalSingles = totalUnitsInDB % unitPerPack;
-
-                let stockNoteDisplay = `ເຫຼືອ: ${finalPacks} / ${finalSingles}`;
+                let stockNoteDisplay = unitPerPack > 1 ? `ເຫຼືອ: ${packsX} / ${singlesY}` : `ເຫຼືອ: ${totalUnits} / 0`;
 
                 let originalCost = parseFloat(String(row.original_cost || row.cost).replace(/,/g, '')) || 0;
                 let originalPrice = parseFloat(String(row.price).replace(/,/g, '')) || 0;
