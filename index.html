@@ -2758,16 +2758,20 @@
             activeScannedItem = foundItem;
             document.getElementById('display-scanned-product-name').innerText = foundItem.name || foundItem.code;
             
-            // 💡 ບັງຄັບຈັດຮູບແບບ X / Y ໃຫ້ດຶງເອົາຄ່າລວມ (qty) ມາສະແດງຜົນແບບ X / 0 ໂດຍກົງຄືກັບໜ້າສາງ
-            let totalUnits = parseInt(String(foundItem.qty || 0).replace(/,/g, '')) || 0; 
+            // 💡 ດຶງຄ່າຈຳນວນລວມ (qty) ຈາກສາງມາສະແດງຜົນເປັນ X / 0 ໂດຍກົງ (ເຊັ່ນ: 100 / 0) ຕາມທີ່ສະແດງໃນໜ້າສາງ
+            let totalUnits = parseInt(String(foundItem.qty || 0).replace(/,/g, '')) || 0;
             let stockDisplay = `${totalUnits} / 0`;
 
-            // 🔄 ນຳຄ່າທີ່ຖືກຕ້ອງມາວາງສະແດງໃນບ໋ອກສີແຮງຂອງໜ້າຊຳລະເງິນທັນທີ
+            // 🔄 ວາງຄ່າທີ່ຖືກຕ້ອງລົງໃນບ໋ອກສີແຮງທันທີ ແລະ ບໍ່ໃຫ້ບ່ອນອื่นມາຂຽນທັບ
             document.getElementById('display-scanned-stock-remaining').innerText = stockDisplay;
             document.getElementById('display-scanned-product-qty-input').value = "1";
 
             let isRetail = document.querySelector('input[name="sale_type_mode"][value="retail"]').checked;
             updatePopupPricing(isRetail);
+            
+            // 🛡️ ປ້ອງກັນບໍ່ໃຫ້ updatePopupPricing ມາຂຽນທับຄ່າ stockDisplay 
+            document.getElementById('display-scanned-stock-remaining').innerText = stockDisplay;
+
             document.getElementById('sales-popup-modal').classList.remove('hidden');
         }
 
@@ -2775,30 +2779,17 @@
             if (!activeScannedItem) return;
 
             let qtyInput = parseInt(document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '')) || 1;
-            let totalUnitsInStock = parseInt(String(activeScannedItem.qty || 1).replace(/,/g, '')) || 1;
-            let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 1;
+            let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 12;
 
             let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
             let unitPrice = parseFloat(String(activeScannedItem.price).replace(/,/g, '')) || 0;
 
-            let remainingTotalUnits = totalUnitsInStock;
-
             if (isRetail) {
-                remainingTotalUnits = Math.max(0, totalUnitsInStock - qtyInput);
                 let retailUnitCost = Math.ceil((unitCost / unitPerPack) / 1000) * 1000;
                 let retailUnitPrice = Math.ceil((unitPrice / unitPerPack) / 1000) * 1000;
                 unitCost = retailUnitCost;
                 unitPrice = retailUnitPrice;
-            } else {
-                let totalPacksToSubtract = qtyInput * (unitPerPack > 1 ? unitPerPack : 1);
-                remainingTotalUnits = Math.max(0, totalUnitsInStock - totalPacksToSubtract);
             }
-
-            let remainingPacksX = unitPerPack > 1 ? Math.floor(remainingTotalUnits / unitPerPack) : remainingTotalUnits;
-            let remainingSinglesY = unitPerPack > 1 ? remainingTotalUnits % unitPerPack : 0;
-            let stockDisplay = unitPerPack > 1 ? `${remainingPacksX} / ${remainingSinglesY}` : `${remainingTotalUnits} / 0`;
-
-            document.getElementById('display-scanned-stock-remaining').innerText = stockDisplay;
 
             let totalCost = unitCost * qtyInput;
             let totalPrice = unitPrice * qtyInput;
