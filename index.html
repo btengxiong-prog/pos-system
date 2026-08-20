@@ -127,6 +127,9 @@
     <!-- Hidden File Input for Excel Import -->
     <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" class="hidden" onchange="handleExcelFileImport(event)">
 
+    <!-- Shared Datalist for Product Names Auto-suggest -->
+    <datalist id="existing-product-names-list"></datalist>
+
     <!-- Role Selection Modal -->
     <div id="role-select-modal" class="hidden fixed inset-0 bg-black/80 z-[300] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
@@ -867,10 +870,8 @@
             <div class="mt-4 p-3 bg-pink-50 rounded-xl border border-pink-200 text-left space-y-2">
                 <label class="block text-xs font-bold text-pink-900">⌨️ ຫຼື ເລືອກຊື່ສິນຄ້າຈາກສາງ / ພິມລະຫັດ:</label>
                 <div class="flex items-center gap-2 w-full">
-                    <!-- 💡 ປ່ຽນເປັນ <select> Dropdown ໂດຍດຶງຊື່ສິນຄ້າຈາກສາງມາສະແດງ (ບໍ່ໃຫ້ຊ້ຳກັນ ແລະ ແຍກຕາມຮ້ານ) -->
-                    <select id="manual-barcode-input" class="flex-1 w-full border rounded-lg px-3 py-2.5 text-xs font-bold outline-none focus:ring-2 focus:ring-pink-500 bg-white cursor-pointer">
-                        <option value="">-- ກະລຸນາເລືອກຊື່ສິນຄ້າ ຫຼື ພິມລະຫັດ --</option>
-                    </select>
+                    <!-- 💡 ໃຊ້ <input> ພ້ອມ list="..." ເພື່ອໃຫ້ສາມາດທັງ *ພິມເອງ* ໄດ້ ແລະ *ມີດ໋ອບດາວໃຫ້ຄລິກເລືອກ* ຈາກສາງຢ່າງຖືກຕ້ອງ -->
+                    <input type="text" id="manual-barcode-input" list="existing-product-names-list" onkeydown="handleManualBarcodeInput(event)" placeholder="ປ້ອນລະຫັດ Barcode ຫຼື ຊື່ສິນຄ້າ..." class="flex-1 w-full border rounded-lg px-3 py-2.5 text-xs font-bold outline-none focus:ring-2 focus:ring-pink-500 bg-white">
                     <button type="button" onclick="submitManualBarcode()" class="bg-pink-600 hover:bg-pink-700 text-white px-6 py-2.5 rounded-lg text-xs font-bold cursor-pointer shadow whitespace-nowrap">ຕົກລົງ</button>
                 </div>
             </div>
@@ -1697,10 +1698,10 @@
             location.reload();
         }
 
-        // 🔍 ຟັງຊັນກັ່ນຕອງ ແລະ ບັນຈຸຊື່ສິນຄ້າລົງໃນ Dropdown (<select>) ໂດຍບໍ່ໃຫ້ຊື່ຊ້ຳກັນ ແລະ ແຍກຕາມຮ້ານຢ່າງຖືກຕ້ອງ
+        // 🔍 ຟັງຊັນຕື່ມຂໍ້ມູນລົງໃນ datalist ໂດຍກັ່ນຕອງຊື່ສິນຄ້າຈາກສາງ (ແຍກຕາມຮ້ານ ແລະ ສະແດງຊື່ລະ 1 ຄັ້ງ ບໍ່ໃຫ້ຊ້ຳກັນ)
         function updateExistingProductNamesDatalist() {
-            let selectEl = document.getElementById('manual-barcode-input');
-            if (!selectEl) return;
+            let datalist = document.getElementById('existing-product-names-list');
+            if (!datalist) return;
             
             let userRole = localStorage.getItem('pos_user_role');
             let activeShopUser = String(localStorage.getItem('pos_active_shop_username') || localStorage.getItem('pos_shop_user') || deviceId || '').trim().toUpperCase();
@@ -1722,11 +1723,11 @@
                 }
             });
 
-            let html = `<option value="">-- ກະລຸນາເລືອກຊື່ສິນຄ້າ ຫຼື ພິມລະຫັດ --</option>`;
+            let html = '';
             uniqueNames.forEach(name => {
-                html += `<option value="${name}">${name}</option>`;
+                html += `<option value="${name}">`;
             });
-            selectEl.innerHTML = html;
+            datalist.innerHTML = html;
         }
 
         function initFirebaseRealtime() {
@@ -3090,7 +3091,6 @@
             document.getElementById('popup-total-thb-text').innerText = `${formatNumberWithCommas(currentRate > 0 ? Math.round(finalPrice / currentRate) : 0)} ບາດ (Rate: ${formatNumberWithCommas(currentRate)})`;
             document.getElementById('modal-lak-acc-display').innerText = localStorage.getItem('pos_shop_lak_acc_' + deviceId) || '1006000000470';
             document.getElementById('modal-thb-acc-display').innerText = localStorage.getItem('pos_shop_thb_acc_' + deviceId) || '-';
-            document.getElementById('checkout-method-modal').classList.add('hidden');
             document.getElementById('checkout-method-modal').classList.remove('hidden');
         }
 
