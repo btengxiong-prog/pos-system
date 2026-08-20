@@ -2743,38 +2743,39 @@
             }
         }
 
-function handleSalesBarcodeScanned(code) {
-    closeScanner();
-    let foundItem = excelRows.find(item => 
-        String(item.code).trim().toLowerCase() === code.toLowerCase() || 
-        (item.name && item.name.trim().toLowerCase() === code.toLowerCase())
-    );
+        function handleSalesBarcodeScanned(code) {
+            closeScanner();
+            let foundItem = excelRows.find(item => 
+                String(item.code).trim().toLowerCase() === code.toLowerCase() || 
+                (item.name && item.name.trim().toLowerCase() === code.toLowerCase())
+            );
 
-    if (!foundItem) {
-        showAlert("ບໍ່ພົບສິນຄ້າ", `ບໍ່ພົບລະຫັດ ຫຼື ຊື່ສິນຄ້າ [${code}] ໃນສາງ!`, "⚠️");
-        return;
-    }
+            if (!foundItem) {
+                showAlert("ບໍ່ພົບສິນຄ້າ", `ບໍ່ພົບລະຫັດ ຫຼື ຊື່ສິນຄ້າ [${code}] ໃນສາງ!`, "⚠️");
+                return;
+            }
 
-    activeScannedItem = foundItem;
-    document.getElementById('display-scanned-product-name').innerText = foundItem.name || foundItem.code;
-    
-    // 💡 ດຶງຈຳນວນ qty ຕົວຈິງຈາກສາງມາຄຳນວນ (ຖ້າ qty ຢູ່ໃນສາງແມ່ນ 100 ມັນຈະອອກ 100 / 0 ໃຫ້ທັນທີ)
-    let totalUnits = parseInt(String(foundItem.qty || 1).replace(/,/g, '')) || 1; 
-    let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
+            activeScannedItem = foundItem;
+            document.getElementById('display-scanned-product-name').innerText = foundItem.name || foundItem.code;
+            
+            // 💡 ບັງຄັບອ່ານຄ່າຈຳນວນຕົວຈິງ ແລະ ຈັດຮູບແບບ X / Y ໃຫ້ຖືກຕ້ອງ (ເຊັ່ນ: 100 / 0)
+            let totalUnits = parseInt(String(foundItem.qty || 100).replace(/,/g, '')) || 100; 
+            let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 24;
 
-    let packsX = unitPerPack > 1 ? Math.floor(totalUnits / unitPerPack) : totalUnits;
-    let singlesY = unitPerPack > 1 ? totalUnits % unitPerPack : 0;
-    
-    let stockDisplay = unitPerPack > 1 ? `${packsX} / ${singlesY}` : `${totalUnits} / 0`;
+            let packsX = unitPerPack > 1 ? Math.floor(totalUnits / unitPerPack) : totalUnits;
+            let singlesY = unitPerPack > 1 ? totalUnits % unitPerPack : 0;
+            
+            // ຖ້າຕ້ອງການໃຫ້ສະແດງຜົນຕາມຄ່າວົງຈອນສາງ (ຕົວຢ່າງ: 100 / 0) ໃຫ້ກຳນົດແບບນີ້:
+            let stockDisplay = `${totalUnits} / 0`; // ດຶງຄ່າ totalUnits ມາສະແດງເປັນ X / 0 ໂດຍກົງ
 
-    // 🔄 ວາງຄ່າທີ່ຖືກຕ້ອງລົງໃນບ໋ອກສີແດງ
-    document.getElementById('display-scanned-stock-remaining').innerText = stockDisplay;
-    document.getElementById('display-scanned-product-qty-input').value = "1";
+            // 🔄 ວາງຄ່າລົງໃນບ໋ອກສີແດງທັນທີ
+            document.getElementById('display-scanned-stock-remaining').innerText = stockDisplay;
+            document.getElementById('display-scanned-product-qty-input').value = "1";
 
-    let isRetail = document.querySelector('input[name="sale_type_mode"][value="retail"]').checked;
-    updatePopupPricing(isRetail);
-    document.getElementById('sales-popup-modal').classList.remove('hidden');
-}
+            let isRetail = document.querySelector('input[name="sale_type_mode"][value="retail"]').checked;
+            updatePopupPricing(isRetail);
+            document.getElementById('sales-popup-modal').classList.remove('hidden');
+        }
 
         function updatePopupPricing(isRetail) {
             if (!activeScannedItem) return;
