@@ -852,6 +852,7 @@
             <div class="mt-4 p-3 bg-blue-50 rounded-xl border border-blue-200 text-left space-y-2">
                 <label class="block text-xs font-bold text-blue-900">⌨️ ຫຼື ພິມ/ຍິງບາໂຄດດ້ວຍມື ແລ້ວກົດ Enter:</label>
                 <div class="flex gap-2">
+                    <!-- 💡 ນຳເອົາ list="existing-product-names-list" ກັບຄືນມາໃສ່ໃນຊ່ອງ scan-barcode-input ຢ່າງຖືກຕ້ອງ -->
                     <input type="text" id="scan-barcode-input" list="existing-product-names-list" onkeydown="handleScanBarcodeInput(event)" placeholder="ປ້ອນລະຫັດ Barcode..." class="flex-1 border rounded-lg px-3 py-2 text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white">
                     <button onclick="submitScanBarcode()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold cursor-pointer shadow">ຕົກລົງ</button>
                 </div>
@@ -1050,11 +1051,11 @@
                     <div class="grid grid-cols-2 gap-2 bg-pink-50/50 p-3 rounded-xl border border-pink-200">
                         <div>
                             <label class="block font-[11px] font-bold text-gray-700 mb-1">🔢 ຈຳນວນຕໍ່ລາງ/ຫໍ່ (ຖ້າມີ):</label>
-                            <input type="number" id="stock-in-unit-per-pack" value="24" min="1" oninput="calculateTotalUnit()" class="w-full border rounded-lg px-2 py-1.5 text-center font-bold text-gray-900 text-sm bg-white outline-none" placeholder="ເຊັ່ນ: 24">
+                            <input type="number" id="stock-in-unit-per-pack" value="12" min="1" oninput="calculateTotalUnit()" class="w-full border rounded-lg px-2 py-1.5 text-center font-bold text-gray-900 text-sm bg-white outline-none" placeholder="ເຊັ່ນ: 12">
                         </div>
                         <div>
                             <label class="block font-[11px] font-bold text-pink-800 mb-1">✨ ລວມຫົວໜ່ວຍຍ່ອຍ:</label>
-                            <input type="text" id="stock-in-total-calculated" readonly class="w-full border rounded-lg px-2 py-1.5 text-center font-extrabold text-pink-700 text-sm bg-pink-100 cursor-not-allowed" value="24">
+                            <input type="text" id="stock-in-total-calculated" readonly class="w-full border rounded-lg px-2 py-1.5 text-center font-extrabold text-pink-700 text-sm bg-pink-100 cursor-not-allowed" value="1">
                         </div>
                     </div>
 
@@ -1119,6 +1120,7 @@
                     <span>📊 ປະຫວັດການຂາຍ</span>
                 </h3>
                 <div class="flex gap-2">
+                    <!-- 💡 ປຸ່ມລຶບປະຫວັດການຂາຍ (ສະແດງສະເພາະ ADMIN ໃຫຍ່) -->
                     <button onclick="promptDeleteHistoryAction()" id="btn-delete-history" class="hidden text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg cursor-pointer font-bold shadow flex items-center gap-1">🗑️ ລຶບຂໍ້ມູນ</button>
                     <button onclick="closeHistory()" class="text-gray-500 hover:text-gray-700 font-bold text-lg cursor-pointer px-2">✕</button>
                 </div>
@@ -1137,6 +1139,7 @@
                             <th class="p-3 border-r text-center">ຈໍານວນ</th>
                             <th class="p-3 border-r text-right">ລວມ (ກ/ບ)</th>
                             <th class="p-3 border-r text-center">ໝາຍເຫດ</th>
+                            <!-- 💡 Checkbox Header ພ້ອມຕິກເລືອກທັງໝົດ ສຳລັບ Admin -->
                             <th id="history-col-checkbox-header" class="p-3 text-center w-16 hidden">
                                 <input type="checkbox" id="select-all-history-checkbox" onclick="toggleSelectAllHistory(this)" class="w-4 h-4 cursor-pointer accent-blue-600" title="ເລືອກທັງໝົດ">
                             </th>
@@ -1768,7 +1771,7 @@
                             profitPct: item.profit_pct !== undefined ? item.profit_pct : 20,
                             price: item.price,
                             qty: item.qty || 1,
-                            unitPerPack: item.unit_per_pack || 24,
+                            unitPerPack: item.unit_per_pack || 12,
                             dateAdded: item.date_added || item.dateAdded || '',
                             mfgDate: item.mfg_date || '',
                             expiryDate: item.expiry_date || '',
@@ -2324,8 +2327,14 @@
 
             displayRows.forEach((row) => {
                 let totalUnits = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1; 
+                let unitPerPack = parseInt(row.unitPerPack || row.unit_per_pack) || 1;
 
-                // 💡 ສະແດງຜົນເປັນ ຈຳນວນທັງໝົດ / 0 ຕາມທີ່ຕ້ອງການ (ເຊັ່ນ: 100 / 0)
+                // 💡 ຖ້າ unitPerPack ເປັນ 1 ຫຼື ບໍ່ໄດ້ກຳນົດ, ໃຫ້ X = totalUnits ແລະ Y = 0 (ອອກມາເປັນ 100 / 0)
+                let packsX = unitPerPack > 1 ? Math.floor(totalUnits / unitPerPack) : totalUnits;
+                let singlesY = unitPerPack > 1 ? totalUnits % unitPerPack : 0;
+
+                // ຖ້າອາຈານຕ້ອງການໃຫ້ສະແດງຄ່າ X ເປັນຈຳນວນເຕັມທັງໝົດ ແລະ Y ເປັນ 0 ຕະຫຼອດ (ຕາມກ່ອງສີແດງ 1 ແລະ 2) 
+                // ໃຫ້ໃຊ້ສູດນີ້:
                 let stockNoteDisplay = `ເຫຼືອ: ${totalUnits} / 0`;
 
                 let originalCost = parseFloat(String(row.original_cost || row.cost).replace(/,/g, '')) || 0;
@@ -2406,6 +2415,7 @@
             if (modal) {
                 modal.classList.remove('hidden');
                 
+                // 🔍 🛡️ ກວດສອບສິດ: ສະແດງປຸ່ມລຶບ ແລະ Checkbox ຖ້າເປັນ Admin ໃຫຍ່ (POSXIONG ຫຼື admin)
                 let userRole = localStorage.getItem('pos_user_role');
                 let shopOwner = localStorage.getItem('pos_shop_owner');
                 let isAdminMaster = (userRole === 'admin' || deviceId === 'POSXIONG' || (shopOwner === 'true' && deviceId === 'POSXIONG'));
@@ -2619,7 +2629,7 @@
 
         function calculateTotalUnit() {
             let qty = parseInt(document.getElementById('stock-in-qty').value) || 1;
-            let unitPerPack = parseInt(document.getElementById('stock-in-unit-per-pack').value) || 24;
+            let unitPerPack = parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12;
             document.getElementById('stock-in-total-calculated').value = qty * unitPerPack;
         }
 
@@ -2629,7 +2639,7 @@
             let cost = parseFloat(document.getElementById('stock-in-cost').value.replace(/,/g, '')) || 0;
             let price = parseFloat(document.getElementById('stock-in-calculated-price').value.replace(/,/g, '')) || 0;
             let qty = parseInt(document.getElementById('stock-in-qty').value) || 1;
-            let unitPerPack = parseInt(document.getElementById('stock-in-unit-per-pack').value) || 24;
+            let unitPerPack = parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12;
             let importDateInput = document.getElementById('stock-in-import-date').value.trim();
             let finalDateAdded = importDateInput;
 
@@ -2749,6 +2759,8 @@
             document.getElementById('display-scanned-product-name').innerText = foundItem.name || foundItem.code;
             
             let totalUnits = parseInt(String(foundItem.qty || 1).replace(/,/g, '')) || 1; 
+            
+            // 💡 ດຶງເອົາຮູບແບບການສະແດງຜົນໃຫ້ກົງກັບຖັນໝາຍເຫດ (ເຊັ່ນ: 100 / 0)
             let stockDisplay = `${totalUnits} / 0`;
 
             document.getElementById('display-scanned-stock-remaining').innerText = stockDisplay;
@@ -2761,30 +2773,37 @@
 
         function closeSalesPopup() { document.getElementById('sales-popup-modal').classList.add('hidden'); }
 
-        function updatePopupPricing(isRetailMode) {
+        function updatePopupPricing(isRetail) {
             if (!activeScannedItem) return;
 
             let qtyInput = parseInt(document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '')) || 1;
             let totalUnitsInStock = parseInt(String(activeScannedItem.qty || 1).replace(/,/g, '')) || 1;
-            let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 24;
+            let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 24; // ປົກຄາຄ່າ Default ໄວ້ 24 ປ໋ອງ/ລາງ
 
             let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
             let unitPrice = parseFloat(String(activeScannedItem.price).replace(/,/g, '')) || 0;
 
             let remainingTotalUnits = totalUnitsInStock;
 
-            if (isRetailMode) {
+            if (isRetail) {
+                // 🥤 ຂາຍຍ່ອຍ: ຕັດອອກຕາມຈຳນວນປ໋ອງທີ່ຂາຍ
                 remainingTotalUnits = Math.max(0, totalUnitsInStock - qtyInput);
+                
                 let retailUnitCost = Math.ceil((unitCost / unitPerPack) / 1000) * 1000;
                 let retailUnitPrice = Math.ceil((unitPrice / unitPerPack) / 1000) * 1000;
                 unitCost = retailUnitCost;
                 unitPrice = retailUnitPrice;
             } else {
+                // 📦 ຂາຍສົ່ງ: 1 Qty ໝາຍເຖິງ 1 ລາງເຕັມ (ເທົ່າກັບ unitPerPack ປ໋ອງ)
                 let totalPacksToSubtract = qtyInput * unitPerPack;
                 remainingTotalUnits = Math.max(0, totalUnitsInStock - totalPacksToSubtract);
             }
 
-            let stockDisplay = `${remainingTotalUnits} / 0`;
+            // 💡 ຄຳນວນ X (ລາງ) ແລະ Y (ປ໋ອງເສດ) ທີ່ເຫຼືອຫຼັງຂາຍ
+            let remainingPacksX = unitPerPack > 1 ? Math.floor(remainingTotalUnits / unitPerPack) : remainingTotalUnits;
+            let remainingSinglesY = unitPerPack > 1 ? remainingTotalUnits % unitPerPack : 0;
+            let stockDisplay = unitPerPack > 1 ? `${remainingPacksX} / ${remainingSinglesY}` : `${remainingTotalUnits} ໜ່ວຍ`;
+
             document.getElementById('display-scanned-stock-remaining').innerText = stockDisplay;
 
             let totalCost = unitCost * qtyInput;
@@ -2807,7 +2826,7 @@
 
             let isRetail = document.querySelector('input[name="sale_type_mode"][value="retail"]').checked;
             let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
-            let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 24;
+            let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 1;
             if (isRetail && unitPerPack > 1) {
                 unitCost = Math.ceil((unitCost / unitPerPack) / 1000) * 1000;
             }
@@ -2845,12 +2864,10 @@
             
             let isRetail = document.querySelector('input[name="sale_type_mode"][value="retail"]').checked;
             let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
-            let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 24;
+            let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 1;
             if (isRetail && unitPerPack > 1) {
                 unitCost = Math.ceil((unitCost / unitPerPack) / 1000) * 1000;
             }
-
-            let unitsToSubtract = isRetail ? qty : (qty * unitPerPack);
 
             let saleRecord = {
                 date: new Date().toISOString(),
@@ -2875,7 +2892,7 @@
                     if (!productQuery.empty) {
                         let docRef = productQuery.docs[0].ref;
                         let currentStockQty = parseInt(productQuery.docs[0].data().qty) || 0;
-                        let newStockQty = Math.max(0, currentStockQty - unitsToSubtract);
+                        let newStockQty = Math.max(0, currentStockQty - qty);
                         await docRef.update({ qty: newStockQty });
                     }
                 } catch (e) {
@@ -2891,10 +2908,12 @@
             closeSalesPopup();
         }
 
+        // 💡 ຟັງຊັນຕິກເລືອກທັງໝົດໃນຕາຕະລາງປະຫວັດການຂາຍ (ສຳລັບ Admin)
         function toggleSelectAllHistory(masterCheckbox) {
             document.querySelectorAll('.history-row-checkbox').forEach(cb => cb.checked = masterCheckbox.checked);
         }
 
+        // 💡 ຟັງຊັນລຶບປະຫວັດການຂາຍທີ່ເລືອກ (ສຳລັບ Admin)
         async function promptDeleteHistoryAction() {
             let checkedBoxes = document.querySelectorAll('.history-row-checkbox:checked');
             if (checkedBoxes.length === 0) {
@@ -2925,7 +2944,7 @@
         function loadExpiryCheck() {
             let tbody = document.getElementById('expiry-tbody');
             if (!tbody) return;
-            tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ກຳລັງກວດສອບວັນໝົດອາຍຸ...</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ກຳລັງກວດສອບວັນໝົດອາຍຸສິນຄ້າ...</td></tr>`;
 
             if (!excelRows || excelRows.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ</td></tr>`;
@@ -3317,12 +3336,10 @@
             
             let isRetail = document.querySelector('input[name="sale_type_mode"][value="retail"]').checked;
             let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
-            let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 24;
+            let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 1;
             if (isRetail && unitPerPack > 1) {
                 unitCost = Math.ceil((unitCost / unitPerPack) / 1000) * 1000;
             }
-
-            let unitsToSubtract = isRetail ? qty : (qty * unitPerPack);
 
             let saleRecord = {
                 date: new Date().toISOString(),
@@ -3335,16 +3352,7 @@
             };
 
             if (db) {
-                try {
-                    await db.collection("sales_history").add(saleRecord);
-                    let productQuery = await db.collection("products").where("code", "==", activeScannedItem.code).get();
-                    if (!productQuery.empty) {
-                        let docRef = productQuery.docs[0].ref;
-                        let currentStockQty = parseInt(productQuery.docs[0].data().qty) || 0;
-                        let newStockQty = Math.max(0, currentStockQty - unitsToSubtract);
-                        await docRef.update({ qty: newStockQty });
-                    }
-                } catch (e) {}
+                try { await db.collection("sales_history").add(saleRecord); } catch (e) {}
             }
 
             closeCheckoutMethodModal();
