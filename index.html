@@ -852,6 +852,7 @@
             <div class="mt-4 p-3 bg-blue-50 rounded-xl border border-blue-200 text-left space-y-2">
                 <label class="block text-xs font-bold text-blue-900">⌨️ ຫຼື ພິມ/ຍິງບາໂຄດດ້ວຍມື ແລ້ວກົດ Enter:</label>
                 <div class="flex gap-2">
+                    <!-- 💡 ນຳເອົາ list="existing-product-names-list" ກັບຄືນມາໃສ່ໃນຊ່ອງ scan-barcode-input ຢ່າງຖືກຕ້ອງ -->
                     <input type="text" id="scan-barcode-input" list="existing-product-names-list" onkeydown="handleScanBarcodeInput(event)" placeholder="ປ້ອນລະຫັດ Barcode..." class="flex-1 border rounded-lg px-3 py-2 text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white">
                     <button onclick="submitScanBarcode()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold cursor-pointer shadow">ຕົກລົງ</button>
                 </div>
@@ -902,8 +903,7 @@
                     </div>
                     <div class="bg-gray-50 p-2.5 rounded-xl border flex items-center justify-between">
                         <span class="font-bold text-gray-700 text-xs">ສິນຄ້າຄ້າງສາງ:</span>
-                        <!-- 💡 ສະແດງຜົນໃນຮູບແບບ ${packs}/${singles} (ຕົວຢ່າງ 100/0 ຫຼື 99/14) ຢ່າງຖືກຕ້ອງຕາມຈຳນວນຄົງເຫຼືອໃນສາງ -->
-                        <span id="display-scanned-stock-remaining" class="font-bold text-cyan-800 text-sm">0/0</span>
+                        <span id="display-scanned-stock-remaining" class="font-bold text-cyan-800 text-sm">0</span>
                     </div>
                     <div class="bg-gray-50 p-2.5 rounded-xl border flex items-center justify-between">
                         <span class="font-bold text-gray-700 text-xs">ຈ/ນສິນຄ້າຂາຍ:</span>
@@ -1120,6 +1120,7 @@
                     <span>📊 ປະຫວັດການຂາຍ</span>
                 </h3>
                 <div class="flex gap-2">
+                    <!-- 💡 ປຸ່ມລຶບປະຫວັດການຂາຍ (ສະແດງສະເພາະ ADMIN ໃຫຍ່) -->
                     <button onclick="promptDeleteHistoryAction()" id="btn-delete-history" class="hidden text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg cursor-pointer font-bold shadow flex items-center gap-1">🗑️ ລຶບຂໍ້ມູນ</button>
                     <button onclick="closeHistory()" class="text-gray-500 hover:text-gray-700 font-bold text-lg cursor-pointer px-2">✕</button>
                 </div>
@@ -1138,6 +1139,7 @@
                             <th class="p-3 border-r text-center">ຈໍານວນ</th>
                             <th class="p-3 border-r text-right">ລວມ (ກ/ບ)</th>
                             <th class="p-3 border-r text-center">ໝາຍເຫດ</th>
+                            <!-- 💡 Checkbox Header ພ້ອມຕິກເລືອກທັງໝົດ ສຳລັບ Admin -->
                             <th id="history-col-checkbox-header" class="p-3 text-center w-16 hidden">
                                 <input type="checkbox" id="select-all-history-checkbox" onclick="toggleSelectAllHistory(this)" class="w-4 h-4 cursor-pointer accent-blue-600" title="ເລືອກທັງໝົດ">
                             </th>
@@ -2398,8 +2400,36 @@
             document.querySelectorAll('.inventory-row-checkbox').forEach(cb => cb.checked = masterCheckbox.checked);
         }
 
-        function openHistory() { document.getElementById('history-modal').classList.remove('hidden'); loadCloudHistory(); }
-        function closeHistory() { document.getElementById('history-modal').classList.add('hidden'); }
+        function openHistory() {
+            let modal = document.getElementById('history-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                
+                // 🔍 🛡️ ກວດສອບສິດ: ສະແດງປຸ່ມລຶບ ແລະ Checkbox ຖ້າເປັນ Admin ໃຫຍ່ (POSXIONG ຫຼື admin)
+                let userRole = localStorage.getItem('pos_user_role');
+                let shopOwner = localStorage.getItem('pos_shop_owner');
+                let isAdminMaster = (userRole === 'admin' || deviceId === 'POSXIONG' || (shopOwner === 'true' && deviceId === 'POSXIONG'));
+                
+                let btnDeleteHistory = document.getElementById('btn-delete-history');
+                let checkboxHeader = document.getElementById('history-col-checkbox-header');
+
+                if (isAdminMaster) {
+                    if (btnDeleteHistory) btnDeleteHistory.classList.remove('hidden');
+                    if (checkboxHeader) checkboxHeader.classList.remove('hidden');
+                } else {
+                    if (btnDeleteHistory) btnDeleteHistory.classList.add('hidden');
+                    if (checkboxHeader) checkboxHeader.classList.add('hidden');
+                }
+
+                loadCloudHistory();
+            }
+        }
+
+        function closeHistory() {
+            let modal = document.getElementById('history-modal');
+            if (modal) modal.classList.add('hidden');
+        }
+
         function openReport() { document.getElementById('report-modal').classList.remove('hidden'); calculateReport(); }
         function closeReport() { document.getElementById('report-modal').classList.add('hidden'); }
 
@@ -2703,7 +2733,6 @@
             }
         }
 
-        // 💡 ຟັງຊັນຄຳນວນ ແລະ ສະແດງສິນຄ້າຄ້າງສາງ (4 ລ່ຽມ 2) ໃຫ້ຖືກຕ້ອງຕາມຈຳນວນໂຕຈິງໃນສາງ (packs/singles)
         function handleSalesBarcodeScanned(code) {
             closeScanner();
             let foundItem = excelRows.find(item => 
@@ -2719,33 +2748,20 @@
             activeScannedItem = foundItem;
             document.getElementById('display-scanned-product-name').innerText = foundItem.name || foundItem.code;
             
-            // 💡 ດຶງຈຳນວນລວມຫົວໜ່ວຍຍ່ອຍໃນສາງ (ເຊັ່ນ: 100 ລາງ * 24 = 2,400 ປ໋ອງ)
-            let totalUnitsInStock = parseInt(foundItem.qty) || 0;
+            let totalUnits = parseInt(foundItem.qty) || 1;
             let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
-            
-            // 💡 ຄຳນວນຫັກອອກຈາກຈຳນວນທີ່ປ້ອນຂາຍ (ຖ້າມີ)
-            let sellQtyInput = parseInt(document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '')) || 1;
-            let isRetail = document.querySelector('input[name="sale_type_mode"][value="retail"]').checked;
-
-            let remainingUnits = totalUnitsInStock;
-            if (isRetail) {
-                // ຂາຍຍ່ອຍ: ເອົາຈຳນວນຍ່ອຍລວມ ຫັກລົບດ້ວຍຈຳນວນປ໋ອງທີ່ຂາຍ
-                remainingUnits = Math.max(0, totalUnitsInStock - sellQtyInput);
-            } else {
-                // ຂາຍສົ່ງ: ເອົາຈຳນວນລວມ ຫັກລົບດ້ວຍ (ຈຳນວນລາງທີ່ຂາຍ * unitPerPack)
-                remainingUnits = Math.max(0, totalUnitsInStock - (sellQtyInput * unitPerPack));
-            }
-
             let stockDisplay = "";
             if (unitPerPack > 1) {
-                let packs = Math.floor(remainingUnits / unitPerPack);
-                let singles = remainingUnits % unitPerPack;
-                stockDisplay = `${packs}/${singles}`; // 💡 ສະແດງຜົນເປັນ 100/0, 90/0 ຫຼື 99/14 ຢ່າງຖືກຕ້ອງ
+                let packs = Math.floor(totalUnits / unitPerPack);
+                let singles = totalUnits % unitPerPack;
+                stockDisplay = `${packs} ລາງ / ${totalUnits} ປ໋ອງ`;
             } else {
-                stockDisplay = `${remainingUnits}/0`;
+                stockDisplay = `${totalUnits} ໜ່ວຍ`;
             }
             document.getElementById('display-scanned-stock-remaining').innerText = stockDisplay;
+            document.getElementById('display-scanned-product-qty-input').value = "1";
 
+            let isRetail = document.querySelector('input[name="sale_type_mode"][value="retail"]').checked;
             updatePopupPricing(isRetail);
             document.getElementById('sales-popup-modal').classList.remove('hidden');
         }
@@ -2759,24 +2775,6 @@
             let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
             let unitPrice = parseFloat(String(activeScannedItem.price).replace(/,/g, '')) || 0;
             let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 1;
-
-            // 💡 ອັບເດດການສະແດງຜົນສິນຄ້າຄ້າງສາງ (4 ລ່ຽມ 2) ໃຫ້ທັນກັບຈຳນວນຂາຍທີ່ປ່ຽນແປງ
-            let totalUnitsInStock = parseInt(activeScannedItem.qty) || 0;
-            let remainingUnits = totalUnitsInStock;
-            if (isRetail) {
-                remainingUnits = Math.max(0, totalUnitsInStock - qty);
-            } else {
-                remainingUnits = Math.max(0, totalUnitsInStock - (qty * unitPerPack));
-            }
-            let stockDisplay = "";
-            if (unitPerPack > 1) {
-                let packs = Math.floor(remainingUnits / unitPerPack);
-                let singles = remainingUnits % unitPerPack;
-                stockDisplay = `${packs}/${singles}`;
-            } else {
-                stockDisplay = `${remainingUnits}/0`;
-            }
-            document.getElementById('display-scanned-stock-remaining').innerText = stockDisplay;
 
             if (isRetail && unitPerPack > 1) {
                 let retailUnitCost = Math.ceil((unitCost / unitPerPack) / 1000) * 1000;
@@ -2848,8 +2846,6 @@
                 unitCost = Math.ceil((unitCost / unitPerPack) / 1000) * 1000;
             }
 
-            let deductionUnits = isRetail ? qty : (qty * unitPerPack);
-
             let saleRecord = {
                 date: new Date().toISOString(),
                 device_id: deviceId,
@@ -2873,7 +2869,7 @@
                     if (!productQuery.empty) {
                         let docRef = productQuery.docs[0].ref;
                         let currentStockQty = parseInt(productQuery.docs[0].data().qty) || 0;
-                        let newStockQty = Math.max(0, currentStockQty - deductionUnits);
+                        let newStockQty = Math.max(0, currentStockQty - qty);
                         await docRef.update({ qty: newStockQty });
                     }
                 } catch (e) {
@@ -2889,10 +2885,12 @@
             closeSalesPopup();
         }
 
+        // 💡 ຟັງຊັນຕິກເລືອກທັງໝົດໃນຕາຕະລາງປະຫວັດການຂາຍ (ສຳລັບ Admin)
         function toggleSelectAllHistory(masterCheckbox) {
             document.querySelectorAll('.history-row-checkbox').forEach(cb => cb.checked = masterCheckbox.checked);
         }
 
+        // 💡 ຟັງຊັນລຶບປະຫວັດການຂາຍທີ່ເລືອກ (ສຳລັບ Admin)
         async function promptDeleteHistoryAction() {
             let checkedBoxes = document.querySelectorAll('.history-row-checkbox:checked');
             if (checkedBoxes.length === 0) {
@@ -3226,6 +3224,61 @@
             if (summaryContainer) summaryContainer.classList.remove('hidden');
         }
 
+        function selectAllAdminDevices(btn) {
+            let checkboxes = document.querySelectorAll('.admin-device-checkbox');
+            if (checkboxes.length === 0) return;
+            let allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            checkboxes.forEach(cb => cb.checked = !allChecked);
+        }
+
+        async function promptDeleteSelectedOrAllDevices() {
+            let checkboxes = document.querySelectorAll('.inventory-row-checkbox, .admin-device-checkbox');
+            let checkedBoxes = Array.from(checkboxes).filter(cb => cb.checked);
+
+            if (checkedBoxes.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ບໍ່ມີຂໍ້ມູນທີ່ຖືກເລືອກໃຫ້ລຶບ!", "⚠️");
+                return;
+            }
+
+            let idsToDelete = checkedBoxes.map(cb => cb.getAttribute('data-id'));
+            let isInventoryDelete = checkedBoxes.some(cb => cb.classList.contains('inventory-row-checkbox'));
+
+            if (isInventoryDelete) {
+                if (!db) return;
+                try {
+                    let batch = db.batch();
+                    idsToDelete.forEach(docId => batch.delete(db.collection("products").doc(docId)));
+                    await batch.commit();
+                    loadInventory();
+                    showAlert("ສຳເລັດ", "ລຶບສິນຄ້າທີ່ເລືອກອອກຈາກສາງຮຽບຮ້ອຍແລ້ວ!", "🗑️");
+                } catch (e) {
+                    showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການລຶບສິນຄ້າ: " + e.message, "❌");
+                }
+            } else {
+                if (!db) return;
+                try {
+                    let batch = db.batch();
+                    idsToDelete.forEach(devId => {
+                        batch.delete(db.collection("devices_registry").doc(devId));
+                        localStorage.removeItem('pos_shop_name_' + devId);
+                        localStorage.removeItem('pos_shop_phone_' + devId);
+                        localStorage.removeItem('pos_shop_user_' + devId);
+                    });
+                    await batch.commit();
+                    await loadAllDevices();
+                    showAlert("ສຳເລັດ", "ລຶບຂໍ້ມູນຢູເຊີທີ່ເລືອກຮຽບຮ້ອຍແລ້ວ!", "🗑️");
+                } catch (e) {
+                    showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການລຶບຂໍ້ມູນ: " + e.message, "❌");
+                }
+            }
+        }
+
+        function toggleSelectAllAdminDevices(masterCheckbox) {
+            document.querySelectorAll('#device-list-container .admin-device-checkbox').forEach(cb => cb.checked = masterCheckbox.checked);
+            let targetInput = document.getElementById('new-target-device');
+            if (targetInput) targetInput.value = '';
+        }
+
         let currentSelectedPaymentMode = 'cash';
         function openCheckoutMethodModal() {
             let finalPrice = parseFloat(document.getElementById('custom-final-price').value.replace(/,/g, '')) || 0;
@@ -3265,8 +3318,6 @@
                 unitCost = Math.ceil((unitCost / unitPerPack) / 1000) * 1000;
             }
 
-            let deductionUnits = isRetail ? qty : (qty * unitPerPack);
-
             let saleRecord = {
                 date: new Date().toISOString(),
                 device_id: deviceId,
@@ -3278,16 +3329,7 @@
             };
 
             if (db) {
-                try {
-                    await db.collection("sales_history").add(saleRecord);
-                    let productQuery = await db.collection("products").where("code", "==", activeScannedItem.code).get();
-                    if (!productQuery.empty) {
-                        let docRef = productQuery.docs[0].ref;
-                        let currentStockQty = parseInt(productQuery.docs[0].data().qty) || 0;
-                        let newStockQty = Math.max(0, currentStockQty - deductionUnits);
-                        await docRef.update({ qty: newStockQty });
-                    }
-                } catch (e) {}
+                try { await db.collection("sales_history").add(saleRecord); } catch (e) {}
             }
 
             closeCheckoutMethodModal();
