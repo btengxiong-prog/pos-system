@@ -2759,16 +2759,61 @@
             document.getElementById('display-scanned-product-name').innerText = foundItem.name || foundItem.code;
             
             let totalUnits = parseInt(String(foundItem.qty || 1).replace(/,/g, '')) || 1; 
-            
-            // 💡 ດຶງເອົາຮູບແບບການສະແດງຜົນໃຫ້ກົງກັບຖັນໝາຍເຫດ (ເຊັ່ນ: 100 / 0)
-            let stockDisplay = `${totalUnits} / 0`;
+            let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 12;
 
+            // 💡 คำนวณรูปแบบ X / Y ໃຫ້ກົງກັບຖັນ "ໝາຍເຫດ" ໃນໜ້າສາງ (Inventory) 
+            let packsX = unitPerPack > 1 ? Math.floor(totalUnits / unitPerPack) : totalUnits;
+            let singlesY = unitPerPack > 1 ? totalUnits % unitPerPack : 0;
+            let stockDisplay = `${packsX} / ${singlesY}`;
+
+            // 🔄 ນຳຄ່າທີ່ໄດ້ຈາກສາງມາວາງສະແດງໃນບ໋ອກສີແດງຂອງຮູບ 2 ໂດຍກົງ
             document.getElementById('display-scanned-stock-remaining').innerText = stockDisplay;
             document.getElementById('display-scanned-product-qty-input').value = "1";
 
             let isRetail = document.querySelector('input[name="sale_type_mode"][value="retail"]').checked;
             updatePopupPricing(isRetail);
             document.getElementById('sales-popup-modal').classList.remove('hidden');
+        }
+
+        function updatePopupPricing(isRetail) {
+            if (!activeScannedItem) return;
+
+            let qtyInput = parseInt(document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '')) || 1;
+            let totalUnitsInStock = parseInt(String(activeScannedItem.qty || 1).replace(/,/g, '')) || 1;
+            let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 12;
+
+            let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
+            let unitPrice = parseFloat(String(activeScannedItem.price).replace(/,/g, '')) || 0;
+
+            let remainingTotalUnits = totalUnitsInStock;
+
+            if (isRetail) {
+                remainingTotalUnits = Math.max(0, totalUnitsInStock - qtyInput);
+                let retailUnitCost = Math.ceil((unitCost / unitPerPack) / 1000) * 1000;
+                let retailUnitPrice = Math.ceil((unitPrice / unitPerPack) / 1000) * 1000;
+                unitCost = retailUnitCost;
+                unitPrice = retailUnitPrice;
+            } else {
+                let totalPacksToSubtract = qtyInput * unitPerPack;
+                remainingTotalUnits = Math.max(0, totalUnitsInStock - totalPacksToSubtract);
+            }
+
+            // 💡 ອັບເດດສະແດງຜົນ X / Y ຕາມຄ່າຄົງເຫຼືອທີ່ຖືກຕ້ອງ
+            let remainingPacksX = unitPerPack > 1 ? Math.floor(remainingTotalUnits / unitPerPack) : remainingTotalUnits;
+            let remainingSinglesY = unitPerPack > 1 ? remainingTotalUnits % unitPerPack : 0;
+            let stockDisplay = `${remainingPacksX} / ${remainingSinglesY}`;
+
+            document.getElementById('display-scanned-stock-remaining').innerText = stockDisplay;
+
+            let totalCost = unitCost * qtyInput;
+            let totalPrice = unitPrice * qtyInput;
+
+            document.getElementById('grand-total-cost').innerText = formatNumberWithCommas(totalCost) + " " + (activeScannedItem.currency || 'ກີບ');
+            document.getElementById('grand-total').innerText = formatNumberWithCommas(totalPrice) + " " + (activeScannedItem.currency || 'ກີບ');
+            document.getElementById('custom-final-price').value = formatNumberWithCommas(totalPrice);
+            document.getElementById('final-total').innerText = formatNumberWithCommas(totalPrice) + " " + (activeScannedItem.currency || 'ກີບ');
+            document.getElementById('grand-total-profit').innerText = formatNumberWithCommas(totalPrice - totalCost) + " " + (activeScannedItem.currency || 'ກີບ');
+            document.getElementById('change-amount').innerText = "0 " + (activeScannedItem.currency || 'ກີບ') + " (ຈ່າຍພໍດີ)";
         }
 
         function closeSalesPopup() { document.getElementById('sales-popup-modal').classList.add('hidden'); }
@@ -2778,7 +2823,7 @@
 
             let qtyInput = parseInt(document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '')) || 1;
             let totalUnitsInStock = parseInt(String(activeScannedItem.qty || 1).replace(/,/g, '')) || 1;
-            let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 24; // ປົກກະຕິ 1 ລາງ = 24 ປ໋ອງ/ໜ່ວຍ
+            let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 24; // ປົກຄາຄ່າ Default ໄວ້ 24 ປ໋ອງ/ລາງ
 
             let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
             let unitPrice = parseFloat(String(activeScannedItem.price).replace(/,/g, '')) || 0;
@@ -2786,7 +2831,7 @@
             let remainingTotalUnits = totalUnitsInStock;
 
             if (isRetail) {
-                // 🥤 ຂາຍຍ່ອຍ: ຕັດອອກຕາມຈຳນວນປ໋ອງ/ໜ່ວຍທີ່ຂາຍຕົວຈິງ
+                // 🥤 ຂາຍຍ່ອຍ: ຕັດອອກຕາມຈຳນວນປ໋ອງທີ່ຂາຍ
                 remainingTotalUnits = Math.max(0, totalUnitsInStock - qtyInput);
                 
                 let retailUnitCost = Math.ceil((unitCost / unitPerPack) / 1000) * 1000;
@@ -2794,17 +2839,16 @@
                 unitCost = retailUnitCost;
                 unitPrice = retailUnitPrice;
             } else {
-                // 📦 ຂາຍສົ່ງ: 1 Qty ໝາຍເຖິງ 1 ລາງເຕັມ (ເທົ່າກັບ unitPerPack ໜ່ວຍ)
+                // 📦 ຂາຍສົ່ງ: 1 Qty ໝາຍເຖິງ 1 ລາງເຕັມ (ເທົ່າກັບ unitPerPack ປ໋ອງ)
                 let totalPacksToSubtract = qtyInput * unitPerPack;
                 remainingTotalUnits = Math.max(0, totalUnitsInStock - totalPacksToSubtract);
             }
 
-            // 💡 ຄຳນວນ X (ລາງເຕັມ) ແລະ Y (ໜ່ວຍເສດທີ່ເຫຼືອໃນລາງທີ່ຖືກແກະ)
+            // 💡 ຄຳນວນ X (ລາງ) ແລະ Y (ປ໋ອງເສດ) ທີ່ເຫຼືອຫຼັງຂາຍ
             let remainingPacksX = unitPerPack > 1 ? Math.floor(remainingTotalUnits / unitPerPack) : remainingTotalUnits;
             let remainingSinglesY = unitPerPack > 1 ? remainingTotalUnits % unitPerPack : 0;
-            let stockDisplay = `${remainingPacksX} / ${remainingSinglesY}`;
+            let stockDisplay = unitPerPack > 1 ? `${remainingPacksX} / ${remainingSinglesY}` : `${remainingTotalUnits} ໜ່ວຍ`;
 
-            // 🔄 ອັບເດດສະແດງຜົນລົງໃນບ໋ອກສີແດງ
             document.getElementById('display-scanned-stock-remaining').innerText = stockDisplay;
 
             let totalCost = unitCost * qtyInput;
