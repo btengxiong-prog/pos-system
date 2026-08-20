@@ -870,7 +870,7 @@
             <div class="mt-4 p-3 bg-pink-50 rounded-xl border border-pink-200 text-left space-y-2">
                 <label class="block text-xs font-bold text-pink-900">⌨️ ຫຼື ເລືອກຊື່ສິນຄ້າຈາກສາງ / ພິມລະຫັດ:</label>
                 <div class="flex items-center gap-2 w-full">
-                    <!-- 💡 ໃຊ້ <input> ພ້ອມ list="..." ເພື່ອໃຫ້ສາມາດທັງ *ພິມເອງ* ໄດ້ ແລະ *ມີດ໋ອບດາວໃຫ້ຄລິກເລືອກ* ຈາກສາງຢ່າງຖືກຕ້ອງ -->
+                    <!-- 💡 ໃຊ້ input ພ້ອມ list="..." ເພື່ອໃຫ້ສາມາດທັງ *ພິມ* ແລະ *ມີດ໋ອບດາວໃຫ້ເລືອກ* ໄດ້ພ້ອມກັນ -->
                     <input type="text" id="manual-barcode-input" list="existing-product-names-list" onkeydown="handleManualBarcodeInput(event)" placeholder="ປ້ອນລະຫັດ Barcode ຫຼື ຊື່ສິນຄ້າ..." class="flex-1 w-full border rounded-lg px-3 py-2.5 text-xs font-bold outline-none focus:ring-2 focus:ring-pink-500 bg-white">
                     <button type="button" onclick="submitManualBarcode()" class="bg-pink-600 hover:bg-pink-700 text-white px-6 py-2.5 rounded-lg text-xs font-bold cursor-pointer shadow whitespace-nowrap">ຕົກລົງ</button>
                 </div>
@@ -1698,7 +1698,6 @@
             location.reload();
         }
 
-        // 🔍 ຟັງຊັນຕື່ມຂໍ້ມູນລົງໃນ datalist ໂດຍກັ່ນຕອງຊື່ສິນຄ້າຈາກສາງ (ແຍກຕາມຮ້ານ ແລະ ສະແດງຊື່ລະ 1 ຄັ້ງ ບໍ່ໃຫ້ຊ້ຳກັນ)
         function updateExistingProductNamesDatalist() {
             let datalist = document.getElementById('existing-product-names-list');
             if (!datalist) return;
@@ -2499,6 +2498,7 @@
             if (event.key === 'Enter') submitManualBarcode();
         }
 
+        // 💡 ປັບປຸງຟັງຊັນ: ເວລານຳເຂົ້າ ຖ້າປ້ອນຊື່ສິນຄ້າ (ບໍ່ມີລະຫັດ) ລະບົບຈະສ້າງລະຫັດ Barcode ຕົວເລກ 12 ຕົວໃຫ້ແບບອັດຕະໂນມັດ
         function submitManualBarcode() {
             let input = document.getElementById('manual-barcode-input');
             if (!input || input.value.trim() === "") return;
@@ -2524,9 +2524,12 @@
                 return;
             }
 
-            let finalCode = /^\d{6,}$/.test(userInput) ? userInput : 'POS-' + Math.floor(100000 + Math.random() * 900000);
+            // 🔍 ກວດສອບ: ຖ້າຜູ້ໃຊ້ພິມຊື່ສິນຄ້າ (ບໍ່ແມ່ນ Barcode ຕົວເລກ) ໃຫ້ສ້າງລະຫັດ Barcode ຕົວເລກ 12 ຕົວອັດຕະໂນມັດ
+            let isLikelyBarcode = /^\d{6,}$/.test(userInput);
+            let finalCode = isLikelyBarcode ? userInput : '885' + Math.floor(100000000 + Math.random() * 900000000);
+
             handleStockInBarcodeScanned(finalCode);
-            if (!/^\d{6,}$/.test(userInput)) {
+            if (!isLikelyBarcode) {
                 setTimeout(() => {
                     let nameInput = document.getElementById('stock-in-custom-name');
                     if (nameInput) nameInput.value = userInput;
