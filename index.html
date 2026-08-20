@@ -852,8 +852,8 @@
             <div class="mt-4 p-3 bg-blue-50 rounded-xl border border-blue-200 text-left space-y-2">
                 <label class="block text-xs font-bold text-blue-900">⌨️ ຫຼື ພິມ/ຍິງບາໂຄດດ້ວຍມື ແລ້ວກົດ Enter:</label>
                 <div class="flex gap-2">
-                    <!-- 💡 ນຳເອົາ list="existing-product-names-list" กลับຄືນມາໃສ່ໃນຊ່ອງ scan-barcode-input ເພື່ອໃຫ້ມີດ໋ອບດາວເລືອກຊື່ສິນຄ້າ -->
-                    <input type="text" id="scan-barcode-input" list="existing-product-names-list" onkeydown="handleScanBarcodeInput(event)" placeholder="ປ້ອນລະຫັດ Barcode ຫຼື ຊື່ສິນຄ້າ..." class="flex-1 border rounded-lg px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                    <!-- 💡 ນຳເອົາ list="existing-product-names-list" ກັບຄືນມາໃສ່ໃນຊ່ອງ scan-barcode-input ຢ່າງຖືກຕ້ອງ -->
+                    <input type="text" id="scan-barcode-input" list="existing-product-names-list" onkeydown="handleScanBarcodeInput(event)" placeholder="ປ້ອນລະຫັດ Barcode..." class="flex-1 border rounded-lg px-3 py-2 text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white">
                     <button onclick="submitScanBarcode()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold cursor-pointer shadow">ຕົກລົງ</button>
                 </div>
             </div>
@@ -1120,6 +1120,7 @@
                     <span>📊 ປະຫວັດການຂາຍ</span>
                 </h3>
                 <div class="flex gap-2">
+                    <!-- 💡 ປຸ່ມລຶບປະຫວັດການຂາຍ (ສະແດງສະເພາະ ADMIN ໃຫຍ່) -->
                     <button onclick="promptDeleteHistoryAction()" id="btn-delete-history" class="hidden text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg cursor-pointer font-bold shadow flex items-center gap-1">🗑️ ລຶບຂໍ້ມູນ</button>
                     <button onclick="closeHistory()" class="text-gray-500 hover:text-gray-700 font-bold text-lg cursor-pointer px-2">✕</button>
                 </div>
@@ -1138,6 +1139,7 @@
                             <th class="p-3 border-r text-center">ຈໍານວນ</th>
                             <th class="p-3 border-r text-right">ລວມ (ກ/ບ)</th>
                             <th class="p-3 border-r text-center">ໝາຍເຫດ</th>
+                            <!-- 💡 Checkbox Header ພ້ອມຕິກເລືອກທັງໝົດ ສຳລັບ Admin -->
                             <th id="history-col-checkbox-header" class="p-3 text-center w-16 hidden">
                                 <input type="checkbox" id="select-all-history-checkbox" onclick="toggleSelectAllHistory(this)" class="w-4 h-4 cursor-pointer accent-blue-600" title="ເລືອກທັງໝົດ">
                             </th>
@@ -2351,7 +2353,6 @@
                     targetCheckDate.setDate(targetCheckDate.getDate() - 1);
                 }
 
-                // 💡 ຄໍລຳ 7 (ລາຄາຊື້ໃໝ່) = ຄໍລຳ 6 (ລາຄາຊື້ເດີມ) x (ຄໍລຳ 3 / ຄໍລຳ 1) ພ້ອມປັດຂຶ້ນເປັນຫຼັກ 1,000 ກີບ
                 let calculatedNewCost = originalCost * (currentBuyRate / importBuyRate);
                 let newCost = Math.ceil(calculatedNewCost / 1000) * 1000;
 
@@ -2399,8 +2400,36 @@
             document.querySelectorAll('.inventory-row-checkbox').forEach(cb => cb.checked = masterCheckbox.checked);
         }
 
-        function openHistory() { document.getElementById('history-modal').classList.remove('hidden'); loadCloudHistory(); }
-        function closeHistory() { document.getElementById('history-modal').classList.add('hidden'); }
+        function openHistory() {
+            let modal = document.getElementById('history-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                
+                // 🔍 🛡️ ກວດສອບສິດ: ສະແດງປຸ່ມລຶບ ແລະ Checkbox ຖ້າເປັນ Admin ໃຫຍ່ (POSXIONG ຫຼື admin)
+                let userRole = localStorage.getItem('pos_user_role');
+                let shopOwner = localStorage.getItem('pos_shop_owner');
+                let isAdminMaster = (userRole === 'admin' || deviceId === 'POSXIONG' || (shopOwner === 'true' && deviceId === 'POSXIONG'));
+                
+                let btnDeleteHistory = document.getElementById('btn-delete-history');
+                let checkboxHeader = document.getElementById('history-col-checkbox-header');
+
+                if (isAdminMaster) {
+                    if (btnDeleteHistory) btnDeleteHistory.classList.remove('hidden');
+                    if (checkboxHeader) checkboxHeader.classList.remove('hidden');
+                } else {
+                    if (btnDeleteHistory) btnDeleteHistory.classList.add('hidden');
+                    if (checkboxHeader) checkboxHeader.classList.add('hidden');
+                }
+
+                loadCloudHistory();
+            }
+        }
+
+        function closeHistory() {
+            let modal = document.getElementById('history-modal');
+            if (modal) modal.classList.add('hidden');
+        }
+
         function openReport() { document.getElementById('report-modal').classList.remove('hidden'); calculateReport(); }
         function closeReport() { document.getElementById('report-modal').classList.add('hidden'); }
 
@@ -2856,6 +2885,36 @@
             closeSalesPopup();
         }
 
+        // 💡 ຟັງຊັນຕິກເລືອກທັງໝົດໃນຕາຕະລາງປະຫວັດການຂາຍ (ສຳລັບ Admin)
+        function toggleSelectAllHistory(masterCheckbox) {
+            document.querySelectorAll('.history-row-checkbox').forEach(cb => cb.checked = masterCheckbox.checked);
+        }
+
+        // 💡 ຟັງຊັນລຶບປະຫວັດການຂາຍທີ່ເລືອກ (ສຳລັບ Admin)
+        async function promptDeleteHistoryAction() {
+            let checkedBoxes = document.querySelectorAll('.history-row-checkbox:checked');
+            if (checkedBoxes.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກລາຍການທີ່ຕ້ອງການລຶບ!", "⚠️");
+                return;
+            }
+
+            if (!db) return;
+            try {
+                let batch = db.batch();
+                checkedBoxes.forEach(cb => {
+                    let docId = cb.getAttribute('data-id');
+                    let docRef = db.collection("sales_history").doc(docId);
+                    batch.delete(docRef);
+                });
+
+                await batch.commit();
+                loadCloudHistory();
+                showAlert("ສຳເລັດ", "ລຶບປະຫວັດການຂາຍທີ່ເລືອກຮຽບຮ້ອຍແລ້ວ!", "🗑️");
+            } catch (e) {
+                showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການລຶບປະຫວັດ: " + e.message, "❌");
+            }
+        }
+
         function openExpiryModal() { document.getElementById('expiry-modal').classList.remove('hidden'); loadExpiryCheck(); }
         function closeExpiryModal() { document.getElementById('expiry-modal').classList.add('hidden'); }
 
@@ -3122,6 +3181,10 @@
             salesHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
             let html = '', countIndex = 1, totalCostAll = 0, totalPriceAll = 0, cashTotal = 0, transferTotal = 0;
 
+            let userRole = localStorage.getItem('pos_user_role');
+            let shopOwner = localStorage.getItem('pos_shop_owner');
+            let isAdminMaster = (userRole === 'admin' || deviceId === 'POSXIONG' || (shopOwner === 'true' && deviceId === 'POSXIONG'));
+
             salesHistory.forEach(tx => {
                 let formattedDate = formatDateToDDMMYYYY(tx.date);
                 if (tx.items && Array.isArray(tx.items)) {
@@ -3131,6 +3194,8 @@
                         totalCostAll += cost * qty;
                         totalPriceAll += totalRow;
                         if (tx.payMode && tx.payMode.includes('transfer')) transferTotal += totalRow; else cashTotal += totalRow;
+
+                        let rightCellHtml = isAdminMaster ? `<td class="p-3 text-center"><input type="checkbox" data-id="${tx.id}" class="history-row-checkbox w-4 h-4 cursor-pointer accent-blue-600"></td>` : ``;
 
                         html += `
                             <tr class="hover:bg-gray-50 border-b text-center">
@@ -3143,6 +3208,7 @@
                                 <td class="p-3 border-r text-center font-bold text-cyan-800 text-xs">${formatNumberWithCommas(qty)}</td>
                                 <td class="p-3 border-r text-right font-bold text-blue-800 bg-blue-50/30 text-xs">${formatNumberWithCommas(totalRow)}</td>
                                 <td class="p-3 text-center text-xs font-semibold text-amber-600">${tx.payMode || 'cash'}</td>
+                                ${rightCellHtml}
                             </tr>
                         `;
                     });
