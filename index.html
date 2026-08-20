@@ -852,7 +852,8 @@
             <div class="mt-4 p-3 bg-blue-50 rounded-xl border border-blue-200 text-left space-y-2">
                 <label class="block text-xs font-bold text-blue-900">⌨️ ຫຼື ພິມ/ຍິງບາໂຄດດ້ວຍມື ແລ້ວກົດ Enter:</label>
                 <div class="flex gap-2">
-                    <input type="text" id="scan-barcode-input" onkeydown="handleScanBarcodeInput(event)" placeholder="ປ້ອນລະຫັດ Barcode..." class="flex-1 border rounded-lg px-3 py-2 text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                    <!-- 💡 ນຳເອົາ list="existing-product-names-list" กลับຄືນມາໃສ່ໃນຊ່ອງ scan-barcode-input ເພື່ອໃຫ້ມີດ໋ອບດາວເລືອກຊື່ສິນຄ້າ -->
+                    <input type="text" id="scan-barcode-input" list="existing-product-names-list" onkeydown="handleScanBarcodeInput(event)" placeholder="ປ້ອນລະຫັດ Barcode ຫຼື ຊື່ສິນຄ້າ..." class="flex-1 border rounded-lg px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500 bg-white">
                     <button onclick="submitScanBarcode()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold cursor-pointer shadow">ຕົກລົງ</button>
                 </div>
             </div>
@@ -2279,10 +2280,9 @@
                 return;
             }
 
-            // ດຶງປະຫວັດ Rate ທັງໝົດຈາກ Firestore ມາ Sue (ກຳນົດຄ່າເລີ່ມຕົ້ນ Rate ປະຈຸບັນ)
             let rateRecordsMap = {};
-            let currentBuyRate = 680; // ຄ່າ Rate ຊື້ໃໝ່ຕົວຢ່າງ (ຄໍລຳ 3)
-            let currentSellRate = 690; // ຄ່າ Rate ຂາຍໃໝ່ຕົວຢ່າງ (ຄໍລຳ 4)
+            let currentBuyRate = 680; 
+            let currentSellRate = 690; 
 
             if (db) {
                 try {
@@ -2333,7 +2333,6 @@
                 let formattedImportDate = rawImportDate ? (rawImportDate.includes('/') ? rawImportDate : formatDateToDDMMYYYY(rawImportDate)) : '-';
                 let importDateISO = parseDDMMYYYYToISO(formattedImportDate);
 
-                // ດຶງ Rate ເດີມ (ຄໍລຳ 1 ແລະ 2)
                 let importBuyRate = 650;
                 let importSellRate = 670;
                 if (importDateISO && rateRecordsMap[importDateISO]) {
@@ -2341,26 +2340,21 @@
                     importSellRate = rateRecordsMap[importDateISO].sell;
                 }
 
-                // ດຶງ Rate ໃໝ່ (ຄໍລຳ 3 ແລະ 4)
                 let targetCheckDate = new Date();
-                let foundRate = false;
                 for (let i = 0; i < 7; i++) {
                     let checkISO = targetCheckDate.toISOString().split('T')[0];
                     if (rateRecordsMap[checkISO]) {
                         currentBuyRate = rateRecordsMap[checkISO].buy;
                         currentSellRate = rateRecordsMap[checkISO].sell;
-                        foundRate = true;
                         break;
                     }
                     targetCheckDate.setDate(targetCheckDate.getDate() - 1);
                 }
 
-                // 💡 ຕາມສູດ: ຄໍລຳ 7 (ລາຄາຊື້ໃໝ່) = ຄໍລຳ 6 (ລາຄາຊື້ເດີມ) x (ຄໍລຳ 3 / ຄໍລຳ 1)
-                // ພ້ອມທั้งປັດຕົວເລກຂຶ້ນ (-3) ໃຫ້ເປັນຫຼັກ 1,000 ກີບ (ເຊັ່ນ 155,500 ➡️ 156,000)
+                // 💡 ຄໍລຳ 7 (ລາຄາຊື້ໃໝ່) = ຄໍລຳ 6 (ລາຄາຊື້ເດີມ) x (ຄໍລຳ 3 / ຄໍລຳ 1) ພ້ອມປັດຂຶ້ນເປັນຫຼັກ 1,000 ກີບ
                 let calculatedNewCost = originalCost * (currentBuyRate / importBuyRate);
                 let newCost = Math.ceil(calculatedNewCost / 1000) * 1000;
 
-                // ຄິດໄລ່ລາຄາຂາຍໃໝ່ ຕາມເປີເຊັນ (% 5)
                 let rawNewPrice = newCost * (1 + profitPct / 100);
                 let newPrice = Math.ceil(rawNewPrice / 1000) * 1000;
 
