@@ -852,7 +852,6 @@
             <div class="mt-4 p-3 bg-blue-50 rounded-xl border border-blue-200 text-left space-y-2">
                 <label class="block text-xs font-bold text-blue-900">⌨️ ຫຼື ພິມ/ຍິງບາໂຄດດ້ວຍມື ແລ້ວກົດ Enter:</label>
                 <div class="flex gap-2">
-                    <!-- 💡 ນຳເອົາ list="existing-product-names-list" ກັບຄືນມາໃສ່ໃນຊ່ອງ scan-barcode-input ຢ່າງຖືກຕ້ອງ -->
                     <input type="text" id="scan-barcode-input" list="existing-product-names-list" onkeydown="handleScanBarcodeInput(event)" placeholder="ປ້ອນລະຫັດ Barcode..." class="flex-1 border rounded-lg px-3 py-2 text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white">
                     <button onclick="submitScanBarcode()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold cursor-pointer shadow">ຕົກລົງ</button>
                 </div>
@@ -1120,7 +1119,6 @@
                     <span>📊 ປະຫວັດການຂາຍ</span>
                 </h3>
                 <div class="flex gap-2">
-                    <!-- 💡 ປຸ່ມລຶບປະຫວັດການຂາຍ (ສະແດງສະເພາະ ADMIN ໃຫຍ່) -->
                     <button onclick="promptDeleteHistoryAction()" id="btn-delete-history" class="hidden text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg cursor-pointer font-bold shadow flex items-center gap-1">🗑️ ລຶບຂໍ້ມູນ</button>
                     <button onclick="closeHistory()" class="text-gray-500 hover:text-gray-700 font-bold text-lg cursor-pointer px-2">✕</button>
                 </div>
@@ -1139,7 +1137,6 @@
                             <th class="p-3 border-r text-center">ຈໍານວນ</th>
                             <th class="p-3 border-r text-right">ລວມ (ກ/ບ)</th>
                             <th class="p-3 border-r text-center">ໝາຍເຫດ</th>
-                            <!-- 💡 Checkbox Header ພ້ອມຕິກເລືອກທັງໝົດ ສຳລັບ Admin -->
                             <th id="history-col-checkbox-header" class="p-3 text-center w-16 hidden">
                                 <input type="checkbox" id="select-all-history-checkbox" onclick="toggleSelectAllHistory(this)" class="w-4 h-4 cursor-pointer accent-blue-600" title="ເລືອກທັງໝົດ">
                             </th>
@@ -1317,7 +1314,7 @@
                         <span id="rep-cash-thb" class="text-gray-800 font-bold">0 ບາດ</span>
                     </div>
                     <div class="flex justify-between text-[11px] font-semibold text-gray-600">
-                        <span>- ເຂົ້າບັນຊີ (ໂອນ):</span>
+                        <span>- ເງິນໂອນ (ບາດ):</span>
                         <span id="rep-transfer-thb" class="text-gray-800 font-bold">0 ບາດ</span>
                     </div>
                 </div>
@@ -2400,36 +2397,8 @@
             document.querySelectorAll('.inventory-row-checkbox').forEach(cb => cb.checked = masterCheckbox.checked);
         }
 
-        function openHistory() {
-            let modal = document.getElementById('history-modal');
-            if (modal) {
-                modal.classList.remove('hidden');
-                
-                // 🔍 🛡️ ກວດສອບສິດ: ສະແດງປຸ່ມລຶບ ແລະ Checkbox ຖ້າເປັນ Admin ໃຫຍ່ (POSXIONG ຫຼື admin)
-                let userRole = localStorage.getItem('pos_user_role');
-                let shopOwner = localStorage.getItem('pos_shop_owner');
-                let isAdminMaster = (userRole === 'admin' || deviceId === 'POSXIONG' || (shopOwner === 'true' && deviceId === 'POSXIONG'));
-                
-                let btnDeleteHistory = document.getElementById('btn-delete-history');
-                let checkboxHeader = document.getElementById('history-col-checkbox-header');
-
-                if (isAdminMaster) {
-                    if (btnDeleteHistory) btnDeleteHistory.classList.remove('hidden');
-                    if (checkboxHeader) checkboxHeader.classList.remove('hidden');
-                } else {
-                    if (btnDeleteHistory) btnDeleteHistory.classList.add('hidden');
-                    if (checkboxHeader) checkboxHeader.classList.add('hidden');
-                }
-
-                loadCloudHistory();
-            }
-        }
-
-        function closeHistory() {
-            let modal = document.getElementById('history-modal');
-            if (modal) modal.classList.add('hidden');
-        }
-
+        function openHistory() { document.getElementById('history-modal').classList.remove('hidden'); loadCloudHistory(); }
+        function closeHistory() { document.getElementById('history-modal').classList.add('hidden'); }
         function openReport() { document.getElementById('report-modal').classList.remove('hidden'); calculateReport(); }
         function closeReport() { document.getElementById('report-modal').classList.add('hidden'); }
 
@@ -2733,6 +2702,7 @@
             }
         }
 
+        // 💡 ຟັງຊັນຄຳນວນ ແລະ ສະແດງສິນຄ້າຄ້າງສາງ (4 ລ່ຽມ 2) ຕາມຮູບແບບ `${packs}/${singles}` (ຕົວຢ່າງ 100/0 ຫຼື 99/14)
         function handleSalesBarcodeScanned(code) {
             closeScanner();
             let foundItem = excelRows.find(item => 
@@ -2754,9 +2724,9 @@
             if (unitPerPack > 1) {
                 let packs = Math.floor(totalUnits / unitPerPack);
                 let singles = totalUnits % unitPerPack;
-                stockDisplay = `${packs} ລາງ / ${totalUnits} ປ໋ອງ`;
+                stockDisplay = `${packs}/${singles}`; // 💡 ປັບສະແດງຜົນເປັນ 100/0 ຫຼື 99/14 ຕາມຕ້ອງການ
             } else {
-                stockDisplay = `${totalUnits} ໜ່ວຍ`;
+                stockDisplay = `${totalUnits}/0`;
             }
             document.getElementById('display-scanned-stock-remaining').innerText = stockDisplay;
             document.getElementById('display-scanned-product-qty-input').value = "1";
@@ -2885,12 +2855,10 @@
             closeSalesPopup();
         }
 
-        // 💡 ຟັງຊັນຕິກເລືອກທັງໝົດໃນຕາຕະລາງປະຫວັດການຂາຍ (ສຳລັບ Admin)
         function toggleSelectAllHistory(masterCheckbox) {
             document.querySelectorAll('.history-row-checkbox').forEach(cb => cb.checked = masterCheckbox.checked);
         }
 
-        // 💡 ຟັງຊັນລຶບປະຫວັດການຂາຍທີ່ເລືອກ (ສຳລັບ Admin)
         async function promptDeleteHistoryAction() {
             let checkedBoxes = document.querySelectorAll('.history-row-checkbox:checked');
             if (checkedBoxes.length === 0) {
@@ -3222,61 +3190,6 @@
             document.getElementById('sum-cash-lak').innerText = formatNumberWithCommas(cashTotal) + " ກີບ";
             document.getElementById('sum-transfer-lak').innerText = formatNumberWithCommas(transferTotal) + " ກີບ";
             if (summaryContainer) summaryContainer.classList.remove('hidden');
-        }
-
-        function selectAllAdminDevices(btn) {
-            let checkboxes = document.querySelectorAll('.admin-device-checkbox');
-            if (checkboxes.length === 0) return;
-            let allChecked = Array.from(checkboxes).every(cb => cb.checked);
-            checkboxes.forEach(cb => cb.checked = !allChecked);
-        }
-
-        async function promptDeleteSelectedOrAllDevices() {
-            let checkboxes = document.querySelectorAll('.inventory-row-checkbox, .admin-device-checkbox');
-            let checkedBoxes = Array.from(checkboxes).filter(cb => cb.checked);
-
-            if (checkedBoxes.length === 0) {
-                showAlert("ແຈ້ງເຕືອນ", "ບໍ່ມີຂໍ້ມູນທີ່ຖືກເລືອກໃຫ້ລຶບ!", "⚠️");
-                return;
-            }
-
-            let idsToDelete = checkedBoxes.map(cb => cb.getAttribute('data-id'));
-            let isInventoryDelete = checkedBoxes.some(cb => cb.classList.contains('inventory-row-checkbox'));
-
-            if (isInventoryDelete) {
-                if (!db) return;
-                try {
-                    let batch = db.batch();
-                    idsToDelete.forEach(docId => batch.delete(db.collection("products").doc(docId)));
-                    await batch.commit();
-                    loadInventory();
-                    showAlert("ສຳເລັດ", "ລຶບສິນຄ້າທີ່ເລືອກອອກຈາກສາງຮຽບຮ້ອຍແລ້ວ!", "🗑️");
-                } catch (e) {
-                    showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການລຶບສິນຄ້າ: " + e.message, "❌");
-                }
-            } else {
-                if (!db) return;
-                try {
-                    let batch = db.batch();
-                    idsToDelete.forEach(devId => {
-                        batch.delete(db.collection("devices_registry").doc(devId));
-                        localStorage.removeItem('pos_shop_name_' + devId);
-                        localStorage.removeItem('pos_shop_phone_' + devId);
-                        localStorage.removeItem('pos_shop_user_' + devId);
-                    });
-                    await batch.commit();
-                    await loadAllDevices();
-                    showAlert("ສຳເລັດ", "ລຶບຂໍ້ມູນຢູເຊີທີ່ເລືອກຮຽບຮ້ອຍແລ້ວ!", "🗑️");
-                } catch (e) {
-                    showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການລຶບຂໍ້ມູນ: " + e.message, "❌");
-                }
-            }
-        }
-
-        function toggleSelectAllAdminDevices(masterCheckbox) {
-            document.querySelectorAll('#device-list-container .admin-device-checkbox').forEach(cb => cb.checked = masterCheckbox.checked);
-            let targetInput = document.getElementById('new-target-device');
-            if (targetInput) targetInput.value = '';
         }
 
         let currentSelectedPaymentMode = 'cash';
