@@ -2326,16 +2326,23 @@
             let todayDateStr = new Date().toLocaleDateString('en-GB');
 
             displayRows.forEach((row) => {
-                // 🔍 ປັບປຸງການຄິດໄລ່ X / Y ໃຫ້ຖືກຕ້ອງ (ລາງ / ປ໋ອງ)
-                let totalUnits = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1; 
-                let unitPerPack = parseInt(row.unitPerPack || row.unit_per_pack) || 24; // ໃຫ້ກຳນົດຈຳນວນຕໍ່ 1 ຫົວໜ່ວຍໃຫຍ່ (ຕົວຢ່າງ: 24 ປ໋ອງ/ລາງ)
+                // 🔍 ສູດຄິດໄລ່ຈຳນວນລາງ ແລະ ປ໋ອງທີ່ຖືກຕ້ອງ
+                let totalUnitsInDB = parseInt(String(row.qty || 0).replace(/,/g, '')) || 0; // สมมติเก็บเป็นจำนวนລາງ ຫຼື ປ໋ອງລວມ
+                let unitPerPack = parseInt(row.unitPerPack || row.unit_per_pack) || 24;
 
-                // สมมติว่าในฐานข้อมูลเก็บเป็นจำนวนหน่วยย่อยทั้งหมด หรือคำนวณจากยอดคงเหลือ
-                let packsX = unitPerPack > 1 ? Math.floor(totalUnits / unitPerPack) : totalUnits;
-                let singlesY = unitPerPack > 1 ? totalUnits % unitPerPack : 0;
+                // ຖ້າໃນ Database ເກັບເປັນຈຳນວນລາງ (ເຊັ່ນ: 100 ລາງ) 
+                // ໃຫ້ແປງເປັນປ໋ອງລວມ: 100 * 24 = 2,400 ປ໋ອງ (ຖ້າຫາກ database ເກັບເປັນລາງ)
+                // ແຕ່ຖ້າ row.qty ເກັບເປັນຈຳນວນລາງໂດຍກົງ ແລະ ມີການຫັກລົບຕາມຈຳນວນທີ່ຂາຍ (ສົ່ງ/ຍ່ອຍ):
+                let totalPacks = Math.floor(totalUnitsInDB);
+                let totalSingles = Math.round((totalUnitsInDB - totalPacks) * unitPerPack);
 
-                // ຖ້າຕ້ອງການให้ສະແດງຜົນແບບ X / Y (ຕົວຢ່າງ: 89 / 14)
-                let stockNoteDisplay = unitPerPack > 1 ? `ເຫຼືອ: ${packsX} / ${singlesY}` : `ເຫຼືອ: ${totalUnits} / 0`;
+                // ຕົວຢ່າງ: ຖ້າເຫຼືອ 2,150 ປ໋ອງ (ຈາກ 2,400 - 250)
+                let totalAllSingles = Math.round(totalUnitsInDB * unitPerPack); // ຖ້າ row.qty ເປັນລາງ
+                // ໃຫ້ໃຊ້ສູດຫານ:
+                let finalPacks = Math.floor(totalUnitsInDB / unitPerPack); // ຫຼື ຕາມຄ່າທີ່ຖືກຫັກລົບຈິງ
+                let finalSingles = totalUnitsInDB % unitPerPack;
+
+                let stockNoteDisplay = `ເຫຼືອ: ${finalPacks} / ${finalSingles}`;
 
                 let originalCost = parseFloat(String(row.original_cost || row.cost).replace(/,/g, '')) || 0;
                 let originalPrice = parseFloat(String(row.price).replace(/,/g, '')) || 0;
@@ -2777,29 +2784,35 @@
             let qtyInput = parseFloat(rawQty);
             if (isNaN(qtyInput)) qtyInput = 0; 
             
-            let packsInDB = parseFloat(String(activeScannedItem.qty || 0).replace(/,/g, '')) || 0;
+            let currentStock = parseFloat(String(activeScannedItem.qty || 0).replace(/,/g, '')) || 0;
             let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 24;
 
-            // ຕົວຢ່າງ: ຖ້າຂາຍຍ່ອຍ 10 ລາງ ແລະ 10 ປ໋ອງ (ຄິດໄລ່ເປັນຈຳນວນປ໋ອງລວມ)
-            // ໃຫ້แปลงຈຳນວນທີ່ຂາຍທັງໝົດເປັນหน่วยย่อย (ເຊັ່ນ: 10 ລາງ * 24 + 10 ປ໋ອງ = 250 ປ໋ອງ)
-            // ແລ້ວນຳໄປລົບออกจากຈຳນວນໃນສາງ ແລ້ວແຍກกลับมาເປັນ X / Y
+            // ຕົວຢ່າງການຄິດໄລ່ຫັກລົບຕາມຈຳນວນລາງ ແລະ ປ໋ອງຕົວຈິງ
+            // ໃຫ້ແປງທຸກຢ່າງເປັນຫົວໜ່ວຍຍ່ອຍ (ປ໋ອງ) ເພື່ອຄວາມแม่ນຍໍາ
+            let totalAvailableSingles = Math.round(currentStock * unitPerPack); // ຖ້າ stck ໃນ db ເກັບເປັນລາງ
+            // สมมติหັກลົບຈຳນວນທີ່ຂາຍອອກ (ເຊັ່ນ: ຂາຍສົ່ງ 10 ລາງ = 240 ປ໋ອງ + ขายย่อย 10 ປ໋ອງ = 250 ປ໋ອງ)
+            let soldSingles = isRetail ? qtyInput : (qtyInput * unitPerPack); // ປັບຕາມໂໝດຂາຍ
             
-            let totalStockSingles = packsInDB * unitPerPack; // สมมติว่าเก็บรวมเป็นหน่วยย่อย หรือຖ້າเก็บเป็นจำนวนລາງ ໃຫ້ປັບຕາມโครงสร้าง
-            // ຖ້າໂຄດเดิมเก็บ qty เป็นจำนวนລາງ: 
-            // ໃຫ້ເຮົາคำนวณຈຳນວນທີ່ຖືກตัดອອກ:
-            let soldTotalUnits = qtyInput; // ປັບຕາມ input ທີ່ປ້ອນ
+            let remainingSingles = Math.max(0, totalAvailableSingles - soldSingles);
             
-            let remainingTotal = Math.max(0, packsInDB - soldTotalUnits);
-            let remX = Math.floor(remainingTotal);
-            let remY = Math.round((remainingTotal - remX) * unitPerPack);
+            let remPacksX = Math.floor(remainingSingles / unitPerPack);
+            let remSinglesY = remainingSingles % unitPerPack;
 
-            // ອັບເດດສະແດງຜົນໃນບ໋ອກສີແດງຮູບ 2 ໃຫ້ສະແດງເປັນ 89 / 14 
-            document.getElementById('display-scanned-stock-remaining').innerText = `${remX} / ${remY}`;
+            // 📌 ສະແດງຜົນໃນກ່ອງສີແດງຮູບ 2 ໃຫ້ເປັນ X / Y (ເຊັ່ນ: 89 / 14)
+            document.getElementById('display-scanned-stock-remaining').innerText = `${remPacksX} / ${remSinglesY}`;
 
-            // --- ສ່ວນການຄຳນວນລາຄາ ແລະ ເງິນປົກກະຕິตามโคດหลัก ---
+            // --- ສ່ວນການຄຳນວນລາຄາເງິນປົກກະຕິ (ຮັກສາຕາມໂຄດຫຼັກ) ---
             let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
             let unitPrice = parseFloat(String(activeScannedItem.price).replace(/,/g, '')) || 0;
-            // ... (คงไว้ตามโคດຫຼັກเดิมທັງໝົດ)
+            
+            let totalCost = unitCost * qtyInput;
+            let totalPrice = unitPrice * qtyInput;
+
+            document.getElementById('grand-total-cost').innerText = formatNumberWithCommas(totalCost) + " " + (activeScannedItem.currency || 'ກີບ');
+            document.getElementById('grand-total').innerText = formatNumberWithCommas(totalPrice) + " " + (activeScannedItem.currency || 'ກີບ');
+            document.getElementById('custom-final-price').value = formatNumberWithCommas(totalPrice);
+            document.getElementById('final-total').innerText = formatNumberWithCommas(totalPrice) + " " + (activeScannedItem.currency || 'ກີບ');
+            document.getElementById('grand-total-profit').innerText = formatNumberWithCommas(totalPrice - totalCost) + " " + (activeScannedItem.currency || 'ກີບ');
         }
 
         function calculateChange() {
