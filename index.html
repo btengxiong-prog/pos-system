@@ -2890,14 +2890,17 @@
                     await db.collection("sales_history").add(saleRecord);
                     let productQuery = await db.collection("products").where("code", "==", activeScannedItem.code).get();
                     if (!productQuery.empty) {
-                        let docRef = productQuery.docs[0].ref;
-                        let currentStockQty = parseFloat(productQuery.docs[0].data().qty) || 0;
-                        let totalAvailableSingles = Math.round(currentStockQty * unitPerPack);
-                        let soldSingles = isRetail ? qty : (qty * unitPerPack);
-                        let newTotalSingles = Math.max(0, totalAvailableSingles - soldSingles);
-                        
-                        let newStockQty = newTotalSingles / unitPerPack;
-                        await docRef.update({ qty: newStockQty });
+                        let productQuery = await db.collection("products").where("code", "==", activeScannedItem.code).get();
+                        if (!productQuery.empty) {
+                            let docRef = productQuery.docs[0].ref;
+                            let currentStockQty = parseFloat(productQuery.docs[0].data().qty) || 0;
+                            let totalAvailableSingles = Math.round(currentStockQty * unitPerPack);
+                            let soldSingles = isRetail ? qty : (qty * unitPerPack);
+                            let newTotalSingles = Math.max(0, totalAvailableSingles - soldSingles);
+                            
+                            let newStockQty = newTotalSingles / unitPerPack;
+                            await docRef.update({ qty: newStockQty });
+                        }
                     }
                 } catch (e) {
                     console.error("Error processing receipt save/stock deduction:", e);
@@ -3361,15 +3364,15 @@
                     
                     let productQuery = await db.collection("products").where("code", "==", activeScannedItem.code).get();
                     if (!productQuery.empty) {
-                        let docRef = productQuery.docs[0].ref;
-                        let currentStockQty = parseFloat(productQuery.docs[0].data().qty) || 0;
-                        
-                        let totalAvailableSingles = Math.round(currentStockQty * unitPerPack);
-                        let soldSingles = isRetail ? qty : (qty * unitPerPack);
-                        let newTotalSingles = Math.max(0, totalAvailableSingles - soldSingles);
-                        
-                        let newStockQty = newTotalSingles / unitPerPack;
-                        await docRef.update({ qty: newStockQty });
+                    // 🛠️ ແກ້ໄຂການຕັດຈຳນວນສາງໃຫ້ຊັດເຈນ (ປ້ອງກັນບັນຫາเศษທົດສະນິຍົມຄ້າງ)
+                    let currentStockQty = parseFloat(productQuery.docs[0].data().qty) || 0;
+                    let totalAvailableSingles = Math.round(currentStockQty * unitPerPack);
+                    let soldSingles = isRetail ? qty : (qty * unitPerPack);
+                    let newTotalSingles = Math.max(0, totalAvailableSingles - soldSingles);
+
+                    // ຖ້າຈຳນວນປ໋ອງລວມເຫຼືອ 0, ໃຫ້ບັງຄັບໃຫ້ qty ເປັນ 0 ເລີຍ
+                    let newStockQty = newTotalSingles === 0 ? 0 : (newTotalSingles / unitPerPack);
+                    await docRef.update({ qty: newStockQty });
                     }
                 } catch (e) {
                     console.error("Error processing payment save/stock deduction:", e);
