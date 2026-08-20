@@ -2326,7 +2326,7 @@
             let todayDateStr = new Date().toLocaleDateString('en-GB');
 
             displayRows.forEach((row) => {
-                // 🛠️ ແກ້ໄຂຈຸດນີ້: ຄຳນວນ X / Y ໃໝ່ໃຫ້ຖືກຕ້ອງ 100%
+                // ຄຳນວນ X / Y ໃໝ່ໃຫ້ຖືກຕ້ອງ 100% ຈາກຖານຂໍ້ມູນ
                 let totalUnits = parseFloat(String(row.qty || 0).replace(/,/g, '')) || 0; 
                 let unitPerPack = parseInt(row.unitPerPack || row.unit_per_pack) || 1;
 
@@ -2368,10 +2368,11 @@
                 let rawNewPrice = newCost * (1 + profitPct / 100);
                 let newPrice = Math.ceil(rawNewPrice / 1000) * 1000;
 
-                let totalOldCost = originalCost * totalUnits;
-                let totalOldPrice = originalPrice * totalUnits;
-                let totalNewCost = newCost * totalUnits;
-                let totalNewPrice = newPrice * totalUnits;
+                // ໃຊ້ຈຳນວນລາງ (packsX) ຄຳນວນມູນຄ່າລວມ
+                let totalOldCost = originalCost * packsX;
+                let totalOldPrice = originalPrice * packsX;
+                let totalNewCost = newCost * packsX;
+                let totalNewPrice = newPrice * packsX;
 
                 let shopLabel = (isAdminMaster && row.device_id) ? ` [ຮ້ານ: ${row.device_id}]` : '';
                 let rightCellHtml = isAdminMaster ? `<td class="p-2 text-center"><input type="checkbox" data-id="${row.id}" class="inventory-row-checkbox w-4 h-4 cursor-pointer accent-cyan-600"></td>` : ``;
@@ -2776,24 +2777,21 @@
             let qtyInput = parseFloat(rawQty);
             if (isNaN(qtyInput)) qtyInput = 0; 
             
-            // 🛠️ ແກ້ໄຂຈຸດນີ້: ປ່ຽນການອ່ານຄ່າໃນຖານຂໍ້ມູນເປັນ Float ເພື່ອດຶງເອົາເສດຂອງປ໋ອງມາຄຳນວນ
+            // ດຶງຍອດໃນສາງເປັນທົດສະນິຍົມ ແລ້ວແປງເປັນຫົວໜ່ວຍຍ່ອຍ (ປ໋ອງ) ທັງໝົດກ່ອນ
             let currentStock = parseFloat(String(activeScannedItem.qty || 0).replace(/,/g, '')) || 0;
             let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 1;
 
-            // ຄຳນວນຫາຈຳນວນປ໋ອງທັງໝົດໃນສາງ
             let totalAvailableSingles = Math.round(currentStock * unitPerPack);
-            // ຈຳນວນປ໋ອງທີ່ຂາຍອອກໄປ
-            let soldSingles = isRetail ? qtyInput : (qtyInput * unitPerPack); 
+            let soldSingles = isRetail ? qtyInput : Math.round(qtyInput * unitPerPack); 
             
             let remainingSingles = Math.max(0, totalAvailableSingles - soldSingles);
             
             let remPacksX = Math.floor(remainingSingles / unitPerPack);
             let remSinglesY = remainingSingles % unitPerPack;
 
-            // 📌 ສະແດງຜົນໃນກ່ອງສີແດງຮູບ 2 ໃຫ້ເປັນ X / Y
+            // ສະແດງຜົນໃນກ່ອງສີແດງຮູບ 2
             document.getElementById('display-scanned-stock-remaining').innerText = `${remPacksX} / ${remSinglesY}`;
 
-            // --- ສ່ວນການຄຳນວນລາຄາເງິນປົກກະຕິ (ຮັກສາຕາມໂຄດຫຼັກ) ---
             let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
             let unitPrice = parseFloat(String(activeScannedItem.price).replace(/,/g, '')) || 0;
 
@@ -2814,33 +2812,6 @@
             calculateChange();
         }
 
-        function calculateChange() {
-            let finalPrice = parseFloat(document.getElementById('custom-final-price').value.replace(/,/g, '')) || 0;
-            let cashGiven = parseFloat(document.getElementById('cash-given').value.replace(/,/g, '')) || 0;
-            let curr = activeScannedItem ? (activeScannedItem.currency || 'ກີບ') : 'ກີບ';
-
-            document.getElementById('final-total').innerText = formatNumberWithCommas(finalPrice) + " " + curr;
-
-            let isRetail = document.querySelector('input[name="sale_type_mode"][value="retail"]').checked;
-            let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
-            let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 1;
-            if (isRetail && unitPerPack > 1) {
-                unitCost = Math.ceil((unitCost / unitPerPack) / 1000) * 1000;
-            }
-
-            let qty = parseInt(document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '')) || 1;
-            let totalCost = unitCost * qty;
-            let profit = finalPrice - totalCost;
-            document.getElementById('grand-total-profit').innerText = formatNumberWithCommas(profit) + " " + curr;
-
-            if (cashGiven > 0) {
-                let change = cashGiven - finalPrice;
-                document.getElementById('change-amount').innerText = change >= 0 ? formatNumberWithCommas(change) + " " + curr : "ເງິນສົດຍັງບໍ່ພໍ!";
-            } else {
-                document.getElementById('change-amount').innerText = "0 " + curr + " (ຈ່າຍພໍດີ)";
-            }
-        }
-
         function updateCartQtyFromInput(qtyVal) {
             let isRetail = document.querySelector('input[name="sale_type_mode"][value="retail"]').checked;
             updatePopupPricing(isRetail);
@@ -2853,15 +2824,17 @@
             calculateChange();
         }
 
-        async function printCurrentReceipt() {
+    async function printCurrentReceipt() {
             if (!activeScannedItem) return;
 
             let finalPrice = parseFloat(document.getElementById('custom-final-price').value.replace(/,/g, '')) || 0;
-            let qty = parseInt(document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '')) || 1;
+            let rawQty = document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '');
+            let qty = parseFloat(rawQty) || 1;
             
             let isRetail = document.querySelector('input[name="sale_type_mode"][value="retail"]').checked;
             let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
             let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 1;
+            
             if (isRetail && unitPerPack > 1) {
                 unitCost = Math.ceil((unitCost / unitPerPack) / 1000) * 1000;
             }
@@ -2885,17 +2858,17 @@
             if (db) {
                 try {
                     await db.collection("sales_history").add(saleRecord);
+                    
                     let productQuery = await db.collection("products").where("code", "==", activeScannedItem.code).get();
                     if (!productQuery.empty) {
                         let docRef = productQuery.docs[0].ref;
                         
-                        // 🛠️ ແກ້ໄຂການຫັກລົບຍອດໃນຖານຂໍ້ມູນ
+                        // ແກ້ໄຂການຫັກລົບຍອດໃນຖານຂໍ້ມູນໃຫ້ເກັບຄ່າທົດສະນິຍົມ
                         let currentStockQty = parseFloat(productQuery.docs[0].data().qty) || 0;
                         let totalAvailableSingles = Math.round(currentStockQty * unitPerPack);
-                        let soldSingles = isRetail ? qty : (qty * unitPerPack);
+                        let soldSingles = isRetail ? Math.round(qty) : Math.round(qty * unitPerPack);
                         let newTotalSingles = Math.max(0, totalAvailableSingles - soldSingles);
                         
-                        // ບັນທຶກກັບຄືນໄປເປັນທົດສະນິຍົມ (ລາງ/ແພັກ)
                         let newStockQty = newTotalSingles / unitPerPack;
                         await docRef.update({ qty: newStockQty });
                     }
@@ -2906,7 +2879,7 @@
 
             closeSalesPopup();
             window.print();
-        }
+    }
 
         function cancelCurrentSaleTransaction() {
             closeSalesPopup();
@@ -3335,12 +3308,15 @@
 
         async function confirmCheckoutPayment() {
             if (!activeScannedItem) return;
+            
             let finalPrice = parseFloat(document.getElementById('custom-final-price').value.replace(/,/g, '')) || 0;
-            let qty = parseInt(document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '')) || 1;
+            let rawQty = document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '');
+            let qty = parseFloat(rawQty) || 1;
             
             let isRetail = document.querySelector('input[name="sale_type_mode"][value="retail"]').checked;
             let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
             let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 1;
+            
             if (isRetail && unitPerPack > 1) {
                 unitCost = Math.ceil((unitCost / unitPerPack) / 1000) * 1000;
             }
@@ -3348,7 +3324,13 @@
             let saleRecord = {
                 date: new Date().toISOString(),
                 device_id: deviceId,
-                items: [{ code: activeScannedItem.code, name: activeScannedItem.name + (isRetail ? " (ຂາຍຍ່ອຍ)" : " (ຂາຍສົ່ງ)"), cost: unitCost, price: finalPrice / qty, qty: qty }],
+                items: [{ 
+                    code: activeScannedItem.code, 
+                    name: activeScannedItem.name + (isRetail ? " (ຂາຍຍ່ອຍ)" : " (ຂາຍສົ່ງ)"), 
+                    cost: unitCost, 
+                    price: finalPrice / qty, 
+                    qty: qty 
+                }],
                 currency: activeScannedItem.currency || 'ກີບ',
                 pay_mode: currentSelectedPaymentMode,
                 total_amount: finalPrice,
@@ -3359,20 +3341,22 @@
                 try { 
                     await db.collection("sales_history").add(saleRecord); 
                     
-                    // 🛠️ ແກ້ໄຂການຫັກລົບຍອດໃນຖານຂໍ້ມູນໃຫ້ສົມບູນຄືກັນ
+                    // ແກ້ໄຂເພີ່ມໂຄດຕັດຍອດເຂົ້າໃນຟັງຊັນນີ້ດ້ວຍ ເພື່ອໃຫ້ຍອດອັບເດດສະເໝີ
                     let productQuery = await db.collection("products").where("code", "==", activeScannedItem.code).get();
                     if (!productQuery.empty) {
                         let docRef = productQuery.docs[0].ref;
                         let currentStockQty = parseFloat(productQuery.docs[0].data().qty) || 0;
                         
                         let totalAvailableSingles = Math.round(currentStockQty * unitPerPack);
-                        let soldSingles = isRetail ? qty : (qty * unitPerPack);
+                        let soldSingles = isRetail ? Math.round(qty) : Math.round(qty * unitPerPack);
                         let newTotalSingles = Math.max(0, totalAvailableSingles - soldSingles);
                         
                         let newStockQty = newTotalSingles / unitPerPack;
                         await docRef.update({ qty: newStockQty });
                     }
-                } catch (e) {}
+                } catch (e) {
+                    console.error("Payment error:", e);
+                }
             }
 
             closeCheckoutMethodModal();
