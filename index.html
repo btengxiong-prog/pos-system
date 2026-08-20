@@ -2326,18 +2326,15 @@
             let todayDateStr = new Date().toLocaleDateString('en-GB');
 
             displayRows.forEach((row) => {
-                let totalUnits = parseFloat(String(row.qty || 1).replace(/,/g, '')) || 1; 
-                let unitPerPack = parseInt(row.unitPerPack || row.unit_per_pack) || 24;
+                // 🛠️ ແກ້ໄຂຈຸດນີ້: ຄຳນວນ X / Y ໃໝ່ໃຫ້ຖືກຕ້ອງ 100%
+                let totalUnits = parseFloat(String(row.qty || 0).replace(/,/g, '')) || 0; 
+                let unitPerPack = parseInt(row.unitPerPack || row.unit_per_pack) || 1;
 
-                // 🔍 ປັບປຸງການຄິດໄລ່ແຍກ ລາງ / ປ໋ອງ ໃຫ້ປອດໄພບໍ່ໃຫ້ເກີດ Error ຄ้าง
-                let packsX = unitPerPack > 1 ? Math.floor(totalUnits / unitPerPack) : Math.floor(totalUnits);
-                let singlesY = unitPerPack > 1 ? Math.round((totalUnits - packsX) * unitPerPack) : 0;
-                if (singlesY >= unitPerPack) {
-                    packsX += Math.floor(singlesY / unitPerPack);
-                    singlesY = singlesY % unitPerPack;
-                }
+                let totalSingles = Math.round(totalUnits * unitPerPack);
+                let packsX = Math.floor(totalSingles / unitPerPack);
+                let singlesY = totalSingles % unitPerPack;
 
-                let stockNoteDisplay = unitPerPack > 1 ? `ເຫຼືອ: ${packsX} / ${singlesY}` : `ເຫຼືອ: ${totalUnits} / 0`;
+                let stockNoteDisplay = unitPerPack > 1 ? `ເຫຼືອ: ${packsX} / ${singlesY}` : `ເຫຼືອ: ${packsX} / 0`;
 
                 let originalCost = parseFloat(String(row.original_cost || row.cost).replace(/,/g, '')) || 0;
                 let originalPrice = parseFloat(String(row.price).replace(/,/g, '')) || 0;
@@ -2386,7 +2383,7 @@
                         <td class="p-2 border-r font-bold text-gray-900 text-left">${row.name || '-'}${shopLabel}</td>
                         <td class="p-2 border-r text-purple-700 font-semibold">${formattedImportDate}</td>
                         <td class="p-2 border-r text-gray-700 font-semibold">${todayDateStr}</td>
-                        <td class="p-2 border-r font-bold text-cyan-800">${formatNumberWithCommas(totalUnits)}</td>
+                        <td class="p-2 border-r font-bold text-cyan-800">${formatNumberWithCommas(packsX)}</td>
                         <td class="p-2 border-r text-blue-600 font-bold">${formatNumberWithCommas(importBuyRate)}</td>
                         <td class="p-2 border-r text-blue-600 font-bold">${formatNumberWithCommas(importSellRate)}</td>
                         <td class="p-2 border-r text-blue-800 font-bold">${formatNumberWithCommas(currentBuyRate)}</td>
@@ -2779,27 +2776,32 @@
             let qtyInput = parseFloat(rawQty);
             if (isNaN(qtyInput)) qtyInput = 0; 
             
+            // 🛠️ ແກ້ໄຂຈຸດນີ້: ປ່ຽນການອ່ານຄ່າໃນຖານຂໍ້ມູນເປັນ Float ເພື່ອດຶງເອົາເສດຂອງປ໋ອງມາຄຳນວນ
             let currentStock = parseFloat(String(activeScannedItem.qty || 0).replace(/,/g, '')) || 0;
-            let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 24;
+            let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 1;
 
-            // ຕົວຢ່າງການຄິດໄລ່ຫັກລົບຕາມຈຳນວນລາງ ແລະ ປ໋ອງຕົວຈິງ
-            // ໃຫ້ແປງທຸກຢ່າງເປັນຫົວໜ່ວຍຍ່ອຍ (ປ໋ອງ) ເພື່ອຄວາມแม่ນຍໍາ
-            let totalAvailableSingles = Math.round(currentStock * unitPerPack); // ຖ້າ stck ໃນ db ເກັບເປັນລາງ
-            // สมมติหັກลົບຈຳນວນທີ່ຂາຍອອກ (ເຊັ່ນ: ຂາຍສົ່ງ 10 ລາງ = 240 ປ໋ອງ + ขายย่อย 10 ປ໋ອງ = 250 ປ໋ອງ)
-            let soldSingles = isRetail ? qtyInput : (qtyInput * unitPerPack); // ປັບຕາມໂໝດຂາຍ
+            // ຄຳນວນຫາຈຳນວນປ໋ອງທັງໝົດໃນສາງ
+            let totalAvailableSingles = Math.round(currentStock * unitPerPack);
+            // ຈຳນວນປ໋ອງທີ່ຂາຍອອກໄປ
+            let soldSingles = isRetail ? qtyInput : (qtyInput * unitPerPack); 
             
             let remainingSingles = Math.max(0, totalAvailableSingles - soldSingles);
             
             let remPacksX = Math.floor(remainingSingles / unitPerPack);
             let remSinglesY = remainingSingles % unitPerPack;
 
-            // 📌 ສະແດງຜົນໃນກ່ອງສີແດງຮູບ 2 ໃຫ້ເປັນ X / Y (ເຊັ່ນ: 89 / 14)
+            // 📌 ສະແດງຜົນໃນກ່ອງສີແດງຮູບ 2 ໃຫ້ເປັນ X / Y
             document.getElementById('display-scanned-stock-remaining').innerText = `${remPacksX} / ${remSinglesY}`;
 
             // --- ສ່ວນການຄຳນວນລາຄາເງິນປົກກະຕິ (ຮັກສາຕາມໂຄດຫຼັກ) ---
             let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
             let unitPrice = parseFloat(String(activeScannedItem.price).replace(/,/g, '')) || 0;
-            
+
+            if (isRetail && unitPerPack > 1) {
+                unitCost = Math.ceil((unitCost / unitPerPack) / 1000) * 1000;
+                unitPrice = Math.ceil((unitPrice / unitPerPack) / 1000) * 1000;
+            }
+
             let totalCost = unitCost * qtyInput;
             let totalPrice = unitPrice * qtyInput;
 
@@ -2808,6 +2810,8 @@
             document.getElementById('custom-final-price').value = formatNumberWithCommas(totalPrice);
             document.getElementById('final-total').innerText = formatNumberWithCommas(totalPrice) + " " + (activeScannedItem.currency || 'ກີບ');
             document.getElementById('grand-total-profit').innerText = formatNumberWithCommas(totalPrice - totalCost) + " " + (activeScannedItem.currency || 'ກີບ');
+            
+            calculateChange();
         }
 
         function calculateChange() {
@@ -2884,8 +2888,15 @@
                     let productQuery = await db.collection("products").where("code", "==", activeScannedItem.code).get();
                     if (!productQuery.empty) {
                         let docRef = productQuery.docs[0].ref;
-                        let currentStockQty = parseInt(productQuery.docs[0].data().qty) || 0;
-                        let newStockQty = Math.max(0, currentStockQty - qty);
+                        
+                        // 🛠️ ແກ້ໄຂການຫັກລົບຍອດໃນຖານຂໍ້ມູນ
+                        let currentStockQty = parseFloat(productQuery.docs[0].data().qty) || 0;
+                        let totalAvailableSingles = Math.round(currentStockQty * unitPerPack);
+                        let soldSingles = isRetail ? qty : (qty * unitPerPack);
+                        let newTotalSingles = Math.max(0, totalAvailableSingles - soldSingles);
+                        
+                        // ບັນທຶກກັບຄືນໄປເປັນທົດສະນິຍົມ (ລາງ/ແພັກ)
+                        let newStockQty = newTotalSingles / unitPerPack;
                         await docRef.update({ qty: newStockQty });
                     }
                 } catch (e) {
@@ -3345,7 +3356,23 @@
             };
 
             if (db) {
-                try { await db.collection("sales_history").add(saleRecord); } catch (e) {}
+                try { 
+                    await db.collection("sales_history").add(saleRecord); 
+                    
+                    // 🛠️ ແກ້ໄຂການຫັກລົບຍອດໃນຖານຂໍ້ມູນໃຫ້ສົມບູນຄືກັນ
+                    let productQuery = await db.collection("products").where("code", "==", activeScannedItem.code).get();
+                    if (!productQuery.empty) {
+                        let docRef = productQuery.docs[0].ref;
+                        let currentStockQty = parseFloat(productQuery.docs[0].data().qty) || 0;
+                        
+                        let totalAvailableSingles = Math.round(currentStockQty * unitPerPack);
+                        let soldSingles = isRetail ? qty : (qty * unitPerPack);
+                        let newTotalSingles = Math.max(0, totalAvailableSingles - soldSingles);
+                        
+                        let newStockQty = newTotalSingles / unitPerPack;
+                        await docRef.update({ qty: newStockQty });
+                    }
+                } catch (e) {}
             }
 
             closeCheckoutMethodModal();
