@@ -2326,15 +2326,16 @@
             let todayDateStr = new Date().toLocaleDateString('en-GB');
 
             displayRows.forEach((row) => {
-                let dbQty = parseFloat(String(row.qty || 0).replace(/,/g, '')) || 0;
-                let totalUnits = dbQty; 
-                let unitPerPack = parseInt(row.unitPerPack || row.unit_per_pack) || 24;
+                let totalUnits = parseInt(String(row.qty || 1).replace(/,/g, '')) || 1; 
+                let unitPerPack = parseInt(row.unitPerPack || row.unit_per_pack) || 1;
 
-                let packsX = Math.floor(dbQty);
-                let singlesY = Math.round((dbQty - packsX) * unitPerPack);
+                // 💡 ຖ້າ unitPerPack ເປັນ 1 ຫຼື ບໍ່ໄດ້ກຳນົດ, ໃຫ້ X = totalUnits ແລະ Y = 0 (ອອກມາເປັນ 100 / 0)
+                let packsX = unitPerPack > 1 ? Math.floor(totalUnits / unitPerPack) : totalUnits;
+                let singlesY = unitPerPack > 1 ? totalUnits % unitPerPack : 0;
 
-                let stockNoteDisplay = `ເຫຼືອ: ${packsX} / ${singlesY}`;
-                let displayQty = formatNumberWithCommas(packsX);
+                // ຖ້າອາຈານຕ້ອງການໃຫ້ສະແດງຄ່າ X ເປັນຈຳນວນເຕັມທັງໝົດ ແລະ Y ເປັນ 0 ຕະຫຼອດ (ຕາມກ່ອງສີແດງ 1 ແລະ 2) 
+                // ໃຫ້ໃຊ້ສູດນີ້:
+                let stockNoteDisplay = `ເຫຼືອ: ${totalUnits} / 0`;
 
                 let originalCost = parseFloat(String(row.original_cost || row.cost).replace(/,/g, '')) || 0;
                 let originalPrice = parseFloat(String(row.price).replace(/,/g, '')) || 0;
@@ -2383,7 +2384,7 @@
                         <td class="p-2 border-r font-bold text-gray-900 text-left">${row.name || '-'}${shopLabel}</td>
                         <td class="p-2 border-r text-purple-700 font-semibold">${formattedImportDate}</td>
                         <td class="p-2 border-r text-gray-700 font-semibold">${todayDateStr}</td>
-                        <td class="p-2 border-r font-bold text-cyan-800">${displayQty}</td>
+                        <td class="p-2 border-r font-bold text-cyan-800">${formatNumberWithCommas(totalUnits)}</td>
                         <td class="p-2 border-r text-blue-600 font-bold">${formatNumberWithCommas(importBuyRate)}</td>
                         <td class="p-2 border-r text-blue-600 font-bold">${formatNumberWithCommas(importSellRate)}</td>
                         <td class="p-2 border-r text-blue-800 font-bold">${formatNumberWithCommas(currentBuyRate)}</td>
@@ -2757,34 +2758,49 @@
             activeScannedItem = foundItem;
             document.getElementById('display-scanned-product-name').innerText = foundItem.name || foundItem.code;
             
+            // ຕັ້ງຄ່າເລີ່ມຕົ້ນຂອງຈຳນວນໃນ Input ເປັນ 1 ຫຼັງຈາກສະແກນ
             document.getElementById('display-scanned-product-qty-input').value = "1";
 
+            // ໃຫ້ຟັງຊັນ updatePopupPricing ຈັດການຄຳນວນ ແລະ ສະແດງຜົນລາງ/ປ໋ອງ ໃຫ້ຖືກຕ້ອງ
             let isRetail = document.querySelector('input[name="sale_type_mode"][value="retail"]').checked;
             updatePopupPricing(isRetail);
             
             document.getElementById('sales-popup-modal').classList.remove('hidden');
         }
 
+        function closeSalesPopup() { document.getElementById('sales-popup-modal').classList.add('hidden'); }
+
         function updatePopupPricing(isRetail) {
             if (!activeScannedItem) return;
 
+            // 💡 ແກ້ໄຂການດຶງຄ່າ: ຖ້າລຶບຈົນຫວ່າງ ຫຼື ປ້ອນ 0 ໃຫ້ມີຄ່າເທົ່າກັບ 0 (ບໍ່ໃຫ້ປ່ຽນເປັນ 1 ອັດຕະໂນມັດ)
             let rawQty = document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '');
             let qtyInput = parseInt(rawQty);
             if (isNaN(qtyInput)) qtyInput = 0; 
             
-            // 💡 ດຶງຈຳນວນໃນສາງທີ່ເປັນຈຸດທົດສະນິຍົມ ມາແປງເປັນ X ລາງ / Y ປ໋ອງ
-            let dbQty = parseFloat(String(activeScannedItem.qty || 0).replace(/,/g, '')) || 0;
+            let packsInDB = parseInt(String(activeScannedItem.qty || 0).replace(/,/g, '')) || 0;
             let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 24;
 
-            let packsX = Math.floor(dbQty);
-            // ຄຳນວນຫາຈຳນວນປ໋ອງເສດທີ່ເຫຼືອ
-            let singlesY = Math.round((dbQty - packsX) * unitPerPack);
-            
-            let stockDisplay = `${packsX} / ${singlesY}`;
+            let remainingPacksX = packsInDB;
+            let remainingSinglesY = 0;
 
-            // ສະແດງຜົນລົງກ່ອງ 4 ລ່ຽມສີແດງຄົງທີ່ (ເຊັ່ນ 99 / 14)
-            document.getElementById('display-scanned-stock-remaining').innerText = stockDisplay;
+            if (isRetail) {
+                // 🥤 ຂາຍຍ່ອຍ: ຖ້າປ້ອນ 0 ກໍ່ຈະລົບ 0 ເຮັດໃຫ້ເຫຼືອ 100/0 ຄືເກົ່າ
+                let totalSingles = (packsInDB * unitPerPack) - qtyInput;
+                if (totalSingles < 0) totalSingles = 0;
 
+                remainingPacksX = Math.floor(totalSingles / unitPerPack);
+                remainingSinglesY = totalSingles % unitPerPack;
+            } else {
+                // 📦 ຂາຍສົ່ງ: ຖ້າປ້ອນ 0 ກໍ່ຈະລົບ 0 ເຮັດໃຫ້ເຫຼືອ 100/0 ຄືເກົ່າ
+                remainingPacksX = Math.max(0, packsInDB - qtyInput);
+                remainingSinglesY = 0;
+            }
+
+            // ອັບເດດສະແດງຜົນໃນບ໋ອກ 4 ລ່ຽມສີແດງ
+            document.getElementById('display-scanned-stock-remaining').innerText = `${remainingPacksX} / ${remainingSinglesY}`;
+
+            // --- ສ່ວນການຄຳນວນເງິນ ---
             let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
             let unitPrice = parseFloat(String(activeScannedItem.price).replace(/,/g, '')) || 0;
 
@@ -2849,12 +2865,11 @@
             if (!activeScannedItem) return;
 
             let finalPrice = parseFloat(document.getElementById('custom-final-price').value.replace(/,/g, '')) || 0;
-            let qtyInput = parseInt(document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '')) || 1;
+            let qty = parseInt(document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '')) || 1;
             
             let isRetail = document.querySelector('input[name="sale_type_mode"][value="retail"]').checked;
             let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
             let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 1;
-
             if (isRetail && unitPerPack > 1) {
                 unitCost = Math.ceil((unitCost / unitPerPack) / 1000) * 1000;
             }
@@ -2866,11 +2881,11 @@
                     code: activeScannedItem.code,
                     name: activeScannedItem.name + (isRetail ? " (ຂາຍຍ່ອຍ)" : " (ຂາຍສົ່ງ)"),
                     cost: unitCost,
-                    price: finalPrice / qtyInput,
-                    qty: qtyInput
+                    price: finalPrice / qty,
+                    qty: qty
                 }],
                 currency: activeScannedItem.currency || 'ກີບ',
-                pay_mode: currentSelectedPaymentMode || 'cash',
+                pay_mode: 'cash',
                 total_amount: finalPrice,
                 created_at: new Date().toISOString()
             };
@@ -2881,14 +2896,8 @@
                     let productQuery = await db.collection("products").where("code", "==", activeScannedItem.code).get();
                     if (!productQuery.empty) {
                         let docRef = productQuery.docs[0].ref;
-                        // 💡 ດຶງຈຳນວນລາງໃນສາງປັດຈຸບັນ
-                        let currentStockQty = parseFloat(productQuery.docs[0].data().qty) || 0;
-                        
-                        // 💡 ຖ້າຂາຍຍ່ອຍ: ເອົາຈຳນວນປ໋ອງ ຫານໃຫ້ ຈຳນວນຕໍ່ລາງ (ເຊັ່ນ 10 / 24 = 0.416)
-                        // ຖ້າຂາຍສົ່ງ: ລົບເປັນຈຳນວນລາງປົກກະຕິ
-                        let deductQty = isRetail ? (qtyInput / unitPerPack) : qtyInput;
-                        let newStockQty = Math.max(0, currentStockQty - deductQty);
-                        
+                        let currentStockQty = parseInt(productQuery.docs[0].data().qty) || 0;
+                        let newStockQty = Math.max(0, currentStockQty - qty);
                         await docRef.update({ qty: newStockQty });
                     }
                 } catch (e) {
