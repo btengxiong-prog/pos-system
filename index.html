@@ -2775,20 +2775,23 @@
             let rawQty = document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '');
             let qtyInput = parseFloat(rawQty) || 0;
             
-            // 🛠️ ດຶງຈຳນວນສິນຄ້າຄົງເຫຼືອຈາກ activeScannedItem.qty (ຊຶ່ງເປັນຈຳນວນລາງ/ເເມ່ແບບທົດສະນິຍົມ)
+            // ດຶງຈຳນວນສິນຄ້າຄ້າງສາງທັງໝົດ (ເປັນຈຳນວນລາງ/ເເມ່ແບບທົດສະນິຍົມ)
             let currentStock = parseFloat(String(activeScannedItem.qty || 0).replace(/,/g, '')) || 0;
             let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 1;
 
+            // ຄຳນວນຈຳນວນປ໋ອງລວມທັງໝົດທີ່ມີໃນສາງ
             let totalAvailableSingles = Math.round(currentStock * unitPerPack);
-            let soldSingles = isRetail ? qtyInput : (qtyInput * unitPerPack);
-            
-            let remainingSingles = Math.max(0, totalAvailableSingles - soldSingles);
-            
-            let remPacksX = Math.floor(remainingSingles / unitPerPack);
-            let remSinglesY = remainingSingles % unitPerPack;
+            let remPacksX = Math.floor(totalAvailableSingles / unitPerPack);
+            let remSinglesY = totalAvailableSingles % unitPerPack;
 
-            // 📌 ສະແດງຜົນໃນຊ່ອງ "ສິນຄ້າຄ້າງສາງ" ໃຫ້ເປັນ X / Y ຢ່າງຖືກຕ້ອງ
+            // ສະແດງຜົນໃນຊ່ອງ "ສິນຄ້າຄ້າງສາງ" ໃຫ້ເປັນ X / Y ສະເໝີ (ບໍ່ໃຫ້ປ່ຽນແປງຕາມການເລືອກຂາຍສົ່ງ/ຂາຍຍ່ອຍ)
             document.getElementById('display-scanned-stock-remaining').innerText = `${remPacksX} / ${remSinglesY}`;
+
+            // ກວດສອບຈຳນວນສິນຄ້າພໍ ຫຼື ບໍ່ (Validation)
+            let requiredSingles = isRetail ? qtyInput : (qtyInput * unitPerPack);
+            if (requiredSingles > totalAvailableSingles) {
+                showAlert("ແຈ້ງເຕືອນ", "ສິນຄ້າໃນສາງບໍ່ພໍສຳລັບຈຳນວນທີ່ຕ້ອງການຂາຍ!", "⚠️");
+            }
 
             let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
             let unitPrice = parseFloat(String(activeScannedItem.price).replace(/,/g, '')) || 0;
