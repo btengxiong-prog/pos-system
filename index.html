@@ -2326,7 +2326,7 @@
             let todayDateStr = new Date().toLocaleDateString('en-GB');
 
             displayRows.forEach((row) => {
-            // 🔍 ຊອກຫາບ່ອນນີ້ໃນ loadInventory()
+                // 🔍 ໃຫ້ຊອກຫາຟັງຊັນ loadInventory() ແລ້ວປັບປຸງສ່ວນການຄຳນວນນີ້:
                 let totalUnits = parseFloat(String(row.qty || 0).replace(/,/g, '')) || 0; 
                 let unitPerPack = parseInt(row.unitPerPack || row.unit_per_pack) || 1;
 
@@ -2334,8 +2334,7 @@
                 let packsX = Math.floor(totalSingles / unitPerPack);
                 let singlesY = totalSingles % unitPerPack;
 
-                // 💡 ຖ້າ row.qty ຖືກບັນທຶກເປັນຈຳນວນລາງໂດຍตรง (ແບບບໍ່ແມ່ນຈຳນວນທົດສະນິຍົມ) ໃຫ້ປັບວິທີສະແດງຜົນ:
-                let stockNoteDisplay = `ເຫຼືອ: ${totalUnits} / 0`;
+                let stockNoteDisplay = unitPerPack > 1 ? `ເຫຼືອ: ${packsX} / ${singlesY}` : `ເຫຼືອ: ${packsX} / 0`;
 
                 let totalSingles = Math.round(totalUnits * unitPerPack);
                 let packsX = Math.floor(totalSingles / unitPerPack);
@@ -2782,12 +2781,20 @@
             let rawQty = document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '');
             let qtyInput = parseFloat(rawQty) || 0;
             
-            // 🛠️ ດຶງຈຳນວນສິນຄ້າຄົງເຫຼືອຈາກ activeScannedItem.qty ໂດຍກตรง
+            // 🛠️ ດຶງຈຳນວນສິນຄ້າຄົງເຫຼືອຈາກ activeScannedItem.qty (ຊຶ່ງເປັນຈຳນວນລາງ/ເເມ່ແບບທົດສະນິຍົມ)
             let currentStock = parseFloat(String(activeScannedItem.qty || 0).replace(/,/g, '')) || 0;
             let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 1;
 
-            // 📌 คำนวณแสดงผลในช่อง "ສິນຄ້າຄ້າງສາງ" ໃຫ້ເປັນ X / Y (ເຊັ່ນ: 100 / 0)
-            document.getElementById('display-scanned-stock-remaining').innerText = `${Math.floor(currentStock)} / 0`;
+            let totalAvailableSingles = Math.round(currentStock * unitPerPack);
+            let soldSingles = isRetail ? qtyInput : (qtyInput * unitPerPack);
+            
+            let remainingSingles = Math.max(0, totalAvailableSingles - soldSingles);
+            
+            let remPacksX = Math.floor(remainingSingles / unitPerPack);
+            let remSinglesY = remainingSingles % unitPerPack;
+
+            // 📌 ສະແດງຜົນໃນຊ່ອງ "ສິນຄ້າຄ້າງສາງ" ໃຫ້ເປັນ X / Y ຢ່າງຖືກຕ້ອງ
+            document.getElementById('display-scanned-stock-remaining').innerText = `${remPacksX} / ${remSinglesY}`;
 
             let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
             let unitPrice = parseFloat(String(activeScannedItem.price).replace(/,/g, '')) || 0;
