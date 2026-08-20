@@ -870,7 +870,6 @@
             <div class="mt-4 p-3 bg-pink-50 rounded-xl border border-pink-200 text-left space-y-2">
                 <label class="block text-xs font-bold text-pink-900">⌨️ ຫຼື ເລືອກຊື່ສິນຄ້າຈາກສາງ / ພິມລະຫັດ:</label>
                 <div class="flex items-center gap-2 w-full">
-                    <!-- 💡 ໃຊ້ input ພ້ອມ list="..." ເພື່ອໃຫ້ສາມາດທັງ *ພິມ* ແລະ *ມີດ໋ອບດາວໃຫ້ເລືອກ* ໄດ້ພ້ອມກັນ -->
                     <input type="text" id="manual-barcode-input" list="existing-product-names-list" onkeydown="handleManualBarcodeInput(event)" placeholder="ປ້ອນລະຫັດ Barcode ຫຼື ຊື່ສິນຄ້າ..." class="flex-1 w-full border rounded-lg px-3 py-2.5 text-xs font-bold outline-none focus:ring-2 focus:ring-pink-500 bg-white">
                     <button type="button" onclick="submitManualBarcode()" class="bg-pink-600 hover:bg-pink-700 text-white px-6 py-2.5 rounded-lg text-xs font-bold cursor-pointer shadow whitespace-nowrap">ຕົກລົງ</button>
                 </div>
@@ -943,9 +942,11 @@
                 </div>
 
                 <div class="grid grid-cols-3 gap-2 pt-2">
+                    <!-- 💡 ປຸ່ມ ພິມບິນຂາຍ ຜູກກັບຟັງຊັນ printCurrentReceipt() -->
                     <button onclick="printCurrentReceipt()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl shadow transition flex items-center justify-center gap-1 text-xs cursor-pointer">
                         🖨️ ພິມບິນຂາຍ
                     </button>
+                    <!-- 💡 ປຸ່ມ ຍົກເລີກ ຜູກກັບຟັງຊັນ cancelCurrentSaleTransaction() -->
                     <button onclick="cancelCurrentSaleTransaction()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl shadow transition flex items-center justify-center gap-1 text-xs cursor-pointer">
                         ❌ ຍົກເລີກ
                     </button>
@@ -1315,7 +1316,7 @@
                         <span id="rep-cash-thb" class="text-gray-800 font-bold">0 ບາດ</span>
                     </div>
                     <div class="flex justify-between text-[11px] font-semibold text-gray-600">
-                        <span>- ເຂົ້າບັນຊີ (ໂອນ):</span>
+                        <span>- ເງິນໂອນ (ບາດ):</span>
                         <span id="rep-transfer-thb" class="text-gray-800 font-bold">0 ບາດ</span>
                     </div>
                 </div>
@@ -2498,7 +2499,6 @@
             if (event.key === 'Enter') submitManualBarcode();
         }
 
-        // 💡 ປັບປຸງຟັງຊັນ: ເວລານຳເຂົ້າ ຖ້າປ້ອນຊື່ສິນຄ້າ (ບໍ່ມີລະຫັດ) ລະບົບຈະສ້າງລະຫັດ Barcode ຕົວເລກ 12 ຕົວໃຫ້ແບບອັດຕະໂນມັດ
         function submitManualBarcode() {
             let input = document.getElementById('manual-barcode-input');
             if (!input || input.value.trim() === "") return;
@@ -2524,7 +2524,6 @@
                 return;
             }
 
-            // 🔍 ກວດສອບ: ຖ້າຜູ້ໃຊ້ພິມຊື່ສິນຄ້າ (ບໍ່ແມ່ນ Barcode ຕົວເລກ) ໃຫ້ສ້າງລະຫັດ Barcode ຕົວເລກ 12 ຕົວອັດຕະໂນມັດ
             let isLikelyBarcode = /^\d{6,}$/.test(userInput);
             let finalCode = isLikelyBarcode ? userInput : '885' + Math.floor(100000000 + Math.random() * 900000000);
 
@@ -2727,6 +2726,57 @@
                 document.getElementById('custom-final-price').value = formatNumberWithCommas(Math.round(price));
                 calculateChange();
             }
+        }
+
+        // 💡 ຟັງຊັນສຳລັບປຸ່ມ "🖨️ ພິມບິນຂາຍ" ໃນ Sales Popup Modal
+        async function printCurrentReceipt() {
+            if (!activeScannedItem) return;
+
+            let finalPrice = parseFloat(document.getElementById('custom-final-price').value.replace(/,/g, '')) || 0;
+            let qty = parseInt(document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '')) || 1;
+            let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
+
+            let saleRecord = {
+                date: new Date().toISOString(),
+                device_id: deviceId,
+                items: [{
+                    code: activeScannedItem.code,
+                    name: activeScannedItem.name,
+                    cost: unitCost,
+                    price: finalPrice / qty,
+                    qty: qty
+                }],
+                currency: activeScannedItem.currency || 'ກີບ',
+                pay_mode: 'cash',
+                total_amount: finalPrice,
+                created_at: new Date().toISOString()
+            };
+
+            // 1. ບັນທຶກປະຫວັດການຂາຍລົງ Firebase Cloud Firestore
+            if (db) {
+                try {
+                    await db.collection("sales_history").add(saleRecord);
+                    
+                    // 2. ຕັດຫຼຸດຈຳນວນສິນຄ້າໃນສາງ (Firestore products)
+                    let productQuery = await db.collection("products").where("code", "==", activeScannedItem.code).get();
+                    if (!productQuery.empty) {
+                        let docRef = productQuery.docs[0].ref;
+                        let currentStockQty = parseInt(productQuery.docs[0].data().qty) || 0;
+                        let newStockQty = Math.max(0, currentStockQty - qty);
+                        await docRef.update({ qty: newStockQty });
+                    }
+                } catch (e) {
+                    console.error("Error processing receipt save/stock deduction:", e);
+                }
+            }
+
+            closeSalesPopup();
+            window.print();
+        }
+
+        // 💡 ຟັງຊັນສຳລັບປຸ່ມ "❌ ຍົກເລີກ" ໃນ Sales Popup Modal
+        function cancelCurrentSaleTransaction() {
+            closeSalesPopup();
         }
 
         function openExpiryModal() { document.getElementById('expiry-modal').classList.remove('hidden'); loadExpiryCheck(); }
