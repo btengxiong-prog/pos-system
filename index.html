@@ -852,7 +852,8 @@
             <div class="mt-4 p-3 bg-blue-50 rounded-xl border border-blue-200 text-left space-y-2">
                 <label class="block text-xs font-bold text-blue-900">⌨️ ຫຼື ພິມ/ຍິງບາໂຄດດ້ວຍມື ແລ້ວກົດ Enter:</label>
                 <div class="flex gap-2">
-                    <input type="text" id="scan-barcode-input" onkeydown="handleScanBarcodeInput(event)" placeholder="ປ້ອນລະຫັດ Barcode..." class="flex-1 border rounded-lg px-3 py-2 text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                    <!-- 💡 ປັບປຸງ: ເພີ່ມ list="existing-product-names-list" ເຂົ້າໄປໃນຊ່ອງຄົ้นຫາ/ຂາຍສິນຄ້າ ເພື່ອໃຫ້ມີດ໋ອບດາວເລືອກຊື່ສິນຄ້າຈາກສາງໄດ້ແບບດຽວກັນກັບໜ້ານຳເຂົ້າ -->
+                    <input type="text" id="scan-barcode-input" list="existing-product-names-list" onkeydown="handleScanBarcodeInput(event)" placeholder="ປ້ອນລະຫັດ Barcode ຫຼື ຊື່ສິນຄ້າ..." class="flex-1 border rounded-lg px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500 bg-white">
                     <button onclick="submitScanBarcode()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold cursor-pointer shadow">ຕົກລົງ</button>
                 </div>
             </div>
@@ -942,11 +943,9 @@
                 </div>
 
                 <div class="grid grid-cols-3 gap-2 pt-2">
-                    <!-- 💡 ປຸ່ມ ພິມບິນຂາຍ ຜູກກັບຟັງຊັນ printCurrentReceipt() -->
                     <button onclick="printCurrentReceipt()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl shadow transition flex items-center justify-center gap-1 text-xs cursor-pointer">
                         🖨️ ພິມບິນຂາຍ
                     </button>
-                    <!-- 💡 ປຸ່ມ ຍົກເລີກ ຜູກກັບຟັງຊັນ cancelCurrentSaleTransaction() -->
                     <button onclick="cancelCurrentSaleTransaction()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl shadow transition flex items-center justify-center gap-1 text-xs cursor-pointer">
                         ❌ ຍົກເລີກ
                     </button>
@@ -2661,9 +2660,15 @@
 
         function handleSalesBarcodeScanned(code) {
             closeScanner();
-            let foundItem = excelRows.find(item => String(item.code).trim().toLowerCase() === code.toLowerCase());
+            
+            // 🔍 ຄົ້ນຫາສິນຄ້າຈາກທັງ Barcode ແລະ ຊື່ສິນຄ້າ (ຮອງຮັບກໍລະນີເລືອກຈາກ Datalist Dropdown)
+            let foundItem = excelRows.find(item => 
+                String(item.code).trim().toLowerCase() === code.toLowerCase() || 
+                (item.name && item.name.trim().toLowerCase() === code.toLowerCase())
+            );
+
             if (!foundItem) {
-                showAlert("ບໍ່ພົບສິນຄ້າ", `ບໍ່ພົບລະຫັດສິນຄ້າ [${code}] ໃນສາງ!`, "⚠️");
+                showAlert("ບໍ່ພົບສິນຄ້າ", `ບໍ່ພົບລະຫັດ ຫຼື ຊື່ສິນຄ້າ [${code}] ໃນສາງ!`, "⚠️");
                 return;
             }
 
@@ -2728,7 +2733,6 @@
             }
         }
 
-        // 💡 ຟັງຊັນສຳລັບປຸ່ມ "🖨️ ພິມບິນຂາຍ" ໃນ Sales Popup Modal
         async function printCurrentReceipt() {
             if (!activeScannedItem) return;
 
@@ -2752,12 +2756,9 @@
                 created_at: new Date().toISOString()
             };
 
-            // 1. ບັນທຶກປະຫວັດການຂາຍລົງ Firebase Cloud Firestore
             if (db) {
                 try {
                     await db.collection("sales_history").add(saleRecord);
-                    
-                    // 2. ຕັດຫຼຸດຈຳນວນສິນຄ້າໃນສາງ (Firestore products)
                     let productQuery = await db.collection("products").where("code", "==", activeScannedItem.code).get();
                     if (!productQuery.empty) {
                         let docRef = productQuery.docs[0].ref;
@@ -2774,7 +2775,6 @@
             window.print();
         }
 
-        // 💡 ຟັງຊັນສຳລັບປຸ່ມ "❌ ຍົກເລີກ" ໃນ Sales Popup Modal
         function cancelCurrentSaleTransaction() {
             closeSalesPopup();
         }
