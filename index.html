@@ -2775,20 +2775,21 @@
             let rawQty = document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '');
             let qtyInput = parseFloat(rawQty) || 0;
             
-            // 🛠️ ດຶງຈຳນວນສິນຄ້າຄົງເຫຼືອຈາກ activeScannedItem.qty (ຊຶ່ງເປັນຈຳນວນລາງ/ເເມ່ແບບທົດສະນິຍົມ)
+            // ດຶງຈຳນວນລວມທັງໝົດໃນສາງ (ເປັນໜ່ວຍຍ່ອຍ/ປ໋ອງ)
             let currentStock = parseFloat(String(activeScannedItem.qty || 0).replace(/,/g, '')) || 0;
             let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 1;
-
             let totalAvailableSingles = Math.round(currentStock * unitPerPack);
-            let soldSingles = isRetail ? qtyInput : (qtyInput * unitPerPack);
-            
-            let remainingSingles = Math.max(0, totalAvailableSingles - soldSingles);
-            
-            let remPacksX = Math.floor(remainingSingles / unitPerPack);
-            let remSinglesY = remainingSingles % unitPerPack;
 
-            // 📌 ສະແດງຜົນໃນຊ່ອງ "ສິນຄ້າຄ້າງສາງ" ໃຫ້ເປັນ X / Y ຢ່າງຖືກຕ້ອງ
-            document.getElementById('display-scanned-stock-remaining').innerText = `${remPacksX} / ${remSinglesY}`;
+            // 💡 1. ໃຫ້ສະແດງຜົນ "ສິນຄ້າຄ້າງສາງ" ເປັນ X / Y (ລາງ / ປ໋ອງ) ຕະຫຼອດໂດຍບໍ່ປ່ຽນແປງຕາມປະເພດການຂາຍ
+            let stockPacks = Math.floor(totalAvailableSingles / unitPerPack);
+            let stockSingles = totalAvailableSingles % unitPerPack;
+            document.getElementById('display-scanned-stock-remaining').innerText = `${stockPacks} / ${stockSingles}`;
+
+            // 💡 2. ກວດສອບຈຳນວນສິນຄ້າພໍ ຫຼື ບໍ່ (ກໍລະນີຂາຍສົ່ງ ແລະ ຂາຍຍ່ອຍ)
+            let requiredSingles = isRetail ? qtyInput : (qtyInput * unitPerPack);
+            if (requiredSingles > totalAvailableSingles) {
+                showAlert("ແຈ້ງເຕືອນ", "ສິນຄ້າໃນສາງບໍ່ພໍສຳລັບການຂາຍນີ້!", "⚠️");
+            }
 
             let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
             let unitPrice = parseFloat(String(activeScannedItem.price).replace(/,/g, '')) || 0;
