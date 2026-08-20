@@ -852,8 +852,7 @@
             <div class="mt-4 p-3 bg-blue-50 rounded-xl border border-blue-200 text-left space-y-2">
                 <label class="block text-xs font-bold text-blue-900">⌨️ ຫຼື ພິມ/ຍິງບາໂຄດດ້ວຍມື ແລ້ວກົດ Enter:</label>
                 <div class="flex gap-2">
-                    <!-- 💡 ປັບປຸງ: ເພີ່ມ list="existing-product-names-list" ເຂົ້າໄປໃນຊ່ອງຄົ้นຫາ/ຂາຍສິນຄ້າ ເພື່ອໃຫ້ມີດ໋ອບດາວເລືອກຊື່ສິນຄ້າຈາກສາງໄດ້ແບບດຽວກັນກັບໜ້ານຳເຂົ້າ -->
-                    <input type="text" id="scan-barcode-input" list="existing-product-names-list" onkeydown="handleScanBarcodeInput(event)" placeholder="ປ້ອນລະຫັດ Barcode ຫຼື ຊື່ສິນຄ້າ..." class="flex-1 border rounded-lg px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                    <input type="text" id="scan-barcode-input" list="existing-product-names-list" onkeydown="handleScanBarcodeInput(event)" placeholder="ປ້ອນລະຫັດ Barcode..." class="flex-1 border rounded-lg px-3 py-2 text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white">
                     <button onclick="submitScanBarcode()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold cursor-pointer shadow">ຕົກລົງ</button>
                 </div>
             </div>
@@ -1315,7 +1314,7 @@
                         <span id="rep-cash-thb" class="text-gray-800 font-bold">0 ບາດ</span>
                     </div>
                     <div class="flex justify-between text-[11px] font-semibold text-gray-600">
-                        <span>- ເງິນໂອນ (ບາດ):</span>
+                        <span>- ເຂົ້າບັນຊີ (ໂອນ):</span>
                         <span id="rep-transfer-thb" class="text-gray-800 font-bold">0 ບາດ</span>
                     </div>
                 </div>
@@ -1571,6 +1570,16 @@
                     return `${parts[2].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[0]}`;
                 } else if (parts[2].length === 4) {
                     return `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[2]}`;
+                }
+            }
+            // 💡 ປັບປຸງ: ຮອງຮັບການແປງຜົນຈາກ ISO Date (ເຊັ່ນ 2026-08-20T...) ໃຫ້ເປັນ dd/mm/yyyy ຢ່າງຖືກຕ້ອງ 100%
+            if (dateStr.includes('T') || dateStr.includes('Z') || (dateStr.length >= 10 && dateStr.includes('-'))) {
+                let dObj = new Date(dateStr);
+                if (!isNaN(dObj.getTime())) {
+                    let dd = String(dObj.getDate()).padStart(2, '0');
+                    let mm = String(dObj.getMonth() + 1).padStart(2, '0');
+                    let yyyy = dObj.getFullYear();
+                    return `${dd}/${mm}/${yyyy}`;
                 }
             }
             return dateStr;
@@ -2660,8 +2669,6 @@
 
         function handleSalesBarcodeScanned(code) {
             closeScanner();
-            
-            // 🔍 ຄົ້ນຫາສິນຄ້າຈາກທັງ Barcode ແລະ ຊື່ສິນຄ້າ (ຮອງຮັບກໍລະນີເລືອກຈາກ Datalist Dropdown)
             let foundItem = excelRows.find(item => 
                 String(item.code).trim().toLowerCase() === code.toLowerCase() || 
                 (item.name && item.name.trim().toLowerCase() === code.toLowerCase())
@@ -3046,6 +3053,7 @@
             let html = '', countIndex = 1, totalCostAll = 0, totalPriceAll = 0, cashTotal = 0, transferTotal = 0;
 
             salesHistory.forEach(tx => {
+                // 💡 ໃຊ້ formatDateToDDMMYYYY ເພື່ອແປງຜົນວັນ/ເດືອນ/ປີ ໃຫ້ເປັນ dd/mm/yyyy ຢ່າງຖືກຕ້ອງ
                 let formattedDate = formatDateToDDMMYYYY(tx.date);
                 if (tx.items && Array.isArray(tx.items)) {
                     tx.items.forEach(it => {
