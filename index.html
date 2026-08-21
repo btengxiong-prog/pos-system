@@ -2270,8 +2270,10 @@
             let tbody = document.getElementById('inventory-tbody');
             if (!tbody) return;
 
-            // 📌 ກຳນົດໃຫ້ colspan ເປັນ 21 ເພື່ອໃຫ້ຂໍ້ຄວາມສະແດງເຕັມຄວາມກວ້າງຂອງຕາຕະລາງພໍດີ
-            let colSpanCount = 21;
+            let userRole = localStorage.getItem('pos_user_role');
+            let shopOwner = localStorage.getItem('pos_shop_owner');
+            let isAdminMaster = (userRole === 'admin' || deviceId === 'POSXIONG' || (shopOwner === 'true' && deviceId === 'POSXIONG'));
+            let colSpanCount = isAdminMaster ? 21 : 20;
 
             tbody.innerHTML = `<tr><td colspan="${colSpanCount}" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
 
@@ -2768,218 +2770,136 @@
         function closeSalesPopup() { document.getElementById('sales-popup-modal').classList.add('hidden'); }
 
         function updatePopupPricing(isRetail) {
-                    if (!activeScannedItem) return;
+            if (!activeScannedItem) return;
 
-                    let rawQty = document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '');
-                    let qtyInput = parseFloat(rawQty) || 0;
-                    
-                    let currentStock = parseFloat(String(activeScannedItem.qty || 0).replace(/,/g, '')) || 0;
-                    let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 1;
+            let rawQty = document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '');
+            let qtyInput = parseFloat(rawQty) || 0;
+            
+            // 🛠️ ດຶງຈຳນວນສິນຄ້າຄົງເຫຼືອຈາກ activeScannedItem.qty (ຊຶ່ງເປັນຈຳນວນລາງ/ເເມ່ແບບທົດສະນິຍົມ)
+            let currentStock = parseFloat(String(activeScannedItem.qty || 0).replace(/,/g, '')) || 0;
+            let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 1;
 
-                    // 📌 ຄຳນວນຈຳນວນທັງໝົດເປັນຫົວໜ່ວຍຍ່ອຍ (ປ໋ອງ/ແກ້ວ) ໃຫ້ຄົງທີ່ສະເໝີ
-                    let totalAvailableSingles = Math.round(currentStock * unitPerPack);
-                    let remPacksX = Math.floor(totalAvailableSingles / unitPerPack);
-                    let remSinglesY = totalAvailableSingles % unitPerPack;
+            let totalAvailableSingles = Math.round(currentStock * unitPerPack);
+            let soldSingles = isRetail ? qtyInput : (qtyInput * unitPerPack);
+            
+            let remainingSingles = Math.max(0, totalAvailableSingles - soldSingles);
+            
+            let remPacksX = Math.floor(remainingSingles / unitPerPack);
+            let remSinglesY = remainingSingles % unitPerPack;
 
-                    // 📌 ສະແດງຜົນໃນຊ່ອງ "ສິນຄ້າຄ້າງສາງ" ໃຫ້ເປັນ X / Y (ເຊັ່ນ: 0 / 14) ຕະຫຼອດໂດຍບໍ່ປ່ຽນແປງຕາມການເລືອກຂາຍສົ່ງ/ຂາຍຍ່ອຍ
-                    document.getElementById('display-scanned-stock-remaining').innerText = `${remPacksX} / ${remSinglesY}`;
+            // 📌 ສະແດງຜົນໃນຊ່ອງ "ສິນຄ້າຄ້າງສາງ" ໃຫ້ເປັນ X / Y ຢ່າງຖືກຕ້ອງ
+            document.getElementById('display-scanned-stock-remaining').innerText = `${remPacksX} / ${remSinglesY}`;
 
-                    // 🔍 ກວດສອບຈຳນວນຂາຍເກີນສາງ
-                    let maxAllowedQty = isRetail ? totalAvailableSingles : remPacksX;
-                    if (unitPerPack === 1) maxAllowedQty = remPacksX;
+            let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
+            let unitPrice = parseFloat(String(activeScannedItem.price).replace(/,/g, '')) || 0;
 
-                    let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
-                    let unitPrice = parseFloat(String(activeScannedItem.price).replace(/,/g, '')) || 0;
+            if (isRetail && unitPerPack > 1) {
+                unitCost = Math.ceil((unitCost / unitPerPack) / 1000) * 1000;
+                unitPrice = Math.ceil((unitPrice / unitPerPack) / 1000) * 1000;
+            }
 
-                    if (isRetail && unitPerPack > 1) {
-                        unitCost = Math.ceil((unitCost / unitPerPack) / 1000) * 1000;
-                        unitPrice = Math.ceil((unitPrice / unitPerPack) / 1000) * 1000;
+            let totalCost = unitCost * qtyInput;
+            let totalPrice = unitPrice * qtyInput;
+
+            document.getElementById('grand-total-cost').innerText = formatNumberWithCommas(totalCost) + " " + (activeScannedItem.currency || 'ກີບ');
+            document.getElementById('grand-total').innerText = formatNumberWithCommas(totalPrice) + " " + (activeScannedItem.currency || 'ກີບ');
+            document.getElementById('custom-final-price').value = formatNumberWithCommas(totalPrice);
+            document.getElementById('final-total').innerText = formatNumberWithCommas(totalPrice) + " " + (activeScannedItem.currency || 'ກີບ');
+            document.getElementById('grand-total-profit').innerText = formatNumberWithCommas(totalPrice - totalCost) + " " + (activeScannedItem.currency || 'ກີບ');
+            
+            calculateChange();
+        }
+
+        function calculateChange() {
+            let finalPrice = parseFloat(document.getElementById('custom-final-price').value.replace(/,/g, '')) || 0;
+            let cashGiven = parseFloat(document.getElementById('cash-given').value.replace(/,/g, '')) || 0;
+            let curr = activeScannedItem ? (activeScannedItem.currency || 'ກີບ') : 'ກີບ';
+
+            document.getElementById('final-total').innerText = formatNumberWithCommas(finalPrice) + " " + curr;
+
+            let isRetail = document.querySelector('input[name="sale_type_mode"][value="retail"]').checked;
+            let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
+            let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 1;
+            if (isRetail && unitPerPack > 1) {
+                unitCost = Math.ceil((unitCost / unitPerPack) / 1000) * 1000;
+            }
+
+            let qty = parseInt(document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '')) || 1;
+            let totalCost = unitCost * qty;
+            let profit = finalPrice - totalCost;
+            document.getElementById('grand-total-profit').innerText = formatNumberWithCommas(profit) + " " + curr;
+
+            if (cashGiven > 0) {
+                let change = cashGiven - finalPrice;
+                document.getElementById('change-amount').innerText = change >= 0 ? formatNumberWithCommas(change) + " " + curr : "ເງິນສົດຍັງບໍ່ພໍ!";
+            } else {
+                document.getElementById('change-amount').innerText = "0 " + curr + " (ຈ່າຍພໍດີ)";
+            }
+        }
+
+        function updateCartQtyFromInput(qtyVal) {
+            let isRetail = document.querySelector('input[name="sale_type_mode"][value="retail"]').checked;
+            updatePopupPricing(isRetail);
+            calculateChange();
+        }
+
+        function setSaleTypeMode(mode) {
+            let isRetail = (mode === 'retail');
+            updatePopupPricing(isRetail);
+            calculateChange();
+        }
+
+        async function printCurrentReceipt() {
+            if (!activeScannedItem) return;
+
+            let finalPrice = parseFloat(document.getElementById('custom-final-price').value.replace(/,/g, '')) || 0;
+            let qty = parseInt(document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '')) || 1;
+            
+            let isRetail = document.querySelector('input[name="sale_type_mode"][value="retail"]').checked;
+            let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
+            let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 1;
+            if (isRetail && unitPerPack > 1) {
+                unitCost = Math.ceil((unitCost / unitPerPack) / 1000) * 1000;
+            }
+
+            let saleRecord = {
+                date: new Date().toISOString(),
+                device_id: deviceId,
+                items: [{
+                    code: activeScannedItem.code,
+                    name: activeScannedItem.name + (isRetail ? " (ຂາຍຍ່ອຍ)" : " (ຂາຍສົ່ງ)"),
+                    cost: unitCost,
+                    price: finalPrice / qty,
+                    qty: qty
+                }],
+                currency: activeScannedItem.currency || 'ກີບ',
+                pay_mode: 'cash',
+                total_amount: finalPrice,
+                created_at: new Date().toISOString()
+            };
+
+            if (db) {
+                try {
+                    await db.collection("sales_history").add(saleRecord);
+                    let productQuery = await db.collection("products").where("code", "==", activeScannedItem.code).get();
+                    if (!productQuery.empty) {
+                        let docRef = productQuery.docs[0].ref;
+                        let currentStockQty = parseFloat(productQuery.docs[0].data().qty) || 0;
+                        let totalAvailableSingles = Math.round(currentStockQty * unitPerPack);
+                        let soldSingles = isRetail ? qty : (qty * unitPerPack);
+                        let newTotalSingles = Math.max(0, totalAvailableSingles - soldSingles);
+                        
+                        let newStockQty = newTotalSingles / unitPerPack;
+                        await docRef.update({ qty: newStockQty });
                     }
-
-                    // 🚨 ຖ້າເລືອກຂາຍສົ່ງ ແຕ່ມີຈຳນວນບໍ່ຮอด 1 ລາງ (ເຊັ່ນ 0/14) ໃຫ້ບັງຄັບຈຳນວນຂາຍເປັນ 0 ຫຼື ແຈ້ງເຕືອນ
-                    if (!isRetail && remPacksX === 0 && totalAvailableSingles > 0) {
-                        if (qtyInput > 0) {
-                            showAlert("ແຈ້ງເຕືອນ", "ສິນຄ້າບໍ່ພໍສຳລັບການຂາຍສົ່ງ (ເຫຼືອບໍ່ຮອດ 1 ລາງ)!", "⚠️");
-                        }
-                    } else if (qtyInput > maxAllowedQty) {
-                        showAlert("ແຈ້ງເຕືອນ", `ສິນຄ້າໃນສາງບໍ່ພໍ! (ມີພຽງແຕ່ ${maxAllowedQty})`, "⚠️");
-                    }
-
-                    let totalCost = unitCost * qtyInput;
-                    let totalPrice = unitPrice * qtyInput;
-
-                    document.getElementById('grand-total-cost').innerText = formatNumberWithCommas(totalCost) + " " + (activeScannedItem.currency || 'ກີບ');
-                    document.getElementById('grand-total').innerText = formatNumberWithCommas(totalPrice) + " " + (activeScannedItem.currency || 'ກີບ');
-                    document.getElementById('custom-final-price').value = formatNumberWithCommas(totalPrice);
-                    document.getElementById('final-total').innerText = formatNumberWithCommas(totalPrice) + " " + (activeScannedItem.currency || 'ກີບ');
-                    document.getElementById('grand-total-profit').innerText = formatNumberWithCommas(totalPrice - totalCost) + " " + (activeScannedItem.currency || 'ກີບ');
-                    
-                    calculateChange();
+                } catch (e) {
+                    console.error("Error processing receipt save/stock deduction:", e);
                 }
+            }
 
-                function calculateChange() {
-                    let finalPrice = parseFloat(document.getElementById('custom-final-price').value.replace(/,/g, '')) || 0;
-                    let cashGiven = parseFloat(document.getElementById('cash-given').value.replace(/,/g, '')) || 0;
-                    let curr = activeScannedItem ? (activeScannedItem.currency || 'ກີບ') : 'ກີບ';
-
-                    document.getElementById('final-total').innerText = formatNumberWithCommas(finalPrice) + " " + curr;
-
-                    let isRetail = document.querySelector('input[name="sale_type_mode"][value="retail"]').checked;
-                    let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
-                    let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 1;
-                    if (isRetail && unitPerPack > 1) {
-                        unitCost = Math.ceil((unitCost / unitPerPack) / 1000) * 1000;
-                    }
-
-                    let qty = parseInt(document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '')) || 1;
-                    let totalCost = unitCost * qty;
-                    let profit = finalPrice - totalCost;
-                    document.getElementById('grand-total-profit').innerText = formatNumberWithCommas(profit) + " " + curr;
-
-                    if (cashGiven > 0) {
-                        let change = cashGiven - finalPrice;
-                        document.getElementById('change-amount').innerText = change >= 0 ? formatNumberWithCommas(change) + " " + curr : "ເງິນສົດຍັງບໍ່ພໍ!";
-                    } else {
-                        document.getElementById('change-amount').innerText = "0 " + curr + " (ຈ່າຍພໍດີ)";
-                    }
-                }
-
-                function updateCartQtyFromInput(qtyVal) {
-                    let isRetail = document.querySelector('input[name="sale_type_mode"][value="retail"]').checked;
-                    updatePopupPricing(isRetail);
-                    calculateChange();
-                }
-
-                function setSaleTypeMode(mode) {
-                    let isRetail = (mode === 'retail');
-                    updatePopupPricing(isRetail);
-                    calculateChange();
-                }
-
-                async function printCurrentReceipt() {
-                    if (!activeScannedItem) return;
-
-                    let finalPrice = parseFloat(document.getElementById('custom-final-price').value.replace(/,/g, '')) || 0;
-                    let qty = parseInt(document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '')) || 1;
-                    
-                    let isRetail = document.querySelector('input[name="sale_type_mode"][value="retail"]').checked;
-                    let currentStock = parseFloat(String(activeScannedItem.qty || 0).replace(/,/g, '')) || 0;
-                    let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 1;
-                    let totalAvailableSingles = Math.round(currentStock * unitPerPack);
-                    let remPacksX = Math.floor(totalAvailableSingles / unitPerPack);
-
-                    // 🛡️ ກວດສອບກ່ອນພິມ ແລະ ຕັດສາງ: ຖ້າຂາຍສົ່ງແຕ່ເຫຼືອ 0 ລາງ ຫຼື ຈຳນວນເກີນ ໃຫ້ແຈ້ງເຕືອນ
-                    let maxAllowedQty = isRetail ? totalAvailableSingles : remPacksX;
-                    if (!isRetail && remPacksX === 0) {
-                        showAlert("ແຈ້ງເຕືອນ", "ສິນຄ້າບໍ່ພໍສຳລັບການຂາຍສົ່ງ!", "⚠️");
-                        return;
-                    }
-                    if (qty > maxAllowedQty) {
-                        showAlert("ແຈ້ງເຕືອນ", `ຈຳນວນຂາຍເກີນສາງที่มีอยู่ (${maxAllowedQty})!`, "⚠️");
-                        return;
-                    }
-
-                    let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
-                    if (isRetail && unitPerPack > 1) {
-                        unitCost = Math.ceil((unitCost / unitPerPack) / 1000) * 1000;
-                    }
-
-                    let saleRecord = {
-                        date: new Date().toISOString(),
-                        device_id: deviceId,
-                        items: [{
-                            code: activeScannedItem.code,
-                            name: activeScannedItem.name + (isRetail ? " (ຂາຍຍ່ອຍ)" : " (ຂາຍສົ່ງ)"),
-                            cost: unitCost,
-                            price: finalPrice / qty,
-                            qty: qty
-                        }],
-                        currency: activeScannedItem.currency || 'ກີບ',
-                        pay_mode: 'cash',
-                        total_amount: finalPrice,
-                        created_at: new Date().toISOString()
-                    };
-
-                    if (db) {
-                        try {
-                            await db.collection("sales_history").add(saleRecord);
-                            let productQuery = await db.collection("products").where("code", "==", activeScannedItem.code).get();
-                            if (!productQuery.empty) {
-                                let docRef = productQuery.docs[0].ref;
-                                let soldSingles = isRetail ? qty : (qty * unitPerPack);
-                                let newTotalSingles = Math.max(0, totalAvailableSingles - soldSingles);
-                                
-                                let newStockQty = newTotalSingles / unitPerPack;
-                                await docRef.update({ qty: newStockQty });
-                            }
-                        } catch (e) {
-                            console.error("Error processing receipt save/stock deduction:", e);
-                        }
-                    }
-
-                    closeSalesPopup();
-                    window.print();
-                }
-
-                async function confirmCheckoutPayment() {
-                    if (!activeScannedItem) return;
-                    let finalPrice = parseFloat(document.getElementById('custom-final-price').value.replace(/,/g, '')) || 0;
-                    let qty = parseInt(document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '')) || 1;
-                    
-                    let isRetail = document.querySelector('input[name="sale_type_mode"][value="retail"]').checked;
-                    let currentStock = parseFloat(String(activeScannedItem.qty || 0).replace(/,/g, '')) || 0;
-                    let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 1;
-                    let totalAvailableSingles = Math.round(currentStock * unitPerPack);
-                    let remPacksX = Math.floor(totalAvailableSingles / unitPerPack);
-
-                    // 🛡️ ກວດສອບກ່ອນຊຳລະເງິນ ແລະ ຕັດສາງ
-                    let maxAllowedQty = isRetail ? totalAvailableSingles : remPacksX;
-                    if (!isRetail && remPacksX === 0) {
-                        showAlert("ແຈ້ງເຕືອນ", "ສິນຄ້າບໍ່ພໍສຳລັບການຂາຍສົ່ງ!", "⚠️");
-                        return;
-                    }
-                    if (qty > maxAllowedQty) {
-                        showAlert("ແຈ້ງເຕືອນ", `ຈຳນວນຂາຍເກີນສາງที่มีอยู่ (${maxAllowedQty})!`, "⚠️");
-                        return;
-                    }
-
-                    let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
-                    if (isRetail && unitPerPack > 1) {
-                        unitCost = Math.ceil((unitCost / unitPerPack) / 1000) * 1000;
-                    }
-
-                    let saleRecord = {
-                        date: new Date().toISOString(),
-                        device_id: deviceId,
-                        items: [{ code: activeScannedItem.code, name: activeScannedItem.name + (isRetail ? " (ຂາຍຍ່ອຍ)" : " (ຂາຍສົ່ງ)"), cost: unitCost, price: finalPrice / qty, qty: qty }],
-                        currency: activeScannedItem.currency || 'ກີບ',
-                        pay_mode: currentSelectedPaymentMode,
-                        total_amount: finalPrice,
-                        created_at: new Date().toISOString()
-                    };
-
-                    if (db) {
-                        try { 
-                            await db.collection("sales_history").add(saleRecord); 
-                            
-                            let productQuery = await db.collection("products").where("code", "==", activeScannedItem.code).get();
-                            if (!productQuery.empty) {
-                                let docRef = productQuery.docs[0].ref;
-                                let soldSingles = isRetail ? qty : (qty * unitPerPack);
-                                let newTotalSingles = Math.max(0, totalAvailableSingles - soldSingles);
-                                
-                                let newStockQty = newTotalSingles / unitPerPack;
-                                await docRef.update({ qty: newStockQty });
-                            }
-                        } catch (e) {
-                            console.error("Error processing payment save/stock deduction:", e);
-                        }
-                    }
-
-                    closeCheckoutMethodModal();
-                    closeSalesPopup();
-                    showAlert("ສຳເລັດ", `ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ (ວິທີ: ${currentSelectedPaymentMode})!`, "💰");
-                }
+            closeSalesPopup();
+            window.print();
+        }
 
         function cancelCurrentSaleTransaction() {
             closeSalesPopup();
