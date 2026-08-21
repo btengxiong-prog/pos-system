@@ -1690,90 +1690,91 @@
         }
 
         function initFirebaseRealtime() {
-            if (!db) return;
-            try {
-                let userRole = localStorage.getItem('pos_user_role');
-                let currentDevId = String(deviceId || '').trim().toUpperCase();
-                let activeShopUser = String(localStorage.getItem('pos_active_shop_username') || localStorage.getItem('pos_shop_user') || '').trim().toUpperCase();
+                    if (!db) return;
+                    try {
+                        let userRole = localStorage.getItem('pos_user_role');
+                        let currentDevId = String(deviceId || '').trim().toUpperCase();
+                        let activeShopUser = String(localStorage.getItem('pos_active_shop_username') || localStorage.getItem('pos_shop_user') || '').trim().toUpperCase();
+                        let isShopOwner = localStorage.getItem('pos_shop_owner') === 'true';
 
-                // 🎯 ຕັດສິນໃຈ Query: ຖ້າເປັນ Admin ເຫັນທຸກຮ້ານ, ຖ້າເປັນຮ້ານທົ່ວໄປ ໃຫ້ດຶງສະເພາະ device_id ຂອງຕົນເອງ
-                let productsQuery = db.collection("products");
-                if (userRole !== 'admin' && currentDevId !== 'POSXIONG') {
-                    productsQuery = productsQuery.where("device_id", "==", currentDevId);
-                }
-
-                productsQuery.onSnapshot(async (snapshot) => {
-                    let tempArr = [];
-                    let batch = db.batch();
-                    let hasChanges = false;
-
-                    snapshot.forEach((doc) => {
-                        let item = doc.data();
-                        let docId = doc.id;
-                        let rowDevId = String(item.device_id || '').trim().toUpperCase();
-
-                        // ຖ້າຂໍ້ມູນໃດຍັງບໍ່ມີ device_id ໃຫ້ຜູກກັບເຄື່ອງປັດຈຸບັນ
-                        if (!rowDevId || rowDevId === '-' || rowDevId === 'UNDEFINED' || rowDevId === 'NULL') {
-                            let docRef = db.collection("products").doc(docId);
-                            batch.update(docRef, { device_id: currentDevId });
-                            item.device_id = currentDevId;
-                            hasChanges = true;
-                            rowDevId = currentDevId;
+                        // 🎯 ຕັດສິນໃຈ Query: ຖ້າເປັນ Admin, ເຈົ້າຂອງຮ້ານ ຫຼື Super Admin ໃຫ້ເຫັນທຸກຮ້ານ/ທຸກເຄື່ອງ, ຖ້າເປັນພະນັກງານຂາຍ ໃຫ້ດຶງສະເພາະ device_id ຂອງຕົນເອງ
+                        let productsQuery = db.collection("products");
+                        if (userRole !== 'admin' && currentDevId !== 'POSXIONG' && !isShopOwner) {
+                            productsQuery = productsQuery.where("device_id", "==", currentDevId);
                         }
 
-                        // 🔍 ກັ່ນຕອງຊ້ຳອີກຊັ້ນໜຶ່ງເພື່ອຄວາມປອດໄພສູງສຸດ
-                        if (userRole === 'admin' || currentDevId === 'POSXIONG' || rowDevId === currentDevId || (activeShopUser !== '' && rowDevId === activeShopUser)) {
-                            tempArr.push({
-                                id: docId,
-                                code: item.code,
-                                name: item.name || '',
-                                cost: item.cost,
-                                originalCost: item.original_cost || item.cost,
-                                profitPct: item.profit_pct !== undefined ? item.profit_pct : 20,
-                                price: item.price,
-                                qty: item.qty !== undefined ? item.qty : 1,
-                                initial_qty: item.initial_qty !== undefined ? item.initial_qty : (item.qty || 1),
-                                unitPerPack: item.unit_per_pack || 12,
-                                dateAdded: item.date_added || item.dateAdded || '',
-                                mfgDate: item.mfg_date || '',
-                                expiryDate: item.expiry_date || '',
-                                currency: item.currency || 'ກີບ',
-                                buyingRate: item.buying_rate || 650,
-                                sellingRate: item.selling_rate || 670,
-                                device_id: rowDevId
+                        productsQuery.onSnapshot(async (snapshot) => {
+                            let tempArr = [];
+                            let batch = db.batch();
+                            let hasChanges = false;
+
+                            snapshot.forEach((doc) => {
+                                let item = doc.data();
+                                let docId = doc.id;
+                                let rowDevId = String(item.device_id || '').trim().toUpperCase();
+
+                                // ຖ້າຂໍ້ມູນໃດຍັງບໍ່ມີ device_id ໃຫ້ຜູກກັບເຄື່ອງປັດຈຸບັນ
+                                if (!rowDevId || rowDevId === '-' || rowDevId === 'UNDEFINED' || rowDevId === 'NULL') {
+                                    let docRef = db.collection("products").doc(docId);
+                                    batch.update(docRef, { device_id: currentDevId });
+                                    item.device_id = currentDevId;
+                                    hasChanges = true;
+                                    rowDevId = currentDevId;
+                                }
+
+                                // 🔍 ກັ່ນຕອງຊ້ຳອີກຊັ້ນໜຶ່ງເພື່ອຄວາມປອດໄພສູງສຸດ
+                                if (userRole === 'admin' || currentDevId === 'POSXIONG' || isShopOwner || rowDevId === currentDevId || (activeShopUser !== '' && rowDevId === activeShopUser)) {
+                                    tempArr.push({
+                                        id: docId,
+                                        code: item.code,
+                                        name: item.name || '',
+                                        cost: item.cost,
+                                        originalCost: item.original_cost || item.cost,
+                                        profitPct: item.profit_pct !== undefined ? item.profit_pct : 20,
+                                        price: item.price,
+                                        qty: item.qty !== undefined ? item.qty : 1,
+                                        initial_qty: item.initial_qty !== undefined ? item.initial_qty : (item.qty || 1),
+                                        unitPerPack: item.unit_per_pack || 12,
+                                        dateAdded: item.date_added || item.dateAdded || '',
+                                        mfgDate: item.mfg_date || '',
+                                        expiryDate: item.expiry_date || '',
+                                        currency: item.currency || 'ກີບ',
+                                        buyingRate: item.buying_rate || 650,
+                                        sellingRate: item.selling_rate || 670,
+                                        device_id: rowDevId
+                                    });
+                                }
                             });
-                        }
-                    });
 
-                    if (hasChanges) {
-                        await batch.commit().catch(err => console.error(err));
-                    }
+                            if (hasChanges) {
+                                await batch.commit().catch(err => console.error(err));
+                            }
 
-                    excelRows = tempArr;
-                    updateExistingProductNamesDatalist();
-                    checkExpiryAlertStatus();
+                            excelRows = tempArr;
+                            updateExistingProductNamesDatalist();
+                            checkExpiryAlertStatus();
 
-                    if (!document.getElementById('inventory-modal').classList.contains('hidden')) loadInventory();
-                    if (!document.getElementById('rate-analysis-modal').classList.contains('hidden')) loadRateAnalysis();
-                    if (!document.getElementById('expiry-modal').classList.contains('hidden')) loadExpiryCheck();
-                    if (!document.getElementById('excel-generator-modal').classList.contains('hidden')) renderExcelTable();
-                    if (!document.getElementById('report-modal').classList.contains('hidden')) calculateReport();
-                });
+                            if (!document.getElementById('inventory-modal').classList.contains('hidden')) loadInventory();
+                            if (!document.getElementById('rate-analysis-modal').classList.contains('hidden')) loadRateAnalysis();
+                            if (!document.getElementById('expiry-modal').classList.contains('hidden')) loadExpiryCheck();
+                            if (!document.getElementById('excel-generator-modal').classList.contains('hidden')) renderExcelTable();
+                            if (!document.getElementById('report-modal').classList.contains('hidden')) calculateReport();
+                        });
 
-                // ໂຄດສຳລັບ History (ປະຫວັດການຂາຍ) ໃຫ້ແຍກຕາມຮ້ານເຊັ່ນດຽວກັນ
-                let historyQuery = (userRole === 'admin' || currentDevId === 'POSXIONG') ?
-                    db.collection("sales_history") :
-                    db.collection("sales_history").where("device_id", "==", currentDevId);
+                        // ໂຄດສຳລັບ History (ປະຫວັດການຂາຍ) ໃຫ້ແຍກຕາມຮ້ານສຳລັບພະນັກງານຂາຍ
+                        let historyQuery = (userRole === 'admin' || currentDevId === 'POSXIONG' || isShopOwner) ?
+                            db.collection("sales_history") :
+                            db.collection("sales_history").where("device_id", "==", currentDevId);
 
-                historyQuery.onSnapshot(() => {
-                    if (!document.getElementById('history-modal').classList.contains('hidden')) loadCloudHistory();
-                    if (!document.getElementById('report-modal').classList.contains('hidden')) calculateReport();
-                });
+                        historyQuery.onSnapshot(() => {
+                            if (!document.getElementById('history-modal').classList.contains('hidden')) loadCloudHistory();
+                            if (!document.getElementById('report-modal').classList.contains('hidden')) calculateReport();
+                        });
 
-            } catch (e) {
-                console.error("Firebase realtime sync error:", e);
+                    } catch (e) {
+                        console.error("Firebase realtime sync error:", e);
+                }
             }
-        }
 
         function backToRoleSelectFromUnified() {
             document.getElementById('unified-login-modal').classList.add('hidden');
@@ -2637,37 +2638,59 @@
 
         async function processStockIn(shouldMerge) {
             document.getElementById('merge-confirm-modal').classList.add('hidden');
+            
+            // ຖ້າຫາກເປັນການນຳເຂົ້າໃໝ່ທີ່ບໍ່ຜ່ານ Modal ຖາມ (shouldMerge ເປັນ false ແລະ pendingStockInData ເປັນ null)
             let data = pendingStockInData || {
-                // ຖ້າບໍ່ມີການລວມ (ກໍລະນີສິນຄ້າໃໝ່ ຫຼື ບໍ່ຕ້ອງການລວມ) ໃຫ້ໃຊ້ຂໍ້ມູນຈາກຟອມໂດຍກົງ
                 code: currentStockInCode,
                 name: document.getElementById('stock-in-custom-name').value.trim() || currentStockInCode,
                 cost: parseFloat(document.getElementById('stock-in-cost').value.replace(/,/g, '')) || 0,
+                original_cost: parseFloat(document.getElementById('stock-in-cost').value.replace(/,/g, '')) || 0,
                 price: parseFloat(document.getElementById('stock-in-calculated-price').value.replace(/,/g, '')) || 0,
+                profit_pct: parseFloat(document.getElementById('stock-in-profit-pct').value) || 20,
                 qty: parseInt(document.getElementById('stock-in-qty').value) || 1,
-                unitPerPack: parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12
+                unit_per_pack: parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12
             };
 
             if (shouldMerge && data.existingId) {
-                // ປັບລາຄາໃຫ້ເປັນລາຄາທີ່ສູງກວ່າ ແລະ ລວມຈຳນວນ
+                // 1. ລວມຈຳນວນ
                 let newQty = data.existingQty + data.qty;
-                let highestCost = Math.max(data.cost, parseFloat(String(excelRows.find(i=>i.id === data.existingId).cost).replace(/,/g, '')));
+                
+                // 2. ຫາລາຄາຊື້ທີ່ສູງກວ່າ
+                let existingItem = excelRows.find(i => i.id === data.existingId);
+                let oldCost = existingItem ? (parseFloat(String(existingItem.cost || 0).replace(/,/g, '')) || 0) : data.cost;
+                let highestCost = Math.max(data.cost, oldCost);
+                
+                // 3. ຄຳນວນລາຄາຂາຍໃໝ່
+                let newPriceRaw = highestCost * (1 + (data.profit_pct / 100));
+                let newPrice = Math.ceil(newPriceRaw / 1000) * 1000;
                 
                 await db.collection("products").doc(data.existingId).update({
                     qty: newQty,
                     initial_qty: newQty,
                     cost: highestCost,
-                    price: highestCost * (1 + data.profit_pct / 100),
+                    original_cost: highestCost,
+                    price: newPrice,
                     updated_at: new Date().toISOString()
                 });
-                showAlert("ສຳເລັດ", "ລວມສິນຄ້າສຳເລັດຮຽບຮ້ອຍ!", "✅");
+                showAlert("ສຳເລັດ", "ລວມສິນຄ້າ ແລະ ອັບເດດລາຄາໃໝ່ສຳເລັດ!", "✅");
             } else {
-                // ສ້າງສິນຄ້າໃໝ່ (ກໍລະນີບໍ່ລວມ ຫຼື ສິນຄ້າໃໝ່)
-                await db.collection("products").add({
-                    ...data,
-                    device_id: deviceId,
+                // ສ້າງສິນຄ້າໃໝ່ (ກໍລະນີສິນຄ້າໃໝ່ ຫຼື ຜູ້ໃຊ້ເລືອກ "ບໍ່ລວມ")
+                let savePayload = {
+                    code: data.code,
+                    name: data.name,
+                    cost: data.cost,
+                    original_cost: data.original_cost || data.cost,
+                    profit_pct: data.profit_pct,
+                    price: data.price,
+                    qty: data.qty,
+                    initial_qty: data.qty,
+                    unit_per_pack: data.unit_per_pack || data.unitPerPack,
+                    device_id: String(deviceId || '').trim().toUpperCase(),
                     date_added: new Date().toLocaleDateString('en-GB'),
                     updated_at: new Date().toISOString()
-                });
+                };
+                
+                await db.collection("products").add(savePayload);
                 showAlert("ສຳເລັດ", "ນຳເຂົ້າສິນຄ້າໃໝ່ສຳເລັດຮຽບຮ້ອຍ!", "📦");
             }
             
