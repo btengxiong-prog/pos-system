@@ -2765,13 +2765,30 @@
                 return;
             }
 
-            activeScannedItem = foundItem;
-            document.getElementById('display-scanned-product-name').innerText = foundItem.name || foundItem.code;
+            // 💡 ປັບປຸງ: ໃຫ້ຄິດໄລ່ລາຄາຊື້ ແລະ ລາຄາຂາຍໃໝ່ ຕາມອັດຕາແລກປ່ຽນ/ເປີເຊັນຂາຍປັດຈຸບັນ
+            let originalCost = parseFloat(String(foundItem.originalCost || foundItem.cost).replace(/,/g, '')) || 0;
+            let profitPct = foundItem.profit_pct !== undefined ? foundItem.profit_pct : 20;
             
-            // ຕັ້ງຄ່າເລີ່ມຕົ້ນຂອງຈຳນວນໃນ Input ເປັນ 1 ຫຼັງຈາກສະແກນ
+            // ຖ້າລະບົບມີການຄິດໄລ່ Rate ໃໝ່ (ຕົວຢ່າງ: ດຶງ Rate ປັດຈຸບັນມາຄຳນວນທຽບກັບ Rate ວັນນຳເຂົ້າ)
+            let currentBuyRate = parseFloat(localStorage.getItem('rate_current_value')) || 650;
+            let importBuyRate = parseFloat(foundItem.buyingRate) || 650;
+            
+            // ປະເມີນລາຄາຕົ້ນທຶນ ແລະ ລາຄາຂາຍໃໝ່
+            let calculatedNewCost = originalCost * (currentBuyRate / importBuyRate);
+            let newCost = Math.ceil(calculatedNewCost / 1000) * 1000;
+            let rawNewPrice = newCost * (1 + profitPct / 100);
+            let newPrice = Math.ceil(rawNewPrice / 1000) * 1000;
+
+            // ສ້າງ Object ທີ່ຜ່ານການອັບເດດລາຄາໃໝ່ແລ້ວ ມารອງຮັບໃນ activeScannedItem
+            activeScannedItem = {
+                ...foundItem,
+                cost: newCost,         // 👈 ໃຊ້ລາຄາຊື້ໃໝ່
+                price: newPrice        // 👈 ໃຊ້ລາຄາຂາຍໃໝ່
+            };
+
+            document.getElementById('display-scanned-product-name').innerText = foundItem.name || foundItem.code;
             document.getElementById('display-scanned-product-qty-input').value = "1";
 
-            // ໃຫ້ຟັງຊັນ updatePopupPricing ຈັດການຄຳນວນ ແລະ ສະແດງຜົນລາງ/ປ໋ອງ ໃຫ້ຖືກຕ້ອງ
             let isRetail = document.querySelector('input[name="sale_type_mode"][value="retail"]').checked;
             updatePopupPricing(isRetail);
             
