@@ -2343,22 +2343,15 @@
             let todayDateStr = new Date().toLocaleDateString('en-GB');
 
             displayRows.forEach((row) => {
-                let currentQty = parseFloat(String(row.qty !== undefined ? row.qty : 0).replace(/,/g, '')) || 0; 
-                // ໃຫ້ດึง initial_qty ຖ້າບໍ່ມີໃຫ້ໃຊ້ qty ເປັນຄ່າຕັ້ງຕົ້ນ
-                let initialQty = parseFloat(String(row.initial_qty !== undefined && row.initial_qty !== null ? row.initial_qty : currentQty).replace(/,/g, '')) || currentQty;
+                // 🔹 ດຶງຈຳນວນນຳເຂົ້າຕົວຈິງໃນເບື້ອງຕົ້ນ (initial_qty) ມາສະແດງຜົນ
+                let initialQtyVal = parseFloat(String(row.initial_qty !== undefined ? row.initial_qty : (row.qty || 0)).replace(/,/g, '')) || 0; 
                 let unitPerPack = parseInt(row.unitPerPack || row.unit_per_pack) || 1;
 
-                // 1. ຖັນ "ຈ/ນ ສິນຄ້າ" ໃຊ້ຈຳນວນນຳເຂົ້າຕົວຈິງທັງໝົດ (Initial Qty)
-                let totalInitialSingles = Math.round(initialQty * unitPerPack);
-                let initPacksX = Math.floor(totalInitialSingles / unitPerPack);
-                let initSinglesY = totalInitialSingles % unitPerPack;
-                let initialStockDisplayVal = unitPerPack > 1 ? `${initPacksX} / ${initSinglesY}` : `${initPacksX}`;
-
-                // 2. ສ່ວນ "ໝາຍເຫດ" ໃຊ້ຈຳນວນທີ່ເຫຼືອໃນສາງ (Current Qty)
-                let totalRemainingSingles = Math.round(currentQty * unitPerPack);
-                let remPacksX = Math.floor(totalRemainingSingles / unitPerPack);
-                let remSinglesY = totalRemainingSingles % unitPerPack;
-                let stockNoteDisplay = unitPerPack > 1 ? `ເຫຼືອ: ${remPacksX} / ${remSinglesY}` : `ເຫຼືອ: ${remPacksX}`;
+                let totalSingles = Math.round(initialQtyVal * unitPerPack);
+                let packsX = Math.floor(totalSingles / unitPerPack);
+                let singlesY = totalSingles % unitPerPack;
+                let stockDisplayVal = unitPerPack > 1 ? `${packsX} / ${singlesY}` : `${packsX}`;
+                let stockNoteDisplay = unitPerPack > 1 ? `ເຫຼືອ: ${packsX} / ${singlesY}` : `ເຫຼືອ: ${packsX}`;
 
                 let originalCost = parseFloat(String(row.original_cost || row.cost).replace(/,/g, '')) || 0;
                 let originalPrice = parseFloat(String(row.price).replace(/,/g, '')) || 0;
@@ -2392,10 +2385,10 @@
                 let rawNewPrice = newCost * (1 + profitPct / 100);
                 let newPrice = Math.ceil(rawNewPrice / 1000) * 1000;
 
-                let totalOldCost = originalCost * currentQty;
-                let totalOldPrice = originalPrice * currentQty;
-                let totalNewCost = newCost * currentQty;
-                let totalNewPrice = newPrice * currentQty;
+                let totalOldCost = originalCost * initialQtyVal;
+                let totalOldPrice = originalPrice * initialQtyVal;
+                let totalNewCost = newCost * initialQtyVal;
+                let totalNewPrice = newPrice * initialQtyVal;
 
                 let shopLabel = (isAdminMaster && row.device_id) ? ` [ຮ້ານ: ${row.device_id}]` : '';
                 let rightCellHtml = isAdminMaster ? `<td class="p-2 text-center"><input type="checkbox" data-id="${row.id}" class="inventory-row-checkbox w-4 h-4 cursor-pointer accent-cyan-600"></td>` : ``;
@@ -2408,7 +2401,7 @@
                         
                         <td class="p-2 border-r text-purple-700 font-semibold hidden">${formattedImportDate}</td>
                         <td class="p-2 border-r text-gray-700 font-semibold hidden">${todayDateStr}</td>
-                        <td class="p-2 border-r font-bold text-cyan-800">${initialStockDisplayVal}</td>
+                        <td class="p-2 border-r font-bold text-cyan-800">${stockDisplayVal}</td>
                         <td class="p-2 border-r text-blue-600 font-bold hidden">${formatNumberWithCommas(importBuyRate)}</td>
                         <td class="p-2 border-r text-blue-600 font-bold hidden">${formatNumberWithCommas(importSellRate)}</td>
                         <td class="p-2 border-r text-blue-800 font-bold hidden">${formatNumberWithCommas(currentBuyRate)}</td>
