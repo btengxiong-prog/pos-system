@@ -2326,23 +2326,19 @@
             let todayDateStr = new Date().toLocaleDateString('en-GB');
 
             displayRows.forEach((row) => {
-                // ➔ ຊອກຫາສ່ວນນີ້ໃນຟັງຊັນ loadInventory() ຂອງໂຄດຫຼັກແລ້ວປ່ຽນແທນ:
                 let totalUnits = parseFloat(String(row.qty || 0).replace(/,/g, '')) || 0; 
                 let unitPerPack = parseInt(row.unitPerPack || row.unit_per_pack) || 1;
 
-                // ຄຳນວນຈຳນວນລາງ ແລະ ເສດປ໋ອງຈາກ qty ປັດຈຸບັນທີ່ຖືກຫັກລบແລ້ວ
+                // 📌 1. ຄຳນວນຈຳນວນນຳເຂົ້າເດີມ (ສຳລັບສະແດງໃນຄໍລຳ "ຈ/ນ ສິນຄ້າ" ໃຫ້ຄົງທີ່ 100 ລາງ)
+                let initialTotalUnits = row.initial_qty !== undefined ? parseFloat(String(row.initial_qty).replace(/,/g, '')) || totalUnits : totalUnits;
+                let initialTotalSingles = Math.round(initialTotalUnits * unitPerPack);
+                let initialPacksX = Math.floor(initialTotalSingles / unitPerPack);
+
+                // 📌 2. ຄຳນວນຈຳນວນຄົງເຫຼືອປັດຈຸບັນທີ່ຖືກຫັກອອກຈາກການຂາຍ (ສຳລັບສະແດງໃນຄໍລຳ "ໝາຍເຫດ")
                 let totalSingles = Math.round(totalUnits * unitPerPack);
                 let packsX = Math.floor(totalSingles / unitPerPack);
                 let singlesY = totalSingles % unitPerPack;
-
-                // ໃຫ້ສະແດງຜົນຄົງເຫຼືອຕົວຈິງໃນໝາຍເຫດ
                 let stockNoteDisplay = unitPerPack > 1 ? `ເຫຼືອ: ${packsX} / ${singlesY}` : `ເຫຼືອ: ${packsX} / 0`;
-
-                // ⚠️ ສຳຄັນ: ຖ້າຕ້ອງການໃຫ້ຄໍລຳ "ຈ/ນ ສິນຄ້າ" (ຈຳນວນນຳເຂົ້າເດີມ) ຍັງຄົງຄ່າ 100 ໄວ້ຕະຫຼອດ 
-                // ໂດຍບໍ່ໃຫ້ມັນຫຼຸດຕາມການຂາຍ, ໃຫ້ເຮົາໃຊ້ຄ່າເດີມຕອນນຳເຂົ້າ (ແຕ່ຖ້າໃນ Database ຖືກອັບເດດ qty ລົງ, 
-                // ເຮົາອາດຈະຕ້ອງເກັບ initial_qty ໄວ້ ຫຼື ໃຫ້ຄໍລຳ ຈ/ນ ສິນຄ້າ ສະແດງຄ່າເດີມ).
-                // ຕົວຢ່າງ: ຖ້າຢາກໃຫ້ຄໍລຳ "ຈ/ນ ສິນຄ້າ" ສະແດງຈຳນວນນຳເຂົ້າເລີ່ມຕົ້ນ (Initial Qty) ຕະຫຼອດ:
-                let initialQty = row.initial_qty !== undefined ? row.initial_qty : totalUnits;
 
                 let originalCost = parseFloat(String(row.original_cost || row.cost).replace(/,/g, '')) || 0;
                 let originalPrice = parseFloat(String(row.price).replace(/,/g, '')) || 0;
@@ -2384,6 +2380,7 @@
                 let shopLabel = (isAdminMaster && row.device_id) ? ` [ຮ້ານ: ${row.device_id}]` : '';
                 let rightCellHtml = isAdminMaster ? `<td class="p-2 text-center"><input type="checkbox" data-id="${row.id}" class="inventory-row-checkbox w-4 h-4 cursor-pointer accent-cyan-600"></td>` : ``;
 
+                // 🖨️ ສ່ວນສ້າງ HTML ຕາຕະລາງ
                 html += `
                     <tr class="hover:bg-gray-50 border-b text-center text-xs">
                         <td class="p-2 border-r font-bold text-gray-500">${countIndex++}</td>
@@ -2391,7 +2388,10 @@
                         <td class="p-2 border-r font-bold text-gray-900 text-left">${row.name || '-'}${shopLabel}</td>
                         <td class="p-2 border-r text-purple-700 font-semibold">${formattedImportDate}</td>
                         <td class="p-2 border-r text-gray-700 font-semibold">${todayDateStr}</td>
-                        <td class="p-2 border-r font-bold text-cyan-800">${formatNumberWithCommas(packsX)}</td>
+                        
+                        <!-- 🎯 ກ່ອງແດງທີ່ 1: ຈ/ນ ສິນຄ້າ (ສະແດງຈຳນວນນຳເຂົ້າເດີມ 100 ລາງ ຕະຫຼອດໄປ) -->
+                        <td class="p-2 border-r font-bold text-cyan-800">${formatNumberWithCommas(initialPacksX)}</td>
+
                         <td class="p-2 border-r text-blue-600 font-bold">${formatNumberWithCommas(importBuyRate)}</td>
                         <td class="p-2 border-r text-blue-600 font-bold">${formatNumberWithCommas(importSellRate)}</td>
                         <td class="p-2 border-r text-blue-800 font-bold">${formatNumberWithCommas(currentBuyRate)}</td>
@@ -2405,7 +2405,10 @@
                         <td class="p-2 border-r text-right text-green-700">${formatNumberWithCommas(totalOldPrice)}</td>
                         <td class="p-2 border-r text-right font-bold text-blue-900 bg-blue-50/30">${formatNumberWithCommas(totalNewCost)}</td>
                         <td class="p-2 border-r text-right font-bold text-green-900 bg-green-50/30">${formatNumberWithCommas(totalNewPrice)}</td>
+                        
+                        <!-- 🎯 ກ່ອງແດງທີ່ 2: ໝາຍເຫດ (ສະແດງຜົນຄົງເຫຼືອປ່ຽນແປງຕາມການຂາຍ ເຊັ່ນ: ເຫຼືອ: 90 / 0) -->
                         <td class="p-2 border-r text-amber-600 font-bold">${stockNoteDisplay}</td>
+                        
                         ${rightCellHtml}
                     </tr>
                 `;
@@ -2673,8 +2676,8 @@
                 original_cost: cost,
                 profit_pct: parseFloat(document.getElementById('stock-in-profit-pct').value) || 20,
                 price: price,
-                qty: qty,              // ໃຊ້ສຳລັບຫັກລົບເວລາຂາຍ
-                initial_qty: qty,      // 📌 ເກັບຄ່າຈຳນວນນຳເຂົ້າເດີມໄວ້ສະແດງຜົນໃນຕາຕະລາງ (ຈ/ນ ສິນຄ້າ) ໃຫ້ຄົງທີ່
+                qty: qty,                 // ໃຊ້ສຳລັບຫັກລົບເວລາຂາຍ
+                initial_qty: qty,         // 📌 ບວກເພີ່ມຈຸດນີ້: ເກັບຈຳນວນນຳເຂົ້າເດີມໄວ້ສະແດງຄົງທີ່
                 unit_per_pack: unitPerPack,
                 date_added: finalDateAdded,
                 mfg_date: mfgDate,
