@@ -2765,7 +2765,7 @@
                 return;
             }
 
-            // 🎯 1. ດຶງ Rate ປັດຈຸບັນ ແລະ Rate ວັນນຳເຂົ້າ (ຄືກັນກັບຕາຕະລາງສິນຄ້າຄ້າງສາງ)
+            // 🎯 1. ດຶງ Rate ຈາກຖານຂໍ້ມູນ Firebase ໃຫ້ຄົບຖ້ວນທຸກວັນທີ
             let rateRecordsMap = {};
             if (db) {
                 try {
@@ -2789,34 +2789,33 @@
             let formattedImportDate = rawImportDate ? (rawImportDate.includes('/') ? rawImportDate : formatDateToDDMMYYYY(rawImportDate)) : '-';
             let importDateISO = parseDDMMYYYYToISO(formattedImportDate);
 
-            let importBuyRate = 650;
+            // 🎯 2. ກຳນົດ Rate ວັນນຳເຂົ້າ (Rate ເດີມ) ໃຫ້ຖືກຕ້ອງຕາມວັນທີນຳເຂົ້າສິນຄ້າ
+            let importBuyRate = 650; // ຄ່າເລີ່ມຕົ້ນ
             if (importDateISO && rateRecordsMap[importDateISO]) {
                 importBuyRate = rateRecordsMap[importDateISO].buy;
             }
 
-            let currentBuyRate = 680;
-            let targetCheckDate = new Date();
-            for (let i = 0; i < 7; i++) {
-                let checkISO = targetCheckDate.toISOString().split('T')[0];
-                if (rateRecordsMap[checkISO]) {
-                    currentBuyRate = rateRecordsMap[checkISO].buy;
-                    break;
-                }
-                targetCheckDate.setDate(targetCheckDate.getDate() - 1);
+            // 🎯 3. ດຶງ Rate ປະຈຸບັນ (Rate ໃໝ່ຫຼ້າສຸດ ຈາກ Firebase ຫຼື LocalStorage)
+            let currentBuyRate = 685; // ຕາມຮູບ Rate ຫຼ້າສຸດແມ່ນ 685
+            let latestDateKey = Object.keys(rateRecordsMap).sort().pop();
+            if (latestDateKey && rateRecordsMap[latestDateKey]) {
+                currentBuyRate = rateRecordsMap[latestDateKey].buy;
+            } else {
+                currentBuyRate = parseFloat(localStorage.getItem('rate_current_value')) || 685;
             }
 
-            // 🎯 2. ຄຳນວນລາຄາຊື້ ແລະ ລາຄາຂາຍໃໝ່ (ທີ່ກົງກັບຕາຕະລາງສາງ 4 ລ່ຽມສີແດງ 2)
+            // 🎯 4. ຄຳນວນລາຄາຊື້ ແລະ ລາຄາຂາຍໃໝ່ ໃຫ້ກົງກັບຕາຕະລາງສາງ (4 ລ່ຽມສີແດງຂວາສຸດ) ຢ່າງแม่ນຍໍາ
             let calculatedNewCost = originalCost * (currentBuyRate / importBuyRate);
-            let newCost = Math.ceil(calculatedNewCost / 1000) * 1000;
+            let newCost = Math.ceil(calculatedNewCost / 1000) * 1000; // ປັດຂຶ້ນເປັນພັນ (ເຊັ່ນ: 527,000)
 
             let rawNewPrice = newCost * (1 + profitPct / 100);
-            let newPrice = Math.ceil(rawNewPrice / 1000) * 1000;
+            let newPrice = Math.ceil(rawNewPrice / 1000) * 1000; // ປັດຂຶ້ນເປັນພັນ (ເຊັ່ນ: 633,000)
 
-            // 🎯 3. ຜູກຄ່າລາຄາໃໝ່ເຂົ້າໄປໃນ activeScannedItem ເພື່ອໃຫ້ໜ້າຂາຍນຳໄປໃຊ້
+            // 🎯 5. ຜູກຄ່າລາຄາໃໝ່ເຂົ້າໄປໃນ activeScannedItem ເພື່ອສະແດງຜົນໃນໜ້າຂາຍ
             activeScannedItem = {
                 ...foundItem,
-                cost: newCost,   // 👈 ລາຄາຊື້ (ໃໝ່)
-                price: newPrice  // 👈 ລາຄາຂາຍ (ໃໝ່)
+                cost: newCost,   // 👈 ລາຄາຊື້ໃໝ່ (ເປ๊ะຕາມຕາຕະລາງສາງ)
+                price: newPrice  // 👈 ລາຄາຂາຍໃໝ່ (ເປ๊ะຕາມຕາຕະລາງສາງ)
             };
 
             document.getElementById('display-scanned-product-name').innerText = foundItem.name || foundItem.code;
