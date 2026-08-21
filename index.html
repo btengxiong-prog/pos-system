@@ -790,9 +790,12 @@
                 </div>
 
                 <div class="flex flex-col gap-1.5">
-                    <button id="btn-expiry" onclick="openExpiryModal()" class="w-full bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded-xl font-medium shadow flex items-center justify-start gap-2 transition cursor-pointer text-xs">
-                        <span>⏳</span> ວັນໝົດອາຍຸສິນຄ້າ
-                    </button>
+                    <!-- ໃຫ້ເພີ່ມ id="btn-expiry-container" ໃສ່ກ່ອງ/ປຸ່ມວັນໝົດອາຍຸສິນຄ້າ -->
+                    <div id="btn-expiry-container" class="hidden">
+                        <button id="btn-expiry" onclick="openExpiryModal()" class="w-full bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs">
+                            <span>⏳</span> ວັນໝົດອາຍຸສິນຄ້າ <span id="expiry-alert-badge" class="bg-red-500 text-white px-1.5 py-0.2 rounded-full text-[10px] hidden">0</span>
+                        </button>
+                    </div>
                     <div class="relative inline-block text-left w-full">
                         <button type="button" id="btn-report" onclick="toggleCustomDropdown('report-menu', event)" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl font-medium shadow flex items-center justify-start gap-2 transition cursor-pointer text-xs">
                             <span>📋</span> ຂໍ້ມູນ ແລະ ລະບົບ <span class="text-[10px] ml-auto">▼</span>
@@ -1786,8 +1789,10 @@
                         await batch.commit().catch(err => console.error(err));
                     }
 
+                    // ໃຫ້ເອີ້ນ checkExpiryAlertStatus(); ໄວ້ໃນ snapshot ຂອງ firebase ປະມານນີ້:
                     excelRows = tempArr;
                     updateExistingProductNamesDatalist();
+                    checkExpiryAlertStatus(); // 👈 ເພີ່ມບັນທັດນີ້ລົງໄປ
 
                     if (!document.getElementById('inventory-modal').classList.contains('hidden')) loadInventory();
                     if (!document.getElementById('price-compare-modal').classList.contains('hidden')) loadPriceComparison();
@@ -3449,6 +3454,48 @@
             closeSalesPopup();
             showAlert("ສຳເລັດ", `ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ (ວິທີ: ${currentSelectedPaymentMode})!`, "💰");
         }
+
+        function checkExpiryAlertStatus() {
+                    let container = document.getElementById('btn-expiry-container');
+                    let badge = document.getElementById('expiry-alert-badge');
+                    if (!container) return;
+
+                    if (!excelRows || excelRows.length === 0) {
+                        container.classList.add('hidden');
+                        return;
+                    }
+
+                    let today = new Date();
+                    let nearExpiryCount = 0;
+
+                    excelRows.forEach((row) => {
+                        let expDateStr = row.expiryDate || row.expiry_date || '';
+                        if (expDateStr && expDateStr.trim() !== '' && expDateStr.trim() !== '-') {
+                            let expDate = new Date(parseDDMMYYYYToISO(expDateStr));
+                            if (!isNaN(expDate.getTime())) {
+                                let diffDays = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
+                                // ເງື່ອນໄຂ: ຖ້າໝົດອາຍຸແລ້ວ ຫລື ເຫຼືອເວລານ້ອຍກວ່າ ຫລື 等于 60 ວັນ
+                                if (diffDays <= 60) {
+                                    nearExpiryCount++;
+                                }
+                            }
+                        }
+                    });
+
+                    // ຖ້າມີສິນຄ້າໃກ້ໝົດອາຍຸ ໃຫ້ສະແດງປຸ່ມ, ຖ້າບໍ່ມີໃຫ້ເຊື່ອງ
+                    if (nearExpiryCount > 0) {
+                        container.classList.remove('hidden');
+                        container.style.setProperty('display', 'block', 'important');
+                        if (badge) {
+                            badge.innerText = nearExpiryCount;
+                            badge.classList.remove('hidden');
+                        }
+                    } else {
+                        container.classList.add('hidden');
+                        container.style.setProperty('display', 'none', 'important');
+                    }
+                }
+
     </script>
 </body>
 </html>
