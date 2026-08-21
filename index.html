@@ -147,7 +147,7 @@
                 </button>
             </div>
             <div class="pt-2 border-t text-[11px] text-gray-400 font-semibold">
-                Ver: 2.0.3 (Continuous Scanner with 3s Delay)
+                Ver: 2.0.4 (Select Sale Type & Continuous Scanner)
             </div>
         </div>
     </div>
@@ -503,6 +503,25 @@
         </div>
     </div>
 
+    <!-- Popup ເລືອກປະເພດການຂາຍ (ກ່ອນເປີດກ້ອງສະແກນ) -->
+    <div id="sale-type-select-modal" class="hidden fixed inset-0 bg-black/70 z-[340] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
+            <div class="text-4xl">🏷️</div>
+            <h3 class="text-lg font-bold text-blue-900">ເລືອກປະເພດການຂາຍ</h3>
+            <p class="text-xs text-gray-600">ກະລຸນາເລືອກຮູບແບບການຂາຍສິນຄ້າທີ່ຕ້ອງການ:</p>
+            
+            <div class="space-y-3 pt-2">
+                <button onclick="chooseSaleTypeAndOpenScanner('wholesale')" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3.5 rounded-xl transition cursor-pointer shadow flex items-center justify-center gap-2 text-sm">
+                    📦 ຂາຍສົ່ງ (ຫໍ່, ແພັກ, ລາງ...)
+                </button>
+                <button onclick="chooseSaleTypeAndOpenScanner('retail')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition cursor-pointer shadow flex items-center justify-center gap-2 text-sm">
+                    🥤 ຂາຍຍ່ອຍ (ແກ້ວ, ວດ...)
+                </button>
+            </div>
+            <button onclick="document.getElementById('sale-type-select-modal').classList.add('hidden')" class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl text-xs transition cursor-pointer mt-2">ຍົກເລີກ</button>
+        </div>
+    </div>
+
     <!-- Popup ເລືອກວິທີຊຳລະເງິນ -->
     <div id="checkout-method-modal" class="hidden fixed inset-0 bg-black/70 z-[340] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
@@ -700,7 +719,7 @@
                                     </button>
                                 </div>
                             </div>
-                            <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); openScanner();" class="w-full px-4 py-2.5 text-xs font-semibold hover:bg-blue-50 flex items-center gap-2 text-left cursor-pointer transition border-t border-gray-100 text-blue-600" id="menu-stock-out">
+                            <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); openSaleTypeSelectModal();" class="w-full px-4 py-2.5 text-xs font-semibold hover:bg-blue-50 flex items-center gap-2 text-left cursor-pointer transition border-t border-gray-100 text-blue-600" id="menu-stock-out">
                                 🛒 ນຳອອກສິນຄ້າ (ຂາຍ)
                             </button>
                         </div>
@@ -784,7 +803,7 @@
             </div>
 
             <div class="pt-2 border-t border-blue-800/80 text-center text-[11px] text-blue-200">
-                ✨ ສ້າງ ແລະ ພັດທະນາໂດຍ: <span class="text-yellow-400 font-semibold">ອາຈານ ບຸນແຕ່ງ ຊົ່ງຕົງມົວ</span> | 📞 ໂທ: 020 59456999, 020 99444448 | Ver: 2.0.3 (Continuous Scanner with 3s Delay)
+                ✨ ສ້າງ ແລະ ພັດທະນາໂດຍ: <span class="text-yellow-400 font-semibold">ອາຈານ ບຸນແຕ່ງ ຊົ່ງຕົງມົວ</span> | 📞 ໂທ: 020 59456999, 020 99444448 | Ver: 2.0.4 (Select Sale Type & Continuous Scanner)
             </div>
         </div>
     </header>
@@ -793,7 +812,7 @@
     <main class="container mx-auto px-4 mt-3 max-w-4xl">
         <div id="scanner-container" class="hidden mb-6 bg-white p-4 rounded-xl shadow border">
             <div class="flex justify-between items-center mb-2">
-                <h3 class="font-bold text-lg text-gray-700">📷 ກຳລັງສະແກນ QR / ບາໂຄດ (ຂາຍສິນຄ້າ - ຕໍ່ເນື່ອງ)</h3>
+                <h3 class="font-bold text-lg text-gray-700" id="scanner-title-mode">📷 ກຳລັງສະແກນ QR / ບາໂຄດ (ຂາຍສົ່ງ)</h3>
                 <span id="scanner-status-badge" class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold">ກຳລັງເປີດກ້ອງ...</span>
             </div>
             <div id="reader" class="w-full max-w-md mx-auto"></div>
@@ -1388,10 +1407,10 @@
         let currentStockInCode = "";
         let editingDeviceId = null;
         let deviceId = localStorage.getItem('pos_permanent_device_id') || localStorage.getItem('pos_device_id') || 'POSXIONG';
-        let currentSaleType = 'wholesale'; 
+        let currentSaleType = 'wholesale'; // 'wholesale' ຫຼື 'retail'
         let activeScannedItem = null; 
         let continuousCart = []; 
-        let isScannerLocked = false; // 🔒 ຕົວປ່ຽນສຳລັບລັອກກ້ອງຊົ່ວຄາວ (3 ວິນາທີ)
+        let isScannerLocked = false; 
 
         // 🔊 ຟັງຊັນສ້າງສຽງ Beep ເວລາສະແກນສຳເລັດ
         function playBeepSound() {
@@ -2722,9 +2741,25 @@
             checkAdminButtonVisibility();
         });
 
+        function openSaleTypeSelectModal() {
+            closeAllCustomDropdowns();
+            document.getElementById('sale-type-select-modal').classList.remove('hidden');
+        }
+
+        function chooseSaleTypeAndOpenScanner(type) {
+            currentSaleType = type;
+            document.getElementById('sale-type-select-modal').classList.add('hidden');
+            
+            let titleEl = document.getElementById('scanner-title-mode');
+            if (titleEl) {
+                titleEl.innerText = type === 'wholesale' ? "📷 ກຳລັງສະແກນ QR / ບາໂຄດ (ຂາຍສົ່ງ)" : "📷 ກຳລັງສະແກນ QR / ບາໂຄດ (ຂາຍຍ່ອຍ)";
+            }
+
+            openScanner();
+        }
+
         let salesScannerInstance = null;
         function openScanner() {
-            closeAllCustomDropdowns();
             isScannerLocked = false;
             document.getElementById('scanner-container').classList.remove('hidden');
             if (!salesScannerInstance) {
@@ -2756,9 +2791,9 @@
             }
         }
 
-        // 🔄 ປັບປຸງລະບົບສະແກນຂາຍ: ສະແກນຕໍ່ເນື່ອງ ແຕ່ລັອກກ້ອງ 3 ວິນາທີ ປ้องกันສະແກນຊ້ຳລົວໆ
+        // 🔄 ປັບປຸງລະບົບສະແກນຂາຍ: ຮອງຮັບຂາຍສົ່ງ/ຂາຍຍ່ອຍ, ສະແກນຕໍ່ເນື່ອງ ແລະ ລັອກກ້ອງ 3 ວິນາທີ
         async function handleSalesBarcodeScanned(code) {
-            if (isScannerLocked) return; // 🔒 ຖ້າກ້ອງຖືກລັອກຢູ່ (ຍັງບໍ່ຮອດ 3 ວິນາທີ) ໃຫ້ຂ້າມໄປກ່ອນ
+            if (isScannerLocked) return; 
 
             let foundItem = excelRows.find(item => 
                 String(item.code).trim().toLowerCase() === code.toLowerCase() || 
@@ -2770,9 +2805,8 @@
                 return;
             }
 
-            // 🔒 ລັອກກ້ອງ ແລະ ສະແດງສະຖານະພັກ
             isScannerLocked = true;
-            playBeepSound(); // 🔊 ຫຼິ້ນສຽງ Beep
+            playBeepSound(); 
             
             let statusBadge = document.getElementById('scanner-status-badge');
             if (statusBadge) {
@@ -2822,14 +2856,23 @@
             let rawNewPrice = newCost * (1 + profitPct / 100);
             let newPrice = Math.ceil(rawNewPrice / 1000) * 1000;
 
+            let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
+            let finalCost = newCost;
+            let finalPrice = newPrice;
+
+            if (currentSaleType === 'retail' && unitPerPack > 1) {
+                finalCost = Math.ceil((newCost / unitPerPack) / 1000) * 1000;
+                finalPrice = Math.ceil((newPrice / unitPerPack) / 1000) * 1000;
+            }
+
             let processedItem = {
                 ...foundItem,
-                cost: newCost,   
-                price: newPrice,
-                saleType: 'wholesale'
+                cost: finalCost,   
+                price: finalPrice,
+                saleType: currentSaleType
             };
 
-            let existingCartItem = continuousCart.find(i => i.id === processedItem.id);
+            let existingCartItem = continuousCart.find(i => i.id === processedItem.id && i.saleType === currentSaleType);
             if (existingCartItem) {
                 existingCartItem.qty += 1;
             } else {
@@ -2838,7 +2881,6 @@
 
             updateContinuousCartUI();
 
-            // ⏳ ຕັ້ງເວລາ 3 ວິນາທີ ໃຫ້ກ້ອງກັບມາພ້ອມສະແກນຕໍ່
             setTimeout(() => {
                 isScannerLocked = false;
                 if (statusBadge) {
@@ -2869,12 +2911,13 @@
                 let rowTotal = item.price * item.qty;
                 totalAmt += rowTotal;
                 totalCount += item.qty;
+                let saleModeLabel = item.saleType === 'retail' ? '(ຂາຍຍ່ອຍ)' : '(ຂາຍສົ່ງ)';
 
                 html += `
                     <div class="flex justify-between items-center bg-white p-2 rounded-lg border shadow-sm">
                         <div class="truncate max-w-[140px]">
                             <span class="font-bold text-gray-800">${item.name || item.code}</span>
-                            <div class="text-[10px] text-gray-500">${formatNumberWithCommas(item.price)} x ${item.qty}</div>
+                            <div class="text-[10px] text-gray-500">${formatNumberWithCommas(item.price)} x ${item.qty} ${saleModeLabel}</div>
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="font-bold text-green-600">${formatNumberWithCommas(rowTotal)}</span>
@@ -2900,86 +2943,6 @@
         }
 
         function closeSalesPopup() { document.getElementById('sales-popup-modal').classList.add('hidden'); }
-
-        function updatePopupPricing(isRetail) {
-            if (!activeScannedItem) return;
-
-            let rawQty = document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '');
-            let qtyInput = parseFloat(rawQty) || 0;
-            
-            let currentStock = parseFloat(String(activeScannedItem.qty || 0).replace(/,/g, '')) || 0;
-            let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 1;
-
-            let totalAvailableSingles = Math.round(currentStock * unitPerPack);
-            let soldSingles = isRetail ? qtyInput : (qtyInput * unitPerPack);
-            let remainingSingles = Math.max(0, totalAvailableSingles - soldSingles);
-
-            let remPacksX = Math.floor(remainingSingles / unitPerPack);
-            let remSinglesY = remainingSingles % unitPerPack;
-            document.getElementById('display-scanned-stock-remaining').innerText = `${remPacksX} / ${remSinglesY}`;
-
-            if (soldSingles > totalAvailableSingles) {
-                showAlert("ແຈ້ງເຕືອນ", "ສິນຄ້າໃນສາງມີບໍ່ພໍສຳລັບການຂາຍນີ້!", "⚠️");
-            }
-
-            let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
-            let unitPrice = parseFloat(String(activeScannedItem.price).replace(/,/g, '')) || 0;
-
-            if (isRetail && unitPerPack > 1) {
-                unitCost = Math.ceil((unitCost / unitPerPack) / 1000) * 1000;
-                unitPrice = Math.ceil((unitPrice / unitPerPack) / 1000) * 1000;
-            }
-
-            let totalCost = unitCost * qtyInput;
-            let totalPrice = unitPrice * qtyInput;
-
-            document.getElementById('grand-total-cost').innerText = formatNumberWithCommas(totalCost) + " " + (activeScannedItem.currency || 'ກີບ');
-            document.getElementById('grand-total').innerText = formatNumberWithCommas(totalPrice) + " " + (activeScannedItem.currency || 'ກີບ');
-            document.getElementById('custom-final-price').value = formatNumberWithCommas(totalPrice);
-            document.getElementById('final-total').innerText = formatNumberWithCommas(totalPrice) + " " + (activeScannedItem.currency || 'ກີບ');
-            document.getElementById('grand-total-profit').innerText = formatNumberWithCommas(totalPrice - totalCost) + " " + (activeScannedItem.currency || 'ກີບ');
-            
-            calculateChange();
-        }
-
-        function calculateChange() {
-            let finalPrice = parseFloat(document.getElementById('custom-final-price').value.replace(/,/g, '')) || 0;
-            let cashGiven = parseFloat(document.getElementById('cash-given').value.replace(/,/g, '')) || 0;
-            let curr = activeScannedItem ? (activeScannedItem.currency || 'ກີບ') : 'ກີບ';
-
-            document.getElementById('final-total').innerText = formatNumberWithCommas(finalPrice) + " " + curr;
-
-            let isRetail = document.querySelector('input[name="sale_type_mode"][value="retail"]').checked;
-            let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
-            let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 1;
-            if (isRetail && unitPerPack > 1) {
-                unitCost = Math.ceil((unitCost / unitPerPack) / 1000) * 1000;
-            }
-
-            let qty = parseInt(document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '')) || 1;
-            let totalCost = unitCost * qty;
-            let profit = finalPrice - totalCost;
-            document.getElementById('grand-total-profit').innerText = formatNumberWithCommas(profit) + " " + curr;
-
-            if (cashGiven > 0) {
-                let change = cashGiven - finalPrice;
-                document.getElementById('change-amount').innerText = change >= 0 ? formatNumberWithCommas(change) + " " + curr : "ເງິນສົດຍັງບໍ່ພໍ!";
-            } else {
-                document.getElementById('change-amount').innerText = "0 " + curr + " (ຈ່າຍພໍດີ)";
-            }
-        }
-
-        function updateCartQtyFromInput(qtyVal) {
-            let isRetail = document.querySelector('input[name="sale_type_mode"][value="retail"]').checked;
-            updatePopupPricing(isRetail);
-            calculateChange();
-        }
-
-        function setSaleTypeMode(mode) {
-            let isRetail = (mode === 'retail');
-            updatePopupPricing(isRetail);
-            calculateChange();
-        }
 
         async function printCurrentReceipt() {
             if (continuousCart.length === 0) {
