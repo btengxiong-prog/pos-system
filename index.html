@@ -2344,16 +2344,17 @@
 
             displayRows.forEach((row) => {
                 let currentQty = parseFloat(String(row.qty !== undefined ? row.qty : 0).replace(/,/g, '')) || 0; 
-                let initialQty = parseFloat(String(row.initial_qty !== undefined ? row.initial_qty : (row.qty || 0)).replace(/,/g, '')) || 0;
+                // ໃຫ້ດึง initial_qty ຖ້າບໍ່ມີໃຫ້ໃຊ້ qty ເປັນຄ່າຕັ້ງຕົ້ນ
+                let initialQty = parseFloat(String(row.initial_qty !== undefined && row.initial_qty !== null ? row.initial_qty : currentQty).replace(/,/g, '')) || currentQty;
                 let unitPerPack = parseInt(row.unitPerPack || row.unit_per_pack) || 1;
 
-                // 1. ການສະແດງຜົນໃນຖັນ "ຈ/ນ ສິນຄ້າ" ໃຊ້ຈຳນວນນຳເຂົ້າຕົວຈິງທັງໝົດ (Initial Qty)
+                // 1. ຖັນ "ຈ/ນ ສິນຄ້າ" ໃຊ້ຈຳນວນນຳເຂົ້າຕົວຈິງທັງໝົດ (Initial Qty)
                 let totalInitialSingles = Math.round(initialQty * unitPerPack);
                 let initPacksX = Math.floor(totalInitialSingles / unitPerPack);
                 let initSinglesY = totalInitialSingles % unitPerPack;
                 let initialStockDisplayVal = unitPerPack > 1 ? `${initPacksX} / ${initSinglesY}` : `${initPacksX}`;
 
-                // 2. ການສະແດງຜົນໃນສ່ວນ "ໝາຍເຫດ" ໃຊ້ຈຳນວນທີ່ເเหลือໃນສາງ (Current Qty)
+                // 2. ສ່ວນ "ໝາຍເຫດ" ໃຊ້ຈຳນວນທີ່ເຫຼືອໃນສາງ (Current Qty)
                 let totalRemainingSingles = Math.round(currentQty * unitPerPack);
                 let remPacksX = Math.floor(totalRemainingSingles / unitPerPack);
                 let remSinglesY = totalRemainingSingles % unitPerPack;
@@ -2430,6 +2431,44 @@
                 `;
             });
             tbody.innerHTML = html;
+        }
+
+        async function processStockIn(shouldMerge) {
+            document.getElementById('merge-confirm-modal').classList.add('hidden');
+            let data = pendingStockInData || {
+                code: currentStockInCode,
+                name: document.getElementById('stock-in-custom-name').value.trim() || currentStockInCode,
+                cost: parseFloat(document.getElementById('stock-in-cost').value.replace(/,/g, '')) || 0,
+                price: parseFloat(document.getElementById('stock-in-calculated-price').value.replace(/,/g, '')) || 0,
+                qty: parseInt(document.getElementById('stock-in-qty').value) || 1,
+                unitPerPack: parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12
+            };
+
+            if (shouldMerge && data.existingId) {
+                let newQty = data.existingQty + data.qty;
+                let highestCost = Math.max(data.cost, parseFloat(String(excelRows.find(i=>i.id === data.existingId).cost).replace(/,/g, '')));
+                
+                await db.collection("products").doc(data.existingId).update({
+                    qty: newQty,
+                    initial_qty: newQty, // ບັນທຶກອັບເດດຍອດນຳເຂົ້າທັງໝົດ
+                    cost: highestCost,
+                    price: highestCost * (1 + data.profit_pct / 100),
+                    updated_at: new Date().toISOString()
+                });
+                showAlert("ສຳເລັດ", "ລວມສິນຄ້າສຳເລັດຮຽບຮ້ອຍ!", "✅");
+            } else {
+                await db.collection("products").add({
+                    ...data,
+                    initial_qty: data.qty, // ກຳນົດ initial_qty ເທົ່າກັບຈຳນວນນຳເຂົ້າຕົວຈິງ
+                    device_id: deviceId,
+                    date_added: new Date().toLocaleDateString('en-GB'),
+                    updated_at: new Date().toISOString()
+                });
+                showAlert("ສຳເລັດ", "ນຳເຂົ້າສິນຄ້າໃໝ່ສຳເລັດຮຽບຮ້ອຍ!", "📦");
+            }
+            
+            closeStockInModal();
+            pendingStockInData = null;
         }
 
         function toggleSelectAllInventory(masterCheckbox) {
@@ -2681,43 +2720,6 @@
             } else {
                 processStockIn(false);
             }
-        }
-
-        async function processStockIn(shouldMerge) {
-            document.getElementById('merge-confirm-modal').classList.add('hidden');
-            let data = pendingStockInData || {
-                code: currentStockInCode,
-                name: document.getElementById('stock-in-custom-name').value.trim() || currentStockInCode,
-                cost: parseFloat(document.getElementById('stock-in-cost').value.replace(/,/g, '')) || 0,
-                price: parseFloat(document.getElementById('stock-in-calculated-price').value.replace(/,/g, '')) || 0,
-                qty: parseInt(document.getElementById('stock-in-qty').value) || 1,
-                unitPerPack: parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12
-            };
-
-            if (shouldMerge && data.existingId) {
-                let newQty = data.existingQty + data.qty;
-                let highestCost = Math.max(data.cost, parseFloat(String(excelRows.find(i=>i.id === data.existingId).cost).replace(/,/g, '')));
-                
-                await db.collection("products").doc(data.existingId).update({
-                    qty: newQty,
-                    initial_qty: newQty,
-                    cost: highestCost,
-                    price: highestCost * (1 + data.profit_pct / 100),
-                    updated_at: new Date().toISOString()
-                });
-                showAlert("ສຳເລັດ", "ລວມສິນຄ້າສຳເລັດຮຽບຮ້ອຍ!", "✅");
-            } else {
-                await db.collection("products").add({
-                    ...data,
-                    device_id: deviceId,
-                    date_added: new Date().toLocaleDateString('en-GB'),
-                    updated_at: new Date().toISOString()
-                });
-                showAlert("ສຳເລັດ", "ນຳເຂົ້າສິນຄ້າໃໝ່ສຳເລັດຮຽບຮ້ອຍ!", "📦");
-            }
-            
-            closeStockInModal();
-            pendingStockInData = null;
         }
 
         function copyBankAccount() {
