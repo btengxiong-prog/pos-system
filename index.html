@@ -788,9 +788,6 @@
             </div>
         </div>
     </header>
-
-    <!-- Main Content -->
-    <main class="container mx-auto px-4 mt-3 max-w-4xl">
         <div id="scanner-container" class="hidden mb-6 bg-white p-4 rounded-xl shadow border">
             <div class="flex justify-between items-center mb-2">
                 <h3 class="font-bold text-lg text-gray-700">📷 ກຳລັງສະແກນ QR / ບາໂຄດ (ຂາຍສິນຄ້າ)</h3>
@@ -806,25 +803,10 @@
                 </div>
             </div>
 
+            <!-- ປຸ່ມໄປຊຳລະເງິນ (ສະແດງເມື່ອມີການສະແກນສິນຄ້າ) -->
+            <button id="btn-finish-sale" onclick="openCheckoutFromCart()" class="hidden mt-3 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-3 rounded-xl w-full font-bold cursor-pointer shadow-lg text-sm">✅ ສະແກນສຳເລັດ - ໄປຊຳລະເງິນ</button>
+
             <button onclick="closeScanner()" class="mt-3 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded w-full font-bold cursor-pointer">ປິດກ້ອງ</button>
-        </div>
-
-        <div id="stock-in-scanner-container" class="hidden mb-6 bg-white p-4 rounded-xl shadow border">
-            <div class="flex justify-between items-center mb-2">
-                <h3 class="font-bold text-lg text-pink-700">📷 ສະແກນ Barcode ສິນຄ້າ (ນຳເຂົ້າ)</h3>
-                <span class="text-xs bg-pink-100 text-pink-700 px-2 py-1 rounded font-semibold">ກຳລັງເປີດກ້ອງ...</span>
-            </div>
-            <div id="stock-in-reader" class="w-full max-w-md mx-auto"></div>
-            
-            <div class="mt-4 p-3 bg-pink-50 rounded-xl border border-pink-200 text-left space-y-2">
-                <label class="block text-xs font-bold text-pink-900">⌨️ ຫຼື ພິມ/ຍິງບາໂຄດດ້ວຍມື ແລ້ວກົດ Enter:</label>
-                <div class="flex items-center gap-2 w-full">
-                    <input type="text" id="manual-barcode-input" list="existing-product-names-list" onkeydown="handleManualBarcodeInput(event)" placeholder="ປ້ອນລະຫັດ Barcode ຫຼື ຊື່ສິນຄ້າ..." class="flex-1 w-full border rounded-lg px-3 py-2.5 text-xs font-bold outline-none focus:ring-2 focus:ring-pink-500 bg-white">
-                    <button type="button" onclick="submitManualBarcode()" class="bg-pink-600 hover:bg-pink-700 text-white px-6 py-2.5 rounded-lg text-xs font-bold cursor-pointer shadow whitespace-nowrap">ຕົກລົງ</button>
-                </div>
-            </div>
-
-            <button onclick="closeStockInScanner()" class="mt-3 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded w-full font-bold cursor-pointer">ປິດກ້ອງ</button>
         </div>
 
         <!-- Sales Popup Modal -->
@@ -2756,8 +2738,23 @@
             }
         }
 
+        let cart = []; // ຕະກ້າສິນຄ້າ
+
+        // 1. ຟັງຊັນສຽງແຈ້ງເຕືອນ
+        function playScanSound() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioCtx.createOscillator();
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
+                oscillator.connect(audioCtx.destination);
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.1);
+            } catch (e) { console.error("Sound error:", e); }
+        }
+
+        // 2. ຟັງຊັນສະແກນແບບຕໍ່ເນື່ອງ
         async function handleSalesBarcodeScanned(code) {
-            closeScanner();
             let foundItem = excelRows.find(item => 
                 String(item.code).trim().toLowerCase() === code.toLowerCase() || 
                 (item.name && item.name.trim().toLowerCase() === code.toLowerCase())
@@ -2768,61 +2765,46 @@
                 return;
             }
 
-            let rateRecordsMap = {};
-            if (db) {
-                try {
-                    let rateSnap = await db.collection("daily_rates").where("device_id", "==", deviceId).get();
-                    rateSnap.forEach(doc => {
-                        let rData = doc.data();
-                        if (rData.date) {
-                            rateRecordsMap[rData.date.trim()] = {
-                                buy: parseFloat(rData.buyRate) || 650,
-                                sell: parseFloat(rData.sellRate) || 670
-                            };
-                        }
-                    });
-                } catch (e) {}
-            }
+            playScanSound(); // ເອີ້ນໃຊ້ສຽງ
 
-            let originalCost = parseFloat(String(foundItem.originalCost || foundItem.original_cost || foundItem.cost).replace(/,/g, '')) || 0;
-            let profitPct = foundItem.profit_pct !== undefined ? foundItem.profit_pct : 20;
-
-            let rawImportDate = foundItem.dateAdded || foundItem.date_added || '';
-            let formattedImportDate = rawImportDate ? (rawImportDate.includes('/') ? rawImportDate : formatDateToDDMMYYYY(rawImportDate)) : '-';
-            let importDateISO = parseDDMMYYYYToISO(formattedImportDate);
-
-            let importBuyRate = 650;
-            if (importDateISO && rateRecordsMap[importDateISO]) {
-                importBuyRate = rateRecordsMap[importDateISO].buy;
-            }
-
-            let currentBuyRate = 685;
-            let latestDateKey = Object.keys(rateRecordsMap).sort().pop();
-            if (latestDateKey && rateRecordsMap[latestDateKey]) {
-                currentBuyRate = rateRecordsMap[latestDateKey].buy;
+            // ກວດສອບວ່າມີໃນ cart ແລ້ວບໍ່? ຖ້າມີ ໃຫ້ເພີ່ມຈຳນວນ
+            let cartItem = cart.find(i => i.code === foundItem.code);
+            if (cartItem) {
+                cartItem.qty += 1;
             } else {
-                currentBuyRate = parseFloat(localStorage.getItem('rate_current_value')) || 685;
+                // ຄຳນວນລາຄາປັດຈຸບັນກ່ອນເພີ່ມ
+                activeScannedItem = { ...foundItem }; // ດຶງຂໍ້ມູນພື້ນຖານ
+                cart.push({ ...foundItem, qty: 1 });
             }
 
-            let calculatedNewCost = originalCost * (currentBuyRate / importBuyRate);
-            let newCost = Math.ceil(calculatedNewCost / 1000) * 1000;
+            // ສະແດງສະຖານະການສະແກນ
+            document.getElementById('btn-finish-sale').classList.remove('hidden');
+            showAlert("ສະແກນສຳເລັດ", `ເພີ່ມ: ${foundItem.name} (ລວມ ${cart.find(i=>i.code===foundItem.code).qty} ລາຍການ)`, "✅");
+        }
 
-            let rawNewPrice = newCost * (1 + profitPct / 100);
-            let newPrice = Math.ceil(rawNewPrice / 1000) * 1000;
-
-            activeScannedItem = {
-                ...foundItem,
-                cost: newCost,   
-                price: newPrice  
-            };
-
-            document.getElementById('display-scanned-product-name').innerText = foundItem.name || foundItem.code;
-            document.getElementById('display-scanned-product-qty-input').value = "1";
-
-            let isRetail = document.querySelector('input[name="sale_type_mode"][value="retail"]').checked;
-            updatePopupPricing(isRetail);
+        // 3. ຟັງຊັນເປີດໜ້າຈໍຊຳລະເງິນຫຼັງສະແກນສຳເລັດ
+        function openCheckoutFromCart() {
+            if (cart.length === 0) return;
+            
+            // ເອົາລາຍການລ່າສຸດມາເປັນຕົວຕັ້ງຕົ້ນໃນ popup (ເພື່ອຮັກສາ Logic ເດີມຂອງ Modal)
+            activeScannedItem = cart[0]; 
+            
+            let total = cart.reduce((sum, item) => sum + (parseFloat(item.price) * item.qty), 0);
+            
+            document.getElementById('display-scanned-product-name').innerText = cart.length + " ຊະນິດສິນຄ້າ";
+            document.getElementById('grand-total').innerText = formatNumberWithCommas(total) + " ກີບ";
+            document.getElementById('custom-final-price').value = formatNumberWithCommas(total);
+            document.getElementById('final-total').innerText = formatNumberWithCommas(total) + " ກີບ";
             
             document.getElementById('sales-popup-modal').classList.remove('hidden');
+        }
+
+        // 4. ແກ້ໄຂ closeScanner ໃຫ້ລ້າງຕະກ້າ
+        function closeScanner() {
+            document.getElementById('scanner-container').classList.add('hidden');
+            document.getElementById('btn-finish-sale').classList.add('hidden');
+            cart = []; // ລ້າງຕະກ້າ
+            if (salesScannerInstance) salesScannerInstance.stop().catch(() => {});
         }
 
         function closeSalesPopup() { document.getElementById('sales-popup-modal').classList.add('hidden'); }
