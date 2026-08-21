@@ -3017,26 +3017,33 @@
                 return;
             }
 
+            // 🎯 ກັ່ນຕອງເອົາສະເພາະສິນຄ້າທີ່ມີວັນໝົດອາຍຸ (ບໍ່ໃຫ້ສະແດງສິນຄ້າທີ່ບໍ່ມີກຳນົດ)
+            let expiryFilteredRows = excelRows.filter(row => {
+                let expDateStr = row.expiryDate || row.expiry_date || '';
+                return expDateStr && expDateStr.trim() !== '' && expDateStr.trim() !== '-';
+            });
+
+            if (expiryFilteredRows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າມີກຳນົດ (ວັນໝົດອາຍຸ) ໃນລະບົບ</td></tr>`;
+                return;
+            }
+
             let html = '';
             let countIndex = 1;
             let today = new Date();
 
-            excelRows.forEach((row) => {
+            expiryFilteredRows.forEach((row) => {
                 let expDateStr = row.expiryDate || row.expiry_date || '';
                 let mfgDateStr = row.mfgDate || row.mfg_date || '-';
                 let rawImportDate = row.dateAdded || row.date_added || '';
                 let formattedImportDate = rawImportDate ? formatDateToDDMMYYYY(rawImportDate) : '-';
                 let noteStatus = '<span class="text-green-600 font-bold">ປົກກະຕິ</span>';
 
-                if (expDateStr && expDateStr !== '-') {
-                    let expDate = new Date(parseDDMMYYYYToISO(expDateStr));
-                    if (!isNaN(expDate.getTime())) {
-                        let diffDays = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
-                        if (diffDays < 0) noteStatus = '<span class="text-red-600 font-extrabold">❌ ໝົດອາຍຸແລ້ວ</span>';
-                        else if (diffDays <= 60) noteStatus = `<span class="text-amber-600 font-bold">⚠️ ใກ້ໝົດອາຍຸ (${diffDays} ວັນ)</span>`;
-                    }
-                } else {
-                    noteStatus = '<span class="text-gray-400">ບໍ່ມີກຳນົດ</span>';
+                let expDate = new Date(parseDDMMYYYYToISO(expDateStr));
+                if (!isNaN(expDate.getTime())) {
+                    let diffDays = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
+                    if (diffDays < 0) noteStatus = '<span class="text-red-600 font-extrabold">❌ ໝົດອາຍຸແລ້ວ</span>';
+                    else if (diffDays <= 60) noteStatus = `<span class="text-amber-600 font-bold">⚠️ ใກ້ໝົດອາຍຸ (${diffDays} ວັນ)</span>`;
                 }
 
                 let currency = row.currency || 'ກີບ';
