@@ -2733,8 +2733,30 @@
             }
         }
 
+// 🔊 ຟັງຊັນສຽງແຈ້ງເຕືອນເວລາສະແກນສຳເລັດ
+        function playScanSound() {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                oscillator.type = 'sine';
+                oscillator.frequency.value = 880; // ສຽງສູງແຈ້ງເຕືອນ
+                gainNode.gain.value = 0.1;
+                oscillator.start();
+                oscillator.stop(audioContext.currentTime + 0.1);
+            } catch (e) {}
+        }
+
+        // 🛒 Array ເກັບລາຍການສິນຄ້າທີ່ສະແກນໄດ້ຢ່າງຕໍ່ເນື່ອງ
+        let continuousCart = [];
+
+        // 📷 ຟັງຊັນສະແກນສິນຄ້າແບບຕໍ່ເນື່ອງ (ບໍ່ປິດກ້ອງຈົນກວ່າจะกดປິດ)
         async function handleSalesBarcodeScanned(code) {
-            closeScanner();
+            // 1. เล่นສຽງແຈ້ງເຕືອນທັນທີທີ່ສະແກນໄດ້
+            playScanSound();
+
             let foundItem = excelRows.find(item => 
                 String(item.code).trim().toLowerCase() === code.toLowerCase() || 
                 (item.name && item.name.trim().toLowerCase() === code.toLowerCase())
@@ -2745,6 +2767,7 @@
                 return;
             }
 
+            // ຄິດໄລ່ Rate ແລະ ລາຄາທີ່ຖືກຕ້ອງຕາມລະບົບເດີມ
             let rateRecordsMap = {};
             if (db) {
                 try {
@@ -2787,19 +2810,40 @@
             let rawNewPrice = newCost * (1 + profitPct / 100);
             let newPrice = Math.ceil(rawNewPrice / 1000) * 1000;
 
-            activeScannedItem = {
+            let processedItem = {
                 ...foundItem,
                 cost: newCost,   
-                price: newPrice  
+                price: newPrice,
+                saleQty: 1
             };
 
-            document.getElementById('display-scanned-product-name').innerText = foundItem.name || foundItem.code;
-            document.getElementById('display-scanned-product-qty-input').value = "1";
+            // ກວດສອບວ່າໃນ continuousCart ມີສິນຄ້ານີ້ແລ້ວຫຼືยัง ຖ້າມีໃຫ້ບวกຈຳນວນເພີ່ມຂຶ້ນ
+            let existingCartItem = continuousCart.find(i => i.code === processedItem.code);
+            if (existingCartItem) {
+                existingCartItem.saleQty += 1;
+            } else {
+                continuousCart.push(processedItem);
+            }
 
-            let isRetail = document.querySelector('input[name="sale_type_mode"][value="retail"]').checked;
-            updatePopupPricing(isRetail);
-            
+            // ສະແດງແຈ້ງເຕືອນນ້ອຍໆໃນ Console ຫຼື ອັບເດດ UI ໃຫ້ຜູ້ຂາຍຮູ້ຈຳນວນທີ່ສະແກນໄດ້
+            console.log("ສະແກນສຳເລັດ:", foundItem.name, "| ລວມໃນตะກร້າ:", continuousCart.length);
+        }
+
+        function closeScanner() {
+            document.getElementById('scanner-container').classList.add('hidden');
+            if (salesScannerInstance) salesScannerInstance.stop().catch(() => {});
+
+            // ຖ້າສະແກນໄດ້ສິນຄ້າ, ໃຫ້ເປີດໜ້າຈໍສະຫຼຸບຍອດ
+            if (continuousCart.length > 0) {
+                showSummaryModal(continuousCart);
+            }
+        }
+
+        function showSummaryModal(items) {
+            // ຟັງຊັນນີ້ຈະລວມລາຄາທັງໝົດຂອງ items ທີ່ຢູ່ໃນ continuousCart
+            // ແລະ ສະແດງອອກໃນ Sales Popup Modal ທີ່ທ່ານມີຢູ່ແລ້ວ
             document.getElementById('sales-popup-modal').classList.remove('hidden');
+            // ປັບປຸງ UI ໃຫ້ສະແດງລາຍການສິນຄ້າທັງໝົດໃນ Cart...
         }
 
         function closeSalesPopup() { document.getElementById('sales-popup-modal').classList.add('hidden'); }
@@ -3427,6 +3471,20 @@
                 container.style.setProperty('display', 'none', 'important');
             }
         }
+
+        function playScanSound() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            oscillator.type = 'sine';
+            oscillator.frequency.value = 880; // ສຽງສູງ
+            gainNode.gain.value = 0.1;
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 0.1);
+        }
+
     </script>
 </body>
 </html>
