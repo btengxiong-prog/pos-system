@@ -2791,15 +2791,21 @@
             let currentStock = parseFloat(String(activeScannedItem.qty || 0).replace(/,/g, '')) || 0;
             let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 1;
 
+            // 1. คำนวณจำนวนสต็อกคงเหลือทั้งหมดในหน่วยย่อย (เช่น ป๋ອງ)
             let totalAvailableSingles = Math.round(currentStock * unitPerPack);
             
-            // 🛠️ ຈັດການສະແດງຜົນສາງຄົງເຫຼືອ (Packs / Singles) ໃຫ້คงທີ່ຕາມຈຳນວນຕົວຈິງສະເໝີ (ບໍ່ປ່ຽນແປງຕາມປຸ່ມຂາຍສົ່ງ/ຂາຍຍ່ອຍ)
-            let remPacksX = Math.floor(totalAvailableSingles / unitPerPack);
-            let remSinglesY = totalAvailableSingles % unitPerPack;
+            // 2. คำนวณจำนวนที่ขายออกไปในหน่วยย่อย (ถ้าขายส่ง 1 ลาง = unitPerPack, ถ้าขายย่อย = จำนวนป๋ອງตรงๆ)
+            let soldSingles = isRetail ? qtyInput : (qtyInput * unitPerPack);
+            
+            // 3. คำนวณสต็อกคงเหลือสุทธิหลังหักการขาย
+            let remainingSingles = Math.max(0, totalAvailableSingles - soldSingles);
+
+            // 4. แปลงกลับเป็นรูปแบบ "ลาง / ป๋ອງ" เพื่อแสดงผลทันที
+            let remPacksX = Math.floor(remainingSingles / unitPerPack);
+            let remSinglesY = remainingSingles % unitPerPack;
             document.getElementById('display-scanned-stock-remaining').innerText = `${remPacksX} / ${remSinglesY}`;
 
-            // 🔍 ກວດສອບກໍລະນີສິນຄ້າບໍ່ພໍ (ສຳລັບທັງຂາຍສົ່ງ ແລະ ຂາຍຍ່ອຍ)
-            let soldSingles = isRetail ? qtyInput : (qtyInput * unitPerPack);
+            // 🔍 ตรวจสอบสต็อกไม่พอ
             if (soldSingles > totalAvailableSingles) {
                 showAlert("ແຈ້ງເຕືອນ", "ສິນຄ້າໃນສາງມີບໍ່ພໍສຳລັບການຂາຍນີ້!", "⚠️");
             }
