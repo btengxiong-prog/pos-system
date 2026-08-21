@@ -147,7 +147,7 @@
                 </button>
             </div>
             <div class="pt-2 border-t text-[11px] text-gray-400 font-semibold">
-                Ver: 2.0.1 (Master Edition - Realtime Rate Sync Added)
+                Ver: 2.0.2 (Continuous Scanner Edition)
             </div>
         </div>
     </div>
@@ -262,7 +262,7 @@
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
             <div class="text-3xl">📱</div>
             <h3 class="text-lg font-bold text-purple-900">QR Code ເຊື່ອມຕໍ່ພະນັກງານຂາຍ</h3>
-            <p class="text-xs text-gray-600">ໃຫ້ພະນັກງານຂາຍໃຊ້ໂທລະສັບສະແກນ QR ນີ້ເພື່ອຜູກຮ້ານ</p>
+            <p class="text-xs text-gray-600">ໃຫ້ພະນັກງານຂາຍໃຊ້ໂທລະສັບສະແກນ QR ນี้เพื่อຜູກຮ້ານ</p>
             <div class="bg-purple-50 p-4 rounded-xl border flex justify-center items-center my-2">
                 <div id="admin-connect-qrcode" class="bg-white p-3 rounded-xl border inline-block min-h-[160px]"></div>
             </div>
@@ -784,7 +784,7 @@
             </div>
 
             <div class="pt-2 border-t border-blue-800/80 text-center text-[11px] text-blue-200">
-                ✨ ສ້າງ ແລະ ພັດທະນາໂດຍ: <span class="text-yellow-400 font-semibold">ອາຈານ ບຸນແຕ່ງ ຊົ່ງຕົງມົວ</span> | 📞 ໂທ: 020 59456999, 020 99444448 | Ver: 2.0.1 (Master Edition - Realtime Rate Sync)
+                ✨ ສ້າງ ແລະ ພັດທະນາໂດຍ: <span class="text-yellow-400 font-semibold">ອາຈານ ບຸນແຕ່ງ ຊົ່ງຕົງມົວ</span> | 📞 ໂທ: 020 59456999, 020 99444448 | Ver: 2.0.2 (Continuous Scanner Edition)
             </div>
         </div>
     </header>
@@ -793,7 +793,7 @@
     <main class="container mx-auto px-4 mt-3 max-w-4xl">
         <div id="scanner-container" class="hidden mb-6 bg-white p-4 rounded-xl shadow border">
             <div class="flex justify-between items-center mb-2">
-                <h3 class="font-bold text-lg text-gray-700">📷 ກຳລັງສະແກນ QR / ບາໂຄດ (ຂາຍສິນຄ້າ)</h3>
+                <h3 class="font-bold text-lg text-gray-700">📷 ກຳລັງສະແກນ QR / ບາໂຄດ (ຂາຍສິນຄ້າ - ຕໍ່ເນື່ອງ)</h3>
                 <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold">ກຳລັງເປີດກ້ອງ...</span>
             </div>
             <div id="reader" class="w-full max-w-md mx-auto"></div>
@@ -803,6 +803,21 @@
                 <div class="flex gap-2">
                     <input type="text" id="scan-barcode-input" list="existing-product-names-list" onkeydown="handleScanBarcodeInput(event)" placeholder="ປ້ອນລະຫັດ Barcode..." class="flex-1 border rounded-lg px-3 py-2 text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white">
                     <button onclick="submitScanBarcode()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold cursor-pointer shadow">ຕົກລົງ</button>
+                </div>
+            </div>
+
+            <!-- Cart Summary View inside Scanner -->
+            <div id="continuous-cart-section" class="mt-4 p-3 bg-gray-50 rounded-xl border space-y-2">
+                <div class="flex justify-between items-center font-bold text-xs text-gray-800 border-b pb-1">
+                    <span>🛒 ລາຍການສິນຄ້າໃນກະຕ່າ (<span id="cart-item-count">0</span>):</span>
+                    <span id="cart-total-amount" class="text-green-600 text-sm">0 ກີບ</span>
+                </div>
+                <div id="continuous-cart-items-list" class="max-h-40 overflow-y-auto space-y-1 text-xs text-left">
+                    <p class="text-center text-gray-400 py-2">ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ</p>
+                </div>
+                <div class="flex gap-2 pt-2">
+                    <button onclick="openCheckoutMethodModal()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-xl text-xs transition shadow cursor-pointer">💰 ຊຳລະເງິນທັງໝົດ</button>
+                    <button onclick="clearContinuousCart()" class="bg-red-100 hover:bg-red-200 text-red-700 font-bold px-3 py-2 rounded-xl text-xs transition cursor-pointer">🗑️ ລ້າງກະຕ່າ</button>
                 </div>
             </div>
 
@@ -1375,6 +1390,23 @@
         let deviceId = localStorage.getItem('pos_permanent_device_id') || localStorage.getItem('pos_device_id') || 'POSXIONG';
         let currentSaleType = 'wholesale'; 
         let activeScannedItem = null; 
+        let continuousCart = []; // ກະຕ່າສະສົມສິນຄ້າສຳລັບສະແກນຕໍ່ເນື່ອງ
+
+        // 🔊 ຟັງຊັນສ້າງສຽງ Beep ເວລາສະແກນສຳເລັດ
+        function playBeepSound() {
+            try {
+                let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                let oscillator = audioCtx.createOscillator();
+                let gainNode = audioCtx.createGain();
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(800, audioCtx.currentTime); // ຄວາມຖີ່ສຽງ
+                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.15); // ຫຼິ້ນດົນ 0.15 ວິນາທີ
+            } catch (e) {}
+        }
 
         const translations = {
             lo: {
@@ -1696,7 +1728,6 @@
                 let currentDevId = String(deviceId || '').trim().toUpperCase();
                 let activeShopUser = String(localStorage.getItem('pos_active_shop_username') || localStorage.getItem('pos_shop_user') || '').trim().toUpperCase();
 
-                // 🎯 ຕັດສິນໃຈ Query: ຖ້າເປັນ Admin ເຫັນທຸກຮ້ານ, ຖ້າເປັນຮ້ານທົ່ວໄປ ໃຫ້ດຶງສະເພາະ device_id ຂອງຕົນເອງ
                 let productsQuery = db.collection("products");
                 if (userRole !== 'admin' && currentDevId !== 'POSXIONG') {
                     productsQuery = productsQuery.where("device_id", "==", currentDevId);
@@ -1712,7 +1743,6 @@
                         let docId = doc.id;
                         let rowDevId = String(item.device_id || '').trim().toUpperCase();
 
-                        // ຖ້າຂໍ້ມູນໃດຍັງບໍ່ມີ device_id ໃຫ້ຜູກກັບເຄື່ອງປັດຈຸບັນ
                         if (!rowDevId || rowDevId === '-' || rowDevId === 'UNDEFINED' || rowDevId === 'NULL') {
                             let docRef = db.collection("products").doc(docId);
                             batch.update(docRef, { device_id: currentDevId });
@@ -1721,7 +1751,6 @@
                             rowDevId = currentDevId;
                         }
 
-                        // 🔍 ກັ່ນຕອງຊ້ຳອີກຊັ້ນໜຶ່ງເພື່ອຄວາມປອດໄພສູງສຸດ
                         if (userRole === 'admin' || currentDevId === 'POSXIONG' || rowDevId === currentDevId || (activeShopUser !== '' && rowDevId === activeShopUser)) {
                             tempArr.push({
                                 id: docId,
@@ -1760,7 +1789,6 @@
                     if (!document.getElementById('report-modal').classList.contains('hidden')) calculateReport();
                 });
 
-                // ໂຄດສຳລັບ History (ປະຫວັດການຂາຍ) ໃຫ້ແຍກຕາມຮ້ານເຊັ່ນດຽວກັນ
                 let historyQuery = (userRole === 'admin' || currentDevId === 'POSXIONG') ?
                     db.collection("sales_history") :
                     db.collection("sales_history").where("device_id", "==", currentDevId);
@@ -2536,6 +2564,7 @@
         }
 
         function handleStockInBarcodeScanned(code) {
+            playBeepSound(); // 🔊 ຫຼິ້ນສຽງຕອນສະແກນໄດ້
             closeStockInScanner();
             currentStockInCode = code;
             document.getElementById('stock-in-code').innerText = code;
@@ -2562,10 +2591,8 @@
             let userInput = input.value.trim();
             input.value = "";
 
-            // 🔍 ປັບປຸງ: คົ້ນຫາແບບກົງກັນຢ່າງแม่ນຍຳ ໂດຍກວດສອບຊື່ທີ່ກົງກັນທັງໝົດກ่อน (Exact Match) ເພື່ອປ้องกันການດຶງຜິດລາຍການ
             let foundByName = excelRows.find(item => item.name && item.name.trim().toLowerCase() === userInput.toLowerCase());
             
-            // ຖ້າບໍ່ພົບແບບຕົກລົງກັນ100%, ให้ກວດສອບວ່າUserInput ຕົກລົງກັບ Barcode ຫຼືບໍ່
             if (!foundByName) {
                 foundByName = excelRows.find(item => String(item.code).trim().toLowerCase() === userInput.toLowerCase());
             }
@@ -2609,17 +2636,14 @@
 
         let pendingStockInData = null;
 
-        // ແກ້ໄຂຟັງຊັນ confirmStockIn (ໃຫ້ປ່ຽນຈາກການບັນທຶກທັນທີ ມາເປັນການເປີດ Modal ຖາມ)
         function confirmStockIn() {
             let code = currentStockInCode;
             let name = document.getElementById('stock-in-custom-name').value.trim() || code;
             let cost = parseFloat(document.getElementById('stock-in-cost').value.replace(/,/g, '')) || 0;
             
-            // ກວດສອບວ່າຊື່ນີ້ມີໃນ excelRows (ສາງ) ແລ້ວຫຼືບໍ່
             let existingItem = excelRows.find(item => item.name && item.name.trim().toLowerCase() === name.toLowerCase());
 
             if (existingItem) {
-                // ເກັບຂໍ້ມູນໄວ້ຊົ່ວຄາວ
                 pendingStockInData = {
                     code: code, name: name, cost: cost,
                     price: parseFloat(document.getElementById('stock-in-calculated-price').value.replace(/,/g, '')) || 0,
@@ -2631,14 +2655,13 @@
                 };
                 document.getElementById('merge-confirm-modal').classList.remove('hidden');
             } else {
-                processStockIn(false); // ຖ້າບໍ່ມີ ກໍບັນທຶກປົກກະຕິ
+                processStockIn(false);
             }
         }
 
         async function processStockIn(shouldMerge) {
             document.getElementById('merge-confirm-modal').classList.add('hidden');
             let data = pendingStockInData || {
-                // ຖ້າບໍ່ມີການລວມ (ກໍລະນີສິນຄ້າໃໝ່ ຫຼື ບໍ່ຕ້ອງການລວມ) ໃຫ້ໃຊ້ຂໍ້ມູນຈາກຟອມໂດຍກົງ
                 code: currentStockInCode,
                 name: document.getElementById('stock-in-custom-name').value.trim() || currentStockInCode,
                 cost: parseFloat(document.getElementById('stock-in-cost').value.replace(/,/g, '')) || 0,
@@ -2648,7 +2671,6 @@
             };
 
             if (shouldMerge && data.existingId) {
-                // ປັບລາຄາໃຫ້ເປັນລາຄາທີ່ສູງກວ່າ ແລະ ລວມຈຳນວນ
                 let newQty = data.existingQty + data.qty;
                 let highestCost = Math.max(data.cost, parseFloat(String(excelRows.find(i=>i.id === data.existingId).cost).replace(/,/g, '')));
                 
@@ -2661,7 +2683,6 @@
                 });
                 showAlert("ສຳເລັດ", "ລວມສິນຄ້າສຳເລັດຮຽບຮ້ອຍ!", "✅");
             } else {
-                // ສ້າງສິນຄ້າໃໝ່ (ກໍລະນີບໍ່ລວມ ຫຼື ສິນຄ້າໃໝ່)
                 await db.collection("products").add({
                     ...data,
                     device_id: deviceId,
@@ -2733,8 +2754,10 @@
             }
         }
 
+        // 🔄 ປັບປຸງລະບົບສະແກນຂາຍ: ສະແກນຕໍ່ເນື່ອງ ແລະ ເກັບລົງ continuousCart ພ້ອມຫຼິ້ນສຽງ Beep
         async function handleSalesBarcodeScanned(code) {
-            closeScanner();
+            playBeepSound(); // 🔊 ຫຼິ້ນສຽງຕອນສະແກນໄດ້
+
             let foundItem = excelRows.find(item => 
                 String(item.code).trim().toLowerCase() === code.toLowerCase() || 
                 (item.name && item.name.trim().toLowerCase() === code.toLowerCase())
@@ -2787,19 +2810,73 @@
             let rawNewPrice = newCost * (1 + profitPct / 100);
             let newPrice = Math.ceil(rawNewPrice / 1000) * 1000;
 
-            activeScannedItem = {
+            let processedItem = {
                 ...foundItem,
                 cost: newCost,   
-                price: newPrice  
+                price: newPrice,
+                saleType: 'wholesale'
             };
 
-            document.getElementById('display-scanned-product-name').innerText = foundItem.name || foundItem.code;
-            document.getElementById('display-scanned-product-qty-input').value = "1";
+            // ກວດສອບວ່າສິນຄ้านີ້ມີໃນ continuousCart ແລ້ວ ຫຼື ຍັງ
+            let existingCartItem = continuousCart.find(i => i.id === processedItem.id);
+            if (existingCartItem) {
+                existingCartItem.qty += 1;
+            } else {
+                continuousCart.push({ ...processedItem, qty: 1 });
+            }
 
-            let isRetail = document.querySelector('input[name="sale_type_mode"][value="retail"]').checked;
-            updatePopupPricing(isRetail);
-            
-            document.getElementById('sales-popup-modal').classList.remove('hidden');
+            updateContinuousCartUI();
+        }
+
+        function updateContinuousCartUI() {
+            let container = document.getElementById('continuous-cart-items-list');
+            let countEl = document.getElementById('cart-item-count');
+            let totalAmountEl = document.getElementById('cart-total-amount');
+            if (!container) return;
+
+            if (continuousCart.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-400 py-2">ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ</p>`;
+                if (countEl) countEl.innerText = "0";
+                if (totalAmountEl) totalAmountEl.innerText = "0 ກີບ";
+                return;
+            }
+
+            let html = '';
+            let totalAmt = 0;
+            let totalCount = 0;
+
+            continuousCart.forEach((item, idx) => {
+                let rowTotal = item.price * item.qty;
+                totalAmt += rowTotal;
+                totalCount += item.qty;
+
+                html += `
+                    <div class="flex justify-between items-center bg-white p-2 rounded-lg border shadow-sm">
+                        <div class="truncate max-w-[140px]">
+                            <span class="font-bold text-gray-800">${item.name || item.code}</span>
+                            <div class="text-[10px] text-gray-500">${formatNumberWithCommas(item.price)} x ${item.qty}</div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-green-600">${formatNumberWithCommas(rowTotal)}</span>
+                            <button onclick="removeContinuousCartItem(${idx})" class="text-red-500 hover:text-red-700 font-bold px-1">✕</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+            if (countEl) countEl.innerText = totalCount;
+            if (totalAmountEl) totalAmountEl.innerText = formatNumberWithCommas(totalAmt) + " " + (continuousCart[0]?.currency || 'ກີບ');
+        }
+
+        function removeContinuousCartItem(index) {
+            continuousCart.splice(index, 1);
+            updateContinuousCartUI();
+        }
+
+        function clearContinuousCart() {
+            continuousCart = [];
+            updateContinuousCartUI();
         }
 
         function closeSalesPopup() { document.getElementById('sales-popup-modal').classList.add('hidden'); }
@@ -2885,61 +2962,61 @@
         }
 
         async function printCurrentReceipt() {
-            if (!activeScannedItem) return;
-
-            let finalPrice = parseFloat(document.getElementById('custom-final-price').value.replace(/,/g, '')) || 0;
-            let qty = parseInt(document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '')) || 1;
-            
-            let isRetail = document.querySelector('input[name="sale_type_mode"][value="retail"]').checked;
-            let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
-            let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 1;
-            if (isRetail && unitPerPack > 1) {
-                unitCost = Math.ceil((unitCost / unitPerPack) / 1000) * 1000;
+            if (continuousCart.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ບໍ່ມີສິນຄ້າໃນກະຕ່າສຳລັບພິມບິນ!", "⚠️");
+                return;
             }
+
+            let itemsToSave = continuousCart.map(it => ({
+                code: it.code,
+                name: it.name + (it.saleType === 'retail' ? " (ຂາຍຍ່ອຍ)" : " (ຂາຍສົ່ງ)"),
+                cost: it.cost,
+                price: it.price,
+                qty: it.qty
+            }));
+
+            let totalAmount = continuousCart.reduce((sum, it) => sum + (it.price * it.qty), 0);
 
             let saleRecord = {
                 date: new Date().toISOString(),
                 device_id: deviceId,
-                items: [{
-                    code: activeScannedItem.code,
-                    name: activeScannedItem.name + (isRetail ? " (ຂາຍຍ່ອຍ)" : " (ຂາຍສົ່ງ)"),
-                    cost: unitCost,
-                    price: finalPrice / qty,
-                    qty: qty
-                }],
-                currency: activeScannedItem.currency || 'ກີບ',
+                items: itemsToSave,
+                currency: continuousCart[0]?.currency || 'ກີບ',
                 pay_mode: 'cash',
-                total_amount: finalPrice,
+                total_amount: totalAmount,
                 created_at: new Date().toISOString()
             };
 
-            if (db && activeScannedItem.id) {
+            if (db) {
                 try {
                     await db.collection("sales_history").add(saleRecord);
                     
-                    let docRef = db.collection("products").doc(activeScannedItem.id);
-                    let docSnap = await docRef.get();
-                    if (docSnap.exists) {
-                        let pData = docSnap.data();
-                        let currentStockQty = parseFloat(pData.qty) || 0;
-                        let totalAvailableSingles = Math.round(currentStockQty * unitPerPack);
-                        let soldSingles = isRetail ? qty : (qty * unitPerPack);
-                        let newTotalSingles = Math.max(0, totalAvailableSingles - soldSingles);
-                        
-                        let newStockQty = newTotalSingles / unitPerPack;
-                        await docRef.update({ qty: newStockQty });
+                    for (let it of continuousCart) {
+                        let docRef = db.collection("products").doc(it.id);
+                        let docSnap = await docRef.get();
+                        if (docSnap.exists) {
+                            let pData = docSnap.data();
+                            let currentStockQty = parseFloat(pData.qty) || 0;
+                            let unitPerPack = parseInt(it.unitPerPack || it.unit_per_pack) || 1;
+                            let totalAvailableSingles = Math.round(currentStockQty * unitPerPack);
+                            let soldSingles = it.saleType === 'retail' ? it.qty : (it.qty * unitPerPack);
+                            let newTotalSingles = Math.max(0, totalAvailableSingles - soldSingles);
+                            
+                            let newStockQty = newTotalSingles / unitPerPack;
+                            await docRef.update({ qty: newStockQty });
+                        }
                     }
                 } catch (e) {
                     console.error("Error processing receipt save/stock deduction:", e);
                 }
             }
 
-            closeSalesPopup();
+            clearContinuousCart();
             window.print();
         }
 
         function cancelCurrentSaleTransaction() {
-            closeSalesPopup();
+            clearContinuousCart();
         }
 
         function toggleSelectAllHistory(masterCheckbox) {
@@ -3315,10 +3392,14 @@
 
         let currentSelectedPaymentMode = 'cash';
         function openCheckoutMethodModal() {
-            let finalPrice = parseFloat(document.getElementById('custom-final-price').value.replace(/,/g, '')) || 0;
-            document.getElementById('popup-total-amount-text').innerText = formatNumberWithCommas(finalPrice) + " " + (activeScannedItem ? (activeScannedItem.currency || 'ກີບ') : 'ກີບ');
+            if (continuousCart.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາສະແກນສິນຄ້າໃສ່ກະຕ່າກ່ອນຊຳລະເງິນ!", "⚠️");
+                return;
+            }
+            let totalAmount = continuousCart.reduce((sum, it) => sum + (it.price * it.qty), 0);
+            document.getElementById('popup-total-amount-text').innerText = formatNumberWithCommas(totalAmount) + " " + (continuousCart[0]?.currency || 'ກີບ');
             let currentRate = parseFloat(localStorage.getItem('rate_current_value')) || 650;
-            document.getElementById('popup-total-thb-text').innerText = `${formatNumberWithCommas(currentRate > 0 ? Math.round(finalPrice / currentRate) : 0)} ບາດ (Rate: ${formatNumberWithCommas(currentRate)})`;
+            document.getElementById('popup-total-thb-text').innerText = `${formatNumberWithCommas(currentRate > 0 ? Math.round(totalAmount / currentRate) : 0)} ບາດ (Rate: ${formatNumberWithCommas(currentRate)})`;
             document.getElementById('modal-lak-acc-display').innerText = localStorage.getItem('pos_shop_lak_acc_' + deviceId) || '1006000000470';
             document.getElementById('modal-thb-acc-display').innerText = localStorage.getItem('pos_shop_thb_acc_' + deviceId) || '-';
             document.getElementById('checkout-method-modal').classList.remove('hidden');
@@ -3341,43 +3422,46 @@
         }
 
         async function confirmCheckoutPayment() {
-            if (!activeScannedItem) return;
-            let finalPrice = parseFloat(document.getElementById('custom-final-price').value.replace(/,/g, '')) || 0;
-            let qty = parseInt(document.getElementById('display-scanned-product-qty-input').value.replace(/,/g, '')) || 1;
-            
-            let isRetail = document.querySelector('input[name="sale_type_mode"][value="retail"]').checked;
-            let unitCost = parseFloat(String(activeScannedItem.cost).replace(/,/g, '')) || 0;
-            let unitPerPack = parseInt(activeScannedItem.unitPerPack || activeScannedItem.unit_per_pack) || 1;
-            if (isRetail && unitPerPack > 1) {
-                unitCost = Math.ceil((unitCost / unitPerPack) / 1000) * 1000;
-            }
+            if (continuousCart.length === 0) return;
+
+            let itemsToSave = continuousCart.map(it => ({
+                code: it.code,
+                name: it.name + (it.saleType === 'retail' ? " (ຂາຍຍ່ອຍ)" : " (ຂາຍສົ່ງ)"),
+                cost: it.cost,
+                price: it.price,
+                qty: it.qty
+            }));
+
+            let totalAmount = continuousCart.reduce((sum, it) => sum + (it.price * it.qty), 0);
 
             let saleRecord = {
                 date: new Date().toISOString(),
                 device_id: deviceId,
-                items: [{ code: activeScannedItem.code, name: activeScannedItem.name + (isRetail ? " (ຂາຍຍ່ອຍ)" : " (ຂາຍສົ່ງ)"), cost: unitCost, price: finalPrice / qty, qty: qty }],
-                currency: activeScannedItem.currency || 'ກີບ',
+                items: itemsToSave,
+                currency: continuousCart[0]?.currency || 'ກີບ',
                 pay_mode: currentSelectedPaymentMode,
-                total_amount: finalPrice,
+                total_amount: totalAmount,
                 created_at: new Date().toISOString()
             };
 
-            if (db && activeScannedItem.id) {
+            if (db) {
                 try { 
                     await db.collection("sales_history").add(saleRecord); 
                     
-                    let docRef = db.collection("products").doc(activeScannedItem.id);
-                    let docSnap = await docRef.get();
-                    if (docSnap.exists) {
-                        let pData = docSnap.data();
-                        let currentStockQty = parseFloat(pData.qty) || 0;
-                        
-                        let totalAvailableSingles = Math.round(currentStockQty * unitPerPack);
-                        let soldSingles = isRetail ? qty : (qty * unitPerPack);
-                        let newTotalSingles = Math.max(0, totalAvailableSingles - soldSingles);
-                        
-                        let newStockQty = newTotalSingles / unitPerPack;
-                        await docRef.update({ qty: newStockQty });
+                    for (let it of continuousCart) {
+                        let docRef = db.collection("products").doc(it.id);
+                        let docSnap = await docRef.get();
+                        if (docSnap.exists) {
+                            let pData = docSnap.data();
+                            let currentStockQty = parseFloat(pData.qty) || 0;
+                            let unitPerPack = parseInt(it.unitPerPack || it.unit_per_pack) || 1;
+                            let totalAvailableSingles = Math.round(currentStockQty * unitPerPack);
+                            let soldSingles = it.saleType === 'retail' ? it.qty : (it.qty * unitPerPack);
+                            let newTotalSingles = Math.max(0, totalAvailableSingles - soldSingles);
+                            
+                            let newStockQty = newTotalSingles / unitPerPack;
+                            await docRef.update({ qty: newStockQty });
+                        }
                     }
                 } catch (e) {
                     console.error("Error processing payment save/stock deduction:", e);
@@ -3385,7 +3469,7 @@
             }
 
             closeCheckoutMethodModal();
-            closeSalesPopup();
+            clearContinuousCart();
             showAlert("ສຳເລັດ", `ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ (ວິທີ: ${currentSelectedPaymentMode})!`, "💰");
         }
 
