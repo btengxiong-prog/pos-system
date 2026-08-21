@@ -844,34 +844,20 @@
 
         function openScanner() {
             closeAllCustomDropdowns();
+            isScannerLocked = false; // ປົດລັອກກ້ອງ
+            document.getElementById('scanner-container').classList.remove('hidden');
             
-            // ສ້າງ Modal ຖາມເລືອກປະເພດການຂາຍ (ຖ້າຫາກຍັງບໍ່ມີ)
-            let selectModeModal = document.getElementById('sale-mode-select-modal');
-            if (!selectModeModal) {
-                let modalHtml = `
-                    <div id="sale-mode-select-modal" class="fixed inset-0 bg-black/70 z-[400] flex items-center justify-center p-4">
-                        <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
-                            <div class="text-4xl">🏷️</div>
-                            <h3 class="text-lg font-bold text-blue-900">ກະລຸນາເລືອກປະເພດການຂາຍ</h3>
-                            <p class="text-xs text-gray-600">ກະລຸນາເລືອກຮູບແບບການຂາຍກ່ອນເລີ່ມສະແກນສິນຄ້າ</p>
-                            <div class="space-y-3 pt-2">
-                                <button onclick="startScannerWithMode('wholesale')" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl transition cursor-pointer shadow flex items-center justify-center gap-2 text-sm">
-                                    📦 ຂາຍສົ່ງ (ຫໍ່, ແພັກ, ລາງ...)
-                                </button>
-                                <button onclick="startScannerWithMode('retail')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition cursor-pointer shadow flex items-center justify-center gap-2 text-sm">
-                                    🥤 ຂາຍຍ່ອຍ (ແກ້ວ, ວດ...)
-                                </button>
-                            </div>
-                            <button onclick="document.getElementById('sale-mode-select-modal').classList.add('hidden')" class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl text-sm transition cursor-pointer mt-2">ຍົກເລີກ</button>
-                        </div>
-                    </div>
-                `;
-                let div = document.createElement('div');
-                div.innerHTML = modalHtml;
-                document.body.appendChild(div.firstElementChild);
-            } else {
-                selectModeModal.classList.remove('hidden');
+            // ໃຊ້ Instance ເດີມທີ່ມີຢູ່ແລ້ວ
+            if (!salesScannerInstance) {
+                try { salesScannerInstance = new Html5Qrcode("reader"); } catch (e) {}
             }
+            
+            salesScannerInstance.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: 250 },
+                (decodedText) => handleSalesBarcodeScanned(decodedText.trim()),
+                (err) => {}
+            ).catch(err => {});
         }
 
         function startScannerWithMode(mode) {
@@ -912,7 +898,7 @@
 
         // 🔄 ປະມວນຜົນສະແກນ (ຂາຍສົ່ງ / ຂາຍຍ່ອຍ ຕາມທີ່ເລືອກໄວ້)
         async function handleSalesBarcodeScanned(code) {
-            if (isScannerLocked) return; // 🔒 ລັອກກ້ອງຊົ່ວຄາວ (3 ວິນາທີ)
+            if (isScannerLocked) return; // ຖ້າລັອກຢູ່ 3 ວິນາທີ ໃຫ້ຂ້າມ
 
             let foundItem = excelRows.find(item => 
                 String(item.code).trim().toLowerCase() === code.toLowerCase() || 
@@ -924,91 +910,25 @@
                 return;
             }
 
-            // 🔒 ລັອກກ້ອງ ແລະ ສະແກນໄດ້ເທື່ອລະໂຕ
+            // 🔒 ລັອກກ້ອງທັນທີ ແລະ ຫຼິ້ນສຽງ Beep
             isScannerLocked = true;
-            playBeepSound(); // 🔊 ສຽງ Beep ແຈ້ງເຕືອນສຳເລັດ
-            
-            let statusBadge = document.getElementById('scanner-status-badge');
-            if (statusBadge) {
-                statusBadge.className = "text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded font-semibold";
-                statusBadge.innerText = "⏳ ບັນທຶກສິນຄ້າແລ້ວ (ພັກ 3 ວິ)...";
-            }
+            playBeepSound();
 
-            let rateRecordsMap = {};
-            if (db) {
-                try {
-                    let rateSnap = await db.collection("daily_rates").where("device_id", "==", deviceId).get();
-                    rateSnap.forEach(doc => {
-                        let rData = doc.data();
-                        if (rData.date) {
-                            rateRecordsMap[rData.date.trim()] = {
-                                buy: parseFloat(rData.buyRate) || 650,
-                                sell: parseFloat(rData.sellRate) || 670
-                            };
-                        }
-                    });
-                } catch (e) {}
-            }
+            // ໂຫຼດຂໍ້ມູນເຂົ້າ Modal ຕົ້ນສະບັບ (confirm-modal)
+            activeScannedItem = foundItem;
+            document.getElementById('modal-code').innerText = foundItem.code;
+            document.getElementById('modal-name').value = foundItem.name;
+            document.getElementById('modal-cost').value = formatNumberWithCommas(foundItem.cost);
+            document.getElementById('modal-price').value = formatNumberWithCommas(foundItem.price);
+            document.getElementById('modal-qty').value = "1";
+            document.getElementById('modal-stock-remaining').value = foundItem.qty;
 
-            let originalCost = parseFloat(String(foundItem.originalCost || foundItem.original_cost || foundItem.cost).replace(/,/g, '')) || 0;
-            let originalPrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
-            let profitPct = foundItem.profit_pct !== undefined ? foundItem.profit_pct : 20;
-            let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
+            // ເປີດ Modal ຕົ້ນສະບັບ
+            document.getElementById('confirm-modal').classList.remove('hidden');
 
-            let rawImportDate = foundItem.dateAdded || foundItem.date_added || '';
-            let formattedImportDate = rawImportDate ? (rawImportDate.includes('/') ? rawImportDate : formatDateToDDMMYYYY(rawImportDate)) : '-';
-            let importDateISO = parseDDMMYYYYToISO(formattedImportDate);
-
-            let importBuyRate = 650;
-            if (importDateISO && rateRecordsMap[importDateISO]) {
-                importBuyRate = rateRecordsMap[importDateISO].buy;
-            }
-
-            let currentBuyRate = 685;
-            let latestDateKey = Object.keys(rateRecordsMap).sort().pop();
-            if (latestDateKey && rateRecordsMap[latestDateKey]) {
-                currentBuyRate = rateRecordsMap[latestDateKey].buy;
-            } else {
-                currentBuyRate = parseFloat(localStorage.getItem('rate_current_value')) || 685;
-            }
-
-            let calculatedNewCost = originalCost * (currentBuyRate / importBuyRate);
-            let newCost = Math.ceil(calculatedNewCost / 1000) * 1000;
-            let rawNewPrice = newCost * (1 + profitPct / 100);
-            let newPrice = Math.ceil(rawNewPrice / 1000) * 1000;
-
-            // ⚖️ ຖ້າເປັນຂາຍຍ່ອຍ ແລະ ມີຫົວໜ່ວຍຕໍ່ຫໍ່ ໃຫ້ຫານລາຄາລົງຕາມຫົວໜ່ວຍຍ່ອຍ
-            let finalItemCost = newCost;
-            let finalItemPrice = newPrice;
-            if (currentSaleType === 'retail' && unitPerPack > 1) {
-                finalItemCost = Math.ceil((newCost / unitPerPack) / 1000) * 1000;
-                finalItemPrice = Math.ceil((newPrice / unitPerPack) / 1000) * 1000;
-            }
-
-            let processedItem = {
-                ...foundItem,
-                cost: finalItemCost,
-                price: finalItemPrice,
-                saleType: currentSaleType // 'wholesale' ຫຼື 'retail'
-            };
-
-            // ເກັບລົງ continuousCart (ຖ້າມີສິນຄ້າຊະນິດ ແລະ ປະເພດຂາຍດຽວກັນ ໃຫ້ບວກຈຳນວນເພີ່ມ)
-            let existingCartItem = continuousCart.find(i => i.id === processedItem.id && i.saleType === currentSaleType);
-            if (existingCartItem) {
-                existingCartItem.qty += 1;
-            } else {
-                continuousCart.push({ ...processedItem, qty: 1 });
-            }
-
-            updateContinuousCartUI();
-
-            // ⏳ ຕັ້ງເວລາ 3 ວິນາທີ ໃຫ້ກ້ອງພ້ອມສະແກນໂຕຕໍ່ໄປ
+            // ⏳ ປົດລັອກກ້ອງຫຼັງຈາກ 3 ວິນາທີ
             setTimeout(() => {
                 isScannerLocked = false;
-                if (statusBadge) {
-                    statusBadge.className = "text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold";
-                    statusBadge.innerText = "ກຳລັງເປີດກ້ອງ... (ພ້ອມສະແກນຕໍ່)";
-                }
             }, 3000);
         }
 
