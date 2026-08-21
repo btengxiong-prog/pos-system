@@ -147,7 +147,7 @@
                 </button>
             </div>
             <div class="pt-2 border-t text-[11px] text-gray-400 font-semibold">
-                Ver: 2.0.2 (Continuous Scanner Edition)
+                Ver: 2.0.3 (Continuous Scanner with 3s Delay)
             </div>
         </div>
     </div>
@@ -262,7 +262,7 @@
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
             <div class="text-3xl">📱</div>
             <h3 class="text-lg font-bold text-purple-900">QR Code ເຊື່ອມຕໍ່ພະນັກງານຂາຍ</h3>
-            <p class="text-xs text-gray-600">ໃຫ້ພະນັກງານຂາຍໃຊ້ໂທລະສັບສະແກນ QR ນี้เพื่อຜູກຮ້ານ</p>
+            <p class="text-xs text-gray-600">ໃຫ້ພະນັກງານຂາຍໃຊ້ໂທລະສັບສະແກນ QR ນີ້ເພື່ອຜູກຮ້ານ</p>
             <div class="bg-purple-50 p-4 rounded-xl border flex justify-center items-center my-2">
                 <div id="admin-connect-qrcode" class="bg-white p-3 rounded-xl border inline-block min-h-[160px]"></div>
             </div>
@@ -784,7 +784,7 @@
             </div>
 
             <div class="pt-2 border-t border-blue-800/80 text-center text-[11px] text-blue-200">
-                ✨ ສ້າງ ແລະ ພັດທະນາໂດຍ: <span class="text-yellow-400 font-semibold">ອາຈານ ບຸນແຕ່ງ ຊົ່ງຕົງມົວ</span> | 📞 ໂທ: 020 59456999, 020 99444448 | Ver: 2.0.2 (Continuous Scanner Edition)
+                ✨ ສ້າງ ແລະ ພັດທະນາໂດຍ: <span class="text-yellow-400 font-semibold">ອາຈານ ບຸນແຕ່ງ ຊົ່ງຕົງມົວ</span> | 📞 ໂທ: 020 59456999, 020 99444448 | Ver: 2.0.3 (Continuous Scanner with 3s Delay)
             </div>
         </div>
     </header>
@@ -794,7 +794,7 @@
         <div id="scanner-container" class="hidden mb-6 bg-white p-4 rounded-xl shadow border">
             <div class="flex justify-between items-center mb-2">
                 <h3 class="font-bold text-lg text-gray-700">📷 ກຳລັງສະແກນ QR / ບາໂຄດ (ຂາຍສິນຄ້າ - ຕໍ່ເນື່ອງ)</h3>
-                <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold">ກຳລັງເປີດກ້ອງ...</span>
+                <span id="scanner-status-badge" class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold">ກຳລັງເປີດກ້ອງ...</span>
             </div>
             <div id="reader" class="w-full max-w-md mx-auto"></div>
             
@@ -1390,7 +1390,8 @@
         let deviceId = localStorage.getItem('pos_permanent_device_id') || localStorage.getItem('pos_device_id') || 'POSXIONG';
         let currentSaleType = 'wholesale'; 
         let activeScannedItem = null; 
-        let continuousCart = []; // ກະຕ່າສະສົມສິນຄ້າສຳລັບສະແກນຕໍ່ເນື່ອງ
+        let continuousCart = []; 
+        let isScannerLocked = false; // 🔒 ຕົວປ່ຽນສຳລັບລັອກກ້ອງຊົ່ວຄາວ (3 ວິນາທີ)
 
         // 🔊 ຟັງຊັນສ້າງສຽງ Beep ເວລາສະແກນສຳເລັດ
         function playBeepSound() {
@@ -1399,12 +1400,12 @@
                 let oscillator = audioCtx.createOscillator();
                 let gainNode = audioCtx.createGain();
                 oscillator.type = 'sine';
-                oscillator.frequency.setValueAtTime(800, audioCtx.currentTime); // ຄວາມຖີ່ສຽງ
+                oscillator.frequency.setValueAtTime(800, audioCtx.currentTime); 
                 gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
                 oscillator.connect(gainNode);
                 gainNode.connect(audioCtx.destination);
                 oscillator.start();
-                oscillator.stop(audioCtx.currentTime + 0.15); // ຫຼິ້ນດົນ 0.15 ວິນາທີ
+                oscillator.stop(audioCtx.currentTime + 0.15); 
             } catch (e) {}
         }
 
@@ -2564,7 +2565,7 @@
         }
 
         function handleStockInBarcodeScanned(code) {
-            playBeepSound(); // 🔊 ຫຼິ້ນສຽງຕອນສະແກນໄດ້
+            playBeepSound(); 
             closeStockInScanner();
             currentStockInCode = code;
             document.getElementById('stock-in-code').innerText = code;
@@ -2724,6 +2725,7 @@
         let salesScannerInstance = null;
         function openScanner() {
             closeAllCustomDropdowns();
+            isScannerLocked = false;
             document.getElementById('scanner-container').classList.remove('hidden');
             if (!salesScannerInstance) {
                 try { salesScannerInstance = new Html5Qrcode("reader"); } catch (e) {}
@@ -2754,9 +2756,9 @@
             }
         }
 
-        // 🔄 ປັບປຸງລະບົບສະແກນຂາຍ: ສະແກນຕໍ່ເນື່ອງ ແລະ ເກັບລົງ continuousCart ພ້ອມຫຼິ້ນສຽງ Beep
+        // 🔄 ປັບປຸງລະບົບສະແກນຂາຍ: ສະແກນຕໍ່ເນື່ອງ ແຕ່ລັອກກ້ອງ 3 ວິນາທີ ປ้องกันສະແກນຊ້ຳລົວໆ
         async function handleSalesBarcodeScanned(code) {
-            playBeepSound(); // 🔊 ຫຼິ້ນສຽງຕອນສະແກນໄດ້
+            if (isScannerLocked) return; // 🔒 ຖ້າກ້ອງຖືກລັອກຢູ່ (ຍັງບໍ່ຮອດ 3 ວິນາທີ) ໃຫ້ຂ້າມໄປກ່ອນ
 
             let foundItem = excelRows.find(item => 
                 String(item.code).trim().toLowerCase() === code.toLowerCase() || 
@@ -2766,6 +2768,16 @@
             if (!foundItem) {
                 showAlert("ບໍ່ພົບສິນຄ້າ", `ບໍ່ພົບລະຫັດ ຫຼື ຊື່ສິນຄ້າ [${code}] ໃນສາງ!`, "⚠️");
                 return;
+            }
+
+            // 🔒 ລັອກກ້ອງ ແລະ ສະແດງສະຖານະພັກ
+            isScannerLocked = true;
+            playBeepSound(); // 🔊 ຫຼິ້ນສຽງ Beep
+            
+            let statusBadge = document.getElementById('scanner-status-badge');
+            if (statusBadge) {
+                statusBadge.className = "text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded font-semibold";
+                statusBadge.innerText = "⏳ ບັນທຶກສິນຄ້າແລ້ວ (ພັກ 3 ວິ)...";
             }
 
             let rateRecordsMap = {};
@@ -2817,7 +2829,6 @@
                 saleType: 'wholesale'
             };
 
-            // ກວດສອບວ່າສິນຄ้านີ້ມີໃນ continuousCart ແລ້ວ ຫຼື ຍັງ
             let existingCartItem = continuousCart.find(i => i.id === processedItem.id);
             if (existingCartItem) {
                 existingCartItem.qty += 1;
@@ -2826,6 +2837,15 @@
             }
 
             updateContinuousCartUI();
+
+            // ⏳ ຕັ້ງເວລາ 3 ວິນາທີ ໃຫ້ກ້ອງກັບມາພ້ອມສະແກນຕໍ່
+            setTimeout(() => {
+                isScannerLocked = false;
+                if (statusBadge) {
+                    statusBadge.className = "text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold";
+                    statusBadge.innerText = "ກຳລັງເປີດກ້ອງ... (ພ້ອມສະແກນຕໍ່)";
+                }
+            }, 3000);
         }
 
         function updateContinuousCartUI() {
