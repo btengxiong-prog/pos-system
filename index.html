@@ -818,11 +818,12 @@
             <div id="reader" class="w-full max-w-md mx-auto"></div>
             
             <div class="mt-4 p-3 bg-blue-50 rounded-xl border border-blue-200 text-left space-y-2">
-                <label class="block text-xs font-bold text-blue-900">⌨️ ຫຼື ພິມ/ຍິງບາໂຄດດ້ວຍມື ແລ້ວກົດ Enter:</label>
-                <div class="flex gap-2">
-                    <input type="text" id="scan-barcode-input" list="existing-product-names-list" onkeydown="handleScanBarcodeInput(event)" placeholder="ປ້ອນລະຫັດ Barcode..." class="flex-1 border rounded-lg px-3 py-2 text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                    <button onclick="submitScanBarcode()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold cursor-pointer shadow">ຕົກລົງ</button>
+                <label class="block text-xs font-bold text-blue-900">⌨️ ປ້ອນລະຫັດ Barcode ແລະ ຈຳນວນທີ່ຕ້ອງການຂາຍ:</label>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <input type="text" id="scan-barcode-input" list="existing-product-names-list" onkeydown="handleScanBarcodeInput(event)" placeholder="ປ້ອນລະຫັດ Barcode..." class="sm:col-span-2 border rounded-lg px-3 py-2 text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                    <input type="text" id="scan-qty-input" value="1" oninput="formatInputMoney(this)" placeholder="ຈຳນວນ" class="border rounded-lg px-3 py-2 text-center text-xs font-bold text-green-700 outline-none focus:ring-2 focus:ring-blue-500 bg-white" title="ຈຳນວນຂາຍຕົວຈິງ">
                 </div>
+                <button onclick="submitScanBarcode()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-xs font-bold cursor-pointer shadow">🛒 ເພີ່ມລົງກະຕ່າ (ຕາມຈຳນວນທີ່ປ້ອນ)</button>
             </div>
 
             <!-- Cart Summary View inside Scanner -->
@@ -2785,15 +2786,17 @@
 
         function submitScanBarcode() {
             let input = document.getElementById('scan-barcode-input');
+            let qtyInput = document.getElementById('scan-qty-input');
             if (input && input.value.trim() !== "") {
                 let code = input.value.trim();
+                let customQty = parseFloat(qtyInput ? qtyInput.value.replace(/,/g, '') : '1') || 1;
                 input.value = "";
-                handleSalesBarcodeScanned(code);
+                if (qtyInput) qtyInput.value = "1"; // ຣີເຊັດຈຳນວນກັບຄືນເປັນ 1
+                handleSalesBarcodeScanned(code, customQty);
             }
         }
 
-        // 🔄 ປັບປຸງລະບົບສະແກນຂາຍ: ຮອງຮັບຂາຍສົ່ງ/ຂາຍຍ່ອຍ, ສະແກນຕໍ່ເນື່ອງ ແລະ ລັອກກ້ອງ 3 ວິນາທີ
-        async function handleSalesBarcodeScanned(code) {
+        async function handleSalesBarcodeScanned(code, inputQty = null) {
             if (isScannerLocked) return; 
 
             let foundItem = excelRows.find(item => 
@@ -2873,11 +2876,14 @@
                 saleType: currentSaleType
             };
 
+            // 🔹 ຖ້າມີການປ້ອນຈຳນວນເຂົ້າມາ (ເຊັ່ນ: 100) ໃຫ້ໃຊ້ຈຳນວນນັ້ນ, ຖ້າສະແກນຜ່ານກ້ອງປົກກະຕິແມ່ນເພີ່ມทีລະ 1
+            let addQty = inputQty !== null ? inputQty : 1;
+
             let existingCartItem = continuousCart.find(i => i.id === processedItem.id && i.saleType === currentSaleType);
             if (existingCartItem) {
-                existingCartItem.qty += 1;
+                existingCartItem.qty += addQty;
             } else {
-                continuousCart.push({ ...processedItem, qty: 1 });
+                continuousCart.push({ ...processedItem, qty: addQty });
             }
 
             updateContinuousCartUI();
