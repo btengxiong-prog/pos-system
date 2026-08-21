@@ -2733,20 +2733,24 @@
             }
         }
 
-// 🔊 ຟັງຊັນສຽງແຈ້ງເຕືອນເວລາສະແກນສຳເລັດ
+// ສ້າງ AudioContext ໄວ້ຂ້າງນອກເພື່ອບໍ່ໃຫ້ມັນ conflict ກັບກ້ອງ
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
         function playScanSound() {
-            try {
-                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                const oscillator = audioContext.createOscillator();
-                const gainNode = audioContext.createGain();
-                oscillator.connect(gainNode);
-                gainNode.connect(audioContext.destination);
-                oscillator.type = 'sine';
-                oscillator.frequency.value = 880; // ສຽງສູງແຈ້ງເຕືອນ
-                gainNode.gain.value = 0.1;
-                oscillator.start();
-                oscillator.stop(audioContext.currentTime + 0.1);
-            } catch (e) {}
+            // ຖ້າ AudioContext ຖືກ suspend ໃຫ້ resume (ເງື່ອນໄຂ browser)
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'sine'; // ປ່ຽນເປັນ sine ຈະນຸ່ມນວນກວ່າ square
+            osc.frequency.value = 880;
+            gain.gain.value = 0.1;
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.1);
         }
 
         // 🛒 Array ເກັບລາຍການສິນຄ້າທີ່ສະແກນໄດ້ຢ່າງຕໍ່ເນື່ອງ
