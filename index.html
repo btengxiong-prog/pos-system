@@ -1010,17 +1010,30 @@
                     <div id="expiry-input-group" class="hidden space-y-3">
                         <div>
                             <label class="block font-semibold text-gray-700 mb-1">ວັນຜະລິດ (MFG Date):</label>
-                            <input type="text" id="stock-in-mfg-date" inputmode="numeric" oninput="autoSlashDateInput(this)" maxlength="10" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 font-semibold text-purple-700 bg-white" placeholder="dd/mm/yyyy (ຕົວຢ່າງ: 22/05/2025)">
+                            <input type="text" id="stock-in-mfg-date" inputmode="numeric" oninput="autoSlashDateInput(this)" maxlength="10" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 font-semibold text-purple-700 bg-white" placeholder="dd/mm/yyyy">
                         </div>
                         <div>
                             <label class="block font-semibold text-gray-700 mb-1">ວັນໝົດອາຍຸ (EXP Date):</label>
-                            <input type="text" id="stock-in-exp-date" inputmode="numeric" oninput="autoSlashDateInput(this)" maxlength="10" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 font-semibold text-red-600 bg-white" placeholder="dd/mm/yyyy (ຕົວຢ່າງ: 21/05/2028)">
+                            <input type="text" id="stock-in-exp-date" inputmode="numeric" oninput="autoSlashDateInput(this)" maxlength="10" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 font-semibold text-red-600 bg-white" placeholder="dd/mm/yyyy">
                         </div>
                     </div>
                 </div>
                 <div class="flex gap-2 pt-2">
                     <button onclick="closeStockInModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
                     <button onclick="confirmStockIn()" class="flex-1 bg-pink-600 hover:bg-pink-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">ຕົກລົງ / ຢືນຢັນ</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal ຖາມລວມສິນຄ້າ -->
+        <div id="merge-confirm-modal" class="hidden fixed inset-0 bg-black/60 z-[1100] flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
+                <div class="text-4xl">📦</div>
+                <h3 class="text-lg font-bold text-gray-800">ພົບສິນຄ້າຊະນິດດຽວກັນ</h3>
+                <p class="text-sm text-gray-600">ລະບົບພົບສິນຄ້າຊື່ດຽວກັນໃນສາງ. ທ່ານຕ້ອງການລວມລາຄາ ແລະ ຈຳນວນເຂົ້າກັນ ຫຼື ບໍ່?</p>
+                <div class="flex gap-2 pt-2">
+                    <button onclick="processStockIn(false)" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer text-sm">ບໍ່ຕ້ອງການ</button>
+                    <button onclick="processStockIn(true)" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">ຕ້ອງການ (ລວມ)</button>
                 </div>
             </div>
         </div>
@@ -2594,57 +2607,72 @@
             document.getElementById('stock-in-total-calculated').value = qty * unitPerPack;
         }
 
-        async function confirmStockIn() {
+        let pendingStockInData = null;
+
+        // ແກ້ໄຂຟັງຊັນ confirmStockIn (ໃຫ້ປ່ຽນຈາກການບັນທຶກທັນທີ ມາເປັນການເປີດ Modal ຖາມ)
+        function confirmStockIn() {
             let code = currentStockInCode;
             let name = document.getElementById('stock-in-custom-name').value.trim() || code;
             let cost = parseFloat(document.getElementById('stock-in-cost').value.replace(/,/g, '')) || 0;
-            let price = parseFloat(document.getElementById('stock-in-calculated-price').value.replace(/,/g, '')) || 0;
-            let qty = parseInt(document.getElementById('stock-in-qty').value) || 1;
-            let unitPerPack = parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12;
-            let importDateInput = document.getElementById('stock-in-import-date').value.trim();
-            let finalDateAdded = importDateInput;
+            
+            // ກວດສອບວ່າຊື່ນີ້ມີໃນ excelRows (ສາງ) ແລ້ວຫຼືບໍ່
+            let existingItem = excelRows.find(item => item.name && item.name.trim().toLowerCase() === name.toLowerCase());
 
-            if (!importDateInput) {
-                let today = new Date();
-                let dd = String(today.getDate()).padStart(2, '0');
-                let mm = String(today.getMonth() + 1).padStart(2, '0');
-                let yyyy = today.getFullYear();
-                finalDateAdded = `${dd}/${mm}/${yyyy}`;
+            if (existingItem) {
+                // ເກັບຂໍ້ມູນໄວ້ຊົ່ວຄາວ
+                pendingStockInData = {
+                    code: code, name: name, cost: cost,
+                    price: parseFloat(document.getElementById('stock-in-calculated-price').value.replace(/,/g, '')) || 0,
+                    profit_pct: parseFloat(document.getElementById('stock-in-profit-pct').value) || 20,
+                    qty: parseInt(document.getElementById('stock-in-qty').value) || 1,
+                    unitPerPack: parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12,
+                    existingId: existingItem.id,
+                    existingQty: parseFloat(String(existingItem.qty || 0).replace(/,/g, '')) || 0
+                };
+                document.getElementById('merge-confirm-modal').classList.remove('hidden');
+            } else {
+                processStockIn(false); // ຖ້າບໍ່ມີ ກໍບັນທຶກປົກກະຕິ
             }
+        }
 
-            let mfgDate = isExpiryMode ? document.getElementById('stock-in-mfg-date').value.trim() : '';
-            let expiryDate = isExpiryMode ? document.getElementById('stock-in-exp-date').value.trim() : '';
-
-            if (cost <= 0) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາປ້ອນລາຄາຊື້ໃຫ້ຖືກຕ້ອງ!", "⚠️");
-                return;
-            }
-
-            let newProduct = {
-                code: code,
-                name: name,
-                cost: cost,
-                original_cost: cost,
-                profit_pct: parseFloat(document.getElementById('stock-in-profit-pct').value) || 20,
-                price: price,
-                qty: qty,                 
-                initial_qty: qty,         
-                unit_per_pack: unitPerPack,
-                date_added: finalDateAdded,
-                mfg_date: mfgDate,
-                expiry_date: expiryDate,
-                currency: 'ກີບ',
-                buying_rate: parseFloat(localStorage.getItem('rate_current_value')) || 650,
-                device_id: String(deviceId || '').trim().toUpperCase(), // 👈 ບັງຄັບໃສ່ device_id ຂອງເຄື່ອງນີ້ຢ່າງຊັດເຈນ
-                updated_at: new Date().toISOString()
+        async function processStockIn(shouldMerge) {
+            document.getElementById('merge-confirm-modal').classList.add('hidden');
+            let data = pendingStockInData || {
+                // ຖ້າບໍ່ມີການລວມ (ກໍລະນີສິນຄ້າໃໝ່ ຫຼື ບໍ່ຕ້ອງການລວມ) ໃຫ້ໃຊ້ຂໍ້ມູນຈາກຟອມໂດຍກົງ
+                code: currentStockInCode,
+                name: document.getElementById('stock-in-custom-name').value.trim() || currentStockInCode,
+                cost: parseFloat(document.getElementById('stock-in-cost').value.replace(/,/g, '')) || 0,
+                price: parseFloat(document.getElementById('stock-in-calculated-price').value.replace(/,/g, '')) || 0,
+                qty: parseInt(document.getElementById('stock-in-qty').value) || 1,
+                unitPerPack: parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12
             };
 
-            if (db) {
-                try { await db.collection("products").add(newProduct); } catch (e) {}
+            if (shouldMerge && data.existingId) {
+                // ປັບລາຄາໃຫ້ເປັນລາຄາທີ່ສູງກວ່າ ແລະ ລວມຈຳນວນ
+                let newQty = data.existingQty + data.qty;
+                let highestCost = Math.max(data.cost, parseFloat(String(excelRows.find(i=>i.id === data.existingId).cost).replace(/,/g, '')));
+                
+                await db.collection("products").doc(data.existingId).update({
+                    qty: newQty,
+                    initial_qty: newQty,
+                    cost: highestCost,
+                    price: highestCost * (1 + data.profit_pct / 100),
+                    updated_at: new Date().toISOString()
+                });
+                showAlert("ສຳເລັດ", "ລວມສິນຄ້າສຳເລັດຮຽບຮ້ອຍ!", "✅");
+            } else {
+                // ສ້າງສິນຄ້າໃໝ່ (ກໍລະນີບໍ່ລວມ ຫຼື ສິນຄ້າໃໝ່)
+                await db.collection("products").add({
+                    ...data,
+                    device_id: deviceId,
+                    date_added: new Date().toLocaleDateString('en-GB'),
+                    updated_at: new Date().toISOString()
+                });
+                showAlert("ສຳເລັດ", "ນຳເຂົ້າສິນຄ້າໃໝ່ສຳເລັດຮຽບຮ້ອຍ!", "📦");
             }
-
+            
             closeStockInModal();
-            showAlert("ສຳເລັດ", "ນຳເຂົ້າສິນຄ້າ ແລະ ບັນທຶກລົງສາງສຳເລັດຮຽບຮ້ອຍ!", "📦");
+            pendingStockInData = null;
         }
 
         function copyBankAccount() {
