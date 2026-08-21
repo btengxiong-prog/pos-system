@@ -147,7 +147,7 @@
                 </button>
             </div>
             <div class="pt-2 border-t text-[11px] text-gray-400 font-semibold">
-                Ver: 2.0.4 (Select Sale Type & Continuous Scanner)
+                Ver: 2.0.4 (Inventory Fix)
             </div>
         </div>
     </div>
@@ -319,7 +319,7 @@
                             <th rowspan="2" class="p-2 border-r align-middle">ລະຫັດສິນຄ້າ</th>
                             <th rowspan="2" class="p-2 border-r align-middle">ຊື່ສິນຄ້າ</th>
                             <th colspan="2" class="p-2 border-r align-middle hidden">ວັນ/ເດືອນ/ປີ</th>
-                            <th rowspan="2" class="p-2 border-r align-middle">ຈ/ນ ສິນຄ້າ</th>
+                            <th rowspan="2" class="p-2 border-r align-middle">ຈຳນວນນຳເຂົ້າ</th>
                             <th colspan="2" class="p-2 border-r align-middle hidden">ອັດຕາແລກປ່ຽນ (ເດີມ)</th>
                             <th colspan="2" class="p-2 border-r align-middle hidden">ອັດຕາແລກປ່ຽນ (ໃໝ່)</th>
                             <th rowspan="2" class="p-2 border-r align-middle hidden">ເປີເຊັນຂາຍ (%)</th>
@@ -503,7 +503,7 @@
         </div>
     </div>
 
-    <!-- Popup ເລືອກປະເພດການຂາຍ (ກ່ອນເປີດກ້ອງສະແກນ) -->
+    <!-- Popup ເລືອກປະເພດການຂາຍ -->
     <div id="sale-type-select-modal" class="hidden fixed inset-0 bg-black/70 z-[340] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
             <div class="text-4xl">🏷️</div>
@@ -803,7 +803,7 @@
             </div>
 
             <div class="pt-2 border-t border-blue-800/80 text-center text-[11px] text-blue-200">
-                ✨ ສ້າງ ແລະ ພັດທະນາໂດຍ: <span class="text-yellow-400 font-semibold">ອາຈານ ບຸນແຕ່ງ ຊົ່ງຕົງມົວ</span> | 📞 ໂທ: 020 59456999, 020 99444448 | Ver: 2.0.4 (Select Sale Type & Continuous Scanner)
+                ✨ ສ້າງ ແລະ ພັດທະນາໂດຍ: <span class="text-yellow-400 font-semibold">ອາຈານ ບຸນແຕ່ງ ຊົ່ງຕົງມົວ</span> | 📞 ໂທ: 020 59456999, 020 99444448 | Ver: 2.0.4 (Inventory Fix)
             </div>
         </div>
     </header>
@@ -1407,12 +1407,11 @@
         let currentStockInCode = "";
         let editingDeviceId = null;
         let deviceId = localStorage.getItem('pos_permanent_device_id') || localStorage.getItem('pos_device_id') || 'POSXIONG';
-        let currentSaleType = 'wholesale'; // 'wholesale' ຫຼື 'retail'
+        let currentSaleType = 'wholesale'; 
         let activeScannedItem = null; 
         let continuousCart = []; 
         let isScannerLocked = false; 
 
-        // 🔊 ຟັງຊັນສ້າງສຽງ Beep ເວລາສະແກນສຳເລັດ
         function playBeepSound() {
             try {
                 let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -2344,17 +2343,9 @@
 
             displayRows.forEach((row) => {
                 let currentQty = parseFloat(String(row.qty !== undefined ? row.qty : 0).replace(/,/g, '')) || 0; 
-                let initialQty = parseFloat(String(row.initial_qty !== undefined ? row.initial_qty : currentQty).replace(/,/g, '')) || currentQty;
-                let unitPerPack = parseInt(row.unitPerPack || row.unit_per_pack) || 1;
-
-                let initialTotalSingles = Math.round(initialQty * unitPerPack);
-                let initialPacksX = Math.floor(initialTotalSingles / unitPerPack);
-
-                let totalSingles = Math.round(currentQty * unitPerPack);
-                let packsX = Math.floor(totalSingles / unitPerPack);
-                let singlesY = totalSingles % unitPerPack;
-                let stockNoteDisplay = unitPerPack > 1 ? `ເຫຼືອ: ${packsX} / ${singlesY}` : `ເຫຼືອ: ${packsX} / 0`;
-
+                // 🛠️ ປັບປຸງ: ໃຊ້ initial_qty (ຈຳນວນນຳເຂົ້າຕົວຈິງ) ແທນທີ່ຈະເປັນຄ່າຄຳນວນຈາກ stock
+                let initialQtyForDisplay = parseFloat(String(row.initial_qty !== undefined ? row.initial_qty : row.qty).replace(/,/g, '')) || 0;
+                
                 let originalCost = parseFloat(String(row.original_cost || row.cost).replace(/,/g, '')) || 0;
                 let originalPrice = parseFloat(String(row.price).replace(/,/g, '')) || 0;
                 let profitPct = row.profit_pct !== undefined ? row.profit_pct : 20;
@@ -2403,7 +2394,7 @@
                         
                         <td class="p-2 border-r text-purple-700 font-semibold hidden">${formattedImportDate}</td>
                         <td class="p-2 border-r text-gray-700 font-semibold hidden">${todayDateStr}</td>
-                        <td class="p-2 border-r font-bold text-cyan-800">${formatNumberWithCommas(initialPacksX)}</td>
+                        <td class="p-2 border-r font-bold text-cyan-800">${formatNumberWithCommas(initialQtyForDisplay)}</td>
                         <td class="p-2 border-r text-blue-600 font-bold hidden">${formatNumberWithCommas(importBuyRate)}</td>
                         <td class="p-2 border-r text-blue-600 font-bold hidden">${formatNumberWithCommas(importSellRate)}</td>
                         <td class="p-2 border-r text-blue-800 font-bold hidden">${formatNumberWithCommas(currentBuyRate)}</td>
@@ -2419,7 +2410,7 @@
                         <td class="p-2 border-r text-right font-bold text-blue-900 bg-blue-50/30">${formatNumberWithCommas(totalNewCost)}</td>
                         <td class="p-2 border-r text-right font-bold text-green-900 bg-green-50/30">${formatNumberWithCommas(totalNewPrice)}</td>
                         
-                        <td class="p-2 border-r text-amber-600 font-bold">${stockNoteDisplay}</td>
+                        <td class="p-2 border-r text-amber-600 font-bold">${row.id ? 'ມີໃນສາງ' : '-'}</td>
                         
                         ${rightCellHtml}
                     </tr>
@@ -2660,6 +2651,8 @@
             let code = currentStockInCode;
             let name = document.getElementById('stock-in-custom-name').value.trim() || code;
             let cost = parseFloat(document.getElementById('stock-in-cost').value.replace(/,/g, '')) || 0;
+            let qty = parseInt(document.getElementById('stock-in-qty').value) || 1;
+            let unitPerPack = parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12;
             
             let existingItem = excelRows.find(item => item.name && item.name.trim().toLowerCase() === name.toLowerCase());
 
@@ -2668,10 +2661,11 @@
                     code: code, name: name, cost: cost,
                     price: parseFloat(document.getElementById('stock-in-calculated-price').value.replace(/,/g, '')) || 0,
                     profit_pct: parseFloat(document.getElementById('stock-in-profit-pct').value) || 20,
-                    qty: parseInt(document.getElementById('stock-in-qty').value) || 1,
-                    unitPerPack: parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12,
+                    qty: qty,
+                    unitPerPack: unitPerPack,
                     existingId: existingItem.id,
-                    existingQty: parseFloat(String(existingItem.qty || 0).replace(/,/g, '')) || 0
+                    existingQty: parseFloat(String(existingItem.qty || 0).replace(/,/g, '')) || 0,
+                    existingInitialQty: parseFloat(String(existingItem.initial_qty || 0).replace(/,/g, '')) || 0
                 };
                 document.getElementById('merge-confirm-modal').classList.remove('hidden');
             } else {
@@ -2692,11 +2686,12 @@
 
             if (shouldMerge && data.existingId) {
                 let newQty = data.existingQty + data.qty;
+                let newInitialQty = data.existingInitialQty + data.qty; // 📌 ລວມຈຳນວນນຳເຂົ້າຕົວຈິງ
                 let highestCost = Math.max(data.cost, parseFloat(String(excelRows.find(i=>i.id === data.existingId).cost).replace(/,/g, '')));
                 
                 await db.collection("products").doc(data.existingId).update({
                     qty: newQty,
-                    initial_qty: newQty,
+                    initial_qty: newInitialQty,
                     cost: highestCost,
                     price: highestCost * (1 + data.profit_pct / 100),
                     updated_at: new Date().toISOString()
@@ -2705,6 +2700,7 @@
             } else {
                 await db.collection("products").add({
                     ...data,
+                    initial_qty: data.qty, // 📌 ບັນທຶກຈຳນວນນຳເຂົ້າຄັ້ງທຳອິດ
                     device_id: deviceId,
                     date_added: new Date().toLocaleDateString('en-GB'),
                     updated_at: new Date().toISOString()
@@ -2791,7 +2787,6 @@
             }
         }
 
-        // 🔄 ປັບປຸງລະບົບສະແກນຂາຍ: ຮອງຮັບຂາຍສົ່ງ/ຂາຍຍ່ອຍ, ສະແກນຕໍ່ເນື່ອງ ແລະ ລັອກກ້ອງ 3 ວິນາທີ
         async function handleSalesBarcodeScanned(code) {
             if (isScannerLocked) return; 
 
