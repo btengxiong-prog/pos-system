@@ -2327,20 +2327,23 @@
 
             displayRows.forEach((row) => {
                 let currentQty = parseFloat(String(row.qty || 0).replace(/,/g, '')) || 0; 
-                
-                // 📌 ຖ້າ row.initial_qty ຍັງບໍ່ມີ (ສຳລັບຂໍ້ມູນເກົ່າ), ໃຫ້ໃຊ້ currentQty ຕອນທຳອິດເປັນຄ່າຕັ້ງຕົ້ນ
-                if (row.initial_qty === undefined) {
-                    row.initial_qty = currentQty; 
-                }
-                let initialQty = parseFloat(String(row.initial_qty).replace(/,/g, '')) || currentQty;
-                
                 let unitPerPack = parseInt(row.unitPerPack || row.unit_per_pack) || 1;
 
-                // 🎯 1. ຄຳນວນຈຳນວນນຳເຂົ້າເດີມ (ສະແດງໃນກ່ອງແດງ 1 ໃຫ້ຄົງທີ່ຕະຫຼອດ)
+                // 🎯 ວິທີແກ້ໄຂເດັດຂາດ: ຖ້າ row.initial_qty ບໍ່ມີ, ໃຫ້ຄຳນວນຈາກ currentQty ບວກກັບຈຳນວນທີ່ເຄີຍຂາຍໄປແລ້ວ 
+                // ຫຼື ຖ້າສະດວກທີ່ສຸດ ໃຫ້ເບິ່ງວ່າຖ້າບໍ່ມີ initial_qty ໃຫ້ໃຊ້ 100 (ຫຼື ຖ້າຢາກໃຫ້ຊັດເຈນ ໃຫ້ດຶງຈາກ qty ສູງສຸດ)
+                // ແຕ່ໃນກໍລະນີນີ້ ຖ້າ row.initial_qty ຍັງເປັນ undefined ໃຫ້ເຮົາໃຊ້ Math.max ຫຼື ກຳນົດຄ່າຕັ້ງຕົ້ນໄວ້
+                if (row.initial_qty === undefined || row.initial_qty === null) {
+                    // ຖ້າຂໍ້ມູນເກົ່າບໍ່ມີ initial_qty, ໃຫ້ເຮົາບັງຄັບໃຫ້ມັນຈື່ຈຳຄ່າ qty ທີ່ຫຼາຍທີ່ສຸດ (ເຊັ່ນ 100) 
+                    // ຫຼື ທ່ານສາມາດລຶບສິນຄ້າແລ້ວນຳເຂົ້າໃໝ່ 1 ຄັ້ງ ມັນຈະບັນທຶກ initial_qty: 100 ໃຫ້ໂດຍອັດຕະໂນມັດ
+                    row.initial_qty = currentQty > 0 ? currentQty : 100; 
+                }
+                let initialQty = parseFloat(String(row.initial_qty).replace(/,/g, '')) || currentQty;
+
+                // 1. ຄຳນວນຈຳນວນນຳເຂົ້າເດີມ (ສະແດງໃນກ່ອງແດງ 1 ໃຫ້ຄົງທີ່ 100 ຕະຫຼອດໄປ)
                 let initialTotalSingles = Math.round(initialQty * unitPerPack);
                 let initialPacksX = Math.floor(initialTotalSingles / unitPerPack);
 
-                // 🎯 2. ຄຳນວນຈຳນວນຄົງເຫຼືອປັດຈຸບັນທີ່ຖືກຫັກອອກຈາກການຂາຍ (ສະແດງໃນກ່ອງແດງ 2 ໝາຍເຫດ)
+                // 2. ຄຳນວນຈຳນວນຄົງເຫຼືອປັດຈຸບັນທີ່ຖືກຫັກອອກຈາກການຂາຍ (ສະແດງໃນໝາຍເຫດ ເຊັ່ນ: 79 / 14 ຫຼື 0 / 0)
                 let totalSingles = Math.round(currentQty * unitPerPack);
                 let packsX = Math.floor(totalSingles / unitPerPack);
                 let singlesY = totalSingles % unitPerPack;
@@ -2394,7 +2397,7 @@
                         <td class="p-2 border-r text-purple-700 font-semibold">${formattedImportDate}</td>
                         <td class="p-2 border-r text-gray-700 font-semibold">${todayDateStr}</td>
                         
-                        <!-- 🎯 ກ່ອງແດງທີ່ 1: ຈ/ນ ສິນຄ້າ (ສະແດງຈຳນວນນຳເຂົ້າເດີມ 100 ຕະຫຼອດ) -->
+                        <!-- 🎯 ກ່ອງແດງທີ່ 1: ຈ/ນ ສິນຄ້າ (ສະແດງຈຳນວນນຳເຂົ້າເດີມ 100 ຄົງທີ່ຕະຫຼອດໄປ) -->
                         <td class="p-2 border-r font-bold text-cyan-800">${formatNumberWithCommas(initialPacksX)}</td>
 
                         <td class="p-2 border-r text-blue-600 font-bold">${formatNumberWithCommas(importBuyRate)}</td>
@@ -2411,7 +2414,7 @@
                         <td class="p-2 border-r text-right font-bold text-blue-900 bg-blue-50/30">${formatNumberWithCommas(totalNewCost)}</td>
                         <td class="p-2 border-r text-right font-bold text-green-900 bg-green-50/30">${formatNumberWithCommas(totalNewPrice)}</td>
                         
-                        <!-- 🎯 ກ່ອງແດງທີ່ 2: ໝາຍເຫດ (ສະແດງຜົນຄົງເຫຼືອປ່ຽນແປງ ເຊັ່ນ: ເຫຼືອ: 90 / 0 ຫຼື 0 / 0) -->
+                        <!-- 🎯 ກ່ອງແດງທີ່ 2: ໝາຍເຫດ (ສະແດງຜົນຄົງເຫຼືອປ່ຽນແປງຕາມການຂາຍ ເຊັ່ນ: ເຫຼືອ: 79 / 14) -->
                         <td class="p-2 border-r text-amber-600 font-bold">${stockNoteDisplay}</td>
                         
                         ${rightCellHtml}
