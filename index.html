@@ -2326,15 +2326,23 @@
             let todayDateStr = new Date().toLocaleDateString('en-GB');
 
             displayRows.forEach((row) => {
-                // 🛠️ ແກ້ໄຂ: ຄຳນວນ X / Y ໃຫ້ຖືກຕ້ອງພຽງຊຸດດຽວ (ປ້ອງກັນ Error)
+                // ➔ ຊອກຫາສ່ວນນີ້ໃນຟັງຊັນ loadInventory() ຂອງໂຄດຫຼັກແລ້ວປ່ຽນແທນ:
                 let totalUnits = parseFloat(String(row.qty || 0).replace(/,/g, '')) || 0; 
                 let unitPerPack = parseInt(row.unitPerPack || row.unit_per_pack) || 1;
 
+                // ຄຳນວນຈຳນວນລາງ ແລະ ເສດປ໋ອງຈາກ qty ປັດຈຸບັນທີ່ຖືກຫັກລบແລ້ວ
                 let totalSingles = Math.round(totalUnits * unitPerPack);
                 let packsX = Math.floor(totalSingles / unitPerPack);
                 let singlesY = totalSingles % unitPerPack;
 
+                // ໃຫ້ສະແດງຜົນຄົງເຫຼືອຕົວຈິງໃນໝາຍເຫດ
                 let stockNoteDisplay = unitPerPack > 1 ? `ເຫຼືອ: ${packsX} / ${singlesY}` : `ເຫຼືອ: ${packsX} / 0`;
+
+                // ⚠️ ສຳຄັນ: ຖ້າຕ້ອງການໃຫ້ຄໍລຳ "ຈ/ນ ສິນຄ້າ" (ຈຳນວນນຳເຂົ້າເດີມ) ຍັງຄົງຄ່າ 100 ໄວ້ຕະຫຼອດ 
+                // ໂດຍບໍ່ໃຫ້ມັນຫຼຸດຕາມການຂາຍ, ໃຫ້ເຮົາໃຊ້ຄ່າເດີມຕອນນຳເຂົ້າ (ແຕ່ຖ້າໃນ Database ຖືກອັບເດດ qty ລົງ, 
+                // ເຮົາອາດຈະຕ້ອງເກັບ initial_qty ໄວ້ ຫຼື ໃຫ້ຄໍລຳ ຈ/ນ ສິນຄ້າ ສະແດງຄ່າເດີມ).
+                // ຕົວຢ່າງ: ຖ້າຢາກໃຫ້ຄໍລຳ "ຈ/ນ ສິນຄ້າ" ສະແດງຈຳນວນນຳເຂົ້າເລີ່ມຕົ້ນ (Initial Qty) ຕະຫຼອດ:
+                let initialQty = row.initial_qty !== undefined ? row.initial_qty : totalUnits;
 
                 let originalCost = parseFloat(String(row.original_cost || row.cost).replace(/,/g, '')) || 0;
                 let originalPrice = parseFloat(String(row.price).replace(/,/g, '')) || 0;
@@ -2665,7 +2673,8 @@
                 original_cost: cost,
                 profit_pct: parseFloat(document.getElementById('stock-in-profit-pct').value) || 20,
                 price: price,
-                qty: qty,
+                qty: qty,              // ໃຊ້ສຳລັບຫັກລົບເວລາຂາຍ
+                initial_qty: qty,      // 📌 ເກັບຄ່າຈຳນວນນຳເຂົ້າເດີມໄວ້ສະແດງຜົນໃນຕາຕະລາງ (ຈ/ນ ສິນຄ້າ) ໃຫ້ຄົງທີ່
                 unit_per_pack: unitPerPack,
                 date_added: finalDateAdded,
                 mfg_date: mfgDate,
