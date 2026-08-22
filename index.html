@@ -2442,36 +2442,59 @@
         }
 
         async function processStockIn(shouldMerge) {
-            document.getElementById('merge-confirm-modal').classList.add('hidden');
+            let mergeModal = document.getElementById('merge-confirm-modal');
+            if (mergeModal) mergeModal.classList.add('hidden');
+
             let data = pendingStockInData || {
                 code: currentStockInCode,
                 name: document.getElementById('stock-in-custom-name').value.trim() || currentStockInCode,
                 cost: parseFloat(document.getElementById('stock-in-cost').value.replace(/,/g, '')) || 0,
                 price: parseFloat(document.getElementById('stock-in-calculated-price').value.replace(/,/g, '')) || 0,
                 qty: parseInt(document.getElementById('stock-in-qty').value) || 1,
-                unitPerPack: parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12
+                unitPerPack: parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12,
+                profit_pct: parseFloat(document.getElementById('stock-in-profit-pct').value) || 20
             };
 
             if (shouldMerge && data.existingId) {
                 let newQty = data.existingQty + data.qty;
-                let highestCost = Math.max(data.cost, parseFloat(String(excelRows.find(i=>i.id === data.existingId).cost).replace(/,/g, '')));
-                
-                await db.collection("products").doc(data.existingId).update({
-                    qty: newQty,
-                    initial_qty: newQty,
-                    cost: highestCost,
-                    price: highestCost * (1 + data.profit_pct / 100),
-                    updated_at: new Date().toISOString()
-                });
-                showAlert("ສຳເລັດ", "ລວມສິນຄ້າສຳເລັດຮຽບຮ້ອຍ!", "✅");
+                let existingRow = excelRows.find(i => i.id === data.existingId);
+                let oldCost = existingRow ? (parseFloat(String(existingRow.cost).replace(/,/g, '')) || 0) : data.cost;
+                let highestCost = Math.max(data.cost, oldCost);
+                let profitPct = data.profit_pct || 20;
+
+                if (db) {
+                    await db.collection("products").doc(data.existingId).update({
+                        qty: newQty,
+                        initial_qty: newQty,
+                        cost: highestCost,
+                        price: highestCost * (1 + profitPct / 100),
+                        updated_at: new Date().toISOString()
+                    });
+                }
+                showAlert("ສຳເລັດ", "ລວມສິນຄ້າ ແລະ ອັບເດດຈຳນວນໃນສາງສຳເລັດຮຽບຮ້ອຍ!", "✅");
             } else {
-                await db.collection("products").add({
-                    ...data,
-                    initial_qty: data.qty,
-                    device_id: deviceId,
-                    date_added: new Date().toLocaleDateString('en-GB'),
-                    updated_at: new Date().toISOString()
-                });
+                if (db) {
+                    let importDateVal = document.getElementById('stock-in-import-date') ? document.getElementById('stock-in-import-date').value.trim() : '';
+                    let mfgDateVal = document.getElementById('stock-in-mfg-date') ? document.getElementById('stock-in-mfg-date').value.trim() : '';
+                    let expDateVal = document.getElementById('stock-in-exp-date') ? document.getElementById('stock-in-exp-date').value.trim() : '';
+
+                    await db.collection("products").add({
+                        code: data.code,
+                        name: data.name,
+                        cost: data.cost,
+                        original_cost: data.cost,
+                        price: data.price,
+                        qty: data.qty,
+                        initial_qty: data.qty,
+                        unit_per_pack: data.unitPerPack,
+                        profit_pct: data.profit_pct,
+                        device_id: deviceId,
+                        date_added: importDateVal !== '' ? importDateVal : new Date().toLocaleDateString('en-GB'),
+                        mfg_date: mfgDateVal,
+                        expiry_date: expDateVal,
+                        updated_at: new Date().toISOString()
+                    });
+                }
                 showAlert("ສຳເລັດ", "ນຳເຂົ້າສິນຄ້າໃໝ່ສຳເລັດຮຽບຮ້ອຍ!", "📦");
             }
             
@@ -2712,11 +2735,12 @@
             let name = document.getElementById('stock-in-custom-name').value.trim() || code;
             let cost = parseFloat(document.getElementById('stock-in-cost').value.replace(/,/g, '')) || 0;
             
-            // 🔍 ກວດສອບວ່າໃນສາງມີສິນຄ້າຊື່ດຽວກັນແລ້ວຫຼືບໍ່
-            let existingItem = excelRows.find(item => item.name && item.name.trim().toLowerCase() === name.toLowerCase());
+            // 🔍 ກວດສອບຊື່ສິນຄ້າ (ທຽບແບບ case-insensitive ແລະ trim ປ້ອງກັນວ່າງ)
+            let searchName = name.toLowerCase();
+            let existingItem = excelRows.find(item => item.name && item.name.trim().toLowerCase() === searchName);
 
             if (existingItem) {
-                // 📦 ຖ້າພົບຊື່ຊ້ຳ ໃຫ້ເປີດປ໊ອບອັບຖາມລວມສິນຄ້າຂຶ້ນມາ
+                // 📦 ພົບສິນຄ້າຊື່ຊ້ຳ -> ເກັບຂໍ້ມູນໄວ້ແລ້ວເປີດປ໊ອບອັບຖາມ
                 pendingStockInData = {
                     code: code, 
                     name: name, 
@@ -2728,9 +2752,14 @@
                     existingId: existingItem.id,
                     existingQty: parseFloat(String(existingItem.qty || 0).replace(/,/g, '')) || 0
                 };
-                document.getElementById('merge-confirm-modal').classList.remove('hidden');
+                
+                let mergeModal = document.getElementById('merge-confirm-modal');
+                if (mergeModal) {
+                    mergeModal.classList.remove('hidden');
+                    mergeModal.style.setProperty('display', 'flex', 'important');
+                }
             } else {
-                // ➕ ຖ້າບໍ່ຊ້ຳ ให้นຳເຂົ້າເປັນສິນຄ້າใหม่ຕາມປົກກະຕິ
+                // ➕ ບໍ່ຊ້ຳ -> ນຳເຂົ້າໃໝ່ປົກກະຕິ
                 processStockIn(false);
             }
         }
