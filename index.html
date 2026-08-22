@@ -1087,7 +1087,7 @@
                 </div>
                 <div class="flex gap-2 pt-2">
                     <button type="button" onclick="closeStockInModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
-                    <button type="button" onclick="confirmStockIn()" class="flex-1 bg-pink-600 hover:bg-pink-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">ຕົກລົງ / ຢືນຢັນ</button>
+                    <button type="button" onclick="submitStockInForm()" class="flex-1 bg-pink-600 hover:bg-pink-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">ຕົກລົງ / ຢືນຢັນ</button>
                 </div>
             </div>
         </div>
@@ -3849,6 +3849,39 @@
 
             openCheckoutMethodModal();
         }
+
+        function submitStockInForm() {
+            let code = currentStockInCode;
+            let name = document.getElementById('stock-in-custom-name').value.trim() || code;
+            let cost = parseFloat(document.getElementById('stock-in-cost').value.replace(/,/g, '')) || 0;
+            
+            // 🔍 ກວດສອບຊື່ສິນຄ້າໃນສາງເພື່ອເຊັກວ່າມີຊ້ຳກັນ ຫຼື ບໍ່
+            let existingItem = excelRows.find(item => item.name && item.name.trim().toLowerCase() === name.toLowerCase());
+
+            if (existingItem) {
+                // 📦 ຖ້າພົບຊື່ຊ້ຳ ໃຫ້ເປີດປ໊ອບອັບຖາມລວມສິນຄ້າ
+                pendingStockInData = {
+                    code: code, 
+                    name: name, 
+                    cost: cost,
+                    price: parseFloat(document.getElementById('stock-in-calculated-price').value.replace(/,/g, '')) || 0,
+                    profit_pct: parseFloat(document.getElementById('stock-in-profit-pct').value) || 20,
+                    qty: parseInt(document.getElementById('stock-in-qty').value) || 1,
+                    unitPerPack: parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12,
+                    existingId: existingItem.id,
+                    existingQty: parseFloat(String(existingItem.qty || 0).replace(/,/g, '')) || 0
+                };
+                let mergeModal = document.getElementById('merge-confirm-modal');
+                if (mergeModal) {
+                    mergeModal.classList.remove('hidden');
+                    mergeModal.style.setProperty('display', 'flex', 'important');
+                }
+            } else {
+                // ➕ ຖ້າບໍ່ຊ້ຳ ให้นຳເຂົ້າເປັນສິນຄ້າໃໝ່ທັນທີ
+                processStockIn(false);
+            }
+        }
+
     </script>
 </body>
 </html>
