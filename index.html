@@ -2747,7 +2747,7 @@
                 importDateVal = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
             }
 
-            // 📌 ດຶງຄ່າວັນຜະລິດ ແລະ ວັນໝົດອາຍຸ
+            // 📌 ດຶງຄ່າວັນຜະລິດ ແລະ ວັນໝົດອາຍຸຈາກ Input ໂດຍກົງ
             let mfgDateVal = document.getElementById('stock-in-mfg-date') ? document.getElementById('stock-in-mfg-date').value.trim() : '';
             let expDateVal = document.getElementById('stock-in-exp-date') ? document.getElementById('stock-in-exp-date').value.trim() : '';
 
@@ -2768,6 +2768,7 @@
                 };
                 document.getElementById('merge-confirm-modal').classList.remove('hidden');
             } else {
+                // 📌 ສົ່ງຄ່າ importDateVal, mfgDateVal, expDateVal ເຂົ້າໄປນຳ
                 processStockInWithExpiry(importDateVal, mfgDateVal, expDateVal, false);
             }
         }
@@ -3625,16 +3626,22 @@
                 return;
             }
 
-            let today = new Date();
+            let today = new Date(); // ວັນທີປັດຈຸບັນ (23/08/2026)
             let nearExpiryCount = 0;
 
             excelRows.forEach((row) => {
+                // 📌 ກວດສອບທັງ expiry_date ແລະ expiryDate ເພື່ອຄວາມປອດໄພ
                 let expDateStr = row.expiry_date || row.expiryDate || '';
+                
                 if (expDateStr && expDateStr.trim() !== '' && expDateStr.trim() !== '-') {
-                    let expDate = new Date(parseDDMMYYYYToISO(expDateStr));
+                    let isoStr = parseDDMMYYYYToISO(expDateStr);
+                    let expDate = new Date(isoStr);
+                    
                     if (!isNaN(expDate.getTime())) {
+                        // คำนวณหาจำนวนวันที่เหลือ
                         let diffDays = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
-                        // ຖ້າໜ້ອຍກວ່າ ຫຼື เท่ากับ 60 ວັນ (2 ເດືອນ) ຈະນັບເປັນສິນຄ້າໃກ້ໝົດອາຍຸ
+                        
+                        // ຖ້າຫາກຍັງບໍ່ກາຍ 60 ວັນ (ລວມທັງໝົດອາຍຸແລ້ວ ຫຼື ใกล้หมดอายุ)
                         if (diffDays <= 60) {
                             nearExpiryCount++;
                         }
