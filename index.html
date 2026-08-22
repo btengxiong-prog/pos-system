@@ -1447,19 +1447,22 @@
         let continuousCart = []; 
         let isScannerLocked = false; 
 
-        // 🔊 ຟັງຊັນສ້າງສຽງ Beep ເວລາສະແກນສຳເລັດ
+        // 🔊 ຟັງຊັນສ້າງສຽງ Beep (ປັບໃຫ້ດັງຂຶ້ນ)
         function playBeepSound() {
             try {
                 let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 let oscillator = audioCtx.createOscillator();
                 let gainNode = audioCtx.createGain();
                 oscillator.type = 'sine';
-                oscillator.frequency.setValueAtTime(800, audioCtx.currentTime); 
-                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                oscillator.frequency.setValueAtTime(800, audioCtx.currentTime); // ຄວາມຖີ່ສຽງ
+                
+                // 🔊 ປັບຄວາມດັງຂຶ້ນຈາກ 0.1 ເປັນ 0.8 (ທ່ານສາມາດເພີ່ມຮອດ 1.0 ໄດ້)
+                gainNode.gain.setValueAtTime(0.8, audioCtx.currentTime); 
+                
                 oscillator.connect(gainNode);
                 gainNode.connect(audioCtx.destination);
                 oscillator.start();
-                oscillator.stop(audioCtx.currentTime + 0.15); 
+                oscillator.stop(audioCtx.currentTime + 0.15); // ระยะเวลาความดังของเสียง (0.15 วินาที)
             } catch (e) {}
         }
 
@@ -2325,7 +2328,7 @@
             let userRole = localStorage.getItem('pos_user_role');
             let shopOwner = localStorage.getItem('pos_shop_owner');
             let isAdminMaster = (userRole === 'admin' || deviceId === 'POSXIONG' || (shopOwner === 'true' && deviceId === 'POSXIONG'));
-            let colSpanCount = isAdminMaster ? 21 : 20;
+            let colSpanCount = isAdminMaster ? 18 : 17;
 
             tbody.innerHTML = `<tr><td colspan="${colSpanCount}" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນສິນຄ້າຄ້າງສາງ...</td></tr>`;
 
@@ -2335,9 +2338,6 @@
             }
 
             let rateRecordsMap = {};
-            let currentBuyRate = 680; 
-            let currentSellRate = 690; 
-
             if (db) {
                 try {
                     let rateSnap = await db.collection("daily_rates").where("device_id", "==", deviceId).get();
@@ -2345,8 +2345,8 @@
                         let rData = doc.data();
                         if (rData.date) {
                             rateRecordsMap[rData.date.trim()] = {
-                                buy: parseFloat(rData.buyRate) || 680,
-                                sell: parseFloat(rData.sellRate) || 690
+                                buy: parseFloat(rData.buyRate) || 0,
+                                sell: parseFloat(rData.sellRate) || 0
                             };
                         }
                     });
@@ -2377,6 +2377,9 @@
             let countIndex = 1;
             let todayDateStr = new Date().toLocaleDateString('en-GB');
 
+            // 💡 ຈັດຮຽງວັນທີ Rate ຈາກເກົ່າໄປໃໝ່ສຳລັບໃຊ້ງານຕາມ 3 ເງື່ອນໄຂ
+            let rateDates = Object.keys(rateRecordsMap).sort((a, b) => new Date(a) - new Date(b));
+
             displayRows.forEach((row) => {
                 let initialQtyVal = parseFloat(String(row.initial_qty !== undefined ? row.initial_qty : (row.qty || 0)).replace(/,/g, '')) || 0; 
                 let stockDisplayVal = formatNumberWithCommas(initialQtyVal);
@@ -2392,21 +2395,21 @@
                 let originalPrice = parseFloat(String(row.price).replace(/,/g, '')) || 0;
                 let profitPct = row.profit_pct !== undefined ? row.profit_pct : 20;
 
-                // 💡 ດຶງລາຍຊື່ວັນທີທີ່ມີການບັນທຶກ Rate ທັງໝົດຂອງຮ້ານ ແລ້ວຈັດຮຽງຈາກເກົ່າໄປໃໝ່
-                let rateDates = Object.keys(rateRecordsMap).sort((a, b) => new Date(a) - new Date(b));
+                let rawImportDate = row.date_added || row.dateAdded || '';
+                let formattedImportDate = rawImportDate ? (rawImportDate.includes('/') ? rawImportDate : formatDateToDDMMYYYY(rawImportDate)) : '-';
+                let importDateISO = parseDDMMYYYYToISO(formattedImportDate);
 
+                // 📌 ຈັດການຕາມ 3 ເງື່ອນໄຂ Rate (ເດີມ) ແລະ Rate (ໃໝ່) ທີ່ທ່ານກຳນົດ
                 let importBuyRate = 0, importSellRate = 0;
                 let currentBuyRate = 0, currentSellRate = 0;
 
                 if (rateDates.length === 1) {
-                    // 📌 ກໍລະນີທີ 1: ມີການບັນທຶກ Rate ພຽງ 1 ວັນ (ໃຫ້ເຣດເດີມ ແລະ ເຣດໃໝ່ ເປັນຕົວດຽວກັນ)
                     let singleRate = rateRecordsMap[rateDates[0]];
                     importBuyRate = singleRate.buy;
                     importSellRate = singleRate.sell;
                     currentBuyRate = singleRate.buy;
                     currentSellRate = singleRate.sell;
                 } else if (rateDates.length === 2) {
-                    // 📌 ກໍລະນີທີ 2: ມີການບັນທຶກ Rate 2 ວັນ (ເຣດເດີມ = ວັນທຳອິດ, ເຣດໃໝ່ = ວັນສຸດທ້າຍ)
                     let firstRate = rateRecordsMap[rateDates[0]];
                     let lastRate = rateRecordsMap[rateDates[1]];
                     importBuyRate = firstRate.buy;
@@ -2414,12 +2417,8 @@
                     currentBuyRate = lastRate.buy;
                     currentSellRate = lastRate.sell;
                 } else if (rateDates.length > 2) {
-                    // 📌 ກໍລະນີທີ 3: ມີການບັນທຶກ Rate ຫຼາຍກວ່າ 2 ວັນຂຶ້ນໄປ (ຊອກຫາວັນທີ່ໃກ້ຄຽງທີ່ສຸດ)
                     let targetTime = new Date(importDateISO).getTime();
-                    
-                    // ຊອກຫາວັນທີ່ໃກ້ຄຽງທີ່ສຸດສຳລັບເຣດເດີມ (ວັນກ່ອນໜ້າ ຫຼື ໃກ້ຄຽງວັນນຳເຂົ້າ)
                     let closestOldDate = rateDates.reduce((prev, curr) => {
-                        let prevDiff = targetTime - new Date(prev).getTime();
                         let currDiff = targetTime - new Date(curr).getTime();
                         return (currDiff >= 0 && currDiff < (targetTime - new Date(prev).getTime())) ? curr : prev;
                     }, rateDates[0]);
@@ -2431,24 +2430,18 @@
                     importSellRate = oldRate.sell;
                     currentBuyRate = latestRate.buy;
                     currentSellRate = latestRate.sell;
-                    } else {
-                        // 📌 ກໍລະນີຍັງບໍ່ມີການບັນທຶກ Rate ເລີຍ ໃຫ້ໃຊ້ຄ່າ 0 ໄວ້ກ່ອນເພື່ອບໍ່ໃຫ້ຕາຕະລາງຄ້າງ
-                        importBuyRate = 0;
-                        importSellRate = 0;
-                        currentBuyRate = 0;
-                        currentSellRate = 0;
-                    }
+                } else {
+                    importBuyRate = 0;
+                    importSellRate = 0;
+                    currentBuyRate = 0;
+                    currentSellRate = 0;
+                }
 
-                let calculatedNewCost = originalCost * (currentBuyRate / importBuyRate);
+                let calculatedNewCost = importBuyRate > 0 ? originalCost * (currentBuyRate / importBuyRate) : originalCost;
                 let newCost = Math.ceil(calculatedNewCost / 1000) * 1000;
 
                 let rawNewPrice = newCost * (1 + profitPct / 100);
                 let newPrice = Math.ceil(rawNewPrice / 1000) * 1000;
-
-                let totalOldCost = originalCost * initialQtyVal;
-                let totalOldPrice = originalPrice * initialQtyVal;
-                let totalNewCost = newCost * initialQtyVal;
-                let totalNewPrice = newPrice * initialQtyVal;
 
                 let shopLabel = (isAdminMaster && row.device_id) ? ` [ຮ້ານ: ${row.device_id}]` : '';
                 let rightCellHtml = isAdminMaster ? `<td class="p-2 text-center"><input type="checkbox" data-id="${row.id}" class="inventory-row-checkbox w-4 h-4 cursor-pointer accent-cyan-600"></td>` : ``;
@@ -2470,7 +2463,6 @@
                         <td class="p-2 border-r text-right text-green-600">${formatNumberWithCommas(originalPrice)}</td>
                         <td class="p-2 border-r text-right font-bold text-blue-800 bg-blue-50/30">${formatNumberWithCommas(newCost)}</td>
                         <td class="p-2 border-r text-right font-bold text-green-800 bg-green-50/30">${formatNumberWithCommas(newPrice)}</td>
-                        <!-- ❌ ເອົາ 4 ບັນທັດ (<td>) ຂອງລວມເງິນອອກແລ້ວ -->
                         <td class="p-2 border-r text-amber-600 font-bold">${stockNoteDisplay}</td>
                         ${rightCellHtml}
                     </tr>
