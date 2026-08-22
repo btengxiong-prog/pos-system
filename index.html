@@ -3675,9 +3675,23 @@
             let countEl = document.getElementById('cart-item-count');
             let totalAmountEl = document.getElementById('cart-total-amount');
             
-            if (!input || !container) return;
+            if (!container) return;
 
-            let val = input.value ? input.value.trim().toLowerCase() : "";
+            // ດຶງຈຳນວນທີ່ກຳລັງພິມຢູ່ໃນກ່ອງ (ຖ້າຫວ່າງ ຫລື 0 ໃຫ້ນັບເປັນ 1)
+            let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
+            let typingQty = (rawQtyText === "" || parseFloat(rawQtyText) <= 0) ? 1 : parseFloat(rawQtyText);
+
+            // 💡 ຖ້າມີສິນຄ້າຢູ່ໃນກະຕ່າຕົວຈິງແລ້ວ (ກໍລະນີສະແກນຜ່ານກ້ອງ ຫຼື ເພີ່ມເຂົ້າໄປແລ້ວ)
+            // ໃຫ້ອັບເດດຈຳນວນ (qty) ຂອງລາຍການຫຼ້າສຸດໃນກະຕ່າໃຫ້ປ່ຽນຕາມທີ່ກຳລັງພິມທັນທີ
+            if (continuousCart.length > 0) {
+                let latestItem = continuousCart[continuousCart.length - 1];
+                latestItem.qty = typingQty; // ປ່ຽນຈຳນວນເປັນ 10 ຕາມທີ່ພິມ
+                updateContinuousCartUI(); // ຣີເຟຣດສະແດງຜົນລວມ ແລະ ລາຄາໃໝ່ທັນທີ
+                return;
+            }
+
+            // ກໍລະນີຍັງບໍ່ທັນມີໃນກະຕ່າ ແຕ່ກຳລັງພິມ Preview ປົກກະຕິ
+            let val = input && input.value ? input.value.trim().toLowerCase() : "";
             if (val === "") {
                 updateContinuousCartUI(); 
                 return;
@@ -3701,9 +3715,6 @@
 
                 let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
                 let finalPrice = (currentSaleType === 'retail' && unitPerPack > 1) ? Math.ceil((newPrice / unitPerPack) / 1000) * 1000 : newPrice;
-
-                let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
-                let typingQty = (rawQtyText === "" || parseFloat(rawQtyText) <= 0) ? 1 : parseFloat(rawQtyText);
                 
                 let previewTotal = finalPrice * typingQty;
 
