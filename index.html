@@ -2411,24 +2411,31 @@
                 let shopLabel = (isAdminMaster && row.device_id) ? ` [ຮ້ານ: ${row.device_id}]` : '';
                 let rightCellHtml = isAdminMaster ? `<td class="p-2 text-center"><input type="checkbox" data-id="${row.id}" class="inventory-row-checkbox w-4 h-4 cursor-pointer accent-cyan-600"></td>` : ``;
 
-                    html += `
-                        <tr class="hover:bg-gray-50 border-b text-center text-xs whitespace-nowrap">
-                            <td class="p-2 border-r font-bold text-gray-500 w-12">${countIndex++}</td>
-                            <td class="p-2 border-r font-bold text-blue-600 font-mono px-3">${row.code || '-'}</td>
-                            <td class="p-2 border-r font-bold text-gray-900 text-left px-3">${row.name || '-'}${shopLabel}</td>
-                            
-                            <td class="p-2 border-r font-bold text-cyan-800 px-3">${stockDisplayVal}</td>
+                html += `
+                    <tr class="hover:bg-gray-50 border-b text-center text-xs">
+                        <td class="p-2 border-r font-bold text-gray-500">${countIndex++}</td>
+                        <td class="p-2 border-r font-bold text-blue-600 font-mono">${row.code || '-'}</td>
+                        <td class="p-2 border-r font-bold text-gray-900 text-left">${row.name || '-'}${shopLabel}</td>
+                        
+                        <td class="p-2 border-r text-purple-700 font-semibold hidden">${formattedImportDate}</td>
+                        <td class="p-2 border-r text-gray-700 font-semibold hidden">${todayDateStr}</td>
+                        <td class="p-2 border-r font-bold text-cyan-800">${stockDisplayVal}</td>
+                        <td class="p-2 border-r text-blue-600 font-bold hidden">${formatNumberWithCommas(importBuyRate)}</td>
+                        <td class="p-2 border-r text-blue-600 font-bold hidden">${formatNumberWithCommas(importSellRate)}</td>
+                        <td class="p-2 border-r text-blue-800 font-bold hidden">${formatNumberWithCommas(currentBuyRate)}</td>
+                        <td class="p-2 border-r text-blue-800 font-bold hidden">${formatNumberWithCommas(currentSellRate)}</td>
+                        <td class="p-2 border-r text-purple-700 font-bold hidden">${profitPct}%</td>
 
-                            <td class="p-2 border-r text-right text-blue-600 px-3">${formatNumberWithCommas(originalCost)}</td>
-                            <td class="p-2 border-r text-right text-green-600 px-3">${formatNumberWithCommas(originalPrice)}</td>
-                            <td class="p-2 border-r text-right font-bold text-blue-800 bg-blue-50/30 px-3">${formatNumberWithCommas(newCost)}</td>
-                            <td class="p-2 border-r text-right font-bold text-green-800 bg-green-50/30 px-3">${formatNumberWithCommas(newPrice)}</td>
-                            
-                            <td class="p-2 border-r text-amber-600 font-bold px-3">${stockNoteDisplay}</td>
-                            
-                            ${rightCellHtml}
-                        </tr>
-                    `;
+                        <td class="p-2 border-r text-right text-blue-600">${formatNumberWithCommas(originalCost)}</td>
+                        <td class="p-2 border-r text-right text-green-600">${formatNumberWithCommas(originalPrice)}</td>
+                        <td class="p-2 border-r text-right font-bold text-blue-800 bg-blue-50/30">${formatNumberWithCommas(newCost)}</td>
+                        <td class="p-2 border-r text-right font-bold text-green-800 bg-green-50/30">${formatNumberWithCommas(newPrice)}</td>
+                        
+                        <td class="p-2 border-r text-amber-600 font-bold">${stockNoteDisplay}</td>
+                        
+                        ${rightCellHtml}
+                    </tr>
+                `;
             });
             tbody.innerHTML = html;
         }
@@ -3061,74 +3068,28 @@
         }
 
         async function promptDeleteHistoryAction() {
-                    let checkedBoxes = document.querySelectorAll('.history-row-checkbox:checked');
-                    if (checkedBoxes.length === 0) {
-                        showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກລາຍການທີ່ຕ້ອງການລຶບ!", "⚠️");
-                        return;
-                    }
+            let checkedBoxes = document.querySelectorAll('.history-row-checkbox:checked');
+            if (checkedBoxes.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກລາຍການທີ່ຕ້ອງການລຶບ!", "⚠️");
+                return;
+            }
 
-                    if (!db) return;
-                    try {
-                        let batch = db.batch();
-                        
-                        // 🔄 ວົນລูปດຶງຂໍ້ມູນບິນທີ່ຖືກເລືອກ ເພື່ອຄືນຈຳນວນສິນຄ້າກັບເຂົ້າສາງກ່ອນລຶບ
-                        for (let cb of checkedBoxes) {
-                            let docId = cb.getAttribute('data-id');
-                            let docRef = db.collection("sales_history").doc(docId);
-                            let docSnap = await docRef.get();
+            if (!db) return;
+            try {
+                let batch = db.batch();
+                checkedBoxes.forEach(cb => {
+                    let docId = cb.getAttribute('data-id');
+                    let docRef = db.collection("sales_history").doc(docId);
+                    batch.delete(docRef);
+                });
 
-                            if (docSnap.exists) {
-                                let saleData = docSnap.data();
-                                let items = saleData.items || [];
-
-                                // 🔍 ວົນລູບຄືນຈຳນວນສິນຄ້າແຕ່ລະໂຕເຂົ້າສາງ
-                                for (let it of items) {
-                                    let itemCode = it.code;
-                                    let soldQty = parseFloat(it.qty) || 0;
-
-                                    if (itemCode && soldQty > 0) {
-                                        // ຊອກຫາສິນຄ້າໃນຕາຕະລາງ products ຕາມລະຫັດ (code) ຫຼື ຊື່
-                                        let productQuery = await db.collection("products")
-                                            .where("device_id", "==", deviceId)
-                                            .where("code", "==", itemCode)
-                                            .get();
-
-                                        if (!productQuery.empty) {
-                                            let pDoc = productQuery.docs[0];
-                                            let pData = pDoc.data();
-                                            let currentStockQty = parseFloat(pData.qty) || 0;
-                                            let unitPerPack = parseInt(pData.unitPerPack || pData.unit_per_pack) || 1;
-
-                                            // ຄຳນວນບວກຈຳນວນຄືນ (ຮองรับทั้งຂາຍສົ່ງ ແລະ ຂາຍຍ່ອຍ)
-                                            let totalAvailableSingles = Math.round(currentStockQty * unitPerPack);
-                                            let isRetail = it.name && it.name.includes("(ຂາຍຍ່ອຍ)");
-                                            let returnedSingles = isRetail ? soldQty : (soldQty * unitPerPack);
-                                            
-                                            let newTotalSingles = totalAvailableSingles + returnedSingles;
-                                            let newStockQty = newTotalSingles / unitPerPack;
-
-                                            // ອັບເດດຈຳນວນສິນຄ້າຄືນເຂົ້າສາງ
-                                            batch.update(db.collection("products").doc(pDoc.id), { 
-                                                qty: newStockQty,
-                                                updated_at: new Date().toISOString()
-                                            });
-                                        }
-                                    }
-                                }
-                            }
-
-                            // 🗑️ ເພີ່ມຄຳສັ່ງລຶບປະຫວັດການຂາຍລົງໃນ batch
-                            batch.delete(docRef);
-                        }
-
-                        await batch.commit();
-                        loadCloudHistory();
-                        loadInventory(); // ໂຫຼດສາງໃໝ່ເພື່ອສະແດງຍອດທີ່ເພີ່ມຂຶ້ນ
-                        showAlert("ສຳເລັດ", "ລຶບປະຫວັດການຂາຍ ແລະ ➕ ບວກສິນຄ້າຄືນສາງຮຽບຮ້ອຍແລ້ວ!", "🔄");
-                    } catch (e) {
-                        showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການລຶບປະຫວັດ: " + e.message, "❌");
-                    }
-                }
+                await batch.commit();
+                loadCloudHistory();
+                showAlert("ສຳເລັດ", "ລຶບປະຫວັດການຂາຍທີ່ເລືອກຮຽບຮ້ອຍແລ້ວ!", "🗑️");
+            } catch (e) {
+                showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການລຶບປະຫວັດ: " + e.message, "❌");
+            }
+        }
 
         function openExpiryModal() { document.getElementById('expiry-modal').classList.remove('hidden'); loadExpiryCheck(); }
         function closeExpiryModal() { document.getElementById('expiry-modal').classList.add('hidden'); }
