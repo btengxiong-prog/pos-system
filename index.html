@@ -824,10 +824,8 @@
                     <div>
                         <span class="block text-[10px] font-bold text-gray-500 mb-0.5">🏷️ ຊື່ສິນຄ້າ/QR code/Barcode:</span>
                         <input type="text" id="scan-barcode-input" list="existing-product-names-list" 
-                            oninput="handleScanBarcodeInputChange(this)" 
-                            onchange="handleScanBarcodeInputChange(this)" 
-                            onblur="handleScanBarcodeInputChange(this)" 
-                            onkeydown="handleScanBarcodeInput(event)" 
+                            oninput="handleScanBarcodeInputChange(this); checkAndAutoAddToCart();" 
+                            onchange="handleScanBarcodeInputChange(this); checkAndAutoAddToCart();" 
                             placeholder="ປ້ອນລະຫັດ Barcode..." class="w-full border rounded-lg px-3 py-2 text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white">
                     </div>
                     
@@ -840,7 +838,9 @@
                     <!-- ກ່ອງ 3: ຈ/ນ ສິນຄ້າຂາຍ -->
                     <div>
                         <span class="block text-[10px] font-bold text-gray-500 mb-0.5">🛒 ຈ/ນ ສິນຄ້າຂາຍ:</span>
-                        <input type="text" id="scan-qty-input" value="1" oninput="formatInputMoney(this)" onkeydown="handleScanBarcodeInput(event)" placeholder="ຈຳນວນ" class="w-full border rounded-lg px-3 py-2 text-center text-xs font-bold text-green-700 outline-none focus:ring-2 focus:ring-blue-500 bg-white" title="ຈຳນວນຂາຍຕົວຈິງ">
+                        <input type="text" id="scan-qty-input" value="1" 
+                            oninput="formatInputMoney(this); updateStockDisplayOnQtyChange(); checkAndAutoAddToCart();" 
+                            placeholder="ຈຳນວນ" class="w-full border rounded-lg px-3 py-2 text-center text-xs font-bold text-green-700 outline-none focus:ring-2 focus:ring-blue-500 bg-white" title="ຈຳນວນຂາຍຕົວຈິງ">
                     </div>
                 </div>
             </div>
@@ -3575,6 +3575,81 @@
                 container.style.setProperty('display', 'none', 'important');
             }
         }
+
+        // 🔍 ຟັງຊັນອັບເດດສະແດງຜົນຍອດເຫຼືອໃນສາງ (ກ່ອງ 2) ໂດຍຫັກລົບກັບຈຳນວນທີ່ກຳລັງຂາຍໃນກ່ອງ 3 ແບບສົດໆ
+        function updateStockDisplayOnQtyChange() {
+            let input = document.getElementById('scan-barcode-input');
+            let stockDisplay = document.getElementById('scan-stock-display');
+            let qtyInput = document.getElementById('scan-qty-input');
+            if (!input || !stockDisplay) return;
+
+            let val = input.value ? input.value.trim().toLowerCase() : "";
+            if (val === "") {
+                stockDisplay.value = "";
+                return;
+            }
+
+            let foundItem = excelRows.find(item => 
+                String(item.code).trim().toLowerCase() === val || 
+                (item.name && item.name.trim().toLowerCase() === val)
+            );
+
+            if (foundItem) {
+                let currentQty = parseFloat(String(foundItem.qty !== undefined ? foundItem.qty : 0).replace(/,/g, '')) || 0;
+                let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
+                let totalAvailableSingles = Math.round(currentQty * unitPerPack);
+                
+                let sellingQty = parseFloat(qtyInput ? qtyInput.value.replace(/,/g, '') : '1') || 0;
+                let remainingSingles = Math.max(0, totalAvailableSingles - sellingQty);
+
+                let packsX = Math.floor(remainingSingles / unitPerPack);
+                let singlesY = remainingSingles % unitPerPack;
+                
+                let stockNoteDisplay = unitPerPack > 1 ? `${packsX}/${singlesY}` : `${packsX}`;
+                stockDisplay.value = stockNoteDisplay;
+            } else {
+                stockDisplay.value = "-";
+            }
+        }
+
+        // ເພີ່ມຟັງຊັນ Auto-add ເຂົ້າກະຕ່າທັນທີເມື່ອປ້ອນຂໍ້ມູນຄົບ ໂດຍບໍ່ຕ້ອງກົດ Enter
+        let lastAutoAddedString = "";
+        function checkAndAutoAddToCart() {
+            let input = document.getElementById('scan-barcode-input');
+            let qtyInput = document.getElementById('scan-qty-input');
+            if (!input || !qtyInput) return;
+
+            let code = input.value.trim();
+            let qtyVal = qtyInput.value.trim();
+
+            if (code !== "" && qtyVal !== "" && parseFloat(qtyVal.replace(/,/g, '')) > 0) {
+                let compositeKey = code + "_" + qtyVal;
+                // ป้องกันการยิงซ้ำซ้อนในเสี้ยววินาทีเดียวกัน
+                if (compositeKey !== lastAutoAddedString) {
+                    lastAutoAddedString = compositeKey;
+                    let customQty = parseFloat(qtyVal.replace(/,/g, '')) || 1;
+                    
+                    // ເອີ້ນໃຊ້ຟັງຊັນເພີ່ມລົງກະຕ່າ
+                    handleSalesBarcodeScanned(code, customQty);
+
+                    // ຣີເຊັດກ່ອງປ້ອນຂໍ້ມູນໃຫ້ພ້ອມສຳລັບรายการถัดไป
+                    setTimeout(() => {
+                        input.value = "";
+                        qtyInput.value = "1";
+                        let stockDisplay = document.getElementById('scan-stock-display');
+                        if (stockDisplay) stockDisplay.value = "";
+                        input.focus();
+                        lastAutoAddedString = "";
+                    }, 400);
+                }
+            }
+        }
+
+        // ປັບປຸງຟັງຊັນ handleScanBarcodeInputChange ໃຫ້ເຊື່ອມໂຍງกับการอัปเดตช่อง 2
+        function handleScanBarcodeInputChange(input) {
+            updateStockDisplayOnQtyChange();
+        }
+
     </script>
 </body>
 </html>
