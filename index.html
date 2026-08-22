@@ -2820,6 +2820,7 @@
 
         function handleScanBarcodeInputChange(input) {
             updateStockDisplayOnQtyChange();
+            updateCartItemPreview();
         }
 
         document.addEventListener("DOMContentLoaded", () => {
@@ -2876,6 +2877,22 @@
                 return;
             }
 
+            // 💡 ປັບປຸງໃຫ້ເອົາຊື່ ຫຼື ລະຫັດສິນຄ້າ ມາສະແດງໃສ່ກ່ອງແດງທີ 1 ໂດຍອັດຕະໂນມັດ
+            let barcodeInputEl = document.getElementById('scan-barcode-input');
+            if (barcodeInputEl) {
+                barcodeInputEl.value = foundItem.name || foundItem.code;
+            }
+
+            // 💡 ປັບປຸງໃຫ້คำนวณ ແລະ ສະແດງຍອດເຫຼືອຕົວຈິງໃນສາງ ໃສ່ກ່ອງແດງທີ 2 ທັນທີ
+            let currentQty = parseFloat(String(foundItem.qty !== undefined ? foundItem.qty : 0).replace(/,/g, '')) || 0;
+            let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
+            let stockDisplayEl = document.getElementById('scan-stock-display');
+            if (stockDisplayEl) {
+                let currentPacks = Math.floor(currentQty);
+                let currentSingles = Math.round((currentQty - currentPacks) * unitPerPack);
+                stockDisplayEl.value = unitPerPack > 1 ? `${currentPacks} / ${currentSingles}` : `${currentPacks}`;
+            }
+
             isScannerLocked = true;
             playBeepSound(); 
             
@@ -2927,7 +2944,6 @@
             let rawNewPrice = newCost * (1 + profitPct / 100);
             let newPrice = Math.ceil(rawNewPrice / 1000) * 1000;
 
-            let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
             let finalCost = newCost;
             let finalPrice = newPrice;
 
