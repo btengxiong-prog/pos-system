@@ -756,9 +756,9 @@
                 </div>
 
                 <div class="flex flex-col gap-1.5">
-                    <div id="btn-expiry-container" class="hidden">
+                    <div>
                         <button id="btn-expiry" onclick="openExpiryModal()" class="w-full bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded-xl font-medium shadow flex items-center justify-center gap-2 transition cursor-pointer text-xs">
-                            <span>⏳</span> ວັນໝົດອາຍຸສິນຄ້າ <span id="expiry-alert-badge" class="bg-red-500 text-white px-1.5 py-0.2 rounded-full text-[10px] hidden">0</span>
+                            <span>⏳</span> ວັນໝົດອາຍຸສິນຄ້າ <span id="expiry-alert-badge" class="bg-red-500 text-white px-1.5 py-0.2 rounded-full text-[10px]">0</span>
                         </button>
                     </div>
                     <div class="relative inline-block text-left w-full">
@@ -3619,17 +3619,16 @@
         }
 
         function checkExpiryAlertStatus() {
-            let container = document.getElementById('btn-expiry-container');
             let badge = document.getElementById('expiry-alert-badge');
-            if (!container) return;
-
             if (!excelRows || excelRows.length === 0) {
-                container.classList.add('hidden');
-                container.style.display = 'none';
+                if (badge) {
+                    badge.innerText = "0";
+                    badge.classList.add('hidden');
+                }
                 return;
             }
 
-            let today = new Date(); // ວັນທີປັດຈຸບັນ: 23/08/2026
+            let today = new Date();
             let nearExpiryCount = 0;
 
             excelRows.forEach((row) => {
@@ -3639,7 +3638,6 @@
                     let expDate = new Date(isoStr);
                     if (!isNaN(expDate.getTime())) {
                         let diffDays = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
-                        // ຖ້າວັນໝົດອາຍຸໜ້ອຍກວ່າ ຫຼື ເທົ່າກັບ 60 ວັນ
                         if (diffDays <= 60) {
                             nearExpiryCount++;
                         }
@@ -3647,17 +3645,13 @@
                 }
             });
 
-            if (nearExpiryCount > 0) {
-                container.classList.remove('hidden');
-                // 📌 ບັງຄັບໃຫ້ສະແດງຜົນຂຶ້ນມາຢ່າງຊັດເຈນ (ທຳລາຍຄຳສັ່ງ hidden ຂອງ Tailwind ໂດຍກົງ)
-                container.style.setProperty('display', 'block', 'important');
-                if (badge) {
-                    badge.innerText = nearExpiryCount;
+            if (badge) {
+                badge.innerText = nearExpiryCount;
+                if (nearExpiryCount > 0) {
                     badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
                 }
-            } else {
-                container.classList.add('hidden');
-                container.style.setProperty('display', 'none', 'important');
             }
         }
 
