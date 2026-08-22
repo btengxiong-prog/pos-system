@@ -3061,28 +3061,74 @@
         }
 
         async function promptDeleteHistoryAction() {
-            let checkedBoxes = document.querySelectorAll('.history-row-checkbox:checked');
-            if (checkedBoxes.length === 0) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກລາຍການທີ່ຕ້ອງການລຶບ!", "⚠️");
-                return;
-            }
+                    let checkedBoxes = document.querySelectorAll('.history-row-checkbox:checked');
+                    if (checkedBoxes.length === 0) {
+                        showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກລາຍການທີ່ຕ້ອງການລຶບ!", "⚠️");
+                        return;
+                    }
 
-            if (!db) return;
-            try {
-                let batch = db.batch();
-                checkedBoxes.forEach(cb => {
-                    let docId = cb.getAttribute('data-id');
-                    let docRef = db.collection("sales_history").doc(docId);
-                    batch.delete(docRef);
-                });
+                    if (!db) return;
+                    try {
+                        let batch = db.batch();
+                        
+                        // 🔄 ວົນລูปດຶງຂໍ້ມູນບິນທີ່ຖືກເລືອກ ເພື່ອຄືນຈຳນວນສິນຄ້າກັບເຂົ້າສາງກ່ອນລຶບ
+                        for (let cb of checkedBoxes) {
+                            let docId = cb.getAttribute('data-id');
+                            let docRef = db.collection("sales_history").doc(docId);
+                            let docSnap = await docRef.get();
 
-                await batch.commit();
-                loadCloudHistory();
-                showAlert("ສຳເລັດ", "ລຶບປະຫວັດການຂາຍທີ່ເລືອກຮຽບຮ້ອຍແລ້ວ!", "🗑️");
-            } catch (e) {
-                showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການລຶບປະຫວັດ: " + e.message, "❌");
-            }
-        }
+                            if (docSnap.exists) {
+                                let saleData = docSnap.data();
+                                let items = saleData.items || [];
+
+                                // 🔍 ວົນລູບຄືນຈຳນວນສິນຄ້າແຕ່ລະໂຕເຂົ້າສາງ
+                                for (let it of items) {
+                                    let itemCode = it.code;
+                                    let soldQty = parseFloat(it.qty) || 0;
+
+                                    if (itemCode && soldQty > 0) {
+                                        // ຊອກຫາສິນຄ້າໃນຕາຕະລາງ products ຕາມລະຫັດ (code) ຫຼື ຊື່
+                                        let productQuery = await db.collection("products")
+                                            .where("device_id", "==", deviceId)
+                                            .where("code", "==", itemCode)
+                                            .get();
+
+                                        if (!productQuery.empty) {
+                                            let pDoc = productQuery.docs[0];
+                                            let pData = pDoc.data();
+                                            let currentStockQty = parseFloat(pData.qty) || 0;
+                                            let unitPerPack = parseInt(pData.unitPerPack || pData.unit_per_pack) || 1;
+
+                                            // ຄຳນວນບວກຈຳນວນຄືນ (ຮองรับทั้งຂາຍສົ່ງ ແລະ ຂາຍຍ່ອຍ)
+                                            let totalAvailableSingles = Math.round(currentStockQty * unitPerPack);
+                                            let isRetail = it.name && it.name.includes("(ຂາຍຍ່ອຍ)");
+                                            let returnedSingles = isRetail ? soldQty : (soldQty * unitPerPack);
+                                            
+                                            let newTotalSingles = totalAvailableSingles + returnedSingles;
+                                            let newStockQty = newTotalSingles / unitPerPack;
+
+                                            // ອັບເດດຈຳນວນສິນຄ້າຄືນເຂົ້າສາງ
+                                            batch.update(db.collection("products").doc(pDoc.id), { 
+                                                qty: newStockQty,
+                                                updated_at: new Date().toISOString()
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+
+                            // 🗑️ ເພີ່ມຄຳສັ່ງລຶບປະຫວັດການຂາຍລົງໃນ batch
+                            batch.delete(docRef);
+                        }
+
+                        await batch.commit();
+                        loadCloudHistory();
+                        loadInventory(); // ໂຫຼດສາງໃໝ່ເພື່ອສະແດງຍອດທີ່ເພີ່ມຂຶ້ນ
+                        showAlert("ສຳເລັດ", "ລຶບປະຫວັດການຂາຍ ແລະ ➕ ບວກສິນຄ້າຄືນສາງຮຽບຮ້ອຍແລ້ວ!", "🔄");
+                    } catch (e) {
+                        showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການລຶບປະຫວັດ: " + e.message, "❌");
+                    }
+                }
 
         function openExpiryModal() { document.getElementById('expiry-modal').classList.remove('hidden'); loadExpiryCheck(); }
         function closeExpiryModal() { document.getElementById('expiry-modal').classList.add('hidden'); }
