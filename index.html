@@ -368,11 +368,11 @@
                 <h3 class="text-xl font-bold text-cyan-800 flex items-center gap-2">
                     <span>📦 ຂໍ້ມູນອັດຕາແລກປ່ຽນ (Exchange rate information)</span>
                 </h3>
+                <!-- Drop-down ສຳລັບ Admin ໃຫຍ່ ເລືອກແຍກຮ້ານ -->
                 <div id="inventory-admin-action-buttons-rate" class="hidden items-center gap-2">
-                    <select id="inventory-shop-filter-rate" class="text-xs bg-blue-50 text-blue-800 border border-blue-300 px-3 py-1.5 rounded-lg cursor-pointer font-bold outline-none shadow">
+                    <select id="inventory-shop-filter-rate" onchange="loadRateAnalysis()" class="text-xs bg-blue-50 text-blue-800 border border-blue-300 px-3 py-1.5 rounded-lg cursor-pointer font-bold outline-none shadow">
                         <option value="ALL">🏪 ທຸກຮ້ານ (ທັງໝົດ)</option>
                     </select>
-                    <button onclick="promptDeleteSelectedOrAllDevices()" class="text-xs bg-red-100 text-red-700 px-3 py-1.5 rounded-lg cursor-pointer font-bold flex items-center gap-1 shadow">🗑️ ລຶບຂໍ້ມູນ</button>
                 </div>
             </div>
             
@@ -381,6 +381,7 @@
                     <thead>
                         <tr class="bg-blue-900 text-white text-[11px] uppercase text-center">
                             <th class="p-2 border-r w-12">ລ/ດ</th>
+                            <th class="p-2 border-r">ຊື່ຮ້ານ / ID ເຄື່ອງ</th>
                             <th class="p-2 border-r">ວັນ/ເດືອນ/ປີ</th>
                             <th class="p-2 border-r">ຊື້ (Rate)</th>
                             <th class="p-2 border-r">ຂາຍ (Rate)</th>
@@ -388,7 +389,7 @@
                         </tr>
                     </thead>
                     <tbody id="rate-history-tbody" class="divide-y divide-gray-200 text-sm">
-                        <tr><td colspan="5" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດປະຫວັດ Rate...</td></tr>
+                        <tr><td colspan="6" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດປະຫວັດ Rate...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -2780,10 +2781,7 @@
 
         function openSaleTypeSelectModal() {
             closeAllCustomDropdowns();
-            
-            // 🧹 ຣີເຊັດກ່ອງປ້ອນຂໍ້ມູນທັງ 3 ໃຫ້ວ່າງສະອາດທຸກຄັ້ງທີ່ກົດເຂົ້າມາ
             resetSaleInputFields();
-
             document.getElementById('sale-type-select-modal').classList.remove('hidden');
         }
 
@@ -2796,9 +2794,7 @@
                 titleEl.innerText = type === 'wholesale' ? "📷 ກຳລັງສະແກນ QR / ບາໂຄດ (ຂາຍສົ່ງ)" : "📷 ກຳລັງສະແກນ QR / ບາໂຄດ (ຂາຍຍ່ອຍ)";
             }
 
-            // 🔄 ຣີເຊັດກ່ອງປ້ອນຂໍ້ມູນໃຫ້ວ່າງສະອາດທຸກຄັ້ງທີ່ເປີດ
             resetSaleInputFields();
-
             openScanner();
         }
 
@@ -3014,11 +3010,6 @@
             updateContinuousCartUI();
         }
 
-        function clearContinuousCart() {
-            continuousCart = [];
-            updateContinuousCartUI();
-        }
-
         function closeSalesPopup() { document.getElementById('sales-popup-modal').classList.add('hidden'); }
 
         async function printCurrentReceipt() {
@@ -3071,12 +3062,14 @@
                 }
             }
 
-            clearContinuousCart();
+            continuousCart = [];
+            updateContinuousCartUI();
             window.print();
         }
 
         function cancelCurrentSaleTransaction() {
-            clearContinuousCart();
+            continuousCart = [];
+            updateContinuousCartUI();
         }
 
         function toggleSelectAllHistory(masterCheckbox) {
@@ -3271,21 +3264,64 @@
         function openRateAnalysisModal() { document.getElementById('rate-analysis-modal').classList.remove('hidden'); loadRateAnalysis(); }
         function closeRateAnalysisModal() { document.getElementById('rate-analysis-modal').classList.add('hidden'); }
 
+        async function populateRateShopDropdown() {
+            let selectEl = document.getElementById('inventory-shop-filter-rate');
+            if (!selectEl) return;
+            let shopsSet = new Set();
+            if (db) {
+                try {
+                    let snap = await db.collection("daily_rates").get();
+                    snap.forEach(doc => {
+                        let d = doc.data();
+                        if (d.device_id && d.device_id !== '-') shopsSet.add(d.device_id.trim().toUpperCase());
+                    });
+                } catch (e) {}
+            }
+
+            let html = `<option value="ALL">🏪 ທຸກຮ້ານ (ທັງໝົດ)</option>`;
+            shopsSet.forEach(shopId => {
+                let shopName = localStorage.getItem('pos_shop_name_' + shopId) || shopId;
+                html += `<option value="${shopId}">${shopName} (${shopId})</option>`;
+            });
+            selectEl.innerHTML = html;
+        }
+
         async function loadRateAnalysis() {
             let tbody = document.getElementById('rate-history-tbody');
             if (!tbody) return;
-            tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດປະຫວັດ Rate...</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດປະຫວັດ Rate...</td></tr>`;
+
+            let userRole = localStorage.getItem('pos_user_role');
+            let shopOwner = localStorage.getItem('pos_shop_owner');
+            let isAdminMaster = (userRole === 'admin' || deviceId === 'POSXIONG' || (shopOwner === 'true' && deviceId === 'POSXIONG'));
+            
+            let adminRateDiv = document.getElementById('inventory-admin-action-buttons-rate');
+            if (adminRateDiv) {
+                if (isAdminMaster) {
+                    adminRateDiv.classList.remove('hidden');
+                    adminRateDiv.style.setProperty('display', 'flex', 'important');
+                    populateRateShopDropdown();
+                } else {
+                    adminRateDiv.classList.add('hidden');
+                    adminRateDiv.style.setProperty('display', 'none', 'important');
+                }
+            }
 
             let rateRecords = [];
             if (db) {
                 try {
-                    let snapshot = await db.collection("daily_rates").where("device_id", "==", deviceId).get();
+                    let queryRef = db.collection("daily_rates");
+                    if (!isAdminMaster && deviceId !== 'POSXIONG') {
+                        queryRef = queryRef.where("device_id", "==", deviceId);
+                    }
+                    let snapshot = await queryRef.get();
                     snapshot.forEach(doc => rateRecords.push(doc.data()));
                 } catch (e) {}
             }
 
             if (rateRecords.length === 0) {
                 rateRecords.push({
+                    device_id: deviceId,
                     date: localStorage.getItem('pos_custom_manual_rate_date') || new Date().toISOString().split('T')[0],
                     buyRate: localStorage.getItem('pos_custom_buy_rate') || '650',
                     sellRate: localStorage.getItem('pos_custom_sell_rate') || '670',
@@ -3293,13 +3329,24 @@
                 });
             }
 
-            rateRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
+            let shopFilterSelect = document.getElementById('inventory-shop-filter-rate');
+            let selectedShop = shopFilterSelect ? shopFilterSelect.value : 'ALL';
+
+            let filteredRecords = rateRecords;
+            if (isAdminMaster && selectedShop && selectedShop !== 'ALL') {
+                filteredRecords = rateRecords.filter(rec => String(rec.device_id || '').trim().toUpperCase() === selectedShop);
+            }
+
+            filteredRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
             let html = '';
             let index = 1;
-            rateRecords.forEach((rec) => {
+            filteredRecords.forEach((rec) => {
+                let shopLabel = localStorage.getItem('pos_shop_name_' + rec.device_id) || rec.device_id || 'POSXIONG';
                 html += `
                     <tr class="hover:bg-gray-50 border-b text-center">
                         <td class="p-2 border-r font-bold text-gray-500 text-xs">${index++}</td>
+                        <td class="p-2 border-r font-bold text-blue-700 text-xs">${shopLabel}</td>
                         <td class="p-2 border-r font-semibold text-purple-700 text-xs">${formatDateToDDMMYYYY(rec.date)}</td>
                         <td class="p-2 border-r text-right font-bold text-blue-600 text-xs">${formatNumberWithCommas(rec.buyRate)} ກີບ</td>
                         <td class="p-2 border-r text-right font-bold text-green-600 text-xs">${formatNumberWithCommas(rec.sellRate)} ກີບ</td>
@@ -3529,7 +3576,8 @@
             }
 
             closeCheckoutMethodModal();
-            clearContinuousCart();
+            continuousCart = [];
+            updateContinuousCartUI();
             showAlert("ສຳເລັດ", `ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ (ວິທີ: ${currentSelectedPaymentMode})!`, "💰");
         }
 
@@ -3617,35 +3665,6 @@
                 stockDisplay.value = stockNoteDisplay;
             } else {
                 stockDisplay.value = "-";
-            }
-        }
-
-        let lastAutoAddedString = "";
-        function checkAndAutoAddToCart() {
-            let input = document.getElementById('scan-barcode-input');
-            let qtyInput = document.getElementById('scan-qty-input');
-            if (!input || !qtyInput) return;
-
-            let code = input.value.trim();
-            let qtyVal = qtyInput.value.trim();
-
-            if (code !== "" && qtyVal !== "" && parseFloat(qtyVal.replace(/,/g, '')) > 0) {
-                let compositeKey = code + "_" + qtyVal;
-                if (compositeKey !== lastAutoAddedString) {
-                    lastAutoAddedString = compositeKey;
-                    let customQty = parseFloat(qtyVal.replace(/,/g, '')) || 1;
-                    
-                    handleSalesBarcodeScanned(code, customQty);
-
-                    setTimeout(() => {
-                        input.value = "";
-                        qtyInput.value = ""; 
-                        let stockDisplay = document.getElementById('scan-stock-display');
-                        if (stockDisplay) stockDisplay.value = "";
-                        input.focus();
-                        lastAutoAddedString = "";
-                    }, 400);
-                }
             }
         }
 
@@ -3742,18 +3761,16 @@
             updateContinuousCartUI();
         }
 
-        // 💰 ຟັງຊັນກົດຊຳລະເງິນທັງໝົດ (ກວດສອບ ແລະ ດຶງລາຍການ Preview ມາຊຳລະທັນທີ)
+        // 💰 ຟັງຊັນກົດຊຳລະເງິນທັງໝົດແບບ Direct (ດຶງລາຍການ Preview ມາຊຳລະທັນທີ)
         function handleDirectCheckout() {
             let input = document.getElementById('scan-barcode-input');
             
-            // ຖ້າມີການพิมพ์ຊື່ສິນຄ້າຄ້າງໄວ້ ແຕ່ຍັງບໍ່ທັນເພີ່ມລົງກະຕ່າ
             if (input && input.value.trim() !== "") {
                 let code = input.value.trim();
                 let qtyInput = document.getElementById('scan-qty-input');
                 let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
                 let customQty = (rawQtyText === "" || parseFloat(rawQtyText) <= 0) ? 1 : parseFloat(rawQtyText);
                 
-                // ດຶງລາຍການນັ້ນລົງກະຕ່າຈິງໂດຍອັດຕະໂນມັດ
                 let foundItem = excelRows.find(item => 
                     String(item.code).trim().toLowerCase() === code.toLowerCase() || 
                     (item.name && item.name.trim().toLowerCase() === code.toLowerCase())
@@ -3785,7 +3802,6 @@
                     }
                     updateContinuousCartUI();
 
-                    // ລ້າງກ່ອງປ້ອນຂໍ້ມູນ
                     input.value = "";
                     if (qtyInput) qtyInput.value = "";
                     let stockDisplay = document.getElementById('scan-stock-display');
@@ -3793,12 +3809,8 @@
                 }
             }
 
-            // ເປີດປັອບອັບເລືອກວິທີຊຳລະເງິນ
             openCheckoutMethodModal();
         }
-
-        // (ລຶບຟັງຊັນ clearContinuousCart ອອກໄດ້ເລຍ ເພາະບໍ່ໄດ້ໃຊ້ປຸ່ມລ້າງກະຕ່າແລ້ວ)
-
     </script>
 </body>
 </html>
