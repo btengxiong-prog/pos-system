@@ -2866,7 +2866,7 @@
             }
         }
 
-        // ຟັງຊັນເຮັດວຽກເມື່ອກົດປຸ່ມ "ຕົກລົງ" ຫລື Enter
+        // ຟັງຊັນຢືນຢັນການເພີ່ມລົງກະຕ່າ (ກົດຕົກລົງ ຫລື Enter)
         function submitManualCartSale() {
             let input = document.getElementById('scan-barcode-input');
             let qtyInput = document.getElementById('scan-qty-input');
@@ -2876,19 +2876,13 @@
             }
 
             let code = input.value.trim();
-            let qtyVal = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
+            let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
             
-            // ຖ້າບໍ່ມີການປ້ອນຕົວເລກໃນຫ້ອງຈຳນວນ ໃຫ້ຖືວ່າເປັນ 1 ອັນແບບໂອໂຕ
-            let customQty = (qtyVal === "" || isNaN(qtyVal)) ? 1 : parseFloat(qtyVal);
+            // 💡 ຖ້າຫ້ອງຫວ່າງ, ເປັນ 0 ຫລື ໜ້ອຍກວ່າ 0 ໃຫ້ປັດເປັນ 1 ໂອໂຕທັງໝົດ
+            let customQty = (rawQtyText === "" || parseFloat(rawQtyText) <= 0) ? 1 : parseFloat(rawQtyText);
 
-            if (customQty <= 0) {
-                customQty = 1;
-            }
-
-            // ດຳເນີນການເພີ່ມລົງກະຕ່າ
             handleSalesBarcodeScanned(code, customQty);
 
-            // ຣີເຊັດກ່ອງປ້ອນຂໍ້ມູນໃຫ້ວ່າງໄວ້ ພ້ອມສຳລັບລາຍການຕໍ່ໄປ
             input.value = "";
             if (qtyInput) qtyInput.value = "";
             let stockDisplay = document.getElementById('scan-stock-display');
@@ -3675,7 +3669,7 @@
             updateStockDisplayOnQtyChange();
         }
 
-        // ຟັງຊັນຄຳນວນ ແລະ ສະແດງຜົນຍອດເງິນໃນກະຕ່າລ່ວງໜ້າ (Preview) ຕາມຈຳນວນທີ່ກຳລັງປ້ອນ
+        // ຟັງຊັນຄຳນວນ ແລະ ສະແດງຜົນຍອດເງິນໃນກະຕ່າລ່ວງໜ້າ (Preview) ໂດຍຖ้าว່່າເປັນ 0, 1, ຫລື ຫວ່າງ ໃຫ້ຄິດໄລ່ເປັນ 1
         function updateCartItemPreview() {
             let input = document.getElementById('scan-barcode-input');
             let qtyInput = document.getElementById('scan-qty-input');
@@ -3687,7 +3681,7 @@
 
             let val = input.value ? input.value.trim().toLowerCase() : "";
             if (val === "") {
-                updateContinuousCartUI(); // ຖ້າບໍ່ມີການເລືອກສິນຄ້າ ໃຫ້ສະແດງຕາມກະຕ່າປົກກະຕິ
+                updateContinuousCartUI(); 
                 return;
             }
 
@@ -3701,7 +3695,6 @@
                 let formattedImportDate = rawImportDate ? (rawImportDate.includes('/') ? rawImportDate : formatDateToDDMMYYYY(rawImportDate)) : '-';
                 let importDateISO = parseDDMMYYYYToISO(formattedImportDate);
 
-                // ຄຳນວນລາຄາຕາມລະບົບເດີມ
                 let originalCost = parseFloat(String(foundItem.originalCost || foundItem.original_cost || foundItem.cost).replace(/,/g, '')) || 0;
                 let profitPct = foundItem.profit_pct !== undefined ? foundItem.profit_pct : 20;
                 let currentBuyRate = parseFloat(localStorage.getItem('rate_current_value')) || 685;
@@ -3711,10 +3704,12 @@
                 let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
                 let finalPrice = (currentSaleType === 'retail' && unitPerPack > 1) ? Math.ceil((newPrice / unitPerPack) / 1000) * 1000 : newPrice;
 
-                let typingQty = parseFloat(qtyInput && qtyInput.value.trim() !== "" ? qtyInput.value.replace(/,/g, '') : '1') || 1;
+                // 💡 ຈັດການເງື່ອນໄຂ: ຖ້າຫ້ອງຫວ່າງ, ເປັນ 0 ຫລື 1 ໃຫ້ຖືວ່າເປັນ 1 ເທົ່າກັນທັງໝົດ
+                let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
+                let typingQty = (rawQtyText === "" || parseFloat(rawQtyText) <= 0) ? 1 : parseFloat(rawQtyText);
+                
                 let previewTotal = finalPrice * typingQty;
 
-                // ສະແດງຜົນລ່ວງໜ້າໃນລາຍການກະຕ່າດ້ານລ່າງທັນທີ
                 let saleModeLabel = currentSaleType === 'retail' ? '(ຂາຍຍ່ອຍ)' : '(ຂາຍສົ່ງ)';
                 container.innerHTML = `
                     <div class="flex justify-between items-center bg-blue-50/80 p-2 rounded-lg border border-blue-200 shadow-sm">
