@@ -2471,7 +2471,7 @@
             tbody.innerHTML = html;
         }
 
-        async function processStockIn(shouldMerge, customDate = null) {
+        async function processStockInWithExpiry(importDate, mfgDate, expDate, shouldMerge) {
             document.getElementById('merge-confirm-modal').classList.add('hidden');
             let data = pendingStockInData || {
                 code: currentStockInCode,
@@ -2480,18 +2480,17 @@
                 price: parseFloat(document.getElementById('stock-in-calculated-price').value.replace(/,/g, '')) || 0,
                 qty: parseInt(document.getElementById('stock-in-qty').value) || 1,
                 unitPerPack: parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12,
-                date_added: customDate || document.getElementById('stock-in-import-date').value.trim() || new Date().toLocaleDateString('en-GB')
+                date_added: importDate,
+                mfg_date: mfgDate,
+                expiry_date: expDate
             };
 
             if (shouldMerge && data.existingId) {
                 let newQty = data.existingQty + data.qty;
-                let highestCost = Math.max(data.cost, parseFloat(String(excelRows.find(i=>i.id === data.existingId).cost).replace(/,/g, '')));
-                
                 await db.collection("products").doc(data.existingId).update({
                     qty: newQty,
                     initial_qty: newQty,
-                    cost: highestCost,
-                    price: highestCost * (1 + data.profit_pct / 100),
+                    expiry_date: expDate, // ອັບເດດວັນໝົດອາຍຸລົງໄປນຳ
                     updated_at: new Date().toISOString()
                 });
                 showAlert("ສຳເລັດ", "ລວມສິນຄ້າສຳເລັດຮຽບຮ້ອຍ!", "✅");
@@ -2500,7 +2499,6 @@
                     ...data,
                     initial_qty: data.qty,
                     device_id: deviceId,
-                    date_added: data.date_added || new Date().toLocaleDateString('en-GB'), // 📌 ບັນທຶກວັນທີນຳເຂົ້າຕົວຈິງ
                     updated_at: new Date().toISOString()
                 });
                 showAlert("ສຳເລັດ", "ນຳເຂົ້າສິນຄ້າໃໝ່ສຳເລັດຮຽບຮ້ອຍ!", "📦");
@@ -3631,11 +3629,12 @@
             let nearExpiryCount = 0;
 
             excelRows.forEach((row) => {
-                let expDateStr = row.expiryDate || row.expiry_date || '';
+                let expDateStr = row.expiry_date || row.expiryDate || '';
                 if (expDateStr && expDateStr.trim() !== '' && expDateStr.trim() !== '-') {
                     let expDate = new Date(parseDDMMYYYYToISO(expDateStr));
                     if (!isNaN(expDate.getTime())) {
                         let diffDays = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
+                        // ຖ້າໜ້ອຍກວ່າ ຫຼື เท่ากับ 60 ວັນ (2 ເດືອນ) ຈະນັບເປັນສິນຄ້າໃກ້ໝົດອາຍຸ
                         if (diffDays <= 60) {
                             nearExpiryCount++;
                         }
