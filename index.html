@@ -2454,7 +2454,7 @@
             tbody.innerHTML = html;
         }
 
-        async function processStockIn(shouldMerge) {
+        async function processStockIn(shouldMerge, customDate = null) {
             document.getElementById('merge-confirm-modal').classList.add('hidden');
             let data = pendingStockInData || {
                 code: currentStockInCode,
@@ -2462,7 +2462,8 @@
                 cost: parseFloat(document.getElementById('stock-in-cost').value.replace(/,/g, '')) || 0,
                 price: parseFloat(document.getElementById('stock-in-calculated-price').value.replace(/,/g, '')) || 0,
                 qty: parseInt(document.getElementById('stock-in-qty').value) || 1,
-                unitPerPack: parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12
+                unitPerPack: parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12,
+                date_added: customDate || document.getElementById('stock-in-import-date').value.trim() || new Date().toLocaleDateString('en-GB')
             };
 
             if (shouldMerge && data.existingId) {
@@ -2482,7 +2483,7 @@
                     ...data,
                     initial_qty: data.qty,
                     device_id: deviceId,
-                    date_added: new Date().toLocaleDateString('en-GB'),
+                    date_added: data.date_added || new Date().toLocaleDateString('en-GB'), // 📌 ບັນທຶກວັນທີນຳເຂົ້າຕົວຈິງ
                     updated_at: new Date().toISOString()
                 });
                 showAlert("ສຳເລັດ", "ນຳເຂົ້າສິນຄ້າໃໝ່ສຳເລັດຮຽບຮ້ອຍ!", "📦");
@@ -2725,6 +2726,16 @@
             let name = document.getElementById('stock-in-custom-name').value.trim() || code;
             let cost = parseFloat(document.getElementById('stock-in-cost').value.replace(/,/g, '')) || 0;
             
+            // 💡 ດຶງຄ່າວັນທີນຳເຂົ້າຈາກ Input ໃຫ້ຖືກຕ້ອງ (ຖ້າຫວ່າງ ໃຫ້ໃຊ້ອັນປັດຈຸບັນ)
+            let importDateVal = document.getElementById('stock-in-import-date').value.trim();
+            if (!importDateVal) {
+                let today = new Date();
+                let dd = String(today.getDate()).padStart(2, '0');
+                let mm = String(today.getMonth() + 1).padStart(2, '0');
+                let yyyy = today.getFullYear();
+                importDateVal = `${dd}/${mm}/${yyyy}`;
+            }
+
             let existingItem = excelRows.find(item => item.name && item.name.trim().toLowerCase() === name.toLowerCase());
 
             if (existingItem) {
@@ -2734,12 +2745,13 @@
                     profit_pct: parseFloat(document.getElementById('stock-in-profit-pct').value) || 20,
                     qty: parseInt(document.getElementById('stock-in-qty').value) || 1,
                     unitPerPack: parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12,
+                    date_added: importDateVal, // 📌 ບັນທຶກວັນທີນຳເຂົ້າ
                     existingId: existingItem.id,
                     existingQty: parseFloat(String(existingItem.qty || 0).replace(/,/g, '')) || 0
                 };
                 document.getElementById('merge-confirm-modal').classList.remove('hidden');
             } else {
-                processStockIn(false);
+                processStockIn(false, importDateVal);
             }
         }
 
