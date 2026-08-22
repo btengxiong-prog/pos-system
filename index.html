@@ -869,15 +869,12 @@
                     <p class="text-center text-gray-400 py-2">ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ</p>
                 </div>
                 
-                <!-- ຈັດວາງປຸ່ມຊຳລະເງິນ, ລ້າງກະຕ່າ ແລະ ປິດກ້ອງ ໄວ້ໃນແຖວດຽວກັນ -->
+                <!-- ຈັດວາງປຸ່ມຊຳລະເງິນ ແລະ ປິດກ້ອງ ໄວ້ໃນແຖວດຽວກັນ (ລຶບປຸ່ມລ້າງກະຕ່າອອກແລ້ວ) -->
                 <div class="flex gap-2 pt-2 items-center">
-                    <button onclick="openCheckoutMethodModal()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-xs transition shadow cursor-pointer flex items-center justify-center gap-1">
+                    <button onclick="handleDirectCheckout()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl text-sm transition shadow cursor-pointer flex items-center justify-center gap-1">
                         <span>💰</span> ຊຳລະເງິນທັງໝົດ
                     </button>
-                    <button onclick="clearContinuousCart()" class="bg-red-100 hover:bg-red-200 text-red-700 font-bold px-3 py-2.5 rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-1">
-                        <span>🗑️</span> ລ້າງກະຕ່າ
-                    </button>
-                    <button onclick="closeScanner()" class="bg-gray-500 hover:bg-gray-600 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-1">
+                    <button onclick="closeScanner()" class="bg-gray-500 hover:bg-gray-600 text-white font-bold px-6 py-3 rounded-xl text-sm transition cursor-pointer flex items-center justify-center gap-1">
                         <span>✕</span> ປິດກ້ອງ
                     </button>
                 </div>
@@ -3744,6 +3741,64 @@
 
             updateContinuousCartUI();
         }
+
+        // 💰 ຟັງຊັນກົດຊຳລະເງິນທັງໝົດ (ກວດສອບ ແລະ ດຶງລາຍການ Preview ມາຊຳລະທັນທີ)
+        function handleDirectCheckout() {
+            let input = document.getElementById('scan-barcode-input');
+            
+            // ຖ້າມີການพิมพ์ຊື່ສິນຄ້າຄ້າງໄວ້ ແຕ່ຍັງບໍ່ທັນເພີ່ມລົງກະຕ່າ
+            if (input && input.value.trim() !== "") {
+                let code = input.value.trim();
+                let qtyInput = document.getElementById('scan-qty-input');
+                let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
+                let customQty = (rawQtyText === "" || parseFloat(rawQtyText) <= 0) ? 1 : parseFloat(rawQtyText);
+                
+                // ດຶງລາຍການນັ້ນລົງກະຕ່າຈິງໂດຍອັດຕະໂນມັດ
+                let foundItem = excelRows.find(item => 
+                    String(item.code).trim().toLowerCase() === code.toLowerCase() || 
+                    (item.name && item.name.trim().toLowerCase() === code.toLowerCase())
+                );
+
+                if (foundItem) {
+                    let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
+                    let finalPrice = foundItem.price;
+                    if (currentSaleType === 'retail' && unitPerPack > 1) {
+                        let originalCost = parseFloat(String(foundItem.originalCost || foundItem.original_cost || foundItem.cost).replace(/,/g, '')) || 0;
+                        let profitPct = foundItem.profit_pct !== undefined ? foundItem.profit_pct : 20;
+                        let currentBuyRate = parseFloat(localStorage.getItem('rate_current_value')) || 685;
+                        let newCost = Math.ceil((originalCost * (currentBuyRate / 650)) / 1000) * 1000;
+                        let newPrice = Math.ceil((newCost * (1 + profitPct / 100)) / 1000) * 1000;
+                        finalPrice = Math.ceil((newPrice / unitPerPack) / 1000) * 1000;
+                    }
+
+                    let processedItem = {
+                        ...foundItem,
+                        price: finalPrice,
+                        saleType: currentSaleType
+                    };
+
+                    let existingCartItem = continuousCart.find(i => i.id === processedItem.id && i.saleType === currentSaleType);
+                    if (existingCartItem) {
+                        existingCartItem.qty += customQty;
+                    } else {
+                        continuousCart.push({ ...processedItem, qty: customQty });
+                    }
+                    updateContinuousCartUI();
+
+                    // ລ້າງກ່ອງປ້ອນຂໍ້ມູນ
+                    input.value = "";
+                    if (qtyInput) qtyInput.value = "";
+                    let stockDisplay = document.getElementById('scan-stock-display');
+                    if (stockDisplay) stockDisplay.value = "";
+                }
+            }
+
+            // ເປີດປັອບອັບເລືອກວິທີຊຳລະເງິນ
+            openCheckoutMethodModal();
+        }
+
+        // (ລຶບຟັງຊັນ clearContinuousCart ອອກໄດ້ເລຍ ເພາະບໍ່ໄດ້ໃຊ້ປຸ່ມລ້າງກະຕ່າແລ້ວ)
+
     </script>
 </body>
 </html>
