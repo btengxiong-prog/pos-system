@@ -3617,15 +3617,32 @@
             if (foundItem) {
                 let currentQty = parseFloat(String(foundItem.qty !== undefined ? foundItem.qty : 0).replace(/,/g, '')) || 0;
                 let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
-                let totalAvailableSingles = Math.round(currentQty * unitPerPack);
                 
-                let sellingQty = parseFloat(qtyInput ? qtyInput.value.replace(/,/g, '') : '0') || 0;
-                let remainingSingles = Math.max(0, totalAvailableSingles - sellingQty);
+                // ດຶງຄ່າຈຳນວນທີ່ກຳລັງຂາຍ (ຖ້າຫວ່າງ ຫລື 0 ໃຫ້ນັບເປັນ 1)
+                let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
+                let sellingQty = (rawQtyText === "" || parseFloat(rawQtyText) <= 0) ? 1 : parseFloat(rawQtyText);
 
-                let packsX = Math.floor(remainingSingles / unitPerPack);
-                let singlesY = remainingSingles % unitPerPack;
-                
-                let stockNoteDisplay = unitPerPack > 1 ? `${packsX}/${singlesY}` : `${packsX}`;
+                let stockNoteDisplay = "";
+
+                // 🔍 ແຍກກໍລະນີຕາມໂໝດການຂາຍ (ຂາຍສົ່ງ vs ຂາຍຍ່ອຍ)
+                if (currentSaleType === 'wholesale') {
+                    // 📦 ຂາຍສົ່ງ: ລົບອອກຈາກຈຳນວນລາງເຕັມໂດຍກົງ (ຮັກສາເສດປ໋ອງເດີມໄວ້)
+                    let currentPacks = Math.floor(currentQty);
+                    let currentSingles = Math.round((currentQty - currentPacks) * unitPerPack);
+                    
+                    let remainingPacks = Math.max(0, currentPacks - sellingQty);
+                    stockNoteDisplay = unitPerPack > 1 ? `${remainingPacks}/${currentSingles}` : `${remainingPacks}`;
+                } else {
+                    // 🥤 ຂາຍຍ່ອຍ: แปลງທັງໝົດເປັນປ໋ອງ ແລ້ວຫັກລົບ ແລ້ວແປງກັບເປັນ ລາງ/ປ໋ອງ
+                    let totalAvailableSingles = Math.round(currentQty * unitPerPack);
+                    let remainingSingles = Math.max(0, totalAvailableSingles - sellingQty);
+
+                    let packsX = Math.floor(remainingSingles / unitPerPack);
+                    let singlesY = remainingSingles % unitPerPack;
+                    
+                    stockNoteDisplay = unitPerPack > 1 ? `${packsX}/${singlesY}` : `${packsX}`;
+                }
+
                 stockDisplay.value = stockNoteDisplay;
             } else {
                 stockDisplay.value = "-";
