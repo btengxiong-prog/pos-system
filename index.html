@@ -3151,39 +3151,29 @@
             }
 
             let today = new Date();
+            today.setHours(0, 0, 0, 0); // ຕັ້ງຄ່າເວລາເປັນ 00:00:00 ເພື່ອໃຫ້ຄຳນວນວັນທີໄດ້ຢ່າງຊັດເຈນ
             let expiryFilteredRows = [];
-            let docsToDelete = [];
 
             excelRows.forEach((row) => {
-                let expDateStr = row.expiryDate || row.expiry_date || '';
+                let expDateStr = row.expiry_date || row.expiryDate || '';
                 let currentQty = parseFloat(String(row.qty !== undefined ? row.qty : 0).replace(/,/g, '')) || 0;
 
-                if (expDateStr && expDateStr.trim() !== '' && expDateStr.trim() !== '-' && currentQty > 0) {
-                    let expDate = new Date(parseDDMMYYYYToISO(expDateStr));
-                    if (!isNaN(expDate.getTime())) {
-                        let diffDays = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
+                if (expDateStr && expDateStr.trim() !== '' && expDateStr.trim() !== '-') {
+                    let isoStr = parseDDMMYYYYToISO(expDateStr);
+                    let expDate = new Date(isoStr);
+                    expDate.setHours(0, 0, 0, 0);
 
-                        if (diffDays < -90) {
-                            if (row.id && db) docsToDelete.push(row.id);
-                        } 
-                        else if (diffDays <= 60) {
+                    if (!isNaN(expDate.getTime())) {
+                        let diffTime = expDate - today;
+                        let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                        // 💡 ຖ້າວັນໝົດອາຍຸໜ້ອຍກວ່າ ຫຼື เท่ากับ 60 ວັນ (ລວມທັງໝົດອາຍຸແລ້ວ ຫຼື ໃກ້ໝົດອາຍຸ)
+                        if (diffDays <= 60 && currentQty > 0) {
                             expiryFilteredRows.push({ ...row, diffDays: diffDays });
                         }
                     }
                 }
             });
-
-            if (docsToDelete.length > 0 && db) {
-                try {
-                    let batch = db.batch();
-                    docsToDelete.forEach(docId => {
-                        batch.delete(db.collection("products").doc(docId));
-                    });
-                    await batch.commit();
-                } catch (e) {
-                    console.error("Error auto-deleting expired items:", e);
-                }
-            }
 
             if (expiryFilteredRows.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃກ້ໝົດອາຍຸໃນສາງ</td></tr>`;
@@ -3194,17 +3184,19 @@
             let countIndex = 1;
 
             expiryFilteredRows.forEach((row) => {
-                let expDateStr = row.expiryDate || row.expiry_date || '';
-                let mfgDateStr = row.mfgDate || row.mfg_date || '-';
-                let rawImportDate = row.dateAdded || row.date_added || '';
+                let expDateStr = row.expiry_date || row.expiryDate || '';
+                let mfgDateStr = row.mfg_date || row.mfgDate || '-';
+                let rawImportDate = row.date_added || row.dateAdded || '';
                 let formattedImportDate = rawImportDate ? formatDateToDDMMYYYY(rawImportDate) : '-';
                 let diffDays = row.diffDays;
                 let noteStatus = '';
 
                 if (diffDays < 0) {
                     noteStatus = `<span class="text-red-600 font-extrabold">❌ ໝົດອາຍຸແລ້ວ (${Math.abs(diffDays)} ວັນ)</span>`;
+                } else if (diffDays === 0) {
+                    noteStatus = `<span class="text-red-500 font-bold">⚠️ ໝົດອາຍຸມື້ນี้!</span>`;
                 } else {
-                    noteStatus = `<span class="text-amber-600 font-bold">⚠️ ໃກ້ໝົດອາຍຸ (${diffDays} ວັນ)</span>`;
+                    noteStatus = `<span class="text-amber-600 font-bold">⚠️ ໃກ້ໝົດອາຍຸ (ອີກ ${diffDays} ວັນ)</span>`;
                 }
 
                 let currency = row.currency || 'ກີບ';
