@@ -4008,6 +4008,50 @@
             closeCalcModal();
         }
 
+        async function processStockIn(shouldMerge) {
+            document.getElementById('merge-confirm-modal').classList.add('hidden');
+            
+            if (!pendingStockInData) return;
+
+            let data = pendingStockInData;
+
+            if (shouldMerge && data.existingId) {
+                // 1. ກໍລະນີກົດ "ຕ້ອງການ (ລວມ)" -> ບวกຈຳນວນເພີ່ມເຂົ້າໄປໃນສິນຄ້າເກົ່າ
+                let newQty = data.existingQty + data.qty;
+                await db.collection("products").doc(data.existingId).update({
+                    qty: newQty,
+                    initial_qty: newQty,
+                    cost: data.cost,
+                    price: data.price,
+                    profit_pct: data.profit_pct,
+                    expiry_date: data.expiry_date,
+                    updated_at: new Date().toISOString()
+                });
+                showAlert("ສຳເລັດ", "ລວມລາຄາ ແລະ ຈຳນວນສິນຄ້າເຂົ້າກັນສຳເລັດຮຽບຮ້ອຍ!", "✅");
+            } else {
+                // 2. ກໍລະນີກົດ "ບໍ່ຕ້ອງການ" -> ສ້າງເປັນລາຍການໃໝ່ແຍກຕ່າງຫາກເລີຍ (ບໍ່ລວມ)
+                await db.collection("products").add({
+                    code: data.code,
+                    name: data.name,
+                    cost: data.cost,
+                    price: data.price,
+                    profit_pct: data.profit_pct,
+                    qty: data.qty,
+                    initial_qty: data.qty,
+                    unitPerPack: data.unitPerPack,
+                    date_added: data.date_added,
+                    mfg_date: data.mfg_date,
+                    expiry_date: data.expiry_date,
+                    device_id: deviceId,
+                    updated_at: new Date().toISOString()
+                });
+                showAlert("ສຳເລັດ", "ເພີ່ມເປັນສິນຄ້າໃໝ່ (ບໍ່ລວມ) ສຳເລັດຮຽບຮ້ອຍ!", "📦");
+            }
+            
+            closeStockInModal();
+            pendingStockInData = null;
+        }
+
     </script>
 </body>
 </html>
