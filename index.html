@@ -2436,6 +2436,10 @@ async function loadInventory() {
                 let rawNewPrice = newCost * (1 + profitPct / 100);
                 let newPrice = Math.ceil(rawNewPrice / 1000) * 1000;
 
+                // ⭐️ ເກັບຄ່າລາຄາຂາຍ (ໃໝ່) ທີ່ຄຳນວນໄດ້ນີ້ໄວ້ໃນ Object ຂອງ row ເລີຍ
+                row.calculatedNewPrice = newPrice;
+                row.calculatedNewCost = newCost;
+
                 // ⭐️ ໂຕໃໝ່: ບວກລາຄາຕໍ່ໜ່ວຍກົງໆ
                 sumOriginalCost += originalCostVal;
                 sumOriginalPrice += originalPrice;
@@ -2932,6 +2936,7 @@ async function loadInventory() {
         async function handleSalesBarcodeScanned(code, inputQty = null) {
             if (isScannerLocked) return; 
 
+            // 1. ค้นหาสินค้าจาก excelRows (ข้อมูลสินค้าในสต็อก)
             let foundItem = excelRows.find(item => 
                 String(item.code).trim().toLowerCase() === code.toLowerCase() || 
                 (item.name && item.name.trim().toLowerCase() === code.toLowerCase())
@@ -2965,33 +2970,20 @@ async function loadInventory() {
                 statusBadge.innerText = "⏳ ບັນທຶກສິນຄ້າແລ້ວ (ພັກ 3 ວິ)...";
             }
 
-            let rateRecordsMap = {};
-            if (db) {
-                try {
-                    let rateSnap = await db.collection("daily_rates").where("device_id", "==", deviceId).get();
-                    rateSnap.forEach(doc => {
-                        let rData = doc.data();
-                        if (rData.date) {
-                            rateRecordsMap[rData.date.trim()] = {
-                                buy: parseFloat(rData.buyRate) || 650,
-                                sell: parseFloat(rData.sellRate) || 670
-                            };
-                        }
-                    });
-                } catch (e) {}
-            }
+            // 2. 🎯 ດຶງຄ່າລາຄາຂາຍ (ໃໝ່) ຈາກຕາຕະລາງ Inventory ມາໃຊ້ໂດຍກົງ (ບໍ່ຕ້ອງຄຳນວນຫຍັງເພີ່ມອີກແລ້ວ!)
+            // ຖ້າ foundItem.calculatedNewPrice ຍັງບໍ່ມີ (ກໍລະນີຍັງບໍ່ໄດ້ເປີດເບິ່ງໜ້າ Inventory ເທື່ອ) ໃຫ້ fallback ໄປໃຊ້ foundItem.price
+            let directSellingPrice = foundItem.calculatedNewPrice !== undefined ? foundItem.calculatedNewPrice : (parseFloat(String(foundItem.price).replace(/,/g, '')) || 0);
+            let directCost = foundItem.calculatedNewCost !== undefined ? foundItem.calculatedNewCost : (parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0);
 
-            let basePrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
-            let finalPrice = basePrice;
-
+            let finalPrice = directSellingPrice;
             if (currentSaleType === 'retail' && unitPerPack > 1) {
-                finalPrice = Math.ceil((basePrice / unitPerPack) / 1000) * 1000;
+                finalPrice = Math.ceil((directSellingPrice / unitPerPack) / 1000) * 1000;
             }
 
             let processedItem = {
                 ...foundItem,
-                cost: parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0,   
-                price: finalPrice, // ໃຊ້ລາຄາຂາຍກົງໆຈາກສາງ (ເຊັ່ນ: 6,480,000)
+                cost: directCost,    
+                price: finalPrice, // ດຶງຄ່າຈາກຕາຕະລາງສາງມາໃສ່ກົງໆ 100%
                 saleType: currentSaleType
             };
 
