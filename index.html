@@ -2932,6 +2932,7 @@ async function loadInventory() {
         async function handleSalesBarcodeScanned(code, inputQty = null) {
             if (isScannerLocked) return; 
 
+            // 1. ค้นหาสินค้าจากตาราง excelRows (ซึ่งก็คือข้อมูลจากหน้า Inventory)
             let foundItem = excelRows.find(item => 
                 String(item.code).trim().toLowerCase() === code.toLowerCase() || 
                 (item.name && item.name.trim().toLowerCase() === code.toLowerCase())
@@ -2942,48 +2943,29 @@ async function loadInventory() {
                 return;
             }
 
-            // ດึง Rate ປະຈຳວັນມາຄຳນວນໃຫ້ຖືກຕ້ອງຄືກັບໜ້າ Inventory
-            let rateRecordsMap = {};
-            if (db) {
-                try {
-                    let rateSnap = await db.collection("daily_rates").where("device_id", "==", deviceId).get();
-                    rateSnap.forEach(doc => {
-                        let rData = doc.data();
-                        if (rData.date) {
-                            rateRecordsMap[rData.date.trim()] = {
-                                buy: parseFloat(rData.buyRate) || 650,
-                                sell: parseFloat(rData.sellRate) || 670
-                            };
-                        }
-                    });
-                } catch (e) {}
-            }
-
-            // 📌 ໃຫ້ໃຊ້ການຄຳນວນລາຄາຂາຍ (ໃໝ່) ຕາມ Rate ປະຈຳວັນຄືກັນກັບໜ້າ Inventory
-            let originalCost = parseFloat(String(foundItem.originalCost || foundItem.original_cost || foundItem.cost).replace(/,/g, '')) || 0;
-            let profitPct = foundItem.profit_pct !== undefined ? foundItem.profit_pct : 0;
-            
-            // ດຶງ Rate ປັດຈຸບັນມາຄຳນວນ
-            let currentBuyRate = parseFloat(localStorage.getItem('rate_current_value')) || 685; 
-            let newCost = Math.ceil((originalCost * (currentBuyRate / 650)) / 1000) * 1000;
-            let newPrice = Math.ceil((newCost * (1 + profitPct / 100)) / 1000) * 1000;
-
+            // 2. ดึงราคาขายและราคาทุนที่ถูกต้องจากฐานข้อมูลสินค้าในสต็อกโดยตรง (ไม่ต้องคำนวณสูตร Rate ซ้ำซ้อนให้ผิดเพี้ยน)
+            let baseCost = parseFloat(String(foundItem.cost || 0).replace(/,/g, '')) || 0;
+            let basePrice = parseFloat(String(foundItem.price || 0).replace(/,/g, '')) || 0;
             let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
-            let finalPrice = newPrice;
+            
+            let finalPrice = basePrice;
 
+            // 3. ถ้าเลือกโหมด "ขายปลีก" และสินค้ามีจำนวนต่อแพ็คมากกว่า 1 ให้คำนวณราคาปลีกต่อหน่วยย่อย
             if (currentSaleType === 'retail' && unitPerPack > 1) {
-                finalPrice = Math.ceil((newPrice / unitPerPack) / 1000) * 1000;
+                // หากในสต็อกบันทึกราคาขายส่งเป็นหลัก ให้หารด้วยจำนวนต่อแพ็คเพื่อหา precio ต่อหน่วยย่อย
+                finalPrice = Math.ceil((basePrice / unitPerPack) / 1000) * 1000;
             }
 
             let processedItem = {
                 ...foundItem,
-                cost: newCost,   
-                price: finalPrice, // ໃຊ້ລາຄາຂາຍໃໝ່ທີ່ຖືກຕ້ອງແລ້ວ (6,480,000)
+                cost: baseCost,
+                price: finalPrice, // ใช้ราคาที่ถูกต้องตามสต็อกจริง
                 saleType: currentSaleType
             };
 
             let addQty = inputQty !== null ? inputQty : 1;
 
+            // 4. เพิ่มลงในตะกร้าสินค้าต่อเนื่อง
             let existingCartItem = continuousCart.find(i => i.id === processedItem.id && i.saleType === currentSaleType);
             if (existingCartItem) {
                 existingCartItem.qty += addQty;
@@ -2991,7 +2973,16 @@ async function loadInventory() {
                 continuousCart.push({ ...processedItem, qty: addQty });
             }
 
+            playBeepSound();
             updateContinuousCartUI();
+
+            // 5. ป้องกันการสแกนซ้ำติดๆ กันเร็วเกินไป
+            isScannerLocked = true;
+            let statusBadge = document.getElementById('scanner-status-badge');
+            if (statusBadge) {
+                statusBadge.className = "text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-semibold";
+                statusBadge.innerText = "✅ ເພີ່ມສິນຄ້າລົງກະຕ່າສຳເລັດ!";
+            }
 
             setTimeout(() => {
                 isScannerLocked = false;
@@ -2999,7 +2990,7 @@ async function loadInventory() {
                     statusBadge.className = "text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold";
                     statusBadge.innerText = "ກຳລັງເປີດກ້ອງ... (ພ້ອມສະແກນຕໍ່)";
                 }
-            }, 3000);
+            }, 1500);
         }
 
         function updateContinuousCartUI() {
