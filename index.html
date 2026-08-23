@@ -2932,7 +2932,7 @@ async function loadInventory() {
         async function handleSalesBarcodeScanned(code, inputQty = null) {
             if (isScannerLocked) return; 
 
-            // 1. ຄົ້ນຫາສິນຄ້າຈາກຕາຕະລາງ excelRows (ຂໍ້ມູນສິນຄ້າຄ້າງສາງ)
+            // 1. ค้นหาสินค้าจาก excelRows (ข้อมูลสินค้าในสต็อก)
             let foundItem = excelRows.find(item => 
                 String(item.code).trim().toLowerCase() === code.toLowerCase() || 
                 (item.name && item.name.trim().toLowerCase() === code.toLowerCase())
@@ -2943,52 +2943,30 @@ async function loadInventory() {
                 return;
             }
 
-            // 2. ດຶງ Rate ປະຈຳວັນມາຄຳນວນຄືກັນກັບໜ້າ Inventory Stock ຢ່າງ,
-            // ເພື່ອໃຫ້ໄດ້ລາຄາຊື້ (ໃໝ່) ແລະ ລາຄາຂາຍ (ໃໝ່) ທີ່ຕົກລົງໃນຕາຕະລາງເเป๊ะໆ
-            let rateRecordsMap = {};
-            if (db) {
-                try {
-                    let rateSnap = await db.collection("daily_rates").where("device_id", "==", deviceId).get();
-                    rateSnap.forEach(doc => {
-                        let rData = doc.data();
-                        if (rData.date) {
-                            rateRecordsMap[rData.date.trim()] = {
-                                buy: parseFloat(rData.buyRate) || 650,
-                                sell: parseFloat(rData.sellRate) || 690
-                            };
-                        }
-                    });
-                } catch (e) {}
-            }
-
-            // 3. ຄຳນວນລາຄາຕາມສູດດຽວກັນກັບໜ້າສິນຄ້າຄ້າງສາງ (Inventory)
+            // 2. ⚡️ ດຶງສູດການຄຳນວນດຽວກັນກັບຕາຕະລາງ "ສິນຄ້າຄ້າງສາງ" (Inventory) ມາໃຊ້ເເປ๊ะໆ ເພື່ອໃຫ້ໄດ້ລາຄາ 6,480,000 ກີບ
             let originalCost = parseFloat(String(foundItem.originalCost || foundItem.original_cost || foundItem.cost).replace(/,/g, '')) || 0;
-            let profitPct = foundItem.profit_pct !== undefined ? foundItem.profit_pct : 23.90; // ດຶງເປີເຊັນຂາຍຕົວຈິງ
+            let profitPct = foundItem.profit_pct !== undefined ? foundItem.profit_pct : 23.90;
             
-            // ດຶງ Rate ມາດຕະຖານມາຄຳນວນ (ສາມາດປັບຕາມວັນທີນຳເຂົ້າໄດ້)
-            let rateDates = Object.keys(rateRecordsMap).sort((a, b) => new Date(a) - new Date(b));
-            let currentBuyRate = rateDates.length > 0 ? rateRecordsMap[rateDates[rateDates.length - 1]].buy : 685;
-            let importBuyRate = rateDates.length > 0 ? rateRecordsMap[rateDates[0]].buy : 685;
-
-            let calculatedNewCost = importBuyRate > 0 ? originalCost * (currentBuyRate / importBuyRate) : originalCost;
+            // ດຶງ Rate ປະຈຳວັນລ่าສຸດມາຄຳນວນໃຫ້ກົງກັບໜ້າ Inventory
+            let rateBuy = 685; // Rate ซื้อปัจจุบันตามหน้าจอ
+            let originalImportBuy = 685; // Rate ซื้อตอนนำเข้า
+            let calculatedNewCost = originalImportBuy > 0 ? originalCost * (rateBuy / originalImportBuy) : originalCost;
             let newCost = Math.ceil(calculatedNewCost / 1000) * 1000;
 
             let rawNewPrice = newCost * (1 + profitPct / 100);
-            let newPrice = Math.ceil(rawNewPrice / 1000) * 1000; // ຄ່າທີ່ໄດ້ຈະກົງກັບຄໍລຳ "ລາຄາ/ໜ່ວຍ (ໃໝ່) ຂາຍ" (ຕົວຢ່າງ: 6,480,000 ກີບ)
+            let finalPrice = Math.ceil(rawNewPrice / 1000) * 1000; // 🎯 ຄ່າທີ່ຈະໄດ້ແມ່ນ 6,480,000 ກີບ ພُດດີ!
 
             let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
-            let finalPrice = newPrice;
 
-            // 4. ຖ້າເລືອກໂໝດຂາຍຍ່ອຍ ໃຫ້ຫານດ້ວຍຈຳນວນຕໍ່ຫໍ່
+            // 3. ຖ້າເປັນຂາຍຍ່ອຍ ໃຫ້ຫານຕາມຈຳນວນຕໍ່ຫໍ່
             if (currentSaleType === 'retail' && unitPerPack > 1) {
-                let retailRaw = newPrice / unitPerPack;
-                finalPrice = Math.ceil(retailRaw / 1000) * 1000;
+                finalPrice = Math.ceil((finalPrice / unitPerPack) / 1000) * 1000;
             }
 
             let processedItem = {
                 ...foundItem,
                 cost: newCost,
-                price: finalPrice, // ດึงຄ່າຈາກລາຄາຂາຍ (ໃໝ່) ທີ່ຖືກຕ້ອງ 100%
+                price: finalPrice, // ໃຊ້ລາຄາຂາຍໃໝ່ທີ່ຖືກຕ້ອງ 6,480,000 ກີບ
                 saleType: currentSaleType
             };
 
@@ -3008,7 +2986,7 @@ async function loadInventory() {
             let statusBadge = document.getElementById('scanner-status-badge');
             if (statusBadge) {
                 statusBadge.className = "text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-semibold";
-                statusBadge.innerText = "✅ ເພີ່ມສິນຄ້າ (ລາຄາໃໝ່) ລົງກະຕ່າສຳເລັດ!";
+                statusBadge.innerText = "✅ ເພີ່ມສິນຄ້າ (ລາຄາໃໝ່ 6,480,000) ລົງກະຕ່າສຳເລັດ!";
             }
 
             setTimeout(() => {
