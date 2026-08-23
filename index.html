@@ -2378,9 +2378,17 @@
                 let singlesY = totalSingles % unitPerPack;
                 let stockNoteDisplay = unitPerPack > 1 ? `ເຫຼືອ: ${packsX} / ${singlesY}` : `ເຫຼືອ: ${packsX}`;
 
+                // ⭐️ ແກ້ໄຂໃນຟັງຊັນ loadInventory() ໃຫ້ຄຳນວນ % ຈາກລາຄາຂາຍ ແລະ ລາຄາຊື້ ຖ້າໃນຖານຂໍ້ມູນບໍ່ມີ
                 let originalCost = parseFloat(String(row.original_cost || row.cost).replace(/,/g, '')) || 0;
                 let originalPrice = parseFloat(String(row.price).replace(/,/g, '')) || 0;
-                let profitPct = row.profit_pct !== undefined ? row.profit_pct : 0;
+
+                let profitPct = 0;
+                if (row.profit_pct !== undefined && row.profit_pct !== null && !isNaN(row.profit_pct) && row.profit_pct !== 0) {
+                    profitPct = row.profit_pct;
+                } else if (originalCost > 0 && originalPrice >= originalCost) {
+                    // ຄຳນວນເປີເຊັນ (%) ໃຫ້ອັດຕະໂນມັດຈາກລາຄາຂາຍ ແລະ ລາຄາຊື້ຕົວຈິງ
+                    profitPct = parseFloat((((originalPrice - originalCost) / originalCost) * 100).toFixed(2));
+                }
 
                 let rawImportDate = row.date_added || row.dateAdded || '';
                 let formattedImportDate = rawImportDate ? (rawImportDate.includes('/') ? rawImportDate : formatDateToDDMMYYYY(rawImportDate)) : '-';
@@ -2749,7 +2757,7 @@
                 pendingStockInData = {
                     code: code, name: name, cost: cost,
                     price: calcPriceVal,
-                    profit_pct: profitPctVal, // ⭐️ ບັນທຶກເປີເຊັນ (%) ຕົວຈິງ
+                    profit_pct: profitPctVal, 
                     qty: parseInt(document.getElementById('stock-in-qty').value) || 1,
                     unitPerPack: parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12,
                     date_added: importDateVal,
