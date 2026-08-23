@@ -2981,44 +2981,17 @@ async function loadInventory() {
                 } catch (e) {}
             }
 
-            let originalCost = parseFloat(String(foundItem.originalCost || foundItem.original_cost || foundItem.cost).replace(/,/g, '')) || 0;
-            let profitPct = foundItem.profit_pct !== undefined ? foundItem.profit_pct : 0;
-
-            let rawImportDate = foundItem.dateAdded || foundItem.date_added || '';
-            let formattedImportDate = rawImportDate ? (rawImportDate.includes('/') ? rawImportDate : formatDateToDDMMYYYY(rawImportDate)) : '-';
-            let importDateISO = parseDDMMYYYYToISO(formattedImportDate);
-
-            let importBuyRate = 650;
-            if (importDateISO && rateRecordsMap[importDateISO]) {
-                importBuyRate = rateRecordsMap[importDateISO].buy;
-            }
-
-            let currentBuyRate = 685;
-            let latestDateKey = Object.keys(rateRecordsMap).sort().pop();
-            if (latestDateKey && rateRecordsMap[latestDateKey]) {
-                currentBuyRate = rateRecordsMap[latestDateKey].buy;
-            } else {
-                currentBuyRate = parseFloat(localStorage.getItem('rate_current_value')) || 685;
-            }
-
-            let calculatedNewCost = originalCost * (currentBuyRate / importBuyRate);
-            let newCost = Math.ceil(calculatedNewCost / 1000) * 1000;
-
-            let rawNewPrice = newCost * (1 + profitPct / 100);
-            let newPrice = Math.ceil(rawNewPrice / 1000) * 1000;
-
-            let finalCost = newCost;
-            let finalPrice = newPrice;
+            let basePrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
+            let finalPrice = basePrice;
 
             if (currentSaleType === 'retail' && unitPerPack > 1) {
-                finalCost = Math.ceil((newCost / unitPerPack) / 1000) * 1000;
-                finalPrice = Math.ceil((newPrice / unitPerPack) / 1000) * 1000;
+                finalPrice = Math.ceil((basePrice / unitPerPack) / 1000) * 1000;
             }
 
             let processedItem = {
                 ...foundItem,
-                cost: parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0,
-                price: parseFloat(String(foundItem.price).replace(/,/g, '')) || 0, // 👈 ດຶງລາຄາຂາຍກົງໆຈາກສາງ (ເຊັ່ນ: 6,480,000)
+                cost: parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0,   
+                price: finalPrice, // ໃຊ້ລາຄາຂາຍກົງໆຈາກສາງ (ເຊັ່ນ: 6,480,000)
                 saleType: currentSaleType
             };
 
@@ -3767,19 +3740,10 @@ async function loadInventory() {
             );
 
             if (foundItem) {
-                let rawImportDate = foundItem.dateAdded || foundItem.date_added || '';
-                let formattedImportDate = rawImportDate ? (rawImportDate.includes('/') ? rawImportDate : formatDateToDDMMYYYY(rawImportDate)) : '-';
-                let importDateISO = parseDDMMYYYYToISO(formattedImportDate);
-
-                let originalCost = parseFloat(String(foundItem.originalCost || foundItem.original_cost || foundItem.cost).replace(/,/g, '')) || 0;
-                let profitPct = foundItem.profit_pct !== undefined ? foundItem.profit_pct : 0;
-                let currentBuyRate = parseFloat(localStorage.getItem('rate_current_value')) || 685;
-                let newCost = Math.ceil((originalCost * (currentBuyRate / 650)) / 1000) * 1000;
-                let newPrice = Math.ceil((newCost * (1 + profitPct / 100)) / 1000) * 1000;
-
                 let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
-                let finalPrice = (currentSaleType === 'retail' && unitPerPack > 1) ? Math.ceil((newPrice / unitPerPack) / 1000) * 1000 : newPrice;
+                let basePrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
                 
+                let finalPrice = (currentSaleType === 'retail' && unitPerPack > 1) ? Math.ceil((basePrice / unitPerPack) / 1000) * 1000 : basePrice;
                 let previewTotal = finalPrice * typingQty;
 
                 let saleModeLabel = currentSaleType === 'retail' ? '(ຂາຍຍ່ອຍ)' : '(ຂາຍສົ່ງ)';
@@ -3797,7 +3761,6 @@ async function loadInventory() {
                 if (countEl) countEl.innerText = typingQty;
                 if (totalAmountEl) totalAmountEl.innerText = formatNumberWithCommas(previewTotal) + " ກີບ";
             }
-        }
 
         function toggleSaleMode() {
             let btn = document.getElementById('toggle-sale-mode-btn');
@@ -3852,19 +3815,16 @@ async function loadInventory() {
 
                 if (foundItem) {
                     let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
-                    let finalPrice = foundItem.price;
+                    let basePrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
+                    let finalPrice = basePrice;
+                    
                     if (currentSaleType === 'retail' && unitPerPack > 1) {
-                        let originalCost = parseFloat(String(foundItem.originalCost || foundItem.original_cost || foundItem.cost).replace(/,/g, '')) || 0;
-                        let profitPct = foundItem.profit_pct !== undefined ? foundItem.profit_pct : 0;
-                        let currentBuyRate = parseFloat(localStorage.getItem('rate_current_value')) || 685;
-                        let newCost = Math.ceil((originalCost * (currentBuyRate / 650)) / 1000) * 1000;
-                        let newPrice = Math.ceil((newCost * (1 + profitPct / 100)) / 1000) * 1000;
-                        finalPrice = Math.ceil((newPrice / unitPerPack) / 1000) * 1000;
+                        finalPrice = Math.ceil((basePrice / unitPerPack) / 1000) * 1000;
                     }
 
                     let processedItem = {
                         ...foundItem,
-                        price: finalPrice,
+                        price: finalPrice, // ⭐️ ໃຊ້ລາຄາຂາຍກົງໆ
                         saleType: currentSaleType
                     };
 
