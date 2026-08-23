@@ -2742,7 +2742,6 @@
             let code = currentStockInCode;
             let name = document.getElementById('stock-in-custom-name').value.trim() || code;
             let cost = parseFloat(document.getElementById('stock-in-cost').value.replace(/,/g, '')) || 0;
-            let profitPctVal = parseFloat(document.getElementById('stock-in-profit-pct').value) || 20; // ດຶງຄ່າ % ຕົວຈິງ (27.48)
             
             let importDateVal = document.getElementById('stock-in-import-date').value.trim();
             if (!importDateVal) {
@@ -2753,6 +2752,7 @@
                 importDateVal = `${dd}/${mm}/${yyyy}`;
             }
 
+            // 📌 ດຶງຄ່າວັນຜະລິດ ແລະ ວັນໝົດອາຍຸຈາກ Input
             let mfgDateVal = document.getElementById('stock-in-mfg-date') ? document.getElementById('stock-in-mfg-date').value.trim() : '';
             let expDateVal = document.getElementById('stock-in-exp-date') ? document.getElementById('stock-in-exp-date').value.trim() : '';
 
@@ -2762,19 +2762,18 @@
                 pendingStockInData = {
                     code: code, name: name, cost: cost,
                     price: parseFloat(document.getElementById('stock-in-calculated-price').value.replace(/,/g, '')) || 0,
-                    profit_pct: profitPctVal, // ບັນທຶກເປີເຊັນ (%) ຕົວຈິງ
+                    profit_pct: parseFloat(document.getElementById('stock-in-profit-pct').value) || 20,
                     qty: parseInt(document.getElementById('stock-in-qty').value) || 1,
                     unitPerPack: parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12,
                     date_added: importDateVal,
                     mfg_date: mfgDateVal,
-                    expiry_date: expDateVal,
+                    expiry_date: expDateVal, // 📌 ເພີ່ມຟິルドວັນໝົດອາຍຸ
                     existingId: existingItem.id,
                     existingQty: parseFloat(String(existingItem.qty || 0).replace(/,/g, '')) || 0
                 };
                 document.getElementById('merge-confirm-modal').classList.remove('hidden');
             } else {
-                // ຖ້ານຳເຂົ້າໃໝ່ ໃຫ້ສົ່ງ profit_pct ໄປນຳ
-                saveNewStockInItem(importDateVal, mfgDateVal, expDateVal, profitPctVal);
+                processStockInWithExpiry(importDateVal, mfgDateVal, expDateVal, false);
             }
         }
 
@@ -3945,38 +3944,30 @@
             let name = document.getElementById('calc-modal-name').value.trim();
             let cost = parseFloat(document.getElementById('calc-modal-cost').value.replace(/,/g, '')) || 0;
             let price = parseFloat(document.getElementById('calc-modal-price').value.replace(/,/g, '')) || 0;
-            let qty = parseInt(document.getElementById('calc-modal-qty').value) || 1; // ດຶງຈຳນວນນຳເຂົ້າ
             
             if (cost > 0 && price >= cost) {
                 let profit = price - cost;
-                let pct = (profit / cost) * 100; // ຄຳນວນໄດ້ 27.48
+                let pct = (profit / cost) * 100; // ໄດ້ຄ່າເປີເຊັນຕົວຈິງ ເຊັ່ນ: 28.07
                 
-                // ຢອດຊື່ສິນຄ້າ
+                // 1. ຢອດຊື່ສິນຄ້າ (ຖ້າມີ)
                 if (name) {
                     let nameInput = document.getElementById('stock-in-custom-name');
                     if (nameInput) nameInput.value = name;
                 }
 
-                // ຢອດລາຄາຊື້
+                // 2. ຢອດລາຄາຊື້ລົງໃນຟອມນຳເຂົ້າຫຼັກ
                 let costInput = document.getElementById('stock-in-cost');
                 if (costInput) {
                     costInput.value = formatNumberWithCommas(cost);
                 }
 
-                // ⭐️ ຢອດເປີເຊັນຂາຍ (%) ລົງໃນຟອມນຳເຂົ້າຫຼັກ (ເຊັ່ນ: 27.48)
+                // 3. ⭐️ ຢອດເປີເຊັນຂາຍ (%) ທີ່ຄຳນວນໄດ້ (ເຊັ່ນ: 28.07) ລົງໃນຊ່ອງເປີເຊັນຂາຍຂອງໜ້ານຳເຂົ້າ
                 let pctInput = document.getElementById('stock-in-profit-pct');
                 if (pctInput) {
-                    pctInput.value = pct.toFixed(2); 
+                    pctInput.value = pct.toFixed(2); // ຕັ້ງຄ່າເປັນ 28.07
                 }
 
-                // ⭐️ ຢອດຈຳນວນນຳເຂົ້າ (18) ມາໃສ່ຟອມນຳເຂົ້າຫຼັກອັດຕະໂນມັດ
-                let qtyInput = document.getElementById('stock-in-qty');
-                if (qtyInput) {
-                    qtyInput.value = qty;
-                    calculateTotalUnit(); // ຄຳນວນຫົວໜ່ວຍຍ່ອຍຕໍ່
-                }
-
-                // ຄຳນວນລາຄາຂາຍໃໝ່
+                // 4. ສັ່ງຄຳນວນລາຄາຂາຍໃໝ່ຕາມເປີເຊັນ (%) ນີ້ທັນທີ
                 calculateStockInPrice();
             }
             
