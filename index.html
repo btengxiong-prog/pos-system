@@ -2742,9 +2742,7 @@
             let code = currentStockInCode;
             let name = document.getElementById('stock-in-custom-name').value.trim() || code;
             let cost = parseFloat(document.getElementById('stock-in-cost').value.replace(/,/g, '')) || 0;
-            
-            // ⭐️ ດຶງຄ່າເປີເຊັນ (%) ຕົວຈິງຈາກຊ່ອງ input (ເຊັ່ນ: 27.48) ມາໃຊ້
-            let profitPctVal = parseFloat(document.getElementById('stock-in-profit-pct').value) || 20;
+            let profitPctVal = parseFloat(document.getElementById('stock-in-profit-pct').value) || 20; // ດຶງຄ່າ % ຕົວຈິງ (27.48)
             
             let importDateVal = document.getElementById('stock-in-import-date').value.trim();
             if (!importDateVal) {
@@ -2764,7 +2762,7 @@
                 pendingStockInData = {
                     code: code, name: name, cost: cost,
                     price: parseFloat(document.getElementById('stock-in-calculated-price').value.replace(/,/g, '')) || 0,
-                    profit_pct: profitPctVal, // ⭐️ ບັນທຶກເປີເຊັນ (%) ຕົວຈິງ
+                    profit_pct: profitPctVal, // ບັນທຶກເປີເຊັນ (%) ຕົວຈິງ
                     qty: parseInt(document.getElementById('stock-in-qty').value) || 1,
                     unitPerPack: parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12,
                     date_added: importDateVal,
@@ -2775,33 +2773,9 @@
                 };
                 document.getElementById('merge-confirm-modal').classList.remove('hidden');
             } else {
+                // ຖ້ານຳເຂົ້າໃໝ່ ໃຫ້ສົ່ງ profit_pct ໄປນຳ
                 saveNewStockInItem(importDateVal, mfgDateVal, expDateVal, profitPctVal);
             }
-        }
-
-        // ຟັງຊັນຊ່ວຍບັນທຶກສິນຄ້ານຳເຂົ້າໃໝ່
-        async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal) {
-            let data = {
-                code: currentStockInCode,
-                name: document.getElementById('stock-in-custom-name').value.trim() || currentStockInCode,
-                cost: parseFloat(document.getElementById('stock-in-cost').value.replace(/,/g, '')) || 0,
-                price: parseFloat(document.getElementById('stock-in-calculated-price').value.replace(/,/g, '')) || 0,
-                profit_pct: profitPctVal, // ບັນທຶກຄ່າເປີເຊັນ (%) ຕົວຈິງລົງ Firebase
-                qty: parseInt(document.getElementById('stock-in-qty').value) || 1,
-                unitPerPack: parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12,
-                date_added: importDate,
-                mfg_date: mfgDate,
-                expiry_date: expDate,
-                initial_qty: parseInt(document.getElementById('stock-in-qty').value) || 1,
-                device_id: deviceId,
-                updated_at: new Date().toISOString()
-            };
-
-            if (db) {
-                await db.collection("products").add(data);
-            }
-            closeStockInModal();
-            showAlert("ສຳເລັດ", "ນຳເຂົ້າສິນຄ້າໃໝ່ສຳເລັດຮຽບຮ້ອຍ!", "📦");
         }
 
         function copyBankAccount() {
@@ -4007,50 +3981,6 @@
             }
             
             closeCalcModal();
-        }
-
-        async function processStockIn(shouldMerge) {
-            document.getElementById('merge-confirm-modal').classList.add('hidden');
-            
-            if (!pendingStockInData) return;
-
-            let data = pendingStockInData;
-
-            if (shouldMerge && data.existingId) {
-                // 1. ກໍລະນີກົດ "ຕ້ອງການ (ລວມ)" -> ບวกຈຳນວນເພີ່ມເຂົ້າໄປໃນສິນຄ້າເກົ່າ
-                let newQty = data.existingQty + data.qty;
-                await db.collection("products").doc(data.existingId).update({
-                    qty: newQty,
-                    initial_qty: newQty,
-                    cost: data.cost,
-                    price: data.price,
-                    profit_pct: data.profit_pct,
-                    expiry_date: data.expiry_date,
-                    updated_at: new Date().toISOString()
-                });
-                showAlert("ສຳເລັດ", "ລວມລາຄາ ແລະ ຈຳນວນສິນຄ້າເຂົ້າກັນສຳເລັດຮຽບຮ້ອຍ!", "✅");
-            } else {
-                // 2. ກໍລະນີກົດ "ບໍ່ຕ້ອງການ" -> ສ້າງເປັນລາຍການໃໝ່ແຍກຕ່າງຫາກເລີຍ (ບໍ່ລວມ)
-                await db.collection("products").add({
-                    code: data.code,
-                    name: data.name,
-                    cost: data.cost,
-                    price: data.price,
-                    profit_pct: data.profit_pct,
-                    qty: data.qty,
-                    initial_qty: data.qty,
-                    unitPerPack: data.unitPerPack,
-                    date_added: data.date_added,
-                    mfg_date: data.mfg_date,
-                    expiry_date: data.expiry_date,
-                    device_id: deviceId,
-                    updated_at: new Date().toISOString()
-                });
-                showAlert("ສຳເລັດ", "ເພີ່ມເປັນສິນຄ້າໃໝ່ (ບໍ່ລວມ) ສຳເລັດຮຽບຮ້ອຍ!", "📦");
-            }
-            
-            closeStockInModal();
-            pendingStockInData = null;
         }
 
     </script>
