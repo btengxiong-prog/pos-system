@@ -3143,15 +3143,15 @@
         async function loadExpiryCheck() {
             let tbody = document.getElementById('expiry-tbody');
             if (!tbody) return;
-            tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ກຳລັງກວດສອບວັນໝົດອາຍຸສິນຄ້າ...</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ກຳລັງກວດສອບວັນໝົດອາຍຸສິນຄ້າ...</td></tr>`;
 
             if (!excelRows || excelRows.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ</td></tr>`;
                 return;
             }
 
             let today = new Date();
-            today.setHours(0, 0, 0, 0); // ຕັ້ງຄ່າເວລາເປັນ 00:00:00 ເພື່ອໃຫ້ຄຳນວນວັນທີໄດ້ຢ່າງຊັດເຈນ
+            today.setHours(0, 0, 0, 0);
             let expiryFilteredRows = [];
 
             excelRows.forEach((row) => {
@@ -3167,7 +3167,6 @@
                         let diffTime = expDate - today;
                         let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-                        // 💡 ຖ້າວັນໝົດອາຍຸໜ້ອຍກວ່າ ຫຼື เท่ากับ 60 ວັນ (ລວມທັງໝົດອາຍຸແລ້ວ ຫຼື ໃກ້ໝົດອາຍຸ)
                         if (diffDays <= 60 && currentQty > 0) {
                             expiryFilteredRows.push({ ...row, diffDays: diffDays });
                         }
@@ -3176,7 +3175,7 @@
             });
 
             if (expiryFilteredRows.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃກ້ໝົດອາຍຸໃນສາງ</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃກ້ໝົດອາຍຸໃນສາງ</td></tr>`;
                 return;
             }
 
@@ -3194,13 +3193,14 @@
                 if (diffDays < 0) {
                     noteStatus = `<span class="text-red-600 font-extrabold">❌ ໝົດອາຍຸແລ້ວ (${Math.abs(diffDays)} ວັນ)</span>`;
                 } else if (diffDays === 0) {
-                    noteStatus = `<span class="text-red-500 font-bold">⚠️ ໝົດອາຍຸມື້ນี้!</span>`;
+                    noteStatus = `<span class="text-red-500 font-bold">⚠️ ໝົດອາຍຸມື້ນີ້!</span>`;
                 } else {
                     noteStatus = `<span class="text-amber-600 font-bold">⚠️ ໃກ້ໝົດອາຍຸ (ອີກ ${diffDays} ວັນ)</span>`;
                 }
 
                 let currency = row.currency || 'ກີບ';
-                // ຕອນສ້າງ HTML ໃຫ້ແຖວຂໍ້ມູນ
+                let productId = row.id || row.code; // 📌 ປ້ອງກັນກໍລະນີ id ບໍ່ຕົກຜົນ
+
                 html += `
                     <tr class="hover:bg-gray-50 border-b">
                         <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
@@ -3212,7 +3212,7 @@
                         <td class="p-3 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(row.price)} ${currency}</td>
                         <td class="p-3 border-r text-center text-xs">${noteStatus}</td>
                         <td class="p-3 text-center">
-                            <input type="checkbox" data-id="${row.id}" class="expiry-row-checkbox w-4 h-4 cursor-pointer accent-teal-600">
+                            <input type="checkbox" data-id="${productId}" class="expiry-row-checkbox w-4 h-4 cursor-pointer accent-teal-600">
                         </td>
                     </tr>
                 `;
@@ -3870,8 +3870,10 @@
                 let batch = db.batch();
                 checkedBoxes.forEach(cb => {
                     let docId = cb.getAttribute('data-id');
-                    let docRef = db.collection("products").doc(docId);
-                    batch.delete(docRef);
+                    if (docId) {
+                        let docRef = db.collection("products").doc(docId);
+                        batch.delete(docRef);
+                    }
                 });
 
                 await batch.commit();
