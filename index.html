@@ -3887,11 +3887,21 @@
         async function toggleExpiryStatus(docId, newStatus) {
             if (!db) return;
             try {
+                // 1. ອັບເດດລົງ Firebase Firestore
                 await db.collection("products").doc(docId).update({
                     expiry_status: newStatus,
                     updated_at: new Date().toISOString()
                 });
+
+                // 2. ອັບເດດຄ່າໃນ array `excelRows` ຝั่ง Client ທັນທີ ເພື່ອບໍ່ໃຫ້ຕ້ອງລໍຖ້າ Realtime sync
+                let targetItem = excelRows.find(item => item.id === docId);
+                if (targetItem) {
+                    targetItem.expiry_status = newStatus;
+                }
+
+                // 3. ໂຫຼດຕາຕະລາງຄືນໃໝ່ທັນທີ
                 loadExpiryCheck();
+                
                 showAlert("ສຳເລັດ", "ອັບເດດສະຖານະສິນຄ້າຮຽບຮ້ອຍແລ້ວ!", "✅");
             } catch (e) {
                 showAlert("ຜິດພາດ", "ບໍ່ສາມາດອັບເດດສະຖານະໄດ້: " + e.message, "❌");
