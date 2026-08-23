@@ -397,17 +397,17 @@
         </div>
     </div>
 
-    <!-- Expiry Modal -->
+<!-- Expiry Modal -->
     <div id="expiry-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-xl max-w-6xl w-full p-6 max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl">
             <div class="flex justify-between items-center border-b pb-3 flex-wrap gap-2">
                 <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
                     <span>⏳ ຈັດການສິນຄ້າໃກ້/ໝົດອາຍຸ</span>
                 </h3>
-                <button onclick="promptDeleteSelectedOrAllDevices()" class="text-xs bg-red-100 text-red-700 px-3 py-1.5 rounded-lg cursor-pointer font-bold flex items-center gap-1 shadow">🗑️ ລຶບຂໍ້ມູນ</button>
+                <!-- ❌ ລຶບປຸ່ມ "ລຶບຂໍ້ມູນ" ອອກແລ້ວ -->
             </div>  
 
-            <!-- Tab ກອງຂໍ້ມູນ -->
+            <!-- Tab ກອງຂໍ້ມູນ (ເຊື່ອມຕໍ່ຟັງຊັນການທຳງານແລ້ວ) -->
             <div class="flex gap-2 p-2 bg-gray-50 rounded-xl border">
                 <button onclick="filterExpiryTab('all')" id="tab-exp-all" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold transition">ທັງໝົດ</button>
                 <button onclick="filterExpiryTab('pending')" id="tab-exp-pending" class="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg text-xs font-bold transition">ຍັງບໍ່ທັນແກ້ໄຂ</button>
@@ -3142,6 +3142,23 @@
         function openExpiryModal() { document.getElementById('expiry-modal').classList.remove('hidden'); loadExpiryCheck(); }
         function closeExpiryModal() { document.getElementById('expiry-modal').classList.add('hidden'); }
 
+        let currentExpiryFilter = 'all';
+
+        function filterExpiryTab(status) {
+            currentExpiryFilter = status;
+            
+            // ປ່ຽນສີປຸ່ມ Tab ຕາມສະຖານະທີ່ຖືກເລືອກ
+            let btnAll = document.getElementById('tab-exp-all');
+            let btnPending = document.getElementById('tab-exp-pending');
+            let btnResolved = document.getElementById('tab-exp-resolved');
+
+            if (btnAll) btnAll.className = status === 'all' ? "px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold transition" : "px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg text-xs font-bold transition";
+            if (btnPending) btnPending.className = status === 'pending' ? "px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold transition" : "px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg text-xs font-bold transition";
+            if (btnResolved) btnResolved.className = status === 'resolved' ? "px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold transition" : "px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg text-xs font-bold transition";
+            
+            loadExpiryCheck();
+        }
+
         async function loadExpiryCheck() {
             let tbody = document.getElementById('expiry-tbody');
             if (!tbody) return;
@@ -3153,12 +3170,17 @@
             }
 
             let today = new Date();
-            today.setHours(0, 0, 0, 0); // ຕັ້ງຄ່າເວລາເປັນ 00:00:00 ເພື່ອໃຫ້ຄຳນວນວັນທີໄດ້ຢ່າງຊັດເຈນ
+            today.setHours(0, 0, 0, 0);
             let expiryFilteredRows = [];
 
             excelRows.forEach((row) => {
                 let expDateStr = row.expiry_date || row.expiryDate || '';
                 let currentQty = parseFloat(String(row.qty !== undefined ? row.qty : 0).replace(/,/g, '')) || 0;
+                let expiryStatus = row.expiry_status || 'pending';
+
+                // กรองตาม Tab ที่เลือก (all, pending, resolved)
+                if (currentExpiryFilter === 'pending' && expiryStatus !== 'pending') return;
+                if (currentExpiryFilter === 'resolved' && expiryStatus !== 'resolved') return;
 
                 if (expDateStr && expDateStr.trim() !== '' && expDateStr.trim() !== '-') {
                     let isoStr = parseDDMMYYYYToISO(expDateStr);
@@ -3169,16 +3191,15 @@
                         let diffTime = expDate - today;
                         let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-                        // 💡 ຖ້າວັນໝົດອາຍຸໜ້ອຍກວ່າ ຫຼື เท่ากับ 60 ວັນ (ລວມທັງໝົດອາຍຸແລ້ວ ຫຼື ໃກ້ໝົດອາຍຸ)
                         if (diffDays <= 60 && currentQty > 0) {
-                            expiryFilteredRows.push({ ...row, diffDays: diffDays });
+                            expiryFilteredRows.push({ ...row, diffDays: diffDays, expiryStatus: expiryStatus });
                         }
                     }
                 }
             });
 
             if (expiryFilteredRows.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃກ້ໝົດອາຍຸໃນສາງ</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ບໍ່ພົບລາຍການສິນຄ້າຕາມເງື່ອນໄຂ</td></tr>`;
                 return;
             }
 
@@ -3191,27 +3212,38 @@
                 let rawImportDate = row.date_added || row.dateAdded || '';
                 let formattedImportDate = rawImportDate ? formatDateToDDMMYYYY(rawImportDate) : '-';
                 let diffDays = row.diffDays;
-                let noteStatus = '';
+                let currency = row.currency || 'ກີບ';
+                let isResolved = row.expiryStatus === 'resolved';
 
+                let noteStatus = '';
                 if (diffDays < 0) {
                     noteStatus = `<span class="text-red-600 font-extrabold">❌ ໝົດອາຍຸແລ້ວ (${Math.abs(diffDays)} ວັນ)</span>`;
                 } else if (diffDays === 0) {
-                    noteStatus = `<span class="text-red-500 font-bold">⚠️ ໝົດອາຍຸມື້ນี้!</span>`;
+                    noteStatus = `<span class="text-red-500 font-bold">⚠️ ໝົດອາຍຸມື້ນີ້!</span>`;
                 } else {
                     noteStatus = `<span class="text-amber-600 font-bold">⚠️ ໃກ້ໝົດອາຍຸ (ອີກ ${diffDays} ວັນ)</span>`;
                 }
 
-                let currency = row.currency || 'ກີບ';
+                let actionButton = isResolved ? 
+                    `<div class="mt-1"><button onclick="toggleExpiryStatus('${row.id}', 'pending')" class="bg-gray-400 hover:bg-gray-500 text-white px-2 py-0.5 rounded text-[11px] font-bold shadow cursor-pointer">ຍົກເລີກສະຖານະ</button></div>` : 
+                    `<div class="mt-1"><button onclick="toggleExpiryStatus('${row.id}', 'resolved')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 rounded text-[11px] font-bold shadow cursor-pointer">✓ ໝາຍວ່າແກ້ໄຂແລ້ວ</button></div>`;
+
+                let statusDisplay = isResolved ? 
+                    `<span class="text-green-700 font-bold">✅ ແກ້ໄຂແລ້ວ</span>` : noteStatus;
+
                 html += `
                     <tr class="hover:bg-gray-50 border-b">
                         <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
-                        <td class="p-3 border-r font-bold text-gray-900">${row.name || row.code || '-'}</td>
-                        <td class="p-3 border-r text-center font-semibold text-purple-700">${formattedImportDate}</td>
-                        <td class="p-3 border-r text-center font-semibold text-gray-600">${formatDateToDDMMYYYY(mfgDateStr)}</td>
-                        <td class="p-3 border-r text-center font-bold text-red-600">${formatDateToDDMMYYYY(expDateStr)}</td>
-                        <td class="p-3 border-r text-right text-blue-600 font-semibold">${formatNumberWithCommas(row.cost)} ${currency}</td>
-                        <td class="p-3 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(row.price)} ${currency}</td>
-                        <td class="p-3 text-center text-xs">${noteStatus}</td>
+                        <td class="p-3 border-r font-bold text-gray-900 text-xs">${row.name || row.code || '-'}</td>
+                        <td class="p-3 border-r text-center font-semibold text-purple-700 text-xs">${formattedImportDate}</td>
+                        <td class="p-3 border-r text-center font-semibold text-gray-600 text-xs">${formatDateToDDMMYYYY(mfgDateStr)}</td>
+                        <td class="p-3 border-r text-center font-bold text-red-600 text-xs">${formatDateToDDMMYYYY(expDateStr)}</td>
+                        <td class="p-3 border-r text-right text-blue-600 font-semibold text-xs">${formatNumberWithCommas(row.cost)} ${currency}</td>
+                        <td class="p-3 border-r text-right text-green-600 font-semibold text-xs">${formatNumberWithCommas(row.price)} ${currency}</td>
+                        <td class="p-3 text-center text-xs">
+                            <div>${statusDisplay}</div>
+                            ${actionButton}
+                        </td>
                     </tr>
                 `;
             });
@@ -3856,10 +3888,10 @@
             if (!db) return;
             try {
                 await db.collection("products").doc(docId).update({
-                    expiry_status: newStatus, // 'pending' ຫຼື 'resolved'
+                    expiry_status: newStatus,
                     updated_at: new Date().toISOString()
                 });
-                loadExpiryCheck(); // ໂຫຼດຕາຕະລາງໃໝ່
+                loadExpiryCheck();
                 showAlert("ສຳເລັດ", "ອັບເດດສະຖານະສິນຄ້າຮຽບຮ້ອຍແລ້ວ!", "✅");
             } catch (e) {
                 showAlert("ຜິດພາດ", "ບໍ່ສາມາດອັບເດດສະຖານະໄດ້: " + e.message, "❌");
