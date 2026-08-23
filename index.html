@@ -1049,10 +1049,10 @@
                     </div>
 
                     <div class="grid grid-cols-2 gap-2 bg-purple-50/50 p-3 rounded-xl border border-purple-200">
-                        <div>
-                            <label class="block font-[11px] font-bold text-purple-900 mb-1">📈 ເປີເຊັນຂາຍ (%):</label>
-                            <input type="number" step="any" id="stock-in-profit-pct" value="20" oninput="calculateStockInPrice()" class="w-full border rounded-lg px-2 py-1.5 text-center font-bold text-purple-700 text-sm bg-white outline-none" placeholder="20">
-                        </div>
+                    <div>
+                        <label class="block font-[11px] font-bold text-purple-900 mb-1">📈 ເປີເຊັນຂາຍ (%):</label>
+                        <input type="number" step="any" id="stock-in-profit-pct" value="" oninput="calculateStockInPrice()" class="w-full border rounded-lg px-2 py-1.5 text-center font-bold text-purple-700 text-sm bg-white outline-none" placeholder="ປ້ອນເປີເຊັນ">
+                    </div>
                         <div>
                             <label class="block font-[11px] font-bold text-green-800 mb-1">✨ ລາຄາຂາຍ:</label>
                             <input type="text" id="stock-in-calculated-price" readonly class="w-full border rounded-lg px-2 py-1.5 text-right font-extrabold text-green-700 text-sm bg-green-100 cursor-not-allowed" value="0">
@@ -2739,7 +2739,11 @@
             let code = currentStockInCode;
             let name = document.getElementById('stock-in-custom-name').value.trim() || code;
             let cost = parseFloat(document.getElementById('stock-in-cost').value.replace(/,/g, '')) || 0;
-            let profitPctVal = parseFloat(document.getElementById('stock-in-profit-pct').value) || 20; // ດຶງຄ່າ % ຕົວຈິງ (27.48)
+            
+            // 🌟 ດຶງຄ່າເປີເຊັນຂາຍຕົວຈິງຈາກ ô input ທີ່ຜູ້ໃຊ້ປ້ອນ (ຫຼື ຄຳນວນຈາກລາຄາຂາຍທີ່ຕັ້ງ)
+            let calcPriceVal = parseFloat(document.getElementById('stock-in-calculated-price').value.replace(/,/g, '')) || 0;
+            let inputPctVal = parseFloat(document.getElementById('stock-in-profit-pct').value);
+            let profitPctVal = !isNaN(inputPctVal) ? inputPctVal : (cost > 0 ? ((calcPriceVal - cost) / cost) * 100 : 0);
             
             let importDateVal = document.getElementById('stock-in-import-date').value.trim();
             if (!importDateVal) {
@@ -2749,6 +2753,30 @@
                 let yyyy = today.getFullYear();
                 importDateVal = `${dd}/${mm}/${yyyy}`;
             }
+
+            let mfgDateVal = document.getElementById('stock-in-mfg-date') ? document.getElementById('stock-in-mfg-date').value.trim() : '';
+            let expDateVal = document.getElementById('stock-in-exp-date') ? document.getElementById('stock-in-exp-date').value.trim() : '';
+
+            let existingItem = excelRows.find(item => item.name && item.name.trim().toLowerCase() === name.toLowerCase());
+
+            if (existingItem) {
+                pendingStockInData = {
+                    code: code, name: name, cost: cost,
+                    price: calcPriceVal,
+                    profit_pct: profitPctVal, // 🌟 ບັນທຶກເປີເຊັນ (%) ຕົວຈິງ
+                    qty: parseInt(document.getElementById('stock-in-qty').value) || 1,
+                    unitPerPack: parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12,
+                    date_added: importDateVal,
+                    mfg_date: mfgDateVal,
+                    expiry_date: expDateVal,
+                    existingId: existingItem.id,
+                    existingQty: parseFloat(String(existingItem.qty || 0).replace(/,/g, '')) || 0
+                };
+                document.getElementById('merge-confirm-modal').classList.remove('hidden');
+            } else {
+                saveNewStockInItem(importDateVal, mfgDateVal, expDateVal, profitPctVal);
+            }
+        }
 
             let mfgDateVal = document.getElementById('stock-in-mfg-date') ? document.getElementById('stock-in-mfg-date').value.trim() : '';
             let expDateVal = document.getElementById('stock-in-exp-date') ? document.getElementById('stock-in-exp-date').value.trim() : '';
@@ -2782,7 +2810,7 @@
                 name: document.getElementById('stock-in-custom-name').value.trim() || currentStockInCode,
                 cost: parseFloat(document.getElementById('stock-in-cost').value.replace(/,/g, '')) || 0,
                 price: parseFloat(document.getElementById('stock-in-calculated-price').value.replace(/,/g, '')) || 0,
-                profit_pct: profitPctVal, // ບັນທຶກຄ່າເປີເຊັນ (%) ຕົວຈິງລົງ Firebase
+                profit_pct: profitPctVal, // 🌟 บันทึกค่าเปอร์เซ็นต์จริงลง Firebase
                 qty: parseInt(document.getElementById('stock-in-qty').value) || 1,
                 unitPerPack: parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12,
                 date_added: importDate,
