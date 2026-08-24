@@ -3666,24 +3666,28 @@
         }
 
         async function confirmCheckoutPayment() {
-            if (continuousCart.length === 0) return;
+            if (continuousCart.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ບໍ່ມີສິນຄ້າໃນກະຕ່າສຳລັບຊຳລະເງິນ!", "⚠️");
+                return;
+            }
 
             let itemsToSave = continuousCart.map(it => ({
-                code: it.code,
-                name: it.name + (it.saleType === 'retail' ? " (ຂາຍຍ່ອຍ)" : " (ຂາຍສົ່ງ)"),
-                cost: it.cost,
-                price: it.price,
-                qty: it.qty
+                code: it.code || '',
+                name: (it.name || '') + (it.saleType === 'retail' ? " (ຂາຍຍ່ອຍ)" : " (ຂາຍສົ່ງ)"),
+                cost: parseFloat(it.cost) || 0,
+                price: parseFloat(it.price) || 0,
+                qty: parseInt(it.qty) || 1
             }));
 
-            let totalAmount = continuousCart.reduce((sum, it) => sum + (it.price * it.qty), 0);
+            // ດຶງຍອດລວມທີ່ຖືກຕ້ອງຈາກກະຕ່າ
+            let totalAmount = continuousCart.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
 
             let saleRecord = {
                 date: new Date().toISOString(),
                 device_id: deviceId,
                 items: itemsToSave,
                 currency: continuousCart[0]?.currency || 'ກີບ',
-                pay_mode: currentSelectedPaymentMode,
+                pay_mode: currentSelectedPaymentMode || 'cash',
                 total_amount: totalAmount,
                 created_at: new Date().toISOString()
             };
@@ -3693,18 +3697,20 @@
                     await db.collection("sales_history").add(saleRecord); 
                     
                     for (let it of continuousCart) {
-                        let docRef = db.collection("products").doc(it.id);
-                        let docSnap = await docRef.get();
-                        if (docSnap.exists) {
-                            let pData = docSnap.data();
-                            let currentStockQty = parseFloat(pData.qty) || 0;
-                            let unitPerPack = parseInt(it.unitPerPack || it.unit_per_pack) || 1;
-                            let totalAvailableSingles = Math.round(currentStockQty * unitPerPack);
-                            let soldSingles = it.saleType === 'retail' ? it.qty : (it.qty * unitPerPack);
-                            let newTotalSingles = Math.max(0, totalAvailableSingles - soldSingles);
-                            
-                            let newStockQty = newTotalSingles / unitPerPack;
-                            await docRef.update({ qty: newStockQty });
+                        if (it.id) {
+                            let docRef = db.collection("products").doc(it.id);
+                            let docSnap = await docRef.get();
+                            if (docSnap.exists) {
+                                let pData = docSnap.data();
+                                let currentStockQty = parseFloat(pData.qty) || 0;
+                                let unitPerPack = parseInt(it.unitPerPack || pData.unit_per_pack || 1) || 1;
+                                let totalAvailableSingles = Math.round(currentStockQty * unitPerPack);
+                                let soldSingles = it.saleType === 'retail' ? parseInt(it.qty) : (parseInt(it.qty) * unitPerPack);
+                                let newTotalSingles = Math.max(0, totalAvailableSingles - soldSingles);
+                                
+                                let newStockQty = newTotalSingles / unitPerPack;
+                                await docRef.update({ qty: newStockQty });
+                            }
                         }
                     }
                 } catch (e) {
