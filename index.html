@@ -2941,7 +2941,6 @@ async function loadInventory() {
         async function handleSalesBarcodeScanned(code, inputQty = null) {
             if (isScannerLocked) return; 
 
-            // 1. ຄົ້ນຫາສິນຄ້າຈາກ excelRows ທີ່ຜ່ານການໂຫຼດຈາກໜ້າ Inventory ແລ້ວ
             let foundItem = excelRows.find(item => 
                 String(item.code).trim().toLowerCase() === code.toLowerCase() || 
                 (item.name && item.name.trim().toLowerCase() === code.toLowerCase())
@@ -2975,19 +2974,24 @@ async function loadInventory() {
                 statusBadge.innerText = "⏳ ບັນທຶກສິນຄ້າແລ້ວ (ພັກ 3 ວິ)...";
             }
 
-            // 2. 🎯 ດຶງຄ່າ price ທີ່ຖືກຄຳນວນເປັນລາຄາຂາຍ (ໃໝ່) ຈາກຕາຕະລາງສາງມາໃຊ້ໂດຍກົງ 100%
-            let baseSellingPrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
-            let baseCost = parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0;
+            // 🎯 ດຶງຄ່າລາຄາຕົ້ນທຶນ ແລະ ເປີເຊັນກຳໄລມາຄຳນວນໃຫ້ກົງກັບຄໍລຳສີແດງໃນຕາຕະລາງສິນຄ້າຄ້າງສາງ (Inventory) 100%
+            let originalCostVal = parseFloat(String(foundItem.originalCost || foundItem.original_cost || foundItem.cost).replace(/,/g, '')) || 0;
+            let profitPct = foundItem.profit_pct !== undefined ? foundItem.profit_pct : 23.90;
+            
+            // ຄຳນວນຕາມສູດດຽວກັນກັບໜ້າ Inventory ຢ່າງເປະໆ (ເຊັ່ນ: ຜ້າແສ່ວ ຈະໄດ້ 6,480,000 ກີບ)
+            let newCost = Math.ceil(originalCostVal / 1000) * 1000;
+            let rawNewPrice = newCost * (1 + profitPct / 100);
+            let exactSellingPrice = Math.ceil(rawNewPrice / 1000) * 1000; // ຈະໄດ້ 6,480,000 ກີບ
 
-            let finalPrice = baseSellingPrice;
+            let finalPrice = exactSellingPrice;
             if (currentSaleType === 'retail' && unitPerPack > 1) {
-                finalPrice = Math.ceil((baseSellingPrice / unitPerPack) / 1000) * 1000;
+                finalPrice = Math.ceil((exactSellingPrice / unitPerPack) / 1000) * 1000;
             }
 
             let processedItem = {
                 ...foundItem,
-                cost: baseCost,    
-                price: finalPrice, // ໃຊ້ຄ່າລາຄາຂາຍ (ໃໝ່) ທີ່ກົງກັບຕາຕະລາງສາງ (ເຊັ່ນ: 6,480,000)
+                cost: newCost,    
+                price: finalPrice, // ໃຊ້ລາຄາຂາຍ (ໃໝ່) 6,480,000 ກີບ ທີ່ຖືກຕ້ອງ
                 saleType: currentSaleType
             };
 
