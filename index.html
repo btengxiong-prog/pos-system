@@ -2972,12 +2972,19 @@ async function loadInventory() {
             let statusBadge = document.getElementById('scanner-status-badge');
             if (statusBadge) {
                 statusBadge.className = "text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded font-semibold";
-                statusBadge.innerText = "⏳ ກຳລັງດຶງລາຄາຂາຍ (ໃໝ່)...";
+                statusBadge.innerText = "⏳ ກຳລັງຄຳນວນລາຄາຕາມສູດໃໝ່...";
             }
 
-            // 2. 🎯 ດຶງຄ່າລາຄາຂາຍ (ໃໝ່) ຈາກໜ້າ Inventory ມາໃຊ້ໂດຍກົງ (ຖ້າບໍ່ມີ ໃຫ້ fallback ໄປໃຊ້ price ປົກກະຕິ)
-            let exactSellingPrice = foundItem.currentSellingPrice !== undefined ? foundItem.currentSellingPrice : (parseFloat(String(foundItem.price).replace(/,/g, '')) || 0);
-            let exactCost = foundItem.currentNewCost !== undefined ? foundItem.currentNewCost : (parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0);
+            // 2. 🧮 ຄຳນວນຕາມສູດທີ່ທ່ານກຳນົດ: ລາຄາຊື້ (ໃໝ່) * (1 + ເປີເຊັນຂາຍ (%) / 100)
+            let originalCostVal = parseFloat(String(foundItem.originalCost || foundItem.original_cost || foundItem.cost).replace(/,/g, '')) || 0;
+            let profitPct = foundItem.profit_pct !== undefined ? foundItem.profit_pct : (foundItem.profitPct !== undefined ? foundItem.profitPct : 23.92);
+            
+            // ຫາມູນຄ່າລາຄາຊື້ໃໝ່ (New Cost) 
+            let newCost = Math.ceil(originalCostVal / 1000) * 1000;
+
+            // ຄຳນວນລາຄາຂາຍຕາມສູດ: ລາຄາຊື້ (ໃໝ່) * (1 + ເປີເຊັນຂາຍ (%) / 100)
+            let rawNewPrice = newCost * (1 + (parseFloat(profitPct) || 0) / 100);
+            let exactSellingPrice = Math.ceil(rawNewPrice / 1000) * 1000; // ປັດມົນເປັນຫຼັກພັນ
 
             let finalPrice = exactSellingPrice;
             if (currentSaleType === 'retail' && unitPerPack > 1) {
@@ -2986,8 +2993,8 @@ async function loadInventory() {
 
             let processedItem = {
                 ...foundItem,
-                cost: exactCost,    
-                price: finalPrice, // ໃຊ້ລາຄາຂາຍ (ໃໝ່) ທີ່ຕົກລົງໃນຕາຕະລາງສາງ (ເຊັ່ນ: 6,745,000 ກີບ)
+                cost: newCost,    
+                price: finalPrice, // ໃຊ້ລາຄາຂາຍທີ່ຄຳນວນໄດ້ຕາມສູດໃໝ່
                 saleType: currentSaleType
             };
 
