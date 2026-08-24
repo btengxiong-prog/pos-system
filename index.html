@@ -3058,20 +3058,25 @@
             isScannerLocked = true;
             playBeepSound(); 
             
-            // ⭐️ ດึง "ລາຄາຂາຍໃໝ່" (New Price) ຈາກຟັງຊັນຄຳນວນ Inventory ມາໃຊ້ 100% ບໍ່ໃຫ້ເອົາລາຄາເກົ່າ
-            let calculatedPrices = getProductCalculatedPrices(foundItem, currentSaleType);
-            let exactSellingPrice = calculatedPrices.newPrice; 
-            let newCost = calculatedPrices.newCost;
+            let statusBadge = document.getElementById('scanner-status-badge');
+            if (statusBadge) {
+                statusBadge.className = "text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded font-semibold";
+                statusBadge.innerText = "⏳ ກຳລັງດຶງລາຄາຂາຍໃໝ່...";
+            }
+
+            // ⭐️ ດຶງລາຄາຂາຍໃໝ່ (ຄໍລຳ 15) ມາໃຊ້ງານ 100%
+            let exactSellingPrice = foundItem.currentSellingPrice || foundItem.price || 0;
+            let newCost = foundItem.currentNewCost || foundItem.cost || 0;
 
             let finalPrice = exactSellingPrice;
             if (currentSaleType === 'retail' && unitPerPack > 1) {
-                finalPrice = calculatedPrices.finalPrice;
+                finalPrice = Math.ceil((exactSellingPrice / unitPerPack) / 1000) * 1000;
             }
 
             let processedItem = {
                 ...foundItem,
                 cost: newCost,    
-                price: finalPrice, // ໃຊ້ລາຄາຂາຍໃໝ່ທີ່ຖືກຕ້ອງ
+                price: finalPrice, 
                 saleType: currentSaleType
             };
 
@@ -3079,7 +3084,6 @@
 
             let existingCartItem = continuousCart.find(i => i.id === processedItem.id && i.saleType === currentSaleType);
             if (existingCartItem) {
-                existingCartItem.price = finalPrice;
                 existingCartItem.qty += addQty;
             } else {
                 continuousCart.push({ ...processedItem, qty: addQty });
@@ -3089,50 +3093,59 @@
 
             setTimeout(() => {
                 isScannerLocked = false;
+                if (statusBadge) {
+                    statusBadge.className = "text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold";
+                    statusBadge.innerText = "ກຳລັງເປີດກ້ອງ... (ພ້ອມສະແກນຕໍ່)";
+                }
             }, 3000);
         }
 
         function updateContinuousCartUI() {
-            let container = document.getElementById('continuous-cart-items-list');
-            let countEl = document.getElementById('cart-item-count');
-            let totalAmountEl = document.getElementById('cart-total-amount');
-            if (!container) return;
+                    let container = document.getElementById('continuous-cart-items-list');
+                    let countEl = document.getElementById('cart-item-count');
+                    let totalAmountEl = document.getElementById('cart-total-amount');
+                    if (!container) return;
 
-            if (continuousCart.length === 0) {
-                container.innerHTML = `<p class="text-center text-gray-400 py-2">ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ</p>`;
-                if (countEl) countEl.innerText = "0";
-                if (totalAmountEl) totalAmountEl.innerText = "0 ກີບ";
-                return;
-            }
+                    if (continuousCart.length === 0) {
+                        container.innerHTML = `<p class="text-center text-gray-400 py-2">ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ</p>`;
+                        if (countEl) countEl.innerText = "0";
+                        if (totalAmountEl) totalAmountEl.innerText = "0 ກີບ";
+                        window.currentCartTotalAmount = 0; // ➔ ຖ້າບໍ່ມີສິນຄ້າ ໃຫ້ເປັນ 0
+                        return;
+                    }
 
-            let html = '';
-            let totalAmt = 0;
-            let totalCount = 0;
+                    let html = '';
+                    let totalAmt = 0;
+                    let totalCount = 0;
 
-            continuousCart.forEach((item, idx) => {
-                let rowTotal = item.price * item.qty;
-                totalAmt += rowTotal;
-                totalCount += item.qty;
-                let saleModeLabel = item.saleType === 'retail' ? '(ຂາຍຍ່ອຍ)' : '(ຂາຍສົ່ງ)';
+                    continuousCart.forEach((item, idx) => {
+                        // ⭐️ ໃຊ້ລາຄາທີ່ຢູ່ໃນ continuousCart ໂດຍກົງ (ເຊິ່ງກົງກັບຮູບ 1 ແນ່ນອນ)
+                        let rowTotal = Number(item.price) * Number(item.qty);
+                        totalAmt += rowTotal;
+                        totalCount += item.qty;
+                        let saleModeLabel = item.saleType === 'retail' ? '(ຂາຍຍ່ອຍ)' : '(ຂາຍສົ່ງ)';
 
-                html += `
-                    <div class="flex justify-between items-center bg-white p-2 rounded-lg border shadow-sm">
-                        <div class="truncate max-w-[140px]">
-                            <span class="font-bold text-gray-800">${item.name || item.code}</span>
-                            <div class="text-[10px] text-gray-500">${formatNumberWithCommas(item.price)} x ${item.qty} ${saleModeLabel}</div>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <span class="font-bold text-green-600">${formatNumberWithCommas(rowTotal)}</span>
-                            <button onclick="removeContinuousCartItem(${idx})" class="text-red-500 hover:text-red-700 font-bold px-1">✕</button>
-                        </div>
-                    </div>
-                `;
-            });
+                        html += `
+                            <div class="flex justify-between items-center bg-white p-2 rounded-lg border shadow-sm">
+                                <div class="truncate max-w-[140px]">
+                                    <span class="font-bold text-gray-800">${item.name || item.code}</span>
+                                    <div class="text-[10px] text-gray-500">${formatNumberWithCommas(item.price)} x ${item.qty} ${saleModeLabel}</div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold text-green-600">${formatNumberWithCommas(rowTotal)}</span>
+                                    <button onclick="removeContinuousCartItem(${idx})" class="text-red-500 hover:text-red-700 font-bold px-1">✕</button>
+                                </div>
+                            </div>
+                        `;
+                    });
 
-            container.innerHTML = html;
-            if (countEl) countEl.innerText = totalCount;
-            if (totalAmountEl) totalAmountEl.innerText = formatNumberWithCommas(totalAmt) + " " + (continuousCart[0]?.currency || 'ກີບ');
-        }
+                    container.innerHTML = html;
+                    if (countEl) countEl.innerText = totalCount;
+                    if (totalAmountEl) totalAmountEl.innerText = formatNumberWithCommas(totalAmt) + " " + (continuousCart[0]?.currency || 'ກີບ');
+                    
+                    // ⭐️ ເກັບຄ่ายອດລວມຈາກຮູບ 1 ໄວ້ໃຊ້ສົ່ງຕໍ່ໂດຍກົງ
+                    window.currentCartTotalAmount = totalAmt;
+                }
 
         function removeContinuousCartItem(index) {
             continuousCart.splice(index, 1);
@@ -3624,8 +3637,8 @@
                 return;
             }
             
-            // ⭐️ ດຶງຜົນລວມຕົວເລກຈາກຍອດໃນກະຕ່າ (ຮູບ 1) ມາສະແດງໃນປ໋ອບອັບ (ຮູບ 2) ໂດຍກົງ 100%
-            let totalAmount = continuousCart.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
+            // ⭐️ ດຶງຕົວເລກຈາກຮູບ 1 (window.currentCartTotalAmount) ມາສົ່ງຈ່າຍໃນປ໋ອບອັບຮູບ 2 ໂດຍກົງ 100%
+            let totalAmount = window.currentCartTotalAmount !== undefined ? window.currentCartTotalAmount : continuousCart.reduce((sum, it) => sum + (Number(it.price) * Number(it.qty)), 0);
             
             document.getElementById('popup-total-amount-text').innerText = formatNumberWithCommas(totalAmount) + " " + (continuousCart[0]?.currency || 'ກີບ');
             let currentRate = parseFloat(localStorage.getItem('rate_current_value')) || 650;
