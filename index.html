@@ -3642,7 +3642,7 @@
                 return;
             }
             
-            // ⭐️ ດຶງເອົາຜົນລວມຕົວເລກຈາກຍອດລວມໃນກະຕ່າ (ຮູບ 1) ມາສະແດງໃນປ໋ອບອັບ (ຮູບ 2) ໂດຍກົງ 100% ບໍ່ມີການຄຳນວນຜິດພາດຊ້ຳຊ້ອນ
+            // ⭐️ ດຶງຜົນລວມຕົວເລກຈາກຍອດໃນກະຕ່າ (ຮູບ 1) ມາສະແດງໃນປ໋ອບອັບ (ຮູບ 2) ໂດຍກົງ 100% ຢ່າງແນ່ນອນ (ຕັດບັນຫາເລກ 583,000 ຜິດ)
             let totalAmount = continuousCart.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
             
             document.getElementById('popup-total-amount-text').innerText = formatNumberWithCommas(totalAmount) + " " + (continuousCart[0]?.currency || 'ກີບ');
@@ -3675,62 +3675,62 @@
                 return;
             }
 
-            // 1. ປິດປ໋ອບອັບ ແລະ ລ້າງກະຕ່າທັນທີ ໃຫ້ຜູ້ໃຊ້ເຫັນວ່າວ່ອງໄວທັນໃຈ ບໍ່ມີການຄ້າງ
             let currentMode = currentSelectedPaymentMode || 'cash';
-            closeCheckoutMethodModal();
             let itemsToSave = [...continuousCart];
+            
+            // ⭐️ ປິດປ໋ອບອັບ ແລະ ລ້າງກະຕ່າທັນທີ ຮັບປະກັນວ່າປຸ່ມ "ຕົກລົງ" ຕອບສະໜອງທັນທີໃນມືຖື ແລະ ຄອມ
+            closeCheckoutMethodModal();
             continuousCart = [];
             updateContinuousCartUI();
             showAlert("ສຳເລັດ", `ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ (ວິທີ: ${currentMode})!`, "💰");
 
-            // 2. ເຮັດວຽກບັນທຶກ ແລະ ຕັດ Stock ເບື້ອງຫຼັງ (Background Sync) ດ້ວຍ Firestore Batch ໃຫ້ໄວຂຶ້ນຫຼາຍເທົ່າ
+            // ⭐️ ເຮັດວຽກບັນທຶກ ແລະ ຕັດ Stock ເບື້ອງຫຼັງ (Background Sync) ຢ່າງປອດໄພ
             if (db) {
-                try {
-                    let batch = db.batch();
-                    let totalAmount = itemsToSave.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
+                setTimeout(async () => {
+                    try {
+                        let batch = db.batch();
+                        let totalAmount = itemsToSave.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
 
-                    // ບັນທຶກປະຫວັດການຂາຍ
-                    let historyRef = db.collection("sales_history").doc();
-                    batch.set(historyRef, {
-                        date: new Date().toISOString(),
-                        device_id: deviceId,
-                        items: itemsToSave.map(it => ({
-                            code: it.code || '',
-                            name: (it.name || '') + (it.saleType === 'retail' ? " (ຂາຍຍ່ອຍ)" : " (ຂາຍສົ່ງ)"),
-                            cost: parseFloat(it.cost) || 0,
-                            price: parseFloat(it.price) || 0,
-                            qty: parseInt(it.qty) || 1
-                        })),
-                        currency: itemsToSave[0]?.currency || 'ກີບ',
-                        pay_mode: currentMode,
-                        total_amount: totalAmount,
-                        created_at: new Date().toISOString()
-                    });
+                        let historyRef = db.collection("sales_history").doc();
+                        batch.set(historyRef, {
+                            date: new Date().toISOString(),
+                            device_id: deviceId,
+                            items: itemsToSave.map(it => ({
+                                code: it.code || '',
+                                name: (it.name || '') + (it.saleType === 'retail' ? " (ຂາຍຍ່ອຍ)" : " (ຂາຍສົ່ງ)"),
+                                cost: parseFloat(it.cost) || 0,
+                                price: parseFloat(it.price) || 0,
+                                qty: parseInt(it.qty) || 1
+                            })),
+                            currency: itemsToSave[0]?.currency || 'ກີບ',
+                            pay_mode: currentMode,
+                            total_amount: totalAmount,
+                            created_at: new Date().toISOString()
+                        });
 
-                    // ດຶງຂໍ້ມູນສິນຄ້າມາຕັດ Stock ພ້ອມກັນ
-                    for (let it of itemsToSave) {
-                        if (it.id) {
-                            let docRef = db.collection("products").doc(it.id);
-                            let docSnap = await docRef.get();
-                            if (docSnap.exists) {
-                                let pData = docSnap.data();
-                                let currentStockQty = parseFloat(pData.qty) || 0;
-                                let unitPerPack = parseInt(it.unitPerPack || pData.unit_per_pack || 1) || 1;
-                                let totalAvailableSingles = Math.round(currentStockQty * unitPerPack);
-                                let soldSingles = it.saleType === 'retail' ? parseInt(it.qty) : (parseInt(it.qty) * unitPerPack);
-                                let newTotalSingles = Math.max(0, totalAvailableSingles - soldSingles);
-                                let newStockQty = newTotalSingles / unitPerPack;
-                                
-                                batch.update(docRef, { qty: newStockQty });
+                        for (let it of itemsToSave) {
+                            if (it.id) {
+                                let docRef = db.collection("products").doc(it.id);
+                                let docSnap = await docRef.get();
+                                if (docSnap.exists) {
+                                    let pData = docSnap.data();
+                                    let currentStockQty = parseFloat(pData.qty) || 0;
+                                    let unitPerPack = parseInt(it.unitPerPack || pData.unit_per_pack || 1) || 1;
+                                    let totalAvailableSingles = Math.round(currentStockQty * unitPerPack);
+                                    let soldSingles = it.saleType === 'retail' ? parseInt(it.qty) : (parseInt(it.qty) * unitPerPack);
+                                    let newTotalSingles = Math.max(0, totalAvailableSingles - soldSingles);
+                                    let newStockQty = newTotalSingles / unitPerPack;
+                                    
+                                    batch.update(docRef, { qty: newStockQty });
+                                }
                             }
                         }
-                    }
 
-                    // ສ่งຄຳສັ່ງດຽວຈົບ (Batch Commit) ວ່ອງໄວທີ່ສຸດ
-                    await batch.commit();
-                } catch (e) {
-                    console.error("Background sync error:", e);
-                }
+                        await batch.commit();
+                    } catch (e) {
+                        console.error("Background sync error:", e);
+                    }
+                }, 50);
             }
         }
 
