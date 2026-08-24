@@ -1890,16 +1890,12 @@
                 let userRole = localStorage.getItem('pos_user_role');
                 let currentDevId = String(deviceId || '').trim().toUpperCase();
 
-                // ⭐️ ປັບປຸງການດຶງຂໍ້ມູນ: ໃຫ້ Admin ແລະ ຢູເຊີທົ່ວໄປສາມາດໂຫຼດຂໍ້ມູນສິນຄ້າທັງໝົດທີ່ກ່ຽວຂ້ອງຂຶ້ນມາສະແດງໄດ້ຢ່າງສະຖຽນ
                 let productsQuery = db.collection("products");
 
                 productsQuery.onSnapshot(async (snapshot) => {
                     let tempArr = [];
                     let batch = db.batch();
                     let hasChanges = false;
-
-                    let currentBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 685;
-                    let importBuyRate = 650; 
 
                     snapshot.forEach((doc) => {
                         let item = doc.data();
@@ -1914,33 +1910,25 @@
                             rowDevId = currentDevId;
                         }
 
-                        // ⭐️ ດຶງຂໍ້ມູນທັງໝົດເຂົ້າມາສະແດງ (ບໍ່ໃຫ້ກັ່ນຕອງຈົນຂໍ້ມູນຫາຍ)
-                        let originalCostVal = parseFloat(String(item.original_cost || item.cost || 0).replace(/,/g, '')) || 0;
-                        let profitPct = item.profit_pct !== undefined ? item.profit_pct : (item.profitPct !== undefined ? item.profitPct : 25.00);
+                        // ⭐️ ດຶງຄ່າລາຄາຊື້ ແລະ ລາຄາຂາຍໂດຍກົງຈາກ Database ມารຽງໃສ່ ໂດຍບໍ່ມີການຄຳນວນ Rate ຊ້ຳຊ້ອນ
+                        let directCost = parseFloat(String(item.cost || item.original_cost || 0).replace(/,/g, '')) || 0;
                         
-                        let calculatedNewCost = importBuyRate > 0 ? originalCostVal * (currentBuyRate / importBuyRate) : originalCostVal;
-                        let newCost = Math.ceil(calculatedNewCost / 1000) * 1000;
-
-                        // ດຶງລາຄາຂາຍ ໃໝ່ (ຄໍລຳ 15) ມາໃຊ້ຢ່າງຖືກຕ້ອງ
-                        let originalSellingPrice = parseFloat(String(item.price || item.original_price || 6529000).replace(/,/g, '')) || 6529000;
-                        let newPrice = Math.ceil(originalSellingPrice / 1000) * 1000;
+                        // ດຶງເອົາລາຄາຂາຍໃໝ່ (ຄໍລຳ 15) ທີ່ບັນທຶກໄວ້ໃນ item.price ໂດຍກົງ 100%
+                        let directSellingPrice = parseFloat(String(item.price || item.currentSellingPrice || 0).replace(/,/g, '')) || 0;
 
                         tempArr.push({
                             id: docId,
                             code: item.code,
                             name: item.name || '',
-                            cost: newCost,
-                            originalCost: originalCostVal,
-                            profitPct: profitPct,
-                            price: newPrice, // ➔ ຄໍລຳ 15 (6,529,000)
-                            currentSellingPrice: newPrice,
-                            currentNewCost: newCost,
+                            cost: directCost,
+                            price: directSellingPrice, // ➔ ດຶງລາຄາຂາຍໃໝ່ (ຄໍລຳ 15) ມາໃຊ້ໂດຍກົງ 100%
+                            currentSellingPrice: directSellingPrice,
+                            currentNewCost: directCost,
                             qty: item.qty !== undefined ? item.qty : 1,
                             initial_qty: item.initial_qty !== undefined ? item.initial_qty : (item.qty || 1),
                             unitPerPack: item.unit_per_pack || 12,
                             dateAdded: item.date_added || item.dateAdded || '',
                             currency: item.currency || 'ກີບ',
-                            buyingRate: currentBuyRate,
                             device_id: rowDevId
                         });
                     });
@@ -3068,9 +3056,9 @@
                 return;
             }
 
-            // ⭐️ ບັງຄັບດຶງເອົາລາຄາຂາຍ ໃໝ່ (ຄໍລຳ 15) ມາໃຊ້ໂດຍກົງ 100% ຕາມທີ່ກຳນົດ (ເຊັ່ນ: 6,529,000)
-            let exactSellingPrice = parseFloat(String(foundItem.currentSellingPrice || foundItem.price || 0).replace(/,/g, '')) || 0;
-            let exactCost = parseFloat(String(foundItem.currentNewCost || foundItem.cost || 0).replace(/,/g, '')) || 0;
+            // ⭐️ ດຶງລາຄາຂາຍໂດຍກົງຈາກ excelRows (ເຊິ່ງກົງກັບຄໍລຳ 15) ມາໃຊ້ 100% ໂດຍບໍ່ມີການຄຳນວນໃໝ່
+            let exactSellingPrice = parseFloat(String(foundItem.price || foundItem.currentSellingPrice || 0).replace(/,/g, '')) || 0;
+            let exactCost = parseFloat(String(foundItem.cost || foundItem.currentNewCost || 0).replace(/,/g, '')) || 0;
             let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
 
             let finalPrice = exactSellingPrice;
@@ -3081,13 +3069,12 @@
             let processedItem = {
                 ...foundItem,
                 cost: exactCost,    
-                price: finalPrice, // ➔ ຮັບປະກັນວ່າຈະໄດ້ລາຄາຈາກຄໍລຳ 15 (6,529,000) ຢ່າງຖືກຕ້ອງເປະ
+                price: finalPrice, // ➔ ຮັບປະກັນວ່າຈະໄດ້ 6,529,000 ກີບ (ຄໍລຳ 15) ເປະໆ ໂດຍບໍ່ມີການຄຳນວນ Rate ຜິດພາດ
                 saleType: currentSaleType
             };
 
             let addQty = (inputQty !== null && !isNaN(inputQty) && inputQty > 0) ? inputQty : 1;
 
-            // ⭐️ ລະບົບລວມສິນຄ້າຊະນິດດຽວກันໃນກະຕ່າອັດຕະໂນມັດ (ຖ້າມີຫຼາຍລາຍການຊະນິດດຽວກัน ມັນຈະບວກຈຳນວນ ແລະ ລວມຍອດໃຫ້)
             let existingCartItem = continuousCart.find(i => i.id === processedItem.id && i.saleType === currentSaleType);
             if (existingCartItem) {
                 existingCartItem.qty += addQty;
