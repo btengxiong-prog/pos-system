@@ -2478,17 +2478,21 @@
 
                 // ⭐️ ດຶງລາຄາຊື້ນຳເຂົ້າຕົວຈິງ (ເດີມ) ມາສະແດງໂດຍບໍ່ໃຫ້ມີການປ່ຽນແປງ
                 let originalCostVal = parseFloat(String(row.original_cost || row.originalCost || row.cost || 0).replace(/,/g, '')) || 0;
-                let originalPriceVal = parseFloat(String(row.price).replace(/,/g, '')) || 0;
-                let originalPrice = Math.ceil(originalPriceVal / 1000) * 1000;
-
+                
                 let profitPct = 0;
                 if (row.profit_pct !== undefined && row.profit_pct !== null && !isNaN(row.profit_pct) && Number(row.profit_pct) !== 0) {
                     profitPct = parseFloat(row.profit_pct);
                 } else if (row.profitPct !== undefined && row.profitPct !== null && !isNaN(row.profitPct) && Number(row.profitPct) !== 0) {
                     profitPct = parseFloat(row.profitPct);
-                } else if (originalCostVal > 0 && originalPrice >= originalCostVal) {
-                    profitPct = parseFloat((((originalPrice - originalCostVal) / originalCostVal) * 100).toFixed(2));
+                } else if (row.originalPriceVal !== undefined && row.originalCostVal > 0) {
+                    // ຖ້າບໍ່ມີເປີເຊັນ ໃຫ້ຄິດໄລ່ຈາກລາຄາເດີມ
+                    let origPriceTemp = parseFloat(String(row.price || 0).replace(/,/g, '')) || 0;
+                    profitPct = origPriceTemp > originalCostVal ? parseFloat((((origPriceTemp - originalCostVal) / originalCostVal) * 100).toFixed(2)) : 0;
                 }
+
+                // ⭐️ ບັງຄັບຄຳນວນຄໍລຳ 7 (ລາຄາຂາຍ ເດີມ) ຕາມສູດ: ລາຄາຊື້ (ເດີມ) * (1 + ເປີເຊັນ/100)
+                let calculatedOriginalPrice = originalCostVal * (1 + profitPct / 100);
+                let originalPrice = Math.ceil(calculatedOriginalPrice / 1000) * 1000;
 
                 let rawImportDate = row.date_added || row.dateAdded || '';
                 let formattedImportDate = rawImportDate ? (rawImportDate.includes('/') ? rawImportDate : formatDateToDDMMYYYY(rawImportDate)) : '-';
