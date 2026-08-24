@@ -1878,6 +1878,10 @@
                     let batch = db.batch();
                     let hasChanges = false;
 
+                    // ດຶງ Rate ປະຈຸບັນມາຄຳນວນ
+                    let currentBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 689;
+                    let importBuyRate = 650; // Rate ເດີມຕອນນຳເຂົ້າ
+
                     snapshot.forEach((doc) => {
                         let item = doc.data();
                         let docId = doc.id;
@@ -1892,19 +1896,26 @@
                         }
 
                         if (userRole === 'admin' || currentDevId === 'POSXIONG' || rowDevId === currentDevId || (activeShopUser !== '' && rowDevId === activeShopUser)) {
-                            // ⭐️ ຄຳນວນລາຄາຂາຍໃໝ່ແລ້ວທັບຄ່າ price ເລີຍ ເພື່ອຕັດຄ່າ 5,552,000 ອອກ
-                            let baseCost = item.cost || 0;
-                            let profitPct = item.profit_pct !== undefined ? item.profit_pct : (item.profitPct !== undefined ? item.profitPct : 23.90);
-                            let newPrice = Math.ceil((baseCost * (1 + profitPct / 100)) / 1000) * 1000;
+                            let originalCostVal = parseFloat(String(item.original_cost || item.cost || 0).replace(/,/g, '')) || 0;
+                            let profitPct = item.profit_pct !== undefined ? item.profit_pct : (item.profitPct !== undefined ? item.profitPct : 25.00);
+                            
+                            // ຄຳນວນລາຄາຊື້ໃໝ່ ແລະ ລາຄາຂາຍໃໝ່ (ຄໍລຳ 14 ແລະ 15)
+                            let calculatedNewCost = importBuyRate > 0 ? originalCostVal * (currentBuyRate / importBuyRate) : originalCostVal;
+                            let newCost = Math.ceil(calculatedNewCost / 1000) * 1000;
+
+                            let rawNewPrice = newCost * (1 + (parseFloat(profitPct) || 0) / 100);
+                            let newPrice = Math.ceil(rawNewPrice / 1000) * 1000; // ລາຄາຂາຍໃໝ່ (ຄໍລຳ 15)
 
                             tempArr.push({
                                 id: docId,
                                 code: item.code,
                                 name: item.name || '',
-                                cost: item.cost,
-                                originalCost: item.original_cost || item.cost,
+                                cost: newCost,
+                                originalCost: originalCostVal,
                                 profitPct: profitPct,
-                                price: newPrice > 0 ? newPrice : (item.price || 0), // บังคับใช้ราคาใหม่ที่คำนวณแล้วแทนที่ค่า 5,552,000
+                                price: newPrice, // ໃຊ້ລາຄາຂາຍໃໝ່ (ຄໍລຳ 15) ໂດຍตรง
+                                currentSellingPrice: newPrice,
+                                currentNewCost: newCost,
                                 qty: item.qty !== undefined ? item.qty : 1,
                                 initial_qty: item.initial_qty !== undefined ? item.initial_qty : (item.qty || 1),
                                 unitPerPack: item.unit_per_pack || 12,
@@ -1912,8 +1923,7 @@
                                 mfgDate: item.mfg_date || '',
                                 expiryDate: item.expiry_date || '',
                                 currency: item.currency || 'ກີບ',
-                                buyingRate: item.buying_rate || 650,
-                                sellingRate: item.selling_rate || 670,
+                                buyingRate: currentBuyRate,
                                 device_id: rowDevId
                             });
                         }
@@ -1926,25 +1936,9 @@
                     excelRows = tempArr;
                     updateExistingProductNamesDatalist();
                     checkExpiryAlertStatus();
-
-                    if (!document.getElementById('inventory-modal').classList.contains('hidden')) loadInventory();
-                    if (!document.getElementById('rate-analysis-modal').classList.contains('hidden')) loadRateAnalysis();
-                    if (!document.getElementById('expiry-modal').classList.contains('hidden')) loadExpiryCheck();
-                    if (!document.getElementById('excel-generator-modal').classList.contains('hidden')) renderExcelTable();
-                    if (!document.getElementById('report-modal').classList.contains('hidden')) calculateReport();
                 });
-
-                let historyQuery = (userRole === 'admin' || currentDevId === 'POSXIONG') ?
-                    db.collection("sales_history") :
-                    db.collection("sales_history").where("device_id", "==", currentDevId);
-
-                historyQuery.onSnapshot(() => {
-                    if (!document.getElementById('history-modal').classList.contains('hidden')) loadCloudHistory();
-                    if (!document.getElementById('report-modal').classList.contains('hidden')) calculateReport();
-                });
-
             } catch (e) {
-                console.error("Firebase realtime sync error:", e);
+                console.error("Firebase sync error:", e);
             }
         }
 
@@ -3066,10 +3060,10 @@
             let statusBadge = document.getElementById('scanner-status-badge');
             if (statusBadge) {
                 statusBadge.className = "text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded font-semibold";
-                statusBadge.innerText = "⏳ ກຳລັງດຶງລາຄາຂາຍ (ໃໝ່)...";
+                statusBadge.innerText = "⏳ ກຳລັງດຶງລາຄາຂາຍໃໝ່...";
             }
 
-            // ⭐️ ດຶງລາຄາຂາຍ (ໃໝ່) ທີ່ຄຳນວນໄວ້ແລ້ວໃນ Inventory (ຄໍລຳ 15) ມາໃຊ້ໂດຍກົງ
+            // ⭐️ ດຶງລາຄາຂາຍໃໝ່ (ຄໍລຳ 15) ມາໃຊ້ງານ 100%
             let exactSellingPrice = foundItem.currentSellingPrice || foundItem.price || 0;
             let newCost = foundItem.currentNewCost || foundItem.cost || 0;
 
@@ -3081,7 +3075,7 @@
             let processedItem = {
                 ...foundItem,
                 cost: newCost,    
-                price: finalPrice, // ໃຊ້ລາຄາຈາກຄໍລຳ 15 ຢ່າງຖືກຕ້ອງ
+                price: finalPrice, 
                 saleType: currentSaleType
             };
 
