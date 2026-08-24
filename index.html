@@ -1797,20 +1797,35 @@
                             rowDevId = currentDevId;
                         }
 
-                        if (userRole === 'admin' || currentDevId === 'POSXIONG' || rowDevId === currentDevId || (activeShopUser !== '' && rowDevId === activeShopUser)) {
-                            // ⭐️ ຄຳນວນລາຄາຂາຍໃໝ່ແລ້ວທັບຄ່າ price ເລີຍ ເພື່ອຕັດຄ່າ 5,552,000 ອອກ
-                            let baseCost = item.cost || 0;
-                            let profitPct = item.profit_pct !== undefined ? item.profit_pct : (item.profitPct !== undefined ? item.profitPct : 23.90);
-                            let newPrice = Math.ceil((baseCost * (1 + profitPct / 100)) / 1000) * 1000;
+                            if (userRole === 'admin' || currentDevId === 'POSXIONG' || rowDevId === currentDevId || (activeShopUser !== '' && rowDevId === activeShopUser)) {
+                                // 🛠️ ແກ້ໄຂທີ່ຕົ້ນເຫດ: ໃຫ້ຄຳນວນລາຄາຊື້ໃໝ່ ແລະ ລາຄາຂາຍໃໝ່ຕັ້ງແຕ່ຕອນໂຫຼດຂໍ້ມູນເຂົ້າ Memory ເລີຍ
+                                let originalCostVal = parseFloat(String(item.original_cost || item.cost || 0).replace(/,/g, '')) || 0;
+                                let profitPctVal = item.profit_pct !== undefined ? item.profit_pct : (item.profitPct !== undefined ? item.profitPct : 23.92);
+                                
+                                let newCost = Math.ceil(originalCostVal / 1000) * 1000; // ລາຄາຊື້ໃໝ່
+                                let rawNewPrice = newCost * (1 + (parseFloat(profitPctVal) || 0) / 100);
+                                let newSellingPrice = Math.ceil(rawNewPrice / 1000) * 1000; // ລາຄາຂາຍໃໝ່ທີ່ຖືກຕ້ອງ (ເຊັ່ນ: 6,836,000)
 
-                            tempArr.push({
-                                id: docId,
-                                code: item.code,
-                                name: item.name || '',
-                                cost: item.cost,
-                                originalCost: item.original_cost || item.cost,
-                                profitPct: profitPct,
-                                price: newPrice > 0 ? newPrice : (item.price || 0), // บังคับใช้ราคาใหม่ที่คำนวณแล้วแทนที่ค่า 5,552,000
+                                tempArr.push({
+                                    id: docId,
+                                    code: item.code,
+                                    name: item.name || '',
+                                    cost: newCost,              // ບັນທຶກລາຄາຊື້ໃໝ່ລົງໄປ
+                                    originalCost: originalCostVal,
+                                    profitPct: profitPctVal,
+                                    price: newSellingPrice,     // 🎯 ບັນທຶກລາຄາຂາຍໃໝ່ທັບຄ່າເກົ່າ (ຕັດ 5,617,000 ອົງຢ່າງຖາວອນ)
+                                    qty: item.qty !== undefined ? item.qty : 1,
+                                    initial_qty: item.initial_qty !== undefined ? item.initial_qty : (item.qty || 1),
+                                    unitPerPack: item.unit_per_pack || 12,
+                                    dateAdded: item.date_added || item.dateAdded || '',
+                                    mfgDate: item.mfg_date || '',
+                                    expiryDate: item.expiry_date || '',
+                                    currency: item.currency || 'ກີບ',
+                                    buyingRate: item.buying_rate || 650,
+                                    sellingRate: item.selling_rate || 670,
+                                    device_id: rowDevId
+                                });
+                            }
                                 qty: item.qty !== undefined ? item.qty : 1,
                                 initial_qty: item.initial_qty !== undefined ? item.initial_qty : (item.qty || 1),
                                 unitPerPack: item.unit_per_pack || 12,
