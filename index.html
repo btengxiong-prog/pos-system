@@ -2314,7 +2314,34 @@
             selectEl.innerHTML = html;
         }
 
-async function loadInventory() {
+        // ============================================================
+        // 1. ຟັງຊັນຊ່ວຍສຳລັບດຶງເປີເຊັນຂາຍ
+        // ============================================================
+        function getProfitPct(item) {
+            // ກວດສອບທັງຫຼາຍຊື່ຟີວທີ່ອາດຈະມີ
+            if (item.profit_pct !== undefined && item.profit_pct !== null && !isNaN(item.profit_pct) && item.profit_pct !== 0) {
+                return parseFloat(item.profit_pct);
+            }
+            if (item.profitPct !== undefined && item.profitPct !== null && !isNaN(item.profitPct) && item.profitPct !== 0) {
+                return parseFloat(item.profitPct);
+            }
+            if (item.profit_percent !== undefined && item.profit_percent !== null && !isNaN(item.profit_percent) && item.profit_percent !== 0) {
+                return parseFloat(item.profit_percent);
+            }
+            // ຖ້າບໍ່ມີຄ່າ ໃຫ້ຄຳນວນຈາກລາຄາຊື້ ແລະ ລາຄາຂາຍ
+            let cost = parseFloat(item.cost || 0);
+            let price = parseFloat(item.price || 0);
+            if (cost > 0 && price > cost) {
+                return parseFloat(((price - cost) / cost * 100).toFixed(2));
+            }
+            // ຖ້າຍັງບໍ່ມີ ໃຫ້ຄືນ 0
+            return 0;
+        }
+
+        // ============================================================
+        // 2. ຟັງຊັນ loadInventory() - ປັບປຸງການດຶງເປີເຊັນ
+        // ============================================================
+        async function loadInventory() {
             let tbody = document.getElementById('inventory-tbody');
             if (!tbody) return;
 
@@ -2354,8 +2381,6 @@ async function loadInventory() {
                 if (selectedShopFilter && selectedShopFilter !== 'ALL') {
                     displayRows = excelRows.filter(row => String(row.device_id || '').trim().toUpperCase() === selectedShopFilter);
                 }
-            } else {
-                displayRows = excelRows;
             }
 
             let actionHeader = document.getElementById('inventory-col-action-header');
@@ -2366,19 +2391,20 @@ async function loadInventory() {
                 return;
             }
 
+            let currentBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 650;
+            let currentSellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate')) || 685;
+
             let html = '';
             let countIndex = 1;
             let todayDateStr = new Date().toLocaleDateString('en-GB');
-            let rateDates = Object.keys(rateRecordsMap).sort((a, b) => new Date(a) - new Date(b));
 
-            // ⭐️ ຕົວແປສັງລວມລວມຍອດເງິນທັງໝົດ
             let sumOriginalCost = 0;
             let sumOriginalPrice = 0;
             let sumNewCost = 0;
             let sumNewPrice = 0;
 
             displayRows.forEach((row) => {
-                let initialQtyVal = parseFloat(String(row.initial_qty !== undefined ? row.initial_qty : (row.qty || 0)).replace(/,/g, '')) || 0; 
+                let initialQtyVal = parseFloat(String(row.initial_qty !== undefined ? row.initial_qty : (row.qty || 0)).replace(/,/g, '')) || 0;
                 let stockDisplayVal = formatNumberWithCommas(initialQtyVal);
 
                 let currentQty = parseFloat(String(row.qty !== undefined ? row.qty : 0).replace(/,/g, '')) || 0;
@@ -2392,78 +2418,39 @@ async function loadInventory() {
                 let originalPriceVal = parseFloat(String(row.price).replace(/,/g, '')) || 0;
                 let originalPrice = Math.ceil(originalPriceVal / 1000) * 1000;
 
-                let profitPct = 0;
-                if (row.profit_pct !== undefined && row.profit_pct !== null && !isNaN(row.profit_pct) && row.profit_pct !== 0) {
-                    profitPct = row.profit_pct;
-                } else if (originalCostVal > 0 && originalPrice >= originalCostVal) {
-                    profitPct = parseFloat((((originalPrice - originalCostVal) / originalCostVal) * 100).toFixed(2));
-                }
+                // ⭐ ດຶງເປີເຊັນຂາຍຕາມສິນຄ້າໂດຍໃຊ້ຟັງຊັນ getProfitPct()
+                let profitPct = getProfitPct(row);
 
-                let rawImportDate = row.date_added || row.dateAdded || '';
-                let formattedImportDate = rawImportDate ? (rawImportDate.includes('/') ? rawImportDate : formatDateToDDMMYYYY(rawImportDate)) : '-';
-                let importDateISO = parseDDMMYYYYToISO(formattedImportDate);
+                // ⭐ ຄຳນວນລາຄາຊື້ (ໃໝ່)
+                let newCost = Math.ceil((originalCostVal * (currentBuyRate / 650)) / 1000) * 1000;
 
-                let importBuyRate = 0, importSellRate = 0;
-                let currentBuyRate = 0, currentSellRate = 0;
-
-                if (rateDates.length === 1) {
-                    let singleRate = rateRecordsMap[rateDates[0]];
-                    importBuyRate = singleRate.buy;
-                    importSellRate = singleRate.sell;
-                    currentBuyRate = singleRate.buy;
-                    currentSellRate = singleRate.sell;
-                } else if (rateDates.length === 2) {
-                    let firstRate = rateRecordsMap[rateDates[0]];
-                    let lastRate = rateRecordsMap[rateDates[1]];
-                    importBuyRate = firstRate.buy;
-                    importSellRate = firstRate.sell;
-                    currentBuyRate = lastRate.buy;
-                    currentSellRate = lastRate.sell;
-                } else if (rateDates.length > 2) {
-                    let targetTime = new Date(importDateISO).getTime();
-                    let closestOldDate = rateDates.reduce((prev, curr) => {
-                        let currDiff = targetTime - new Date(curr).getTime();
-                        return (currDiff >= 0 && currDiff < (targetTime - new Date(prev).getTime())) ? curr : prev;
-                    }, rateDates[0]);
-
-                    let oldRate = rateRecordsMap[closestOldDate] || rateRecordsMap[rateDates[0]];
-                    let latestRate = rateRecordsMap[rateDates[rateDates.length - 1]];
-
-                    importBuyRate = oldRate.buy;
-                    importSellRate = oldRate.sell;
-                    currentBuyRate = latestRate.buy;
-                    currentSellRate = latestRate.sell;
-                }
-
-                let calculatedNewCost = importBuyRate > 0 ? originalCostVal * (currentBuyRate / importBuyRate) : originalCostVal;
-                let newCost = Math.ceil(calculatedNewCost / 1000) * 1000;
-
+                // ⭐ ຄຳນວນລາຄາຂາຍ (ໃໝ່) ຕາມສູດ
                 let rawNewPrice = newCost * (1 + profitPct / 100);
                 let newPrice = Math.ceil(rawNewPrice / 1000) * 1000;
 
-                // 🎯 ບັນທຶກຄ່າລາຄາຂາຍ (ໃໝ່) ທີ່ຖືກຕ້ອງນີ້ໄວ້ໃນ Object ຂອງ row ເລີຍ
+                // 🎯 ບັນທຶກຄ່າທີ່ຄຳນວນໄດ້
                 row.currentSellingPrice = newPrice;
                 row.currentNewCost = newCost;
+                row.currentProfitPct = profitPct;
 
-                // ⭐️ ໂຕໃໝ່: ບວກລາຄາຕໍ່ໜ່ວຍກົງໆ
                 sumOriginalCost += originalCostVal;
                 sumOriginalPrice += originalPrice;
                 sumNewCost += newCost;
                 sumNewPrice += newPrice;
 
                 let shopLabel = (isAdminMaster && row.device_id) ? ` [ຮ້ານ: ${row.device_id}]` : '';
-                let rightCellHtml = isAdminMaster ? `<td class="p-2 text-center"><input type="checkbox" data-id="${row.id}" class="inventory-row-checkbox w-4 h-4 cursor-pointer accent-cyan-600"></td>` : ``;
+                let rightCellHtml = isAdminMaster ? `<td class="p-2 text-center"><input type="checkbox" data-id="${row.id}" class="inventory-row-checkbox w-4 h-4 cursor-pointer accent-cyan-600"></td>` : '';
 
                 html += `
                     <tr class="hover:bg-gray-50 border-b text-center text-xs">
                         <td class="p-2 border-r font-bold text-gray-500">${countIndex++}</td>
                         <td class="p-2 border-r font-bold text-blue-600 font-mono">${row.code || '-'}</td>
                         <td class="p-2 border-r font-bold text-gray-900 text-left">${row.name || '-'}${shopLabel}</td>
-                        <td class="p-2 border-r text-purple-700 font-semibold">${formattedImportDate}</td>
+                        <td class="p-2 border-r text-purple-700 font-semibold">${formatDateToDDMMYYYY(row.date_added || row.dateAdded || '')}</td>
                         <td class="p-2 border-r text-gray-700 font-semibold">${todayDateStr}</td>
                         <td class="p-2 border-r font-bold text-cyan-800">${stockDisplayVal}</td>
-                        <td class="p-2 border-r text-blue-600 font-bold">${formatNumberWithCommas(importBuyRate)}</td>
-                        <td class="p-2 border-r text-blue-600 font-bold">${formatNumberWithCommas(importSellRate)}</td>
+                        <td class="p-2 border-r text-blue-600 font-bold">${formatNumberWithCommas(650)}</td>
+                        <td class="p-2 border-r text-blue-600 font-bold">${formatNumberWithCommas(650)}</td>
                         <td class="p-2 border-r text-blue-800 font-bold">${formatNumberWithCommas(currentBuyRate)}</td>
                         <td class="p-2 border-r text-blue-800 font-bold">${formatNumberWithCommas(currentSellRate)}</td>
                         <td class="p-2 border-r text-purple-700 font-bold">${profitPct}%</td>
@@ -2477,7 +2464,6 @@ async function loadInventory() {
                 `;
             });
 
-            // ⭐️ ເພີ່ມແຖວສັງລວມທ້າຍສຸດ (ລຸ່ມສຸດ)
             let totalColSpan = isAdminMaster ? 11 : 11;
             html += `
                 <tr class="bg-gray-100 font-bold text-gray-900 text-xs border-t-2 border-gray-400 text-center">
@@ -2491,6 +2477,243 @@ async function loadInventory() {
             `;
 
             tbody.innerHTML = html;
+        }
+
+        // ============================================================
+        // 3. ຟັງຊັນ handleSalesBarcodeScanned() - ດຶງເປີເຊັນຕາມສິນຄ້າ
+        // ============================================================
+        async function handleSalesBarcodeScanned(code, inputQty = null) {
+            if (isScannerLocked) return;
+
+            let foundItem = excelRows.find(item => 
+                String(item.code).trim().toLowerCase() === code.toLowerCase() || 
+                (item.name && item.name.trim().toLowerCase() === code.toLowerCase())
+            );
+
+            if (!foundItem) {
+                showAlert("ບໍ່ພົບສິນຄ້າ", `ບໍ່ພົບລະຫັດ ຫຼື ຊື່ສິນຄ້າ [${code}] ໃນສາງ!`, "⚠️");
+                return;
+            }
+
+            let barcodeInputEl = document.getElementById('scan-barcode-input');
+            if (barcodeInputEl) {
+                barcodeInputEl.value = foundItem.name || foundItem.code;
+            }
+
+            let currentQty = parseFloat(String(foundItem.qty !== undefined ? foundItem.qty : 0).replace(/,/g, '')) || 0;
+            let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
+            let stockDisplayEl = document.getElementById('scan-stock-display');
+            if (stockDisplayEl) {
+                let currentPacks = Math.floor(currentQty);
+                let currentSingles = Math.round((currentQty - currentPacks) * unitPerPack);
+                stockDisplayEl.value = unitPerPack > 1 ? `${currentPacks} / ${currentSingles}` : `${currentPacks}`;
+            }
+
+            isScannerLocked = true;
+            playBeepSound();
+
+            let statusBadge = document.getElementById('scanner-status-badge');
+            if (statusBadge) {
+                statusBadge.className = "text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded font-semibold";
+                statusBadge.innerText = "⏳ ກຳລັງຄຳນວນລາຄາຕາມສູດໃໝ່...";
+            }
+
+            // ⭐ ດຶງເປີເຊັນຂາຍຕາມສິນຄ້າ
+            let profitPct = getProfitPct(foundItem);
+
+            // ⭐ ອ່ານຄ່າ Rate ປະຈຸບັນ
+            let currentBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 650;
+            let currentSellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate')) || 685;
+
+            let originalCostVal = parseFloat(String(foundItem.originalCost || foundItem.original_cost || foundItem.cost).replace(/,/g, '')) || 0;
+
+            // ⭐ ຄຳນວນລາຄາຊື້ (ໃໝ່)
+            let newCost = Math.ceil((originalCostVal * (currentBuyRate / 650)) / 1000) * 1000;
+
+            // ⭐ ຄຳນວນລາຄາຂາຍ (ໃໝ່) ຕາມສູດ
+            let rawNewPrice = newCost * (1 + profitPct / 100);
+            let exactSellingPrice = Math.ceil(rawNewPrice / 1000) * 1000;
+
+            let finalPrice = exactSellingPrice;
+            if (currentSaleType === 'retail' && unitPerPack > 1) {
+                finalPrice = Math.ceil((exactSellingPrice / unitPerPack) / 1000) * 1000;
+            }
+
+            let processedItem = {
+                ...foundItem,
+                cost: newCost,
+                price: finalPrice,
+                saleType: currentSaleType,
+                profitPct: profitPct
+            };
+
+            let addQty = inputQty !== null ? inputQty : 1;
+
+            let existingCartItem = continuousCart.find(i => i.id === processedItem.id && i.saleType === currentSaleType);
+            if (existingCartItem) {
+                existingCartItem.qty += addQty;
+            } else {
+                continuousCart.push({ ...processedItem, qty: addQty });
+            }
+
+            updateContinuousCartUI();
+
+            setTimeout(() => {
+                isScannerLocked = false;
+                if (statusBadge) {
+                    statusBadge.className = "text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold";
+                    statusBadge.innerText = "ກຳລັງເປີດກ້ອງ... (ພ້ອມສະແກນຕໍ່)";
+                }
+            }, 3000);
+        }
+
+        // ============================================================
+        // 4. ຟັງຊັນ updateCartItemPreview() - ປັບປຸງການສະແດງ
+        // ============================================================
+        function updateCartItemPreview() {
+            let input = document.getElementById('scan-barcode-input');
+            let qtyInput = document.getElementById('scan-qty-input');
+            let container = document.getElementById('continuous-cart-items-list');
+            let countEl = document.getElementById('cart-item-count');
+            let totalAmountEl = document.getElementById('cart-total-amount');
+            
+            if (!container) return;
+
+            let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
+            let typingQty = (rawQtyText === "" || parseFloat(rawQtyText) <= 0) ? 1 : parseFloat(rawQtyText);
+
+            if (continuousCart.length > 0) {
+                let latestItem = continuousCart[continuousCart.length - 1];
+                latestItem.qty = typingQty;
+                updateContinuousCartUI();
+                return;
+            }
+
+            let val = input && input.value ? input.value.trim().toLowerCase() : "";
+            if (val === "") {
+                updateContinuousCartUI();
+                return;
+            }
+
+            let foundItem = excelRows.find(item => 
+                String(item.code).trim().toLowerCase() === val || 
+                (item.name && item.name.trim().toLowerCase() === val)
+            );
+
+            if (foundItem) {
+                // ⭐ ດຶງເປີເຊັນຂາຍຕາມສິນຄ້າ
+                let profitPct = getProfitPct(foundItem);
+
+                let currentBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 650;
+                let originalCost = parseFloat(String(foundItem.originalCost || foundItem.original_cost || foundItem.cost).replace(/,/g, '')) || 0;
+
+                // ⭐ ຄຳນວນລາຄາຊື້ (ໃໝ່)
+                let newCost = Math.ceil((originalCost * (currentBuyRate / 650)) / 1000) * 1000;
+
+                // ⭐ ຄຳນວນລາຄາຂາຍ (ໃໝ່)
+                let rawNewPrice = newCost * (1 + profitPct / 100);
+                let newPrice = Math.ceil(rawNewPrice / 1000) * 1000;
+
+                let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
+                let finalPrice = (currentSaleType === 'retail' && unitPerPack > 1) ? Math.ceil((newPrice / unitPerPack) / 1000) * 1000 : newPrice;
+                
+                let previewTotal = finalPrice * typingQty;
+
+                let saleModeLabel = currentSaleType === 'retail' ? '(ຂາຍຍ່ອຍ)' : '(ຂາຍສົ່ງ)';
+                container.innerHTML = `
+                    <div class="flex justify-between items-center bg-blue-50/80 p-2 rounded-lg border border-blue-200 shadow-sm">
+                        <div class="truncate max-w-[140px]">
+                            <span class="font-bold text-blue-900">${foundItem.name || foundItem.code}</span>
+                            <div class="text-[10px] text-gray-600">${formatNumberWithCommas(finalPrice)} x ${typingQty} ${saleModeLabel}</div>
+                            <div class="text-[9px] text-purple-600">ກຳໄລ: ${profitPct}%</div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-green-600">${formatNumberWithCommas(previewTotal)} ກີບ</span>
+                        </div>
+                    </div>
+                `;
+                if (countEl) countEl.innerText = typingQty;
+                if (totalAmountEl) totalAmountEl.innerText = formatNumberWithCommas(previewTotal) + " ກີບ";
+            } else {
+                updateContinuousCartUI();
+            }
+        }
+
+        // ============================================================
+        // 4. ຟັງຊັນ updateContinuousCartUI() - ປັບປຸງການສະແດງກະຕ່າ
+        // ============================================================
+        function updateContinuousCartUI() {
+            let container = document.getElementById('continuous-cart-items-list');
+            let countEl = document.getElementById('cart-item-count');
+            let totalAmountEl = document.getElementById('cart-total-amount');
+            if (!container) return;
+
+            if (continuousCart.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-400 py-2">ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ</p>`;
+                if (countEl) countEl.innerText = "0";
+                if (totalAmountEl) totalAmountEl.innerText = "0 ກີບ";
+                return;
+            }
+
+            let html = '';
+            let totalAmt = 0;
+            let totalCount = 0;
+
+            continuousCart.forEach((item, idx) => {
+                let rowTotal = item.price * item.qty;
+                totalAmt += rowTotal;
+                totalCount += item.qty;
+                let saleModeLabel = item.saleType === 'retail' ? '(ຂາຍຍ່ອຍ)' : '(ຂາຍສົ່ງ)';
+
+                html += `
+                    <div class="flex justify-between items-center bg-white p-2 rounded-lg border shadow-sm">
+                        <div class="truncate max-w-[140px]">
+                            <span class="font-bold text-gray-800">${item.name || item.code}</span>
+                            <div class="text-[10px] text-gray-500">${formatNumberWithCommas(item.price)} x ${item.qty} ${saleModeLabel}</div>
+                            <div class="text-[9px] text-purple-600">ຊື້: ${formatNumberWithCommas(item.cost)} | ກຳໄລ: ${formatNumberWithCommas(item.price - item.cost)}</div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-green-600">${formatNumberWithCommas(rowTotal)}</span>
+                            <button onclick="removeContinuousCartItem(${idx})" class="text-red-500 hover:text-red-700 font-bold px-1">✕</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+            if (countEl) countEl.innerText = totalCount;
+            if (totalAmountEl) totalAmountEl.innerText = formatNumberWithCommas(totalAmt) + " " + (continuousCart[0]?.currency || 'ກີບ');
+        }
+
+        // ============================================================
+        // 5. ຟັງຊັນ calculateStockInPrice() - ຄຳນວນລາຄາຕອນນຳເຂົ້າ
+        // ============================================================
+        function calculateStockInPrice() {
+            let cost = parseFloat(document.getElementById('stock-in-cost').value.replace(/,/g, '')) || 0;
+            let pct = parseFloat(document.getElementById('stock-in-profit-pct').value) || 0;
+            let calcPrice = cost * (1 + pct / 100);
+            
+            // ⭐ ປັດມົນລາຄາຂາຍຂຶ້ນ/ລົງເປັນຫຼັກພັນ
+            let roundedPrice = Math.round(calcPrice / 1000) * 1000;
+            
+            document.getElementById('stock-in-calculated-price').value = formatNumberWithCommas(roundedPrice);
+        }
+
+        // ============================================================
+        // 6. ຟັງຊັນ autoComputePct() - ຄຳນວນເປີເຊັນອັດຕະໂນມັດ
+        // ============================================================
+        function autoComputePct() {
+            let cost = parseFloat(document.getElementById('calc-modal-cost').value.replace(/,/g, '')) || 0;
+            let price = parseFloat(document.getElementById('calc-modal-price').value.replace(/,/g, '')) || 0;
+            
+            let resultDiv = document.getElementById('calc-modal-result-pct');
+            if (cost > 0 && price >= cost) {
+                let profit = price - cost;
+                let pct = (profit / cost) * 100;
+                resultDiv.innerText = pct.toFixed(2) + "%";
+            } else {
+                resultDiv.innerText = "0%";
+            }
         }
 
         async function processStockInWithExpiry(importDate, mfgDate, expDate, shouldMerge) {
@@ -2762,12 +2985,15 @@ async function loadInventory() {
 
         let pendingStockInData = null;
 
+        // ============================================================
+        // 5. ຟັງຊັນ confirmStockIn() - ບັນທຶກເປີເຊັນຂາຍໃສ່ຖານຂໍ້ມູນ
+        // ============================================================
         function confirmStockIn() {
             let code = currentStockInCode;
             let name = document.getElementById('stock-in-custom-name').value.trim() || code;
             let cost = parseFloat(document.getElementById('stock-in-cost').value.replace(/,/g, '')) || 0;
             
-            // ⭐️ ດຶງຄ່າເປີເຊັນຂາຍ (%) ຈາກ ô input ໂດຍກົງ
+            // ⭐ ດຶງຄ່າເປີເຊັນຂາຍຈາກຟີວ
             let profitPctVal = parseFloat(document.getElementById('stock-in-profit-pct').value) || 0;
             let calcPriceVal = parseFloat(document.getElementById('stock-in-calculated-price').value.replace(/,/g, '')) || 0;
 
@@ -2789,7 +3015,7 @@ async function loadInventory() {
                 pendingStockInData = {
                     code: code, name: name, cost: cost,
                     price: calcPriceVal,
-                    profit_pct: profitPctVal, 
+                    profit_pct: profitPctVal,  // ⭐ ບັນທຶກເປີເຊັນຂາຍ
                     qty: parseInt(document.getElementById('stock-in-qty').value) || 1,
                     unitPerPack: parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12,
                     date_added: importDateVal,
@@ -2804,13 +3030,16 @@ async function loadInventory() {
             }
         }
 
+        // ============================================================
+        // 6. ຟັງຊັນ saveNewStockInItem() - ບັນທຶກສິນຄ້າໃໝ່
+        // ============================================================
         async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal) {
             let data = {
                 code: currentStockInCode,
                 name: document.getElementById('stock-in-custom-name').value.trim() || currentStockInCode,
                 cost: parseFloat(document.getElementById('stock-in-cost').value.replace(/,/g, '')) || 0,
                 price: parseFloat(document.getElementById('stock-in-calculated-price').value.replace(/,/g, '')) || 0,
-                profit_pct: profitPctVal, // ⭐️ ບັນທຶກລົງ Firebase ຢ່າງຖືກຕ້ອງ
+                profit_pct: profitPctVal,  // ⭐ ບັນທຶກເປີເຊັນຂາຍໃສ່ Firebase
                 qty: parseInt(document.getElementById('stock-in-qty').value) || 1,
                 unitPerPack: parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12,
                 date_added: importDate,
