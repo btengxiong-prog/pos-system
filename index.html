@@ -2441,9 +2441,9 @@ async function loadInventory() {
                 let rawNewPrice = newCost * (1 + profitPct / 100);
                 let newPrice = Math.ceil(rawNewPrice / 1000) * 1000;
 
-                // ⭐️ ບັນທຶກທັບລາຄາຂາຍໃໝ່ນີ້ລົງໃນ Object ຂອງ row ເລີຍ
-                row.price = newPrice;
-                row.cost = newCost;
+                // 🎯 ບັນທຶກຄ່າລາຄາຂາຍ (ໃໝ່) ທີ່ຖືກຕ້ອງນີ້ໄວ້ໃນ Object ຂອງ row ເລີຍ
+                row.currentSellingPrice = newPrice;
+                row.currentNewCost = newCost;
 
                 // ⭐️ ໂຕໃໝ່: ບວກລາຄາຕໍ່ໜ່ວຍກົງໆ
                 sumOriginalCost += originalCostVal;
@@ -2941,7 +2941,7 @@ async function loadInventory() {
         async function handleSalesBarcodeScanned(code, inputQty = null) {
             if (isScannerLocked) return; 
 
-            // 1. ດຶງຂໍ້ມູນສິນຄ້າຈາກຕາຕະລາງສາງ (excelRows) ຕາມທີ່ບັນທຶກໄວ້
+            // 1. ຄົ້ນຫາສິນຄ້າຈາກ excelRows
             let foundItem = excelRows.find(item => 
                 String(item.code).trim().toLowerCase() === code.toLowerCase() || 
                 (item.name && item.name.trim().toLowerCase() === code.toLowerCase())
@@ -2972,23 +2972,22 @@ async function loadInventory() {
             let statusBadge = document.getElementById('scanner-status-badge');
             if (statusBadge) {
                 statusBadge.className = "text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded font-semibold";
-                statusBadge.innerText = "⏳ ບັນທຶກສິນຄ້າແລ້ວ...";
+                statusBadge.innerText = "⏳ ກຳລັງດຶງລາຄາຂາຍ (ໃໝ່)...";
             }
 
-            // 2. ✂️ ຕັດການຄຳນວນເປີເຊັນ Rate ທັງໝົດອອກ! 
-            // ດຶງຄ່າລາຄາຂາຍ ແລະ ລາຄາຊື້ຈາກ foundItem ມາໃຊ້ກົງໆ 100% ຕາມທີ່ຢູ່ໃນສາງ
-            let directPrice = parseFloat(String(foundItem.price || 0).replace(/,/g, '')) || 0;
-            let directCost = parseFloat(String(foundItem.cost || 0).replace(/,/g, '')) || 0;
+            // 2. 🎯 ດຶງຄ່າລາຄາຂາຍ (ໃໝ່) ຈາກໜ້າ Inventory ມາໃຊ້ໂດຍກົງ (ຖ້າບໍ່ມີ ໃຫ້ fallback ໄປໃຊ້ price ປົກກະຕິ)
+            let exactSellingPrice = foundItem.currentSellingPrice !== undefined ? foundItem.currentSellingPrice : (parseFloat(String(foundItem.price).replace(/,/g, '')) || 0);
+            let exactCost = foundItem.currentNewCost !== undefined ? foundItem.currentNewCost : (parseFloat(String(foundItem.cost).replace(/,/g, '')) || 0);
 
-            let finalPrice = directPrice;
+            let finalPrice = exactSellingPrice;
             if (currentSaleType === 'retail' && unitPerPack > 1) {
-                finalPrice = Math.ceil((directPrice / unitPerPack) / 1000) * 1000;
+                finalPrice = Math.ceil((exactSellingPrice / unitPerPack) / 1000) * 1000;
             }
 
             let processedItem = {
                 ...foundItem,
-                cost: directCost,    
-                price: finalPrice, // ໃຊ້ຄ່າລາຄາຂາຍຈາກສາງກົງໆ ໂດຍບໍ່ມີການຄຳນວນຊ້ຳຊ້ອນ
+                cost: exactCost,    
+                price: finalPrice, // ໃຊ້ລາຄາຂາຍ (ໃໝ່) ທີ່ຕົກລົງໃນຕາຕະລາງສາງ (ເຊັ່ນ: 6,745,000 ກີບ)
                 saleType: currentSaleType
             };
 
