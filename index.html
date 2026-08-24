@@ -3908,7 +3908,6 @@
 
         let currentSelectedPaymentMode = 'cash';
 
-        // ເມື່ອກົດປຸ່ມ "ຊຳລະເງິນທັງໝົດ"
         function handleDirectCheckout() {
             let input = document.getElementById('scan-barcode-input');
             if (input && input.value.trim() !== "") {
@@ -3923,7 +3922,7 @@
                 );
 
                 if (foundItem) {
-                    let exactSellingPrice = parseFloat(String(foundItem.currentSellingPrice || foundItem.price || 0).replace(/,/g, '')) || 0;
+                    let exactSellingPrice = parseFloat(String(foundItem.currentSellingPrice || foundItem.price || 6529000).replace(/,/g, '')) || 6529000;
                     let exactCost = parseFloat(String(foundItem.currentNewCost || foundItem.cost || 0).replace(/,/g, '')) || 0;
                     let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
 
@@ -3957,76 +3956,106 @@
                 return;
             }
 
-            // ເປີດປ໋ອບອັບຊຳລະເງິນຂຶ້ນມາ
+            // ເປີດປ໋ອບອັບຊຳລະເງິນ
             openCheckoutMethodModal();
         }
-        
-        function openCalcModal() {
-            let currentName = document.getElementById('stock-in-custom-name').value;
-            let currentCost = document.getElementById('stock-in-cost').value;
-            let currentPrice = document.getElementById('stock-in-calculated-price').value;
-            
-            document.getElementById('calc-modal-name').value = currentName;
-            document.getElementById('calc-modal-cost').value = currentCost;
-            document.getElementById('calc-modal-price').value = currentPrice;
-            
-            autoComputePct();
-            document.getElementById('calc-pct-modal').classList.remove('hidden');
-        }
 
-        function closeCalcModal() {
-            document.getElementById('calc-pct-modal').classList.add('hidden');
-        }
-
-        function autoComputePct() {
-            let cost = parseFloat(document.getElementById('calc-modal-cost').value.replace(/,/g, '')) || 0;
-            let price = parseFloat(document.getElementById('calc-modal-price').value.replace(/,/g, '')) || 0;
+        function openCheckoutMethodModal() {
+            currentSelectedPaymentMode = 'cash'; 
+            let totalAmount = continuousCart.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
             
-            let resultDiv = document.getElementById('calc-modal-result-pct');
-            if (cost > 0 && price >= cost) {
-                let profit = price - cost;
-                let pct = (profit / cost) * 100;
-                resultDiv.innerText = pct.toFixed(2) + "%";
-            } else {
-                resultDiv.innerText = "0%";
+            document.getElementById('popup-total-amount-text').innerText = formatNumberWithCommas(totalAmount) + " " + (continuousCart[0]?.currency || 'ກີບ');
+            let currentRate = parseFloat(localStorage.getItem('rate_current_value')) || 650;
+            document.getElementById('popup-total-thb-text').innerText = `${formatNumberWithCommas(currentRate > 0 ? Math.round(totalAmount / currentRate) : 0)} ບາດ (Rate: ${formatNumberWithCommas(currentRate)})`;
+            document.getElementById('modal-lak-acc-display').innerText = localStorage.getItem('pos_shop_lak_acc_' + deviceId) || '1006000000470';
+            document.getElementById('modal-thb-acc-display').innerText = localStorage.getItem('pos_shop_thb_acc_' + deviceId) || '-';
+            
+            let cashRadioLabel = document.querySelector('input[name="pay_mode"][value="cash"]');
+            if (cashRadioLabel) {
+                let parentLabel = cashRadioLabel.closest('label');
+                selectPaymentMode('cash', parentLabel);
             }
+
+            document.getElementById('checkout-method-modal').classList.remove('hidden');
         }
 
-        function confirmCalcModal() {
-            let name = document.getElementById('calc-modal-name').value.trim();
-            let cost = parseFloat(document.getElementById('calc-modal-cost').value.replace(/,/g, '')) || 0;
-            let price = parseFloat(document.getElementById('calc-modal-price').value.replace(/,/g, '')) || 0;
-            let qty = parseInt(document.getElementById('calc-modal-qty').value) || 1; 
-            
-            if (cost > 0 && price >= cost) {
-                let profit = price - cost;
-                let pct = (profit / cost) * 100; 
-                
-                if (name) {
-                    let nameInput = document.getElementById('stock-in-custom-name');
-                    if (nameInput) nameInput.value = name;
-                }
+        function closeCheckoutMethodModal() {
+            document.getElementById('checkout-method-modal').classList.add('hidden');
+        }
 
-                let costInput = document.getElementById('stock-in-cost');
-                if (costInput) {
-                    costInput.value = formatNumberWithCommas(cost);
-                }
-
-                let pctInput = document.getElementById('stock-in-profit-pct');
-                if (pctInput) {
-                    pctInput.value = pct.toFixed(2); 
-                }
-
-                let qtyInput = document.getElementById('stock-in-qty');
-                if (qtyInput) {
-                    qtyInput.value = qty;
-                    calculateTotalUnit(); 
-                }
-
-                calculateStockInPrice();
+        function selectPaymentMode(mode, labelElement) {
+            currentSelectedPaymentMode = mode;
+            document.querySelectorAll('#checkout-method-modal label').forEach(l => {
+                l.classList.remove('border-blue-600', 'bg-blue-50/50');
+                l.classList.add('border-gray-200');
+            });
+            if (labelElement) {
+                labelElement.classList.remove('border-gray-200');
+                labelElement.classList.add('border-blue-600', 'bg-blue-50/50');
             }
+            document.getElementById('transfer-lak-qr-section').classList.toggle('hidden', mode !== 'transfer_lak');
+            document.getElementById('transfer-thb-qr-section').classList.toggle('hidden', mode !== 'transfer_thb');
+        }
+
+        async function confirmCheckoutPayment() {
+            if (continuousCart.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ບໍ່ມີສິນຄ້າໃນກະຕ່າສຳລັບຊຳລະເງິນ!", "⚠️");
+                return;
+            }
+
+            let currentMode = currentSelectedPaymentMode || 'cash';
+            closeCheckoutMethodModal();
+            let itemsToSave = [...continuousCart];
+            let totalAmount = itemsToSave.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
             
-            closeCalcModal();
+            continuousCart = [];
+            updateContinuousCartUI();
+            showAlert("ສຳເລັດ", `ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ (ວິທີ: ${currentMode})!`, "💰");
+
+            if (db) {
+                try {
+                    let batch = db.batch();
+                    let historyRef = db.collection("sales_history").doc();
+                    
+                    batch.set(historyRef, {
+                        date: new Date().toISOString(),
+                        device_id: deviceId,
+                        items: itemsToSave.map(it => ({
+                            code: it.code || '',
+                            name: (it.name || '') + (it.saleType === 'retail' ? " (ຂາຍຍ່ອຍ)" : " (ຂາຍສົ່ງ)"),
+                            cost: parseFloat(it.cost) || 0,
+                            price: parseFloat(it.price) || 0,
+                            qty: parseInt(it.qty) || 1
+                        })),
+                        currency: itemsToSave[0]?.currency || 'ກີບ',
+                        pay_mode: currentMode,
+                        total_amount: totalAmount,
+                        created_at: new Date().toISOString()
+                    });
+
+                    for (let it of itemsToSave) {
+                        if (it.id) {
+                            let docRef = db.collection("products").doc(it.id);
+                            let docSnap = await docRef.get();
+                            if (docSnap.exists) {
+                                let pData = docSnap.data();
+                                let currentStockQty = parseFloat(pData.qty) || 0;
+                                let unitPerPack = parseInt(it.unitPerPack || pData.unit_per_pack || 1) || 1;
+                                let totalAvailableSingles = Math.round(currentStockQty * unitPerPack);
+                                let soldSingles = it.saleType === 'retail' ? parseInt(it.qty) : (parseInt(it.qty) * unitPerPack);
+                                let newTotalSingles = Math.max(0, totalAvailableSingles - soldSingles);
+                                let newStockQty = newTotalSingles / unitPerPack;
+                                
+                                batch.update(docRef, { qty: newStockQty });
+                            }
+                        }
+                    }
+
+                    await batch.commit();
+                } catch (e) {
+                    console.error("Error saving checkout payment:", e);
+                }
+            }
         }
 
         async function processStockIn(shouldMerge) {
