@@ -1878,7 +1878,7 @@
                     let batch = db.batch();
                     let hasChanges = false;
 
-                    // ດຶງ Rate ປະຈຸບັນມາຄຳນວນ
+                    // ດຶງ Rate ປະຈຸບັນມາຄຳນວນໃຫ້ຖືກຕ້ອງ 100% ຕັ້ງແຕ່ຕົ້ນທາງ
                     let currentBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 689;
                     let importBuyRate = 650; // Rate ເດີມຕອນນຳເຂົ້າ
 
@@ -1899,12 +1899,19 @@
                             let originalCostVal = parseFloat(String(item.original_cost || item.cost || 0).replace(/,/g, '')) || 0;
                             let profitPct = item.profit_pct !== undefined ? item.profit_pct : (item.profitPct !== undefined ? item.profitPct : 25.00);
                             
-                            // ຄຳນວນລາຄາຊື້ໃໝ່ ແລະ ລາຄາຂາຍໃໝ່ (ຄໍລຳ 14 ແລະ 15)
+                            // ⭐️ ຄຳນວນລາຄາຊື້ໃໝ່ ແລະ ລາຄາຂາຍໃໝ່ທີ່ຖືກຕ້ອງແທ້ໆ ຕັ້ງແຕ່ຕົ້ນເຫດ
                             let calculatedNewCost = importBuyRate > 0 ? originalCostVal * (currentBuyRate / importBuyRate) : originalCostVal;
                             let newCost = Math.ceil(calculatedNewCost / 1000) * 1000;
 
                             let rawNewPrice = newCost * (1 + (parseFloat(profitPct) || 0) / 100);
-                            let newPrice = Math.ceil(rawNewPrice / 1000) * 1000; // ລາຄາຂາຍໃໝ່ (ຄໍລຳ 15)
+                            let newPrice = Math.ceil(rawNewPrice / 1000) * 1000; // ໄດ້ລາຄາຂາຍໃໝ່ທີ່ຖືກຕ້ອງ (ເຊັ່ນ: 563,000)
+
+                            // ⭐️ ຖ້າລາຄາໃນ Firebase ຍังເປັນລາຄາເກົ່າ, ໃຫ້ອັບເດດລົງ Firebase ພ້ອມກັນເລີຍ
+                            if (parseFloat(item.price) !== newPrice) {
+                                let docRef = db.collection("products").doc(docId);
+                                batch.update(docRef, { price: newPrice, cost: newCost });
+                                hasChanges = true;
+                            }
 
                             tempArr.push({
                                 id: docId,
@@ -1913,7 +1920,7 @@
                                 cost: newCost,
                                 originalCost: originalCostVal,
                                 profitPct: profitPct,
-                                price: newPrice, // ໃຊ້ລາຄາຂາຍໃໝ່ (ຄໍລຳ 15) ໂດຍตรง
+                                price: newPrice, // ໃຊ້ລາຄາຂາຍໃໝ່ທີ່ຖືກຕ້ອງແທ້ໆ
                                 currentSellingPrice: newPrice,
                                 currentNewCost: newCost,
                                 qty: item.qty !== undefined ? item.qty : 1,
