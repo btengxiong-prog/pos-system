@@ -2334,8 +2334,8 @@
         function closeRateInputModal() { document.getElementById('rate-input-modal').classList.add('hidden'); }
 
         function loadRateForDate(dateStr) {
-            let savedBuyRate = localStorage.getItem('pos_custom_buy_rate_' + dateStr) || localStorage.getItem('pos_custom_buy_rate') || '';
-            let savedSellRate = localStorage.getItem('pos_custom_sell_rate_' + dateStr) || localStorage.getItem('pos_custom_sell_rate') || '';
+            let savedBuyRate = localStorage.getItem('pos_custom_buy_rate_' + dateStr) || localStorage.getItem('pos_custom_buy_rate') || '650';
+            let savedSellRate = localStorage.getItem('pos_custom_sell_rate_' + dateStr) || localStorage.getItem('pos_custom_sell_rate') || '670';
             document.getElementById('input-custom-buy-rate').value = formatNumberWithCommas(savedBuyRate);
             document.getElementById('input-custom-sell-rate').value = formatNumberWithCommas(savedSellRate);
         }
@@ -3462,8 +3462,8 @@
                 rateRecords.push({
                     device_id: deviceId,
                     date: localStorage.getItem('pos_custom_manual_rate_date') || new Date().toISOString().split('T')[0],
-                    buyRate: localStorage.getItem('pos_custom_buy_rate') || '',
-                    sellRate: localStorage.getItem('pos_custom_sell_rate') || '',
+                    buyRate: localStorage.getItem('pos_custom_buy_rate') || '650',
+                    sellRate: localStorage.getItem('pos_custom_sell_rate') || '670',
                     note: 'ຄ່າເລີ່ມຕົ້ນລະບົບ'
                 });
             }
@@ -3642,7 +3642,7 @@
                 return;
             }
             
-            // ⭐️ ຄຳນວນຍອດເງິນຈາກ continuousCart ໂດຍກົງ (ຮັບປະກັນວ່າໄດ້ 581,000 ຕາມຮູບ 1 ເປ๊ะໆ ບໍ່ມີເລກ 583,000 ໂປຼອອກມາ)
+            // ⭐️ ດຶງເອົາຜົນລວມຕົວເລກຈາກຍອດລວມໃນກະຕ່າ (ຮູບ 1) ມາສະແດງໃນປ໋ອບອັບ (ຮູບ 2) ໂດຍກົງ 100% ບໍ່ມີການຄຳນວນຜິດພາດຊ້ຳຊ້ອນ
             let totalAmount = continuousCart.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
             
             document.getElementById('popup-total-amount-text').innerText = formatNumberWithCommas(totalAmount) + " " + (continuousCart[0]?.currency || 'ກີບ');
@@ -3675,30 +3675,32 @@
                 return;
             }
 
-            let currentMode = currentSelectedPaymentMode || 'cash';
-            let itemsToSave = [...continuousCart];
+            let itemsToSave = continuousCart.map(it => ({
+                code: it.code || '',
+                name: (it.name || '') + (it.saleType === 'retail' ? " (ຂາຍຍ່ອຍ)" : " (ຂາຍສົ່ງ)"),
+                cost: parseFloat(it.cost) || 0,
+                price: parseFloat(it.price) || 0,
+                qty: parseInt(it.qty) || 1
+            }));
+
+            // ດຶງຍອດລວມທີ່ຖືກຕ້ອງຈາກກະຕ່າ
             let totalAmount = continuousCart.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
 
-            // ⭐️ ບັນທຶກລົງ Firebase ໃຫ້ຮຽບຮ້ອຍກ่อน ແລ້ວຈຶ່ງປິດ Modal ແລະ ລ້າງກະຕ່າ (ຮັບປະກັນວ່າປຸ່ມ "ຕົກລົງ" ບໍ່ຖືກປິດກั้น)
-            if (db) {
-                try {
-                    let historyRef = await db.collection("sales_history").add({
-                        date: new Date().toISOString(),
-                        device_id: deviceId,
-                        items: itemsToSave.map(it => ({
-                            code: it.code || '',
-                            name: (it.name || '') + (it.saleType === 'retail' ? " (ຂາຍຍ່ອຍ)" : " (ຂາຍສົ່ງ)"),
-                            cost: parseFloat(it.cost) || 0,
-                            price: parseFloat(it.price) || 0,
-                            qty: parseInt(it.qty) || 1
-                        })),
-                        currency: itemsToSave[0]?.currency || 'ກີບ',
-                        pay_mode: currentMode,
-                        total_amount: totalAmount,
-                        created_at: new Date().toISOString()
-                    });
+            let saleRecord = {
+                date: new Date().toISOString(),
+                device_id: deviceId,
+                items: itemsToSave,
+                currency: continuousCart[0]?.currency || 'ກີບ',
+                pay_mode: currentSelectedPaymentMode || 'cash',
+                total_amount: totalAmount,
+                created_at: new Date().toISOString()
+            };
 
-                    for (let it of itemsToSave) {
+            if (db) {
+                try { 
+                    await db.collection("sales_history").add(saleRecord); 
+                    
+                    for (let it of continuousCart) {
                         if (it.id) {
                             let docRef = db.collection("products").doc(it.id);
                             let docSnap = await docRef.get();
@@ -3709,19 +3711,21 @@
                                 let totalAvailableSingles = Math.round(currentStockQty * unitPerPack);
                                 let soldSingles = it.saleType === 'retail' ? parseInt(it.qty) : (parseInt(it.qty) * unitPerPack);
                                 let newTotalSingles = Math.max(0, totalAvailableSingles - soldSingles);
-                                await docRef.update({ qty: newTotalSingles / unitPerPack });
+                                
+                                let newStockQty = newTotalSingles / unitPerPack;
+                                await docRef.update({ qty: newStockQty });
                             }
                         }
                     }
                 } catch (e) {
-                    console.error("Payment save error:", e);
+                    console.error("Error processing payment save/stock deduction:", e);
                 }
             }
 
             closeCheckoutMethodModal();
             continuousCart = [];
             updateContinuousCartUI();
-            showAlert("ສຳເລັດ", `ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ (ວິທີ: ${currentMode})!`, "💰");
+            showAlert("ສຳເລັດ", `ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ (ວິທີ: ${currentSelectedPaymentMode})!`, "💰");
         }
 
         function checkExpiryAlertStatus() {
