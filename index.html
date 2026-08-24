@@ -514,7 +514,7 @@
         </div>
     </div>
 
-    <!-- Popup ເລືອກວິທີຊຳລະເງິນ -->
+    <!-- Popup ເລືອກວິທີຊຳລະເງິນ (ແບບປ໋ອບອັບ Modal ໃໝ່) -->
     <div id="checkout-method-modal" class="hidden fixed inset-0 bg-black/70 z-[340] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
             <div class="text-4xl">💰</div>
@@ -523,7 +523,7 @@
             <div class="bg-blue-50 p-3 rounded-xl border text-center space-y-1">
                 <div class="text-xs text-gray-600 font-semibold">ຍອດເງິນລວມທັງໝົດ:</div>
                 <div class="text-xl font-extrabold text-green-600" id="popup-total-amount-text">0 ກີບ</div>
-                <div class="text-sm font-bold text-purple-700" id="popup-total-thb-text">0 ບາດ (Rate ຊື້: 650)</div>
+                <div class="text-sm font-bold text-purple-700" id="popup-total-thb-text">0 ບາດ</div>
             </div>
 
             <div class="space-y-3 text-left">
@@ -563,7 +563,7 @@
                 <button onclick="confirmCheckoutPayment()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">ຕົກລົງ</button>
             </div>
         </div>
-    </div>
+    </div>>
 
     <!-- Modal ເລືອກເກຣດ/ລາຄາສິນຄ້າ -->
     <div id="select-price-modal" class="hidden fixed inset-0 bg-black/70 z-[320] flex items-center justify-center p-4">
@@ -3632,29 +3632,12 @@
         }
 
         function openCheckoutMethodModal() {
-            if (continuousCart.length === 0) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາສະແກນສິນຄ້າໃສ່ກະຕ່າກ່ອນຊຳລະເງິນ!", "⚠️");
-                return;
-            }
-            
             currentSelectedPaymentMode = 'cash'; 
-
-            // ⭐️ ດຶງເອົາຄ่ายอดລວມຈາກ "ລາຍການສິນຄ້າໃນກະຕ່າ" ມາໃສ່ໃນປ໋ອບອັບຊຳລະເງິນ (ຮູບ 2) ໂດຍກົງ 100% 
-            // ໂດຍຍຶດລາຄາຈາກກະຕ່າເປັນຫຼັກຕາຍຕົວ ຫ້າມຄຳນວນ Rate ທັບອີກ
-            let totalAmount = 0;
-            if (window.currentCartTotalAmount !== undefined && window.currentCartTotalAmount > 0) {
-                totalAmount = window.currentCartTotalAmount;
-            } else {
-                totalAmount = continuousCart.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
-            }
+            let totalAmount = continuousCart.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
             
-            // ຍອດເງິນກີບຫຼັກຈະຖືກໂຍນເຂົ້າມາສະແດງຜົນຢ່າງຖືກຕ້ອງເປະ (ເຊັ່ນ: 6,480,000 ກີບ)
             document.getElementById('popup-total-amount-text').innerText = formatNumberWithCommas(totalAmount) + " " + (continuousCart[0]?.currency || 'ກີບ');
-            
-            // ສ່ວນເງິນບາດ ໃຫ້ສະແດງເປັນ Rate ປະກອບຊື່ໆ ໂດຍບໍ່ໃຫ້ໄປແຕະຕ້ອງ ຫຼື ປ່ຽນແປງຍອດເງິນກີບຫຼັກ
             let currentRate = parseFloat(localStorage.getItem('rate_current_value')) || 650;
             document.getElementById('popup-total-thb-text').innerText = `${formatNumberWithCommas(currentRate > 0 ? Math.round(totalAmount / currentRate) : 0)} ບາດ (Rate: ${formatNumberWithCommas(currentRate)})`;
-            
             document.getElementById('modal-lak-acc-display').innerText = localStorage.getItem('pos_shop_lak_acc_' + deviceId) || '1006000000470';
             document.getElementById('modal-thb-acc-display').innerText = localStorage.getItem('pos_shop_thb_acc_' + deviceId) || '-';
             
@@ -3664,11 +3647,12 @@
                 selectPaymentMode('cash', parentLabel);
             }
 
-            // ເປີດປ໋ອບອັບຂຶ້ນມາທັນທີ
             document.getElementById('checkout-method-modal').classList.remove('hidden');
         }
 
-        function closeCheckoutMethodModal() { document.getElementById('checkout-method-modal').classList.add('hidden'); }
+        function closeCheckoutMethodModal() {
+            document.getElementById('checkout-method-modal').classList.add('hidden');
+        }
 
         function selectPaymentMode(mode, labelElement) {
             currentSelectedPaymentMode = mode;
@@ -3684,28 +3668,27 @@
             document.getElementById('transfer-thb-qr-section').classList.toggle('hidden', mode !== 'transfer_thb');
         }
 
+        // ເມື່ອກົດປຸ່ມ "ຕົກລົງ" ໃນປ໋ອບອັບຊຳລະເງິນ
         async function confirmCheckoutPayment() {
             if (continuousCart.length === 0) {
                 showAlert("ແຈ້ງເຕືອນ", "ບໍ່ມີສິນຄ້າໃນກະຕ່າສຳລັບຊຳລະເງິນ!", "⚠️");
                 return;
             }
 
-            // 1. ປິດປ໋ອບອັບ ແລະ ລ້າງກະຕ່າທັນທີ ໃຫ້ຜູ້ໃຊ້ເຫັນວ່າວ່ອງໄວທັນໃຈ ບໍ່ມີການຄ້າງ
             let currentMode = currentSelectedPaymentMode || 'cash';
             closeCheckoutMethodModal();
             let itemsToSave = [...continuousCart];
+            let totalAmount = itemsToSave.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
+            
             continuousCart = [];
             updateContinuousCartUI();
             showAlert("ສຳເລັດ", `ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ (ວິທີ: ${currentMode})!`, "💰");
 
-            // 2. ເຮັດວຽກບັນທຶກ ແລະ ຕັດ Stock ເບື້ອງຫຼັງ (Background Sync) ດ້ວຍ Firestore Batch ໃຫ້ໄວຂຶ້ນຫຼາຍເທົ່າ
             if (db) {
                 try {
                     let batch = db.batch();
-                    let totalAmount = itemsToSave.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
-
-                    // ບັນທຶກປະຫວັດການຂາຍ
                     let historyRef = db.collection("sales_history").doc();
+                    
                     batch.set(historyRef, {
                         date: new Date().toISOString(),
                         device_id: deviceId,
@@ -3722,7 +3705,6 @@
                         created_at: new Date().toISOString()
                     });
 
-                    // ດຶງຂໍ້ມູນສິນຄ້າມາຕັດ Stock ພ້ອມກັນ
                     for (let it of itemsToSave) {
                         if (it.id) {
                             let docRef = db.collection("products").doc(it.id);
@@ -3741,10 +3723,9 @@
                         }
                     }
 
-                    // ສ่งຄຳສັ່ງດຽວຈົບ (Batch Commit) ວ່ອງໄວທີ່ສຸດ
                     await batch.commit();
                 } catch (e) {
-                    console.error("Background sync error:", e);
+                    console.error("Error saving checkout payment:", e);
                 }
             }
         }
@@ -3925,9 +3906,11 @@
             updateContinuousCartUI();
         }
 
+        let currentSelectedPaymentMode = 'cash';
+
+        // ເມື່ອກົດປຸ່ມ "ຊຳລະເງິນທັງໝົດ"
         function handleDirectCheckout() {
             let input = document.getElementById('scan-barcode-input');
-            
             if (input && input.value.trim() !== "") {
                 let code = input.value.trim();
                 let qtyInput = document.getElementById('scan-qty-input');
@@ -3940,7 +3923,7 @@
                 );
 
                 if (foundItem) {
-                    let exactSellingPrice = parseFloat(String(foundItem.currentSellingPrice || foundItem.price || 6529000).replace(/,/g, '')) || 6529000;
+                    let exactSellingPrice = parseFloat(String(foundItem.currentSellingPrice || foundItem.price || 0).replace(/,/g, '')) || 0;
                     let exactCost = parseFloat(String(foundItem.currentNewCost || foundItem.cost || 0).replace(/,/g, '')) || 0;
                     let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
 
@@ -3974,10 +3957,10 @@
                 return;
             }
 
-            // ດຳເນີນການຊຳລະເງິນແບບ Inline (ບັນທຶກ ແລະ ຕັດ Stock)
-            confirmInlineCheckout();
+            // ເປີດປ໋ອບອັບຊຳລະເງິນຂຶ້ນມາ
+            openCheckoutMethodModal();
         }
-
+        
         function openCalcModal() {
             let currentName = document.getElementById('stock-in-custom-name').value;
             let currentCost = document.getElementById('stock-in-cost').value;
