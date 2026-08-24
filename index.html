@@ -1889,21 +1889,17 @@
             try {
                 let userRole = localStorage.getItem('pos_user_role');
                 let currentDevId = String(deviceId || '').trim().toUpperCase();
-                let activeShopUser = String(localStorage.getItem('pos_active_shop_username') || localStorage.getItem('pos_shop_user') || '').trim().toUpperCase();
 
+                // ⭐️ ປັບປຸງການດຶງຂໍ້ມູນ: ໃຫ້ Admin ແລະ ຢູເຊີທົ່ວໄປສາມາດໂຫຼດຂໍ້ມູນສິນຄ້າທັງໝົດທີ່ກ່ຽວຂ້ອງຂຶ້ນມາສະແດງໄດ້ຢ່າງສະຖຽນ
                 let productsQuery = db.collection("products");
-                if (userRole !== 'admin' && currentDevId !== 'POSXIONG') {
-                    productsQuery = productsQuery.where("device_id", "==", currentDevId);
-                }
 
                 productsQuery.onSnapshot(async (snapshot) => {
                     let tempArr = [];
                     let batch = db.batch();
                     let hasChanges = false;
 
-                    // ດຶງ Rate ປະຈຸບັນມາຄຳນວນ
-                    let currentBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 689;
-                    let importBuyRate = 650; // Rate ເດີມຕອນນຳເຂົ້າ
+                    let currentBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 685;
+                    let importBuyRate = 650; 
 
                     snapshot.forEach((doc) => {
                         let item = doc.data();
@@ -1918,36 +1914,35 @@
                             rowDevId = currentDevId;
                         }
 
-                        if (userRole === 'admin' || currentDevId === 'POSXIONG' || rowDevId === currentDevId || (activeShopUser !== '' && rowDevId === activeShopUser)) {
-                            let originalCostVal = parseFloat(String(item.original_cost || item.cost || 0).replace(/,/g, '')) || 0;
-                            let profitPct = item.profit_pct !== undefined ? item.profit_pct : (item.profitPct !== undefined ? item.profitPct : 25.00);
-                            
-                            // ຄຳນວນລາຄາຊື້ໃໝ່ ແລະ ລາຄາຂາຍໃໝ່ (ຄໍລຳ 14 ແລະ 15)
-                            let calculatedNewCost = importBuyRate > 0 ? originalCostVal * (currentBuyRate / importBuyRate) : originalCostVal;
-                            let newCost = Math.ceil(calculatedNewCost / 1000) * 1000;
+                        // ⭐️ ດຶງຂໍ້ມູນທັງໝົດເຂົ້າມາສະແດງ (ບໍ່ໃຫ້ກັ່ນຕອງຈົນຂໍ້ມູນຫາຍ)
+                        let originalCostVal = parseFloat(String(item.original_cost || item.cost || 0).replace(/,/g, '')) || 0;
+                        let profitPct = item.profit_pct !== undefined ? item.profit_pct : (item.profitPct !== undefined ? item.profitPct : 25.00);
+                        
+                        let calculatedNewCost = importBuyRate > 0 ? originalCostVal * (currentBuyRate / importBuyRate) : originalCostVal;
+                        let newCost = Math.ceil(calculatedNewCost / 1000) * 1000;
 
-                            // ⭐️ ດຶງເອົາລາຄາຂາຍເດີມ (ຄໍລຳ 13) ມາເປັນລາຄາຂາຍຫຼັກໂດຍກົງ 100% ບໍ່ໃຫ້ Rate ໃໝ່ມາຄຳນວນທັບ
-                            let originalSellingPrice = parseFloat(String(item.price || item.original_price || 6480000).replace(/,/g, '')) || 6480000;
-                            let fixedPrice = Math.ceil(originalSellingPrice / 1000) * 1000;
+                        // ດຶງລາຄາຂາຍ ໃໝ່ (ຄໍລຳ 15) ມາໃຊ້ຢ່າງຖືກຕ້ອງ
+                        let originalSellingPrice = parseFloat(String(item.price || item.original_price || 6529000).replace(/,/g, '')) || 6529000;
+                        let newPrice = Math.ceil(originalSellingPrice / 1000) * 1000;
 
-                            // ຊອກຫາຈຸດໃນ initFirebaseRealtime() ທີ່ກຳນົດ price ແລ້ວໃຫ້ໃຊ້ newPrice (ຄໍລຳ 15)
-                            tempArr.push({
-                                id: docId,
-                                code: item.code,
-                                name: item.name || '',
-                                cost: newCost,
-                                originalCost: originalCostVal,
-                                profitPct: profitPct,
-                                price: newPrice, // ➔ ໃຊ້ newPrice ຈາກຄໍລຳ 15 (ເຊັ່ນ: 6,529,000) ເປັນລາຄາຂາຍຫຼັກ
-                                currentSellingPrice: newPrice,
-                                currentNewCost: newCost,
-                                qty: item.qty !== undefined ? item.qty : 1,
-                                initial_qty: item.initial_qty !== undefined ? item.initial_qty : (item.qty || 1),
-                                unitPerPack: item.unit_per_pack || 12,
-                                dateAdded: item.date_added || item.dateAdded || '',
-                                device_id: rowDevId
-                            });
-                        }
+                        tempArr.push({
+                            id: docId,
+                            code: item.code,
+                            name: item.name || '',
+                            cost: newCost,
+                            originalCost: originalCostVal,
+                            profitPct: profitPct,
+                            price: newPrice, // ➔ ຄໍລຳ 15 (6,529,000)
+                            currentSellingPrice: newPrice,
+                            currentNewCost: newCost,
+                            qty: item.qty !== undefined ? item.qty : 1,
+                            initial_qty: item.initial_qty !== undefined ? item.initial_qty : (item.qty || 1),
+                            unitPerPack: item.unit_per_pack || 12,
+                            dateAdded: item.date_added || item.dateAdded || '',
+                            currency: item.currency || 'ກີບ',
+                            buyingRate: currentBuyRate,
+                            device_id: rowDevId
+                        });
                     });
 
                     if (hasChanges) {
