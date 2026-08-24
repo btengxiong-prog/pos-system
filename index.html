@@ -4104,17 +4104,45 @@
         }
 
         async function confirmInlineCheckout() {
-            if (continuousCart.length === 0) {
+            // ⭐️ ໃຫ້ກວດສອບວ່າໃນກະຕ່າຄຳນວນມີສິນຄ້າ ຫຼື ຍອດເງິນຫຼາຍກວ່າ 0 ຫຼື ບໍ່ (ປ້ອງກັນບັນຫາ array continuousCart ເປັນຄ່າຫວ່າງ)
+            let totalAmount = 0;
+            if (window.currentCartTotalAmount !== undefined && window.currentCartTotalAmount > 0) {
+                totalAmount = window.currentCartTotalAmount;
+            } else if (continuousCart && continuousCart.length > 0) {
+                totalAmount = continuousCart.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
+            }
+
+            if (totalAmount <= 0 || (!continuousCart || continuousCart.length === 0)) {
+                // ຖ້າຫາກຍັງບໍ່ມີສິນຄ້າແທ้ໆ ຈຶ່ງค่อยແຈ້ງເຕືອນ
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາສະແກນສິນຄ້າໃສ່ກະຕ່າກ່ອນຊຳລະເງິນ!", "⚠️");
                 return;
             }
 
             let itemsToSave = [...continuousCart];
-            let totalAmount = continuousCart.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
-            let paymentMode = currentInlinePaymentMode;
+            let paymentMode = currentInlinePaymentMode || 'cash';
 
-            // ລ້າງກະຕ່າທັນທີ
+            // ຖ້າຫາກ continuousCart ຍັງບໍ່ທັນມີຂໍ້ມູນ ແຕ່ມີການສະແກນຄ້າງໄວ້ ໃຫ້ສ້າງ Object ຊົ່ວຄາວຈາກ input ທີ່ສະແກນຫຼ້າສຸດ
+            if (itemsToSave.length === 0) {
+                let barcodeInput = document.getElementById('scan-barcode-input');
+                let codeVal = barcodeInput ? barcodeInput.value.trim() : 'POS001';
+                let found = excelRows.find(i => (i.code && i.code.trim().toLowerCase() === codeVal.toLowerCase()) || (i.name && i.name.trim().toLowerCase() === codeVal.toLowerCase()));
+                
+                itemsToSave.push({
+                    id: found ? found.id : '',
+                    code: found ? found.code : codeVal,
+                    name: found ? found.name : codeVal,
+                    cost: found ? (found.currentNewCost || found.cost || 0) : 0,
+                    price: totalAmount,
+                    qty: 1,
+                    unitPerPack: found ? (found.unitPerPack || 12) : 12,
+                    saleType: currentSaleType || 'wholesale',
+                    currency: 'ກີບ'
+                });
+            }
+
+            // ລ้างກະຕ່າ ແລະ ຍອດເງິນທันที
             continuousCart = [];
+            window.currentCartTotalAmount = 0;
             updateContinuousCartUI();
             showAlert("ສຳເລັດ", `ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ (ວິທີ: ${paymentMode})!`, "💰");
 
