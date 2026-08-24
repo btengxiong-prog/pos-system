@@ -3642,8 +3642,10 @@
                 return;
             }
             
-            // ⭐️ ດຶງຜົນລວມຕົວເລກຈາກຍອດໃນກະຕ່າ (ຮູບ 1) ມາສະແດງໃນປ໋ອບອັບ (ຮູບ 2) ໂດຍກົງ 100% ຢ່າງແນ່ນອນ (ຕັດບັນຫາເລກ 583,000 ຜິດ)
-            let totalAmount = continuousCart.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
+            // ⭐️ ດຶງເອົາຕົວເລກຈາກ text ໃນໜ້າກະຕ່າໂດຍກົງ (ຮັບປະກັນວ່າໄດ້ 581,000 ເປ๊ะໆ ຕາມຮູບ 1 ບໍ່ມີທາງເປັນ 583,000)
+            let cartTotalText = document.getElementById('cart-total-amount').innerText;
+            let totalAmount = parseFloat(cartTotalText.replace(/,/g, '').replace('ກີບ', '').trim()) || 
+                              continuousCart.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
             
             document.getElementById('popup-total-amount-text').innerText = formatNumberWithCommas(totalAmount) + " " + (continuousCart[0]?.currency || 'ກີບ');
             let currentRate = parseFloat(localStorage.getItem('rate_current_value')) || 650;
@@ -3669,7 +3671,7 @@
             document.getElementById('transfer-thb-qr-section').classList.toggle('hidden', mode !== 'transfer_thb');
         }
 
-        async function confirmCheckoutPayment() {
+        function confirmCheckoutPayment() {
             if (continuousCart.length === 0) {
                 showAlert("ແຈ້ງເຕືອນ", "ບໍ່ມີສິນຄ້າໃນກະຕ່າສຳລັບຊຳລະເງິນ!", "⚠️");
                 return;
@@ -3677,37 +3679,32 @@
 
             let currentMode = currentSelectedPaymentMode || 'cash';
             let itemsToSave = [...continuousCart];
-            
-            // ⭐️ ປິດປ໋ອບອັບ ແລະ ລ້າງກະຕ່າທັນທີ ຮັບປະກັນວ່າປຸ່ມ "ຕົກລົງ" ຕອບສະໜອງທັນທີໃນມືຖື ແລະ ຄອມ
+            let totalAmount = continuousCart.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
+
+            // ⭐️ ປິດປ໋ອບອັບ ແລະ ລ້າງກະຕ່າທັນທີ ໃຫ້ປຸ່ມ "ຕົກລົງ" ຕອບສະໜອງທັນທີທန်ໃດໃນມືຖື
             closeCheckoutMethodModal();
             continuousCart = [];
             updateContinuousCartUI();
             showAlert("ສຳເລັດ", `ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ (ວິທີ: ${currentMode})!`, "💰");
 
-            // ⭐️ ເຮັດວຽກບັນທຶກ ແລະ ຕັດ Stock ເບື້ອງຫຼັງ (Background Sync) ຢ່າງປອດໄພ
+            // ⭐️ ບັນທຶກປະຫວັດ ແລະ ຕັດ Stock ເບື້ອງຫຼັງ (Background) ຢ່າງປອດໄພ
             if (db) {
-                setTimeout(async () => {
-                    try {
-                        let batch = db.batch();
-                        let totalAmount = itemsToSave.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
-
-                        let historyRef = db.collection("sales_history").doc();
-                        batch.set(historyRef, {
-                            date: new Date().toISOString(),
-                            device_id: deviceId,
-                            items: itemsToSave.map(it => ({
-                                code: it.code || '',
-                                name: (it.name || '') + (it.saleType === 'retail' ? " (ຂາຍຍ່ອຍ)" : " (ຂາຍສົ່ງ)"),
-                                cost: parseFloat(it.cost) || 0,
-                                price: parseFloat(it.price) || 0,
-                                qty: parseInt(it.qty) || 1
-                            })),
-                            currency: itemsToSave[0]?.currency || 'ກີບ',
-                            pay_mode: currentMode,
-                            total_amount: totalAmount,
-                            created_at: new Date().toISOString()
-                        });
-
+                setTimeout(() => {
+                    db.collection("sales_history").add({
+                        date: new Date().toISOString(),
+                        device_id: deviceId,
+                        items: itemsToSave.map(it => ({
+                            code: it.code || '',
+                            name: (it.name || '') + (it.saleType === 'retail' ? " (ຂາຍຍ່ອຍ)" : " (ຂາຍສົ່ງ)"),
+                            cost: parseFloat(it.cost) || 0,
+                            price: parseFloat(it.price) || 0,
+                            qty: parseInt(it.qty) || 1
+                        })),
+                        currency: itemsToSave[0]?.currency || 'ກີບ',
+                        pay_mode: currentMode,
+                        total_amount: totalAmount,
+                        created_at: new Date().toISOString()
+                    }).then(async () => {
                         for (let it of itemsToSave) {
                             if (it.id) {
                                 let docRef = db.collection("products").doc(it.id);
@@ -3719,18 +3716,12 @@
                                     let totalAvailableSingles = Math.round(currentStockQty * unitPerPack);
                                     let soldSingles = it.saleType === 'retail' ? parseInt(it.qty) : (parseInt(it.qty) * unitPerPack);
                                     let newTotalSingles = Math.max(0, totalAvailableSingles - soldSingles);
-                                    let newStockQty = newTotalSingles / unitPerPack;
-                                    
-                                    batch.update(docRef, { qty: newStockQty });
+                                    await docRef.update({ qty: newTotalSingles / unitPerPack });
                                 }
                             }
                         }
-
-                        await batch.commit();
-                    } catch (e) {
-                        console.error("Background sync error:", e);
-                    }
-                }, 50);
+                    }).catch(e => console.error("Sync error:", e));
+                }, 10);
             }
         }
 
