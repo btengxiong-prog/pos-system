@@ -2334,8 +2334,8 @@
         function closeRateInputModal() { document.getElementById('rate-input-modal').classList.add('hidden'); }
 
         function loadRateForDate(dateStr) {
-            let savedBuyRate = localStorage.getItem('pos_custom_buy_rate_' + dateStr) || localStorage.getItem('pos_custom_buy_rate') || '650';
-            let savedSellRate = localStorage.getItem('pos_custom_sell_rate_' + dateStr) || localStorage.getItem('pos_custom_sell_rate') || '670';
+            let savedBuyRate = localStorage.getItem('pos_custom_buy_rate_' + dateStr) || localStorage.getItem('pos_custom_buy_rate') || '';
+            let savedSellRate = localStorage.getItem('pos_custom_sell_rate_' + dateStr) || localStorage.getItem('pos_custom_sell_rate') || '';
             document.getElementById('input-custom-buy-rate').value = formatNumberWithCommas(savedBuyRate);
             document.getElementById('input-custom-sell-rate').value = formatNumberWithCommas(savedSellRate);
         }
@@ -3462,8 +3462,8 @@
                 rateRecords.push({
                     device_id: deviceId,
                     date: localStorage.getItem('pos_custom_manual_rate_date') || new Date().toISOString().split('T')[0],
-                    buyRate: localStorage.getItem('pos_custom_buy_rate') || '650',
-                    sellRate: localStorage.getItem('pos_custom_sell_rate') || '670',
+                    buyRate: localStorage.getItem('pos_custom_buy_rate') || '',
+                    sellRate: localStorage.getItem('pos_custom_sell_rate') || '',
                     note: 'ຄ່າເລີ່ມຕົ້ນລະບົບ'
                 });
             }
@@ -3642,10 +3642,8 @@
                 return;
             }
             
-            // ⭐️ ດຶງເອົາຕົວເລກຈາກ text ໃນໜ້າກະຕ່າໂດຍກົງ (ຮັບປະກັນວ່າໄດ້ 581,000 ເປ๊ะໆ ຕາມຮູບ 1 ບໍ່ມີທາງເປັນ 583,000)
-            let cartTotalText = document.getElementById('cart-total-amount').innerText;
-            let totalAmount = parseFloat(cartTotalText.replace(/,/g, '').replace('ກີບ', '').trim()) || 
-                              continuousCart.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
+            // ⭐️ ຄຳນວນຍອດເງິນຈາກ continuousCart ໂດຍກົງ (ຮັບປະກັນວ່າໄດ້ 581,000 ຕາມຮູບ 1 ເປ๊ะໆ ບໍ່ມີເລກ 583,000 ໂປຼອອກມາ)
+            let totalAmount = continuousCart.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
             
             document.getElementById('popup-total-amount-text').innerText = formatNumberWithCommas(totalAmount) + " " + (continuousCart[0]?.currency || 'ກີບ');
             let currentRate = parseFloat(localStorage.getItem('rate_current_value')) || 650;
@@ -3671,7 +3669,7 @@
             document.getElementById('transfer-thb-qr-section').classList.toggle('hidden', mode !== 'transfer_thb');
         }
 
-        function confirmCheckoutPayment() {
+        async function confirmCheckoutPayment() {
             if (continuousCart.length === 0) {
                 showAlert("ແຈ້ງເຕືອນ", "ບໍ່ມີສິນຄ້າໃນກະຕ່າສຳລັບຊຳລະເງິນ!", "⚠️");
                 return;
@@ -3681,16 +3679,10 @@
             let itemsToSave = [...continuousCart];
             let totalAmount = continuousCart.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
 
-            // ⭐️ ປິດປ໋ອບອັບ ແລະ ລ້າງກະຕ່າທັນທີ ໃຫ້ປຸ່ມ "ຕົກລົງ" ຕອບສະໜອງທັນທີທန်ໃດໃນມືຖື
-            closeCheckoutMethodModal();
-            continuousCart = [];
-            updateContinuousCartUI();
-            showAlert("ສຳເລັດ", `ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ (ວິທີ: ${currentMode})!`, "💰");
-
-            // ⭐️ ບັນທຶກປະຫວັດ ແລະ ຕັດ Stock ເບື້ອງຫຼັງ (Background) ຢ່າງປອດໄພ
+            // ⭐️ ບັນທຶກລົງ Firebase ໃຫ້ຮຽບຮ້ອຍກ่อน ແລ້ວຈຶ່ງປິດ Modal ແລະ ລ້າງກະຕ່າ (ຮັບປະກັນວ່າປຸ່ມ "ຕົກລົງ" ບໍ່ຖືກປິດກั้น)
             if (db) {
-                setTimeout(() => {
-                    db.collection("sales_history").add({
+                try {
+                    let historyRef = await db.collection("sales_history").add({
                         date: new Date().toISOString(),
                         device_id: deviceId,
                         items: itemsToSave.map(it => ({
@@ -3704,25 +3696,32 @@
                         pay_mode: currentMode,
                         total_amount: totalAmount,
                         created_at: new Date().toISOString()
-                    }).then(async () => {
-                        for (let it of itemsToSave) {
-                            if (it.id) {
-                                let docRef = db.collection("products").doc(it.id);
-                                let docSnap = await docRef.get();
-                                if (docSnap.exists) {
-                                    let pData = docSnap.data();
-                                    let currentStockQty = parseFloat(pData.qty) || 0;
-                                    let unitPerPack = parseInt(it.unitPerPack || pData.unit_per_pack || 1) || 1;
-                                    let totalAvailableSingles = Math.round(currentStockQty * unitPerPack);
-                                    let soldSingles = it.saleType === 'retail' ? parseInt(it.qty) : (parseInt(it.qty) * unitPerPack);
-                                    let newTotalSingles = Math.max(0, totalAvailableSingles - soldSingles);
-                                    await docRef.update({ qty: newTotalSingles / unitPerPack });
-                                }
+                    });
+
+                    for (let it of itemsToSave) {
+                        if (it.id) {
+                            let docRef = db.collection("products").doc(it.id);
+                            let docSnap = await docRef.get();
+                            if (docSnap.exists) {
+                                let pData = docSnap.data();
+                                let currentStockQty = parseFloat(pData.qty) || 0;
+                                let unitPerPack = parseInt(it.unitPerPack || pData.unit_per_pack || 1) || 1;
+                                let totalAvailableSingles = Math.round(currentStockQty * unitPerPack);
+                                let soldSingles = it.saleType === 'retail' ? parseInt(it.qty) : (parseInt(it.qty) * unitPerPack);
+                                let newTotalSingles = Math.max(0, totalAvailableSingles - soldSingles);
+                                await docRef.update({ qty: newTotalSingles / unitPerPack });
                             }
                         }
-                    }).catch(e => console.error("Sync error:", e));
-                }, 10);
+                    }
+                } catch (e) {
+                    console.error("Payment save error:", e);
+                }
             }
+
+            closeCheckoutMethodModal();
+            continuousCart = [];
+            updateContinuousCartUI();
+            showAlert("ສຳເລັດ", `ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ (ວິທີ: ${currentMode})!`, "💰");
         }
 
         function checkExpiryAlertStatus() {
