@@ -2956,7 +2956,7 @@ async function loadInventory() {
         async function handleSalesBarcodeScanned(code, inputQty = null) {
             if (isScannerLocked) return; 
 
-            // 1. ດຶງຂໍ້ມູນສິນຄ້າຈາກ excelRows
+            // 1. ຄົ້ນຫາສິນຄ້າຈາກ excelRows ທີ່ໂຫຼດມາຈາກໜ້າ Inventory
             let foundItem = excelRows.find(item => 
                 String(item.code).trim().toLowerCase() === code.toLowerCase() || 
                 (item.name && item.name.trim().toLowerCase() === code.toLowerCase())
@@ -2987,19 +2987,16 @@ async function loadInventory() {
             let statusBadge = document.getElementById('scanner-status-badge');
             if (statusBadge) {
                 statusBadge.className = "text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded font-semibold";
-                statusBadge.innerText = "⏳ ກຳລັງດຶງລາຄາຂາຍ (ໃໝ່)...";
+                statusBadge.innerText = "⏳ กำลังดึงราคาขายใหม่...";
             }
 
-            // 2. 🧮 ຄຳນວນຕາມສູດ: ລາຄາຊື້ໃໝ່ * (1 + ເປີເຊັນຂາຍ (%) / 100) ໃຫ້ກົງກັບຕາຕະລາງສາງ 100%
+            // 2. 🎯 ດຶງຄ່າລາຄາຊື້ໃໝ່ ແລະ ເປີເຊັນກຳໄລມາຄຳນວນຕາມສູດ: ລາຄາຊື້ໃໝ່ * (1 + ເປີເຊັນຂາຍ / 100) ໃຫ້ກົງກັບໜ້າ Inventory 100%
             let originalCostVal = parseFloat(String(foundItem.originalCost || foundItem.original_cost || foundItem.cost).replace(/,/g, '')) || 0;
             let profitPct = foundItem.profit_pct !== undefined ? foundItem.profit_pct : (foundItem.profitPct !== undefined ? foundItem.profitPct : 23.92);
             
-            // ຫາມູນຄ່າລາຄາຊື້ໃໝ່ (New Cost) 
             let newCost = Math.ceil(originalCostVal / 1000) * 1000;
-
-            // ຄຳນວນລາຄາຂາຍໃໝ່ຕາມສູດ: 5,516,000 * (1 + 23.92 / 100) = 6,836,000
             let rawNewPrice = newCost * (1 + (parseFloat(profitPct) || 0) / 100);
-            let exactSellingPrice = Math.ceil(rawNewPrice / 1000) * 1000; // ຈະໄດ້ 6,836,000 ກີບ
+            let exactSellingPrice = Math.ceil(rawNewPrice / 1000) * 1000; // ໄດ້ລາຄາຂາຍໃໝ່ທີ່ຖືກຕ້ອງ (ເຊັ່ນ: 6,836,000)
 
             let finalPrice = exactSellingPrice;
             if (currentSaleType === 'retail' && unitPerPack > 1) {
@@ -3009,7 +3006,7 @@ async function loadInventory() {
             let processedItem = {
                 ...foundItem,
                 cost: newCost,    
-                price: finalPrice, // ໃຊ້ລາຄາຂາຍໃໝ່ທີ່ຖືກຕ້ອງ (6,836,000 ກີບ)
+                price: finalPrice, // ໃຊ້ລາຄາຂາຍໃໝ່ທີ່ຖືກຕ້ອງຕາມຕາຕະລາງສາງ
                 saleType: currentSaleType
             };
 
