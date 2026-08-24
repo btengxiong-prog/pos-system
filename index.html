@@ -3928,6 +3928,7 @@
         function handleDirectCheckout() {
             let input = document.getElementById('scan-barcode-input');
             
+            // ຖ້າຜູ້ໃຊ້ພິມ ຫຼື ຍັງຄ້າງຊື່ສິນຄ້າໃນຊ່ອງປ້ອນ ແຕ່ຍັງບໍ່ທັນໄດ້ກົດປຸ່ມ "ຕົກລົງ" (ຕິກລົງ), ໃຫ້ລະບົບດຶງມารວມເຂົ້າກະຕ່າໃຫ້ອັດຕະໂນມັດທັນທີ
             if (input && input.value.trim() !== "") {
                 let code = input.value.trim();
                 let qtyInput = document.getElementById('scan-qty-input');
@@ -3940,20 +3941,19 @@
                 );
 
                 if (foundItem) {
+                    let exactSellingPrice = parseFloat(String(foundItem.currentSellingPrice || foundItem.price || 0).replace(/,/g, '')) || 0;
+                    let exactCost = parseFloat(String(foundItem.currentNewCost || foundItem.cost || 0).replace(/,/g, '')) || 0;
                     let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
-                    let finalPrice = foundItem.price;
+
+                    let finalPrice = exactSellingPrice;
                     if (currentSaleType === 'retail' && unitPerPack > 1) {
-                        let originalCost = parseFloat(String(foundItem.originalCost || foundItem.original_cost || foundItem.cost).replace(/,/g, '')) || 0;
-                        let profitPct = foundItem.profit_pct !== undefined ? foundItem.profit_pct : 0;
-                        let currentBuyRate = parseFloat(localStorage.getItem('rate_current_value')) || 685;
-                        let newCost = Math.ceil((originalCost * (currentBuyRate / 650)) / 1000) * 1000;
-                        let newPrice = Math.ceil((newCost * (1 + profitPct / 100)) / 1000) * 1000;
-                        finalPrice = Math.ceil((newPrice / unitPerPack) / 1000) * 1000;
+                        finalPrice = Math.ceil((exactSellingPrice / unitPerPack) / 1000) * 1000;
                     }
 
                     let processedItem = {
                         ...foundItem,
-                        price: finalPrice,
+                        cost: exactCost,    
+                        price: finalPrice, 
                         saleType: currentSaleType
                     };
 
@@ -3967,12 +3967,17 @@
 
                     input.value = "";
                     if (qtyInput) qtyInput.value = "";
-                    let stockDisplay = document.getElementById('scan-stock-display');
-                    if (stockDisplay) stockDisplay.value = "";
                 }
             }
 
-            openCheckoutMethodModal();
+            // ຖ້າກວດສອບແລ້ວ ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າອີກ ຈຶ່ງຄ่อยແຈ້ງເຕືອນ
+            if (!continuousCart || continuousCart.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາສະແກນສິນຄ້າໃສ່ກະຕ່າກ່ອນຊຳລະເງິນ!", "⚠️");
+                return;
+            }
+
+            // ຖ້າມີສິນຄ້າແລ້ວ ໃຫ້ປະຕິບັດການຊຳລະເງິນ ແລະ ຕັດສາງທັນທີ
+            confirmInlineCheckout();
         }
 
         function openCalcModal() {
