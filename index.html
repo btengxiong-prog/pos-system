@@ -3064,19 +3064,20 @@
                 statusBadge.innerText = "⏳ ກຳລັງດຶງລາຄາຂາຍໃໝ່...";
             }
 
-            // ⭐️ ດຶງລາຄາຂາຍໃໝ່ (ຄໍລຳ 15) ມາໃຊ້ງານ 100%
-            let exactSellingPrice = foundItem.currentSellingPrice || foundItem.price || 0;
-            let newCost = foundItem.currentNewCost || foundItem.cost || 0;
+            // ⭐️ ດຶງລາຄາຂາຍໃໝ່ທີ່ຖືກຕ້ອງຜ່ານຟັງຊັນຄຳນວນ Inventory 100%
+            let calculatedPrices = getProductCalculatedPrices(foundItem, currentSaleType);
+            let exactSellingPrice = calculatedPrices.newPrice; 
+            let newCost = calculatedPrices.newCost;
 
             let finalPrice = exactSellingPrice;
             if (currentSaleType === 'retail' && unitPerPack > 1) {
-                finalPrice = Math.ceil((exactSellingPrice / unitPerPack) / 1000) * 1000;
+                finalPrice = calculatedPrices.finalPrice;
             }
 
             let processedItem = {
                 ...foundItem,
                 cost: newCost,    
-                price: finalPrice, 
+                price: finalPrice, // ໄດ້ລາຄາຂາຍໃໝ່ທີ່ຖືກຕ້ອງແທ້ໆ
                 saleType: currentSaleType
             };
 
@@ -3084,6 +3085,7 @@
 
             let existingCartItem = continuousCart.find(i => i.id === processedItem.id && i.saleType === currentSaleType);
             if (existingCartItem) {
+                existingCartItem.price = finalPrice;
                 existingCartItem.qty += addQty;
             } else {
                 continuousCart.push({ ...processedItem, qty: addQty });
@@ -3632,7 +3634,7 @@
                 return;
             }
             
-            // ⭐️ ດຶງຜົນລວມຕົວເລກຈາກຍອດໃນກະຕ່າ (ຮູບ 1) ມາສະແດງໃນປ໋ອບອັບ (ຮູບ 2) ໂດຍກົງ 100%
+            // ⭐️ ດຶງຜົນລວມຕົວເລກຈາກຍອດໃນກະຕ່າ (ຮູບ 1) ມາສະແດງໃນປ໋ອບອັບ (ຮູບ 2) ໂດຍກົງ 100% ບໍ່ໃຫ້ຜິດ້ພາດ
             let totalAmount = continuousCart.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
             
             document.getElementById('popup-total-amount-text').innerText = formatNumberWithCommas(totalAmount) + " " + (continuousCart[0]?.currency || 'ກີບ');
