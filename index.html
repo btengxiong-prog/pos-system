@@ -3045,14 +3045,19 @@
             isScannerLocked = true;
             playBeepSound(); 
             
-            // ⭐️ ດຶງລາຄາຂາຍໃໝ່ທີ່ຖືກຕ້ອງແທ້ໆ ຈາກຟັງຊັນ Inventory Calculation ມາໃຊ້ 100%
-            let calculatedPrices = getProductCalculatedPrices(foundItem, currentSaleType);
-            let exactSellingPrice = calculatedPrices.newPrice; // ໄດ້ 563,000 ເປັນຕົ້ນ
-            let newCost = calculatedPrices.newCost;
+            let statusBadge = document.getElementById('scanner-status-badge');
+            if (statusBadge) {
+                statusBadge.className = "text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded font-semibold";
+                statusBadge.innerText = "⏳ ກຳລັງດຶງລາຄາຂາຍໃໝ່...";
+            }
+
+            // ⭐️ ດຶງລາຄາຂາຍໃໝ່ (ຄໍລຳ 15) ມາໃຊ້ງານ 100%
+            let exactSellingPrice = foundItem.currentSellingPrice || foundItem.price || 0;
+            let newCost = foundItem.currentNewCost || foundItem.cost || 0;
 
             let finalPrice = exactSellingPrice;
             if (currentSaleType === 'retail' && unitPerPack > 1) {
-                finalPrice = calculatedPrices.finalPrice;
+                finalPrice = Math.ceil((exactSellingPrice / unitPerPack) / 1000) * 1000;
             }
 
             let processedItem = {
@@ -3066,7 +3071,6 @@
 
             let existingCartItem = continuousCart.find(i => i.id === processedItem.id && i.saleType === currentSaleType);
             if (existingCartItem) {
-                existingCartItem.price = finalPrice;
                 existingCartItem.qty += addQty;
             } else {
                 continuousCart.push({ ...processedItem, qty: addQty });
@@ -3076,6 +3080,10 @@
 
             setTimeout(() => {
                 isScannerLocked = false;
+                if (statusBadge) {
+                    statusBadge.className = "text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold";
+                    statusBadge.innerText = "ກຳລັງເປີດກ້ອງ... (ພ້ອມສະແກນຕໍ່)";
+                }
             }, 3000);
         }
 
@@ -3610,9 +3618,7 @@
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາສະແກນສິນຄ້າໃສ່ກະຕ່າກ່ອນຊຳລະເງິນ!", "⚠️");
                 return;
             }
-            // ⭐️ ດຶງຍອດເງິນລວມທັງໝົດຈາກ continuousCart ໃຫ້ກົງກັບໜ້າຈໍກະຕ່າ (ຮູບ 1) ຢ່າງແນ່ນອນ
-            let totalAmount = continuousCart.reduce((sum, it) => sum + (Number(it.price) * Number(it.qty)), 0);
-            
+            let totalAmount = continuousCart.reduce((sum, it) => sum + (it.price * it.qty), 0);
             document.getElementById('popup-total-amount-text').innerText = formatNumberWithCommas(totalAmount) + " " + (continuousCart[0]?.currency || 'ກີບ');
             let currentRate = parseFloat(localStorage.getItem('rate_current_value')) || 650;
             document.getElementById('popup-total-thb-text').innerText = `${formatNumberWithCommas(currentRate > 0 ? Math.round(totalAmount / currentRate) : 0)} ບາດ (Rate: ${formatNumberWithCommas(currentRate)})`;
