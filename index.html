@@ -3675,32 +3675,40 @@
                 return;
             }
 
-            let itemsToSave = continuousCart.map(it => ({
-                code: it.code || '',
-                name: (it.name || '') + (it.saleType === 'retail' ? " (ຂາຍຍ່ອຍ)" : " (ຂາຍສົ່ງ)"),
-                cost: parseFloat(it.cost) || 0,
-                price: parseFloat(it.price) || 0,
-                qty: parseInt(it.qty) || 1
-            }));
+            // 1. ປິດປ໋ອບອັບ ແລະ ລ້າງກະຕ່າທັນທີ ໃຫ້ຜູ້ໃຊ້ເຫັນວ່າວ່ອງໄວທັນໃຈ ບໍ່ມີການຄ້າງ
+            let currentMode = currentSelectedPaymentMode || 'cash';
+            closeCheckoutMethodModal();
+            let itemsToSave = [...continuousCart];
+            continuousCart = [];
+            updateContinuousCartUI();
+            showAlert("ສຳເລັດ", `ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ (ວິທີ: ${currentMode})!`, "💰");
 
-            // ດຶງຍອດລວມທີ່ຖືກຕ້ອງຈາກກະຕ່າ
-            let totalAmount = continuousCart.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
-
-            let saleRecord = {
-                date: new Date().toISOString(),
-                device_id: deviceId,
-                items: itemsToSave,
-                currency: continuousCart[0]?.currency || 'ກີບ',
-                pay_mode: currentSelectedPaymentMode || 'cash',
-                total_amount: totalAmount,
-                created_at: new Date().toISOString()
-            };
-
+            // 2. ເຮັດວຽກບັນທຶກ ແລະ ຕັດ Stock ເບື້ອງຫຼັງ (Background Sync) ດ້ວຍ Firestore Batch ໃຫ້ໄວຂຶ້ນຫຼາຍເທົ່າ
             if (db) {
-                try { 
-                    await db.collection("sales_history").add(saleRecord); 
-                    
-                    for (let it of continuousCart) {
+                try {
+                    let batch = db.batch();
+                    let totalAmount = itemsToSave.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
+
+                    // ບັນທຶກປະຫວັດການຂາຍ
+                    let historyRef = db.collection("sales_history").doc();
+                    batch.set(historyRef, {
+                        date: new Date().toISOString(),
+                        device_id: deviceId,
+                        items: itemsToSave.map(it => ({
+                            code: it.code || '',
+                            name: (it.name || '') + (it.saleType === 'retail' ? " (ຂາຍຍ່ອຍ)" : " (ຂາຍສົ່ງ)"),
+                            cost: parseFloat(it.cost) || 0,
+                            price: parseFloat(it.price) || 0,
+                            qty: parseInt(it.qty) || 1
+                        })),
+                        currency: itemsToSave[0]?.currency || 'ກີບ',
+                        pay_mode: currentMode,
+                        total_amount: totalAmount,
+                        created_at: new Date().toISOString()
+                    });
+
+                    // ດຶງຂໍ້ມູນສິນຄ້າມາຕັດ Stock ພ້ອມກັນ
+                    for (let it of itemsToSave) {
                         if (it.id) {
                             let docRef = db.collection("products").doc(it.id);
                             let docSnap = await docRef.get();
@@ -3711,21 +3719,19 @@
                                 let totalAvailableSingles = Math.round(currentStockQty * unitPerPack);
                                 let soldSingles = it.saleType === 'retail' ? parseInt(it.qty) : (parseInt(it.qty) * unitPerPack);
                                 let newTotalSingles = Math.max(0, totalAvailableSingles - soldSingles);
-                                
                                 let newStockQty = newTotalSingles / unitPerPack;
-                                await docRef.update({ qty: newStockQty });
+                                
+                                batch.update(docRef, { qty: newStockQty });
                             }
                         }
                     }
+
+                    // ສ่งຄຳສັ່ງດຽວຈົບ (Batch Commit) ວ່ອງໄວທີ່ສຸດ
+                    await batch.commit();
                 } catch (e) {
-                    console.error("Error processing payment save/stock deduction:", e);
+                    console.error("Background sync error:", e);
                 }
             }
-
-            closeCheckoutMethodModal();
-            continuousCart = [];
-            updateContinuousCartUI();
-            showAlert("ສຳເລັດ", `ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ (ວິທີ: ${currentSelectedPaymentMode})!`, "💰");
         }
 
         function checkExpiryAlertStatus() {
