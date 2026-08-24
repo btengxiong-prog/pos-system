@@ -3046,7 +3046,7 @@
 
             let cleanCode = String(code).trim().toLowerCase();
             
-            // 1. ຊອກຫາສິນຄ້າໃນຕາຕະລາງສາງ (Excel / excelRows) 
+            // 1. ຈຳລອງການ MATCH ຊອກຫາລະຫັດ ຫຼື ຊື່ສິນຄ້າ (ທຽບເທົ່າກັບ MATCH ໃນ Excel)
             let foundItem = excelRows.find(item => {
                 let itemCode = String(item.code || '').trim().toLowerCase();
                 let itemName = String(item.name || '').trim().toLowerCase();
@@ -3058,26 +3058,27 @@
                 return;
             }
 
-            // 2. ດຶງຄ່າລາຄາຂາຍ ມາແບບ VLOOKUP/INDEX ຈາກຄໍລຳ 15 ໂດຍກົງ (ເຊັ່ນ: 6,529,000) ໂດຍບໍ່ມີການຄຳນວນໃໝ່ໃດໆທັງສิ้น
-            let exactLookupPrice = parseFloat(String(foundItem.price || foundItem.currentSellingPrice || 0).replace(/,/g, '')) || 0;
-            let exactCost = parseFloat(String(foundItem.cost || foundItem.currentNewCost || 0).replace(/,/g, '')) || 0;
+            // 2. ຈຳລອງການ INDEX ດຶງເອົາຄ່າຈາກຄໍລຳ 15 ໂດຍກົງ (ເຊິ່ງໃນລະບົບເກັບໄວ້ໃນ foundItem.price ຫຼັງຈາກດຶງຈາກຄໍລຳ 15 ຂອງສາງ)
+            // ຮັບປະກັນວ່າຈະບໍ່ມີການເອົາລາຄາເດີມ (ຄໍລຳ 13) ຫຼື Rate ໃໝ່ມາຄຳນວນທັບເດັດຂາດ
+            let indexMatchPrice = parseFloat(String(foundItem.price || foundItem.currentSellingPrice || 0).replace(/,/g, '')) || 0;
+            let indexMatchCost = parseFloat(String(foundItem.cost || foundItem.currentNewCost || 0).replace(/,/g, '')) || 0;
             let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
 
-            let finalPrice = exactLookupPrice;
+            let finalPrice = indexMatchPrice;
             if (currentSaleType === 'retail' && unitPerPack > 1) {
-                finalPrice = Math.ceil((exactLookupPrice / unitPerPack) / 1000) * 1000;
+                finalPrice = Math.ceil((indexMatchPrice / unitPerPack) / 1000) * 1000;
             }
 
             let processedItem = {
                 ...foundItem,
-                cost: exactCost,    
-                price: finalPrice, // ➔ ຮັບປະກັນວ່າຈະໄດ້ 6,529,000 ກີບ (ຄໍລຳ 15) ເປະໆ ຕາມທີ່ຕ້ອງການ
+                cost: indexMatchCost,    
+                price: finalPrice, // ➔ ດຶງຄ່າຈາກຄໍລຳ 15 ມາສະແດງໃນກ່ອງສີແດງ (ຮູບ 1) ຢ່າງຖືກຕ້ອງເປະ 6,529,000 ກີບ
                 saleType: currentSaleType
             };
 
             let addQty = (inputQty !== null && !isNaN(inputQty) && inputQty > 0) ? inputQty : 1;
 
-            // 3. ລວມສິນຄ້າຊະນິດດຽວກັນໃນກະຕ່າອັດຕະໂນມັດ
+            // 3. ລະບົບລວມສິນຄ້າຊະນິດດຽວກັນໃນກະຕ່າອັດຕະໂນມັດ
             let existingCartItem = continuousCart.find(i => i.id === processedItem.id && i.saleType === currentSaleType);
             if (existingCartItem) {
                 existingCartItem.qty += addQty;
