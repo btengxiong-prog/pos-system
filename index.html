@@ -1797,35 +1797,20 @@
                             rowDevId = currentDevId;
                         }
 
-                            if (userRole === 'admin' || currentDevId === 'POSXIONG' || rowDevId === currentDevId || (activeShopUser !== '' && rowDevId === activeShopUser)) {
-                                // 🛠️ ແກ້ໄຂທີ່ຕົ້ນເຫດ: ໃຫ້ຄຳນວນລາຄາຊື້ໃໝ່ ແລະ ລາຄາຂາຍໃໝ່ຕັ້ງແຕ່ຕອນໂຫຼດຂໍ້ມູນເຂົ້າ Memory ເລີຍ
-                                let originalCostVal = parseFloat(String(item.original_cost || item.cost || 0).replace(/,/g, '')) || 0;
-                                let profitPctVal = item.profit_pct !== undefined ? item.profit_pct : (item.profitPct !== undefined ? item.profitPct : 23.92);
-                                
-                                let newCost = Math.ceil(originalCostVal / 1000) * 1000; // ລາຄາຊື້ໃໝ່
-                                let rawNewPrice = newCost * (1 + (parseFloat(profitPctVal) || 0) / 100);
-                                let newSellingPrice = Math.ceil(rawNewPrice / 1000) * 1000; // ລາຄາຂາຍໃໝ່ທີ່ຖືກຕ້ອງ (ເຊັ່ນ: 6,836,000)
+                        if (userRole === 'admin' || currentDevId === 'POSXIONG' || rowDevId === currentDevId || (activeShopUser !== '' && rowDevId === activeShopUser)) {
+                            // ⭐️ ຄຳນວນລາຄາຂາຍໃໝ່ແລ້ວທັບຄ່າ price ເລີຍ ເພື່ອຕັດຄ່າ 5,552,000 ອອກ
+                            let baseCost = item.cost || 0;
+                            let profitPct = item.profit_pct !== undefined ? item.profit_pct : (item.profitPct !== undefined ? item.profitPct : 23.90);
+                            let newPrice = Math.ceil((baseCost * (1 + profitPct / 100)) / 1000) * 1000;
 
-                                tempArr.push({
-                                    id: docId,
-                                    code: item.code,
-                                    name: item.name || '',
-                                    cost: newCost,              // ບັນທຶກລາຄາຊື້ໃໝ່ລົງໄປ
-                                    originalCost: originalCostVal,
-                                    profitPct: profitPctVal,
-                                    price: newSellingPrice,     // 🎯 ບັນທຶກລາຄາຂາຍໃໝ່ທັບຄ່າເກົ່າ (ຕັດ 5,617,000 ອົງຢ່າງຖາວອນ)
-                                    qty: item.qty !== undefined ? item.qty : 1,
-                                    initial_qty: item.initial_qty !== undefined ? item.initial_qty : (item.qty || 1),
-                                    unitPerPack: item.unit_per_pack || 12,
-                                    dateAdded: item.date_added || item.dateAdded || '',
-                                    mfgDate: item.mfg_date || '',
-                                    expiryDate: item.expiry_date || '',
-                                    currency: item.currency || 'ກີບ',
-                                    buyingRate: item.buying_rate || 650,
-                                    sellingRate: item.selling_rate || 670,
-                                    device_id: rowDevId
-                                });
-                            }
+                            tempArr.push({
+                                id: docId,
+                                code: item.code,
+                                name: item.name || '',
+                                cost: item.cost,
+                                originalCost: item.original_cost || item.cost,
+                                profitPct: profitPct,
+                                price: newPrice > 0 ? newPrice : (item.price || 0), // บังคับใช้ราคาใหม่ที่คำนวณแล้วแทนที่ค่า 5,552,000
                                 qty: item.qty !== undefined ? item.qty : 1,
                                 initial_qty: item.initial_qty !== undefined ? item.initial_qty : (item.qty || 1),
                                 unitPerPack: item.unit_per_pack || 12,
@@ -2956,7 +2941,7 @@ async function loadInventory() {
         async function handleSalesBarcodeScanned(code, inputQty = null) {
             if (isScannerLocked) return; 
 
-            // 1. ຄົ້ນຫາສິນຄ້າຈາກ excelRows ທີ່ໂຫຼດມາຈາກໜ້າ Inventory
+            // 1. ຄົ້ນຫາສິນຄ້າຈາກ excelRows
             let foundItem = excelRows.find(item => 
                 String(item.code).trim().toLowerCase() === code.toLowerCase() || 
                 (item.name && item.name.trim().toLowerCase() === code.toLowerCase())
@@ -2987,16 +2972,19 @@ async function loadInventory() {
             let statusBadge = document.getElementById('scanner-status-badge');
             if (statusBadge) {
                 statusBadge.className = "text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded font-semibold";
-                statusBadge.innerText = "⏳ กำลังดึงราคาขายใหม่...";
+                statusBadge.innerText = "⏳ ກຳລັງຄຳນວນລາຄາຕາມສູດໃໝ່...";
             }
 
-            // 2. 🎯 ດຶງຄ່າລາຄາຊື້ໃໝ່ ແລະ ເປີເຊັນກຳໄລມາຄຳນວນຕາມສູດ: ລາຄາຊື້ໃໝ່ * (1 + ເປີເຊັນຂາຍ / 100) ໃຫ້ກົງກັບໜ້າ Inventory 100%
+            // 2. 🧮 ຄຳນວນຕາມສູດທີ່ທ່ານກຳນົດ: ລາຄາຊື້ (ໃໝ່) * (1 + ເປີເຊັນຂາຍ (%) / 100)
             let originalCostVal = parseFloat(String(foundItem.originalCost || foundItem.original_cost || foundItem.cost).replace(/,/g, '')) || 0;
             let profitPct = foundItem.profit_pct !== undefined ? foundItem.profit_pct : (foundItem.profitPct !== undefined ? foundItem.profitPct : 23.92);
             
+            // ຫາມູນຄ່າລາຄາຊື້ໃໝ່ (New Cost) 
             let newCost = Math.ceil(originalCostVal / 1000) * 1000;
+
+            // ຄຳນວນລາຄາຂາຍຕາມສູດ: ລາຄາຊື້ (ໃໝ່) * (1 + ເປີເຊັນຂາຍ (%) / 100)
             let rawNewPrice = newCost * (1 + (parseFloat(profitPct) || 0) / 100);
-            let exactSellingPrice = Math.ceil(rawNewPrice / 1000) * 1000; // ໄດ້ລາຄາຂາຍໃໝ່ທີ່ຖືກຕ້ອງ (ເຊັ່ນ: 6,836,000)
+            let exactSellingPrice = Math.ceil(rawNewPrice / 1000) * 1000; // ປັດມົນເປັນຫຼັກພັນ
 
             let finalPrice = exactSellingPrice;
             if (currentSaleType === 'retail' && unitPerPack > 1) {
@@ -3006,7 +2994,7 @@ async function loadInventory() {
             let processedItem = {
                 ...foundItem,
                 cost: newCost,    
-                price: finalPrice, // ໃຊ້ລາຄາຂາຍໃໝ່ທີ່ຖືກຕ້ອງຕາມຕາຕະລາງສາງ
+                price: finalPrice, // ໃຊ້ລາຄາຂາຍທີ່ຄຳນວນໄດ້ຕາມສູດໃໝ່
                 saleType: currentSaleType
             };
 
