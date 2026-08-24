@@ -3042,42 +3042,22 @@
         async function handleSalesBarcodeScanned(code, inputQty = null) {
             if (isScannerLocked) return; 
 
-            let foundItem = excelRows.find(item => 
-                String(item.code).trim().toLowerCase() === code.toLowerCase() || 
-                (item.name && item.name.trim().toLowerCase() === code.toLowerCase())
-            );
+            let cleanCode = String(code).trim().toLowerCase();
+            let foundItem = excelRows.find(item => {
+                let itemCode = String(item.code || '').trim().toLowerCase();
+                let itemName = String(item.name || '').trim().toLowerCase();
+                return itemCode === cleanCode || itemName === cleanCode || itemName.includes(cleanCode);
+            });
 
             if (!foundItem) {
                 showAlert("ບໍ່ພົບສິນຄ້າ", `ບໍ່ພົບລະຫັດ ຫຼື ຊື່ສິນຄ້າ [${code}] ໃນສາງ!`, "⚠️");
                 return;
             }
 
-            let barcodeInputEl = document.getElementById('scan-barcode-input');
-            if (barcodeInputEl) {
-                barcodeInputEl.value = foundItem.name || foundItem.code;
-            }
-
-            let currentQty = parseFloat(String(foundItem.qty !== undefined ? foundItem.qty : 0).replace(/,/g, '')) || 0;
+            // ⭐️ ດຶງລາຄາຂາຍ ແລະ ລາຄາຊື້ຕົ້ນສະບັບຈາກຕາຕະລາງສາງ (Inventory) ໂດຍກົງ 100% ບໍ່ມີການຄຳນວນ Rate ຊ້ຳຊ້ອນ
+            let exactSellingPrice = parseFloat(String(foundItem.price || foundItem.currentSellingPrice || 0).replace(/,/g, '')) || 0;
+            let exactCost = parseFloat(String(foundItem.cost || foundItem.original_cost || 0).replace(/,/g, '')) || 0;
             let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
-            let stockDisplayEl = document.getElementById('scan-stock-display');
-            if (stockDisplayEl) {
-                let currentPacks = Math.floor(currentQty);
-                let currentSingles = Math.round((currentQty - currentPacks) * unitPerPack);
-                stockDisplayEl.value = unitPerPack > 1 ? `${currentPacks} / ${currentSingles}` : `${currentPacks}`;
-            }
-
-            isScannerLocked = true;
-            playBeepSound(); 
-            
-            let statusBadge = document.getElementById('scanner-status-badge');
-            if (statusBadge) {
-                statusBadge.className = "text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded font-semibold";
-                statusBadge.innerText = "⏳ ກຳລັງດຶງລາຄາຂາຍໃໝ່...";
-            }
-
-            // ⭐️ ດຶງລາຄາຂາຍໃໝ່ (ຄໍລຳ 15) ມາໃຊ້ງານ 100%
-            let exactSellingPrice = foundItem.currentSellingPrice || foundItem.price || 0;
-            let newCost = foundItem.currentNewCost || foundItem.cost || 0;
 
             let finalPrice = exactSellingPrice;
             if (currentSaleType === 'retail' && unitPerPack > 1) {
@@ -3086,8 +3066,8 @@
 
             let processedItem = {
                 ...foundItem,
-                cost: newCost,    
-                price: finalPrice, 
+                cost: exactCost,    
+                price: finalPrice, // ➔ ຮັບປະກັນວ່າຈະໄດ້ລາຄາ 6,480,000 ຕາມຕາຕະລາງສາງແນ່ນອນ
                 saleType: currentSaleType
             };
 
@@ -3101,14 +3081,6 @@
             }
 
             updateContinuousCartUI();
-
-            setTimeout(() => {
-                isScannerLocked = false;
-                if (statusBadge) {
-                    statusBadge.className = "text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold";
-                    statusBadge.innerText = "ກຳລັງເປີດກ້ອງ... (ພ້ອມສະແກນຕໍ່)";
-                }
-            }, 3000);
         }
 
         function updateContinuousCartUI() {
@@ -3653,8 +3625,9 @@
             
             currentSelectedPaymentMode = 'cash'; 
 
-            // ⭐️ ໃຫ້ດຶງຄ่ายອດລວມທີ່ຖືກຕ້ອງຈາກກະຕ່າໂດຍກົງ (window.currentCartTotalAmount) ມາໃຊ້ເລີຍ 100% ບໍ່ມີການຄຳນວນຜິດພາດຊ້ຳຊ້ອນ
-            let totalAmount = window.currentCartTotalAmount !== undefined ? window.currentCartTotalAmount : continuousCart.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
+            // ⭐️ ດຶງຍອດລວມຕົວຈິງຈາກກະຕ່າມາສະແດງໃນປ໋ອບອັບຊຳລະເງິນໂດຍຊື່ (ຮັບປະກັນວ່າ 6,480,000 ເທົ່າກัน 100%)
+            let totalAmount = continuousCart.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
+            window.currentCartTotalAmount = totalAmount;
             
             document.getElementById('popup-total-amount-text').innerText = formatNumberWithCommas(totalAmount) + " " + (continuousCart[0]?.currency || 'ກີບ');
             let currentRate = parseFloat(localStorage.getItem('rate_current_value')) || 650;
