@@ -1861,7 +1861,7 @@
             };
         }
 
-        function initFirebaseRealtime() {
+    function initFirebaseRealtime() {
             if (!db) return;
             try {
                 let userRole = localStorage.getItem('pos_user_role');
@@ -1878,10 +1878,6 @@
                     let batch = db.batch();
                     let hasChanges = false;
 
-                    // ດຶງ Rate ປະຈຸບັນມາຄຳນວນ
-                    let currentBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 689;
-                    let importBuyRate = 650; // Rate ເດີມຕອນນຳເຂົ້າ
-
                     snapshot.forEach((doc) => {
                         let item = doc.data();
                         let docId = doc.id;
@@ -1896,26 +1892,19 @@
                         }
 
                         if (userRole === 'admin' || currentDevId === 'POSXIONG' || rowDevId === currentDevId || (activeShopUser !== '' && rowDevId === activeShopUser)) {
-                            let originalCostVal = parseFloat(String(item.original_cost || item.cost || 0).replace(/,/g, '')) || 0;
+                            // ⭐️ ໃຊ້ຄ່າລາຄາຈາກ item ໂດຍກົງ ບໍ່ຄູນຊ້ຳຊ້ອນ
+                            let originalCostVal = parseFloat(String(item.original_cost || item.originalCost || item.cost || 0).replace(/,/g, '')) || 0;
+                            let priceVal = parseFloat(String(item.price || 0).replace(/,/g, '')) || 0;
                             let profitPct = item.profit_pct !== undefined ? item.profit_pct : (item.profitPct !== undefined ? item.profitPct : 25.00);
-                            
-                            // ຄຳນວນລາຄາຊື້ໃໝ່ ແລະ ລາຄາຂາຍໃໝ່ (ຄໍລຳ 14 ແລະ 15)
-                            let calculatedNewCost = importBuyRate > 0 ? originalCostVal * (currentBuyRate / importBuyRate) : originalCostVal;
-                            let newCost = Math.ceil(calculatedNewCost / 1000) * 1000;
-
-                            let rawNewPrice = newCost * (1 + (parseFloat(profitPct) || 0) / 100);
-                            let newPrice = Math.ceil(rawNewPrice / 1000) * 1000; // ລາຄາຂາຍໃໝ່ (ຄໍລຳ 15)
 
                             tempArr.push({
                                 id: docId,
                                 code: item.code,
                                 name: item.name || '',
-                                cost: newCost,
+                                cost: originalCostVal,
                                 originalCost: originalCostVal,
                                 profitPct: profitPct,
-                                price: newPrice, // ໃຊ້ລາຄາຂາຍໃໝ່ (ຄໍລຳ 15) ໂດຍตรง
-                                currentSellingPrice: newPrice,
-                                currentNewCost: newCost,
+                                price: priceVal, 
                                 qty: item.qty !== undefined ? item.qty : 1,
                                 initial_qty: item.initial_qty !== undefined ? item.initial_qty : (item.qty || 1),
                                 unitPerPack: item.unit_per_pack || 12,
@@ -1923,7 +1912,6 @@
                                 mfgDate: item.mfg_date || '',
                                 expiryDate: item.expiry_date || '',
                                 currency: item.currency || 'ກີບ',
-                                buyingRate: currentBuyRate,
                                 device_id: rowDevId
                             });
                         }
@@ -3057,19 +3045,14 @@
             isScannerLocked = true;
             playBeepSound(); 
             
-            let statusBadge = document.getElementById('scanner-status-badge');
-            if (statusBadge) {
-                statusBadge.className = "text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded font-semibold";
-                statusBadge.innerText = "⏳ ກຳລັງດຶງລາຄາຂາຍໃໝ່...";
-            }
-
-            // ⭐️ ດຶງລາຄາຂາຍໃໝ່ (ຄໍລຳ 15) ມາໃຊ້ງານ 100%
-            let exactSellingPrice = foundItem.currentSellingPrice || foundItem.price || 0;
-            let newCost = foundItem.currentNewCost || foundItem.cost || 0;
+            // ⭐️ ດຶງລາຄາຂາຍໃໝ່ທີ່ຖືກຕ້ອງແທ້ໆ ຈາກຟັງຊັນ Inventory Calculation ມາໃຊ້ 100%
+            let calculatedPrices = getProductCalculatedPrices(foundItem, currentSaleType);
+            let exactSellingPrice = calculatedPrices.newPrice; // ໄດ້ 563,000 ເປັນຕົ້ນ
+            let newCost = calculatedPrices.newCost;
 
             let finalPrice = exactSellingPrice;
             if (currentSaleType === 'retail' && unitPerPack > 1) {
-                finalPrice = Math.ceil((exactSellingPrice / unitPerPack) / 1000) * 1000;
+                finalPrice = calculatedPrices.finalPrice;
             }
 
             let processedItem = {
@@ -3083,6 +3066,7 @@
 
             let existingCartItem = continuousCart.find(i => i.id === processedItem.id && i.saleType === currentSaleType);
             if (existingCartItem) {
+                existingCartItem.price = finalPrice;
                 existingCartItem.qty += addQty;
             } else {
                 continuousCart.push({ ...processedItem, qty: addQty });
@@ -3092,10 +3076,6 @@
 
             setTimeout(() => {
                 isScannerLocked = false;
-                if (statusBadge) {
-                    statusBadge.className = "text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold";
-                    statusBadge.innerText = "ກຳລັງເປີດກ້ອງ... (ພ້ອມສະແກນຕໍ່)";
-                }
             }, 3000);
         }
 
