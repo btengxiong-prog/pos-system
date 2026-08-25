@@ -4153,49 +4153,20 @@ function handleDirectCheckout() {
         function selectInlinePaymentMode(mode, labelElement) {
             currentInlinePaymentMode = mode;
             
-            // 1. ປ່ຽນສີປຸ່ມ Radio ທີ່ຖືກເລືອກ
+            let parentSection = labelElement.closest('.space-y-2');
+            if (parentSection) {
+                parentSection.querySelectorAll('label').forEach(l => {
+                    l.classList.remove('border-blue-600', 'bg-blue-50/50');
+                    l.classList.add('border-gray-200');
+                });
+            }
             if (labelElement) {
-                let parentSection = labelElement.closest('.space-y-2');
-                if (parentSection) {
-                    parentSection.querySelectorAll('label').forEach(l => {
-                        l.classList.remove('border-blue-600', 'bg-blue-50/50');
-                        l.classList.add('border-gray-200');
-                    });
-                }
                 labelElement.classList.remove('border-gray-200');
                 labelElement.classList.add('border-blue-600', 'bg-blue-50/50');
             }
 
-            // 2. ຄຳນວນຍອດເງິນກີບລວມທັງໝົດໃນກະຕ່າ ແບບປອດໄພທີ່ສຸດ (ຕັດເຄື່ອງໝາຍ , ອອກກ່ອນຄຳນວນ)
-            let totalLAK = 0;
-            if (typeof continuousCart !== 'undefined' && continuousCart.length > 0) {
-                for (let i = 0; i < continuousCart.length; i++) {
-                    let item = continuousCart[i];
-                    let price = parseFloat(String(item.price).replace(/,/g, '')) || 0;
-                    let qty = parseFloat(String(item.qty).replace(/,/g, '')) || 0;
-                    totalLAK += (price * qty);
-                }
-            } else if (typeof window.currentCartTotalAmount !== 'undefined') {
-                totalLAK = parseFloat(String(window.currentCartTotalAmount).replace(/,/g, '')) || 0;
-            }
-
-            // 3. ດຶງອັດຕາແລກປ່ຽນ (Rate ຊື້ໃໝ່) ຈາກລະບົບ
-            let rawRate = localStorage.getItem('pos_custom_buy_rate');
-            let buyRateNew = parseFloat(rawRate ? String(rawRate).replace(/,/g, '') : '680') || 680;
-
-            // 4. ອ້າງອີງກ່ອງສະແດງຜົນ (ກ່ອງສີແດງໃນຮູບ 1)
-            let mainAmountBox = document.getElementById('cart-total-amount'); 
-            if (!mainAmountBox) return;
-
-            // 5. ສະແດງຜົນຕາມເງື່ອນໄຂ ກີບ/ບາດ
-            if (mode === 'cash_thb' || mode === 'transfer_thb') {
-                // ເອົາຍອດເງິນກີບ ຫານ Rate ຊື້ໃໝ່ ແລ້ວໃຊ້ Math.ceil ປັດຂຶ້ນສະເໝີ
-                let totalTHB = buyRateNew > 0 ? Math.ceil(totalLAK / buyRateNew) : 0;
-                mainAmountBox.innerText = formatNumberWithCommas(totalTHB) + " ບາດ";
-            } else {
-                // ຖ້າເລືອກຈ່າຍເປັນກີບ ໃຫ້ຮັກສາໄວ້ເປັນກີບຄືເກົ່າ
-                mainAmountBox.innerText = formatNumberWithCommas(totalLAK) + " ກີບ";
-            }
+            // ⭐️ ສັ່ງໃຫ້ກະຕ່າອັບເດດການສະແດງຜົນ (ກີບ/ບາດ) ໃໝ່ທັນທີທີ່ກົດເລືອກ
+            updateContinuousCartUI();
         }
 
         // ⭐️ ເພີ່ມຟັງຊັນຊ່ວຍນີ້ໄວ້ທາງລຸ່ມຕໍ່ກັນໄດ້ເລີຍ
