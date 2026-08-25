@@ -4210,7 +4210,7 @@ function handleDirectCheckout() {
             container.innerHTML = html;
         }
         async function confirmInlineCheckout() {
-            // ⭐️ 1. ຖ້າໃນກະຕ່າ (continuousCart) ຍັງວ่าງ ແຕ່ຜູ້ໃຊ້ພິມຊື່ສິນຄ້າຄ້າງໄວ້ໃນຊ່ອງ input ໃຫ້ດຶງລົງກະຕ່າອັດຕະໂນມັດທันที
+            // ⭐️ 1. ຖ້າໃນກະຕ່າ (continuousCart) ຍັງວ່າງ ແຕ່ຜູ້ໃຊ້ພິມຊື່ສິນຄ້າຄ້າງໄວ້ໃນຊ່ອງ input ໃຫ້ດຶງລົງກະຕ່າອັດຕະໂນມັດທันที
             let barcodeInput = document.getElementById('scan-barcode-input');
             let qtyInput = document.getElementById('scan-qty-input');
 
@@ -4245,7 +4245,7 @@ function handleDirectCheckout() {
                 }
             }
 
-            // 2. ຖ້າກວດສອບແລ້ວ ຍังບໍ່ມີສິນຄ້າແທ້ໆ ໃຫ້ອອກຈາກຟັງຊັນ (ແຕ່ປັບຂໍ້ຄວາມໃຫ້ເໝາະສົມ)
+            // 2. ຖ້າກວດສອບແລ້ວ ຍັງບໍ່ມີສິນຄ້າແທ້ໆ ໃຫ້ອອກຈາກຟັງຊັນ
             if (!continuousCart || continuousCart.length === 0) {
                 showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກ ຫຼື ພິມຊື່ສິນຄ້າໃສ່ກະຕ່າກ່ອນຊຳລະເງິນ!", "⚠️");
                 return;
@@ -4261,16 +4261,28 @@ function handleDirectCheckout() {
             else if (paymentMode === 'transfer_lak') paymentModeText = "ເງິນໂອນ (ບັນຊີກີບ)";
             else if (paymentMode === 'transfer_thb') paymentModeText = "ເງິນໂອນ (ບັນຊີບາດ)";
 
-            // 3. ລ้างກະຕ່າ ແລະ ຣີເຊັດຊ່ອງປ້ອນຂໍ້ມູນ
+            // ⭐️ ແກ້ໄຂ: ຄິດໄລ່ຍອດເງິນສະແດງຜົນສຳລັບປ໋ອບອັບ (ປ່ຽນເປັນບາດ ຖ້າເລືອກຈ່າຍບາດ)
+            let displayTotalAmount = totalAmount;
+            let displayCurrency = currencyStr;
+            let isTHB = (paymentMode === 'cash_thb' || paymentMode === 'transfer_thb');
+            
+            if (isTHB) {
+                let buyRateNew = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 680;
+                if (buyRateNew <= 0) buyRateNew = 680;
+                displayTotalAmount = Math.ceil(totalAmount / buyRateNew);
+                displayCurrency = 'ບາດ';
+            }
+
+            // 3. ລ້າງກະຕ່າ ແລະ ຣີເຊັດຊ່ອງປ້ອນຂໍ້ມູນ
             continuousCart = [];
             updateContinuousCartUI();
             if (barcodeInput) barcodeInput.value = "";
             if (qtyInput) qtyInput.value = "";
 
-            // 4. ⭐️ ສະແດງປ໊ອບອັບ "ສຳເລັດການຊຳລະເງິນ" ທີ່ສວຍງາມ ແລະ ໂດດເດັ່ນ
+            // 4. ⭐️ ສະແດງປ໊ອບອັບ "ສຳເລັດການຊຳລະເງິນ" ທີ່ແກ້ໄຂໃຫ້ສະແດງຄ່າເງິນບາດຢ່າງຖືກຕ້ອງ
             showAlert(
                 "✨ ສຳເລັດການຊຳລະເງິນ! ✨", 
-                `ທຳລາຍການຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ!\nລວມຍອດ: ${formatNumberWithCommas(totalAmount)} ${currencyStr}\nວິທີຊຳລະ: ${paymentModeText}`, 
+                `ທຳລາຍການຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ!\nລວມຍອດ: ${formatNumberWithCommas(displayTotalAmount)} ${displayCurrency}\nວິທີຊຳລະ: ${paymentModeText}`, 
                 "✅"
             );
 
@@ -4290,7 +4302,7 @@ function handleDirectCheckout() {
                             price: parseFloat(it.price) || 0,
                             qty: parseInt(it.qty) || 1
                         })),
-                        currency: currencyStr,
+                        currency: currencyStr, // ຍັງຄົງບັນທຶກເງິນກີບເປັນຫຼັກ ເພື່ອບໍ່ໃຫ້ປະຫວັດຜິດພາດ
                         pay_mode: paymentMode,
                         total_amount: totalAmount,
                         created_at: new Date().toISOString()
