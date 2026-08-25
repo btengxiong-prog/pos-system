@@ -4113,16 +4113,44 @@
         }
 
         async function confirmInlineCheckout() {
-            // 1. ตรวจสอบว่ามีสินค้าในตะกร้าจริงหรือไม่
-            if (!continuousCart || continuousCart.length === 0) {
-                let barcodeInput = document.getElementById('scan-barcode-input');
-                if (barcodeInput && barcodeInput.value.trim() !== "") {
-                    await handleDirectCheckout();
+            // ⭐️ 1. ຖ້າໃນກະຕ່າ (continuousCart) ຍັງວ่าງ ແຕ່ຜູ້ໃຊ້ພິມຊື່ສິນຄ້າຄ້າງໄວ້ໃນຊ່ອງ input ໃຫ້ດຶງລົງກະຕ່າອັດຕະໂນມັດທันที
+            let barcodeInput = document.getElementById('scan-barcode-input');
+            let qtyInput = document.getElementById('scan-qty-input');
+
+            if ((!continuousCart || continuousCart.length === 0) && barcodeInput && barcodeInput.value.trim() !== "") {
+                let code = barcodeInput.value.trim();
+                let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
+                let customQty = (rawQtyText === "" || isNaN(rawQtyText) || parseFloat(rawQtyText) <= 0) ? 1 : parseFloat(rawQtyText);
+                
+                let foundItem = excelRows.find(item => 
+                    String(item.code).trim().toLowerCase() === code.toLowerCase() || 
+                    (item.name && item.name.trim().toLowerCase() === code.toLowerCase())
+                );
+
+                if (foundItem) {
+                    let exactSellingPrice = parseFloat(String(foundItem.currentSellingPrice || foundItem.price || 0).replace(/,/g, '')) || 0;
+                    let exactCost = parseFloat(String(foundItem.currentNewCost || foundItem.cost || 0).replace(/,/g, '')) || 0;
+                    let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
+
+                    let finalPrice = exactSellingPrice;
+                    if (currentSaleType === 'retail' && unitPerPack > 1) {
+                        finalPrice = Math.ceil((exactSellingPrice / unitPerPack) / 1000) * 1000;
+                    }
+
+                    continuousCart.push({
+                        ...foundItem,
+                        cost: exactCost,    
+                        price: finalPrice, 
+                        qty: customQty,
+                        saleType: currentSaleType
+                    });
+                    updateContinuousCartUI();
                 }
             }
 
+            // 2. ຖ້າກວດສອບແລ້ວ ຍังບໍ່ມີສິນຄ້າແທ້ໆ ໃຫ້ອອກຈາກຟັງຊັນ (ແຕ່ປັບຂໍ້ຄວາມໃຫ້ເໝາະສົມ)
             if (!continuousCart || continuousCart.length === 0) {
-                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາສະແກນສິນຄ້າໃສ່ກະຕ່າກ່ອນຊຳລະເງິນ!", "⚠️");
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເລືອກ ຫຼື ພິມຊື່ສິນຄ້າໃສ່ກະຕ່າກ່ອນຊຳລະເງິນ!", "⚠️");
                 return;
             }
 
@@ -4131,30 +4159,25 @@
             let paymentMode = currentInlinePaymentMode || 'cash';
             let currencyStr = itemsToSave[0]?.currency || 'ກີບ';
 
-            // แปลงชื่อวิธีชำระเงินให้แสดงผลสวยงามเข้าใจง่าย
             let paymentModeText = "ເງິນສົດ (ກີບ)";
             if (paymentMode === 'cash_thb') paymentModeText = "ເງິນສົດ (ບາດ)";
             else if (paymentMode === 'transfer_lak') paymentModeText = "ເງິນໂອນ (ບັນຊີກີບ)";
             else if (paymentMode === 'transfer_thb') paymentModeText = "ເງິນໂອນ (ບັນຊີບາດ)";
 
-            // 2. ล้างตะกร้าและรีเซ็ตหน้าจอทันที
+            // 3. ລ้างກະຕ່າ ແລະ ຣີເຊັດຊ່ອງປ້ອນຂໍ້ມູນ
             continuousCart = [];
             updateContinuousCartUI();
-            if (document.getElementById('scan-barcode-input')) {
-                document.getElementById('scan-barcode-input').value = "";
-            }
-            if (document.getElementById('scan-qty-input')) {
-                document.getElementById('scan-qty-input').value = "";
-            }
+            if (barcodeInput) barcodeInput.value = "";
+            if (qtyInput) qtyInput.value = "";
 
-            // 3. ⭐️ แสดงป๊ອບอัพแจ้งเตือนความสำเร็จที่โดดเด่นและชัดเจนตามที่คุณต้องการ
+            // 4. ⭐️ ສະແດງປ໊ອບອັບ "ສຳເລັດການຊຳລະເງິນ" ທີ່ສວຍງາມ ແລະ ໂດດເດັ່ນ
             showAlert(
                 "✨ ສຳເລັດການຊຳລະເງິນ! ✨", 
                 `ทำรายการชำระเงินสำเร็จเรียบร้อย!\nยอดรวม: ${formatNumberWithCommas(totalAmount)} ${currencyStr}\nวิธีชำระ: ${paymentModeText}`, 
                 "✅"
             );
 
-            // 4. บันทึกประวัติและตัดสต็อกสินค้าในเบื้องหลัง (Background Sync)
+            // 5. ບັນທຶກປະຫວັດ ແລະ ຕັດ Stock ໃນ Background Batch
             if (db) {
                 try {
                     let batch = db.batch();
