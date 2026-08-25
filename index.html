@@ -3062,7 +3062,7 @@
 
             let cleanCode = String(code).trim().toLowerCase();
             
-            // 1. ໃຊ້ວິທີ INDEX / LOOKUP (ຊອກຫາ row ຈາກ excelRows ທີ່ເປັນຕາຕະລາງ Inventory ຫຼ້າສຸດ)
+            // 1. ໃຊ້ວິທີ LOOKUP ຫາສິນຄ້າຈາກ excelRows 
             let foundItem = excelRows.find(item => {
                 let itemCode = String(item.code || '').trim().toLowerCase();
                 let itemName = String(item.name || '').trim().toLowerCase();
@@ -3074,16 +3074,17 @@
                 return;
             }
 
-            // 2. ⭐️ ດຶງຄ່າໂດຍກົງ (VLOOKUP / INDEX ຈາກຕາຕະລາງ Inventory ໂດຍກົງ 100%)
-            // ໂດຍດຶງເອົາລາຄາຂາຍ (ໃໝ່) ທີ່ຖືກຄຳນວນ ແລະ ສະແດງໃນຕາຕະລາງ Inventory ແລ້ວມາໃຊ້ໂດຍກົງ 
-            // (ປ້ອງກັນການຄຳນວນຊ້ຳຊ້ອນ ແລະ ບໍ່ໃຫ້ອອກມາເປັນ 6,830,000 ເດັດຂາດ)
-            let exactSellingPrice = parseFloat(String(foundItem.currentSellingPrice || foundItem.price || 0).replace(/,/g, '')) || 0;
-            let exactCost = parseFloat(String(foundItem.cost || 0).replace(/,/g, '')) || 0;
-            let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
+            // 2. ⭐️ ບັງຄັບໃຊ້ຟັງຊັນ getProductCalculatedPrices() ທີ່ໃຊ້ໃນຕາຕະລາງ Inventory ໂດຍກົງ 
+            // ຮັບປະກັນວ່າ ໄດ້ຜົນລັບອອກມາ "ຊັດເຈນ ແລະ ຕົກຕາມຕາຕະລາງ Inventory 100%" ແນ່ນອນ
+            let calc = getProductCalculatedPrices(foundItem, currentSaleType);
+            
+            let exactSellingPrice = calc.newPrice; // ➔ ດຶງລາຄາຂາຍ (ໃໝ່) ທີ່ອອກມາຕາມ Rate ຫຼ້າສຸດໃນ Inventory ເປະ
+            let exactCost = calc.newCost;
+            let unitPerPack = calc.unitPerPack;
 
             let finalPrice = exactSellingPrice;
             
-            // 3. ຖ້າເປັນໂໝດຂາຍຍ່ອຍ ให้นຳລາຄາຂາຍທີ່ດຶງມານັ້ນມາຫານດ້ວຍ unitPerPack ຕົວຈິງ
+            // 3. ຖ້າເປັນໂໝດຂາຍຍ່ອຍ ให้นຳລາຄາຂາຍນັ້ນມາຫານດ້ວຍ unitPerPack ຕົວຈິງ
             if (currentSaleType === 'retail' && unitPerPack > 1) {
                 let retailRawPrice = exactSellingPrice / unitPerPack;
                 finalPrice = Math.ceil(retailRawPrice / 1000) * 1000;
@@ -3092,7 +3093,7 @@
             let processedItem = {
                 ...foundItem,
                 cost: exactCost,    
-                price: finalPrice, // ➔ ດຶງຄ່າຕົ້ນທາງຈາກ Inventory ມາໃຊ້ໂດຍກົງ ບາດດຽວຈົບ!
+                price: finalPrice, // ➔ ເອົາຄ່າທີ່ຄຳນວນຖືກຕ້ອງຕາມຕາຕະລາງ Inventory ມາໃສ່ກະຕ່າ
                 saleType: currentSaleType
             };
 
