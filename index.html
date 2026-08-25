@@ -3039,9 +3039,33 @@ function initFirebaseRealtime() {
         }
 
         function handleScanBarcodeInputChange(input) {
-            updateStockDisplayOnQtyChange();
-            updateCartItemPreview();
-        }
+                updateStockDisplayOnQtyChange();
+                updateCartItemPreview();
+
+                // ⭐️ ເພີ່ມໂຄດສ່ວນນີ້: ກວດສອບທັນທີເມື່ອມີການພິມ ຫຼື ເລືອກຈາກ Dropdown
+                let val = input.value ? input.value.trim().toLowerCase() : "";
+                if (val !== "") {
+                    let exactMatches = excelRows.filter(item => {
+                        let itemCode = String(item.code || '').trim().toLowerCase();
+                        let itemName = String(item.name || '').trim().toLowerCase();
+                        return itemCode === val || itemName === val;
+                    });
+
+                    // ຖ້າພົບສິນຄ້າທີ່ຊື່ກົງກັນເປະ ແລະ ມີຫຼາຍກວ່າ 1 ລາຍການ (ຫຼາຍລາຄາ)
+                    if (exactMatches.length > 1) {
+                        let modal = document.getElementById('select-price-modal');
+                        // ກວດສອບວ່າປ໊ອບອັບປິດຢູ່ ຈຶ່ງສັ່ງໃຫ້ເປີດ (ປ້ອງກັນການເດັ້ງຊ້ຳຊ້ອນກັນ)
+                        if (modal && modal.classList.contains('hidden')) {
+                            let qtyInput = document.getElementById('scan-qty-input');
+                            let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
+                            let customQty = (rawQtyText === "" || isNaN(rawQtyText) || parseFloat(rawQtyText) <= 0) ? 1 : parseFloat(rawQtyText);
+                            
+                            // ສັ່ງເປີດປ໊ອບອັບເລືອກລາຄາຂຶ້ນມາທັນທີ!
+                            openSelectPriceModal(exactMatches, customQty, input.value.trim());
+                        }
+                    }
+                }
+            }
 
         document.addEventListener("DOMContentLoaded", () => {
             let barcodeInput = document.getElementById('scan-barcode-input');
