@@ -4146,8 +4146,74 @@ function handleDirectCheckout() {
                 labelElement.classList.remove('border-gray-200');
                 labelElement.classList.add('border-blue-600', 'bg-blue-50/50');
             }
+
+            // ⭐️ คำนวณและแสดงผลยอดเงินตามสกุลเงินที่เลือก (กีบ / บาท)
+            let totalAmountLAK = window.currentCartTotalAmount !== undefined && window.currentCartTotalAmount > 0 
+                ? window.currentCartTotalAmount 
+                : continuousCart.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
+
+            // ดึงค่า Rate ซื้อ (ใหม่) จากตารางสินค้าใน continuousCart หรือ localStorage
+            let buyRateNew = 650; // ค่าเริ่มต้นสำรอง
+            if (continuousCart.length > 0 && continuousCart[0].id) {
+                // ค้นหา Rate ซื้อใหม่จากข้อมูลสินค้าใน excelRows ที่ตรงกัน
+                let matchedProd = excelRows.find(r => r.id === continuousCart[0].id);
+                if (matchedProd && matchedProd.currentNewCost && matchedProd.cost) {
+                    // หรือดึง Rate จากค่าปัจจุบันที่ระบบบันทึกไว้
+                    buyRateNew = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 680;
+                } else {
+                    buyRateNew = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 680;
+                }
+            } else {
+                buyRateNew = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 680;
+            }
+
+            // อ้างอิงกล่องแสดงผลในกรอบสีแดง (รูปที่ 1)
+            let mainAmountBox = document.getElementById('cart-total-amount'); // ตัวบนในกรอบสีแดง
+            let subAmountBox = document.querySelector('#continuous-cart-section .text-green-600'); // หรือจุดแสดงผลย่อย
+
+            if (mode === 'cash_thb' || mode === 'transfer_thb') {
+                // กรณีเลือกเงินบาท: นำยอดกีบหารด้วย Rate ซื้อใหม่ (จากกล่องสีแดง รูปที่ 2)
+                let totalAmountTHB = buyRateNew > 0 ? Math.round(totalAmountLAK / buyRateNew) : 0;
+                
+                if (mainAmountBox) mainAmountBox.innerText = formatNumberWithCommas(totalAmountTHB) + " ບາດ";
+                
+                // อัปเดตแสดงผลย่อยในรายการกระเช้าถ้ามี
+                updateCartItemPreviewForCurrency('THB', buyRateNew);
+            } else {
+                // กรณีเลือกเงินกีบ (ค่าปกติ)
+                if (mainAmountBox) mainAmountBox.innerText = formatNumberWithCommas(totalAmountLAK) + " " + (continuousCart[0]?.currency || 'ກີບ');
+                updateCartItemPreviewForCurrency('LAK', 1);
+            }
         }
 
+        // ⭐️ ເພີ່ມຟັງຊັນຊ່ວຍນີ້ໄວ້ທາງລຸ່ມຕໍ່ກັນໄດ້ເລີຍ
+        function updateCartItemPreviewForCurrency(currencyType, rate) {
+            let container = document.getElementById('continuous-cart-items-list');
+            if (!container || continuousCart.length === 0) return;
+
+            let html = '';
+            continuousCart.forEach((item, idx) => {
+                let baseTotal = Number(item.price) * Number(item.qty);
+                let displayPrice = currencyType === 'THB' ? Math.round((Number(item.price) / rate)) : Number(item.price);
+                let displayTotal = currencyType === 'THB' ? Math.round((baseTotal / rate)) : baseTotal;
+                let currLabel = currencyType === 'THB' ? 'ບາດ' : 'ກີບ';
+                let saleModeLabel = item.saleType === 'retail' ? '(ຂາຍຍ່ອຍ)' : '(ຂາຍສົ່ງ)';
+
+                html += `
+                    <div class="flex justify-between items-center bg-white p-2 rounded-lg border shadow-sm">
+                        <div class="truncate max-w-[140px]">
+                            <span class="font-bold text-gray-800">${item.name || item.code}</span>
+                            <div class="text-[10px] text-gray-500">${formatNumberWithCommas(displayPrice)} ${currLabel} x ${item.qty} ${saleModeLabel}</div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-green-600">${formatNumberWithCommas(displayTotal)} ${currLabel}</span>
+                            <button onclick="removeContinuousCartItem(${idx})" class="text-red-500 hover:text-red-700 font-bold px-1">✕</button>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
         async function confirmInlineCheckout() {
             // ⭐️ 1. ຖ້າໃນກະຕ່າ (continuousCart) ຍັງວ่าງ ແຕ່ຜູ້ໃຊ້ພິມຊື່ສິນຄ້າຄ້າງໄວ້ໃນຊ່ອງ input ໃຫ້ດຶງລົງກະຕ່າອັດຕະໂນມັດທันที
             let barcodeInput = document.getElementById('scan-barcode-input');
