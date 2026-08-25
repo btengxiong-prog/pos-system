@@ -4147,41 +4147,38 @@ function handleDirectCheckout() {
                 labelElement.classList.add('border-blue-600', 'bg-blue-50/50');
             }
 
-            // ⭐️ คำนวณและแสดงผลยอดเงินตามสกุลเงินที่เลือก (กีบ / บาท)
-            let totalAmountLAK = window.currentCartTotalAmount !== undefined && window.currentCartTotalAmount > 0 
-                ? window.currentCartTotalAmount 
-                : continuousCart.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
-
-            // ดึงค่า Rate ซื้อ (ใหม่) จากตารางสินค้าใน continuousCart หรือ localStorage
-            let buyRateNew = 650; // ค่าเริ่มต้นสำรอง
-            if (continuousCart.length > 0 && continuousCart[0].id) {
-                // ค้นหา Rate ซื้อใหม่จากข้อมูลสินค้าใน excelRows ที่ตรงกัน
-                let matchedProd = excelRows.find(r => r.id === continuousCart[0].id);
-                if (matchedProd && matchedProd.currentNewCost && matchedProd.cost) {
-                    // หรือดึง Rate จากค่าปัจจุบันที่ระบบบันทึกไว้
-                    buyRateNew = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 680;
-                } else {
-                    buyRateNew = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 680;
-                }
-            } else {
-                buyRateNew = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 680;
+            // ⭐️ 1. ดึงยอดเงินกีบรวมทั้งหมดในตะกร้าให้ถูกต้องแน่นอน
+            let totalAmountLAK = 0;
+            if (window.currentCartTotalAmount !== undefined && window.currentCartTotalAmount > 0) {
+                totalAmountLAK = window.currentCartTotalAmount;
+            } else if (continuousCart.length > 0) {
+                totalAmountLAK = continuousCart.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
             }
 
             // อ้างอิงกล่องแสดงผลในกรอบสีแดง (รูปที่ 1)
-            let mainAmountBox = document.getElementById('cart-total-amount'); // ตัวบนในกรอบสีแดง
-            let subAmountBox = document.querySelector('#continuous-cart-section .text-green-600'); // หรือจุดแสดงผลย่อย
+            let mainAmountBox = document.getElementById('cart-total-amount'); 
 
+            // ⭐️ 2. ตรวจสอบเงื่อนไข: ถ้าเลือกจ่ายเป็นบาท (สด หรือ โอน)
             if (mode === 'cash_thb' || mode === 'transfer_thb') {
-                // กรณีเลือกเงินบาท: นำยอดกีบหารด้วย Rate ซื้อใหม่ (จากกล่องสีแดง รูปที่ 2)
-                let totalAmountTHB = buyRateNew > 0 ? Math.round(totalAmountLAK / buyRateNew) : 0;
+                // ดึงค่า Rate ซื้อ (ใหม่) จากตารางสินค้าหรือ localStorage
+                let buyRateNew = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 680;
                 
-                if (mainAmountBox) mainAmountBox.innerText = formatNumberWithCommas(totalAmountTHB) + " ບາດ";
+                // คำนวณ: ยอดกีบทั้งหมด หารด้วย Rate ซื้อใหม่ และ "ปัดขึ้นเสมอ" ตามตัวอย่าง
+                let totalAmountTHB = buyRateNew > 0 ? Math.ceil(totalAmountLAK / buyRateNew) : 0;
                 
-                // อัปเดตแสดงผลย่อยในรายการกระเช้าถ้ามี
+                if (mainAmountBox) {
+                    mainAmountBox.innerText = formatNumberWithCommas(totalAmountTHB) + " ບາດ";
+                }
+                
+                // อัปเดตแสดงผลย่อยในรายการกระเช้าเป็นเงินบาท
                 updateCartItemPreviewForCurrency('THB', buyRateNew);
             } else {
-                // กรณีเลือกเงินกีบ (ค่าปกติ)
-                if (mainAmountBox) mainAmountBox.innerText = formatNumberWithCommas(totalAmountLAK) + " " + (continuousCart[0]?.currency || 'ກີບ');
+                // ⭐️ 3. ถ้าจ่ายเป็นกีบ (สด หรือ โอน) รักษาเป็นเงินกีบตามเดิม
+                if (mainAmountBox) {
+                    mainAmountBox.innerText = formatNumberWithCommas(totalAmountLAK) + " " + (continuousCart[0]?.currency || 'ກີບ');
+                }
+                
+                // อัปเดตแสดงผลย่อยในรายการกระเช้าเป็นเงินกีบ
                 updateCartItemPreviewForCurrency('LAK', 1);
             }
         }
