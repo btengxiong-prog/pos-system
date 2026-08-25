@@ -3058,56 +3058,317 @@
         }
 
         async function handleSalesBarcodeScanned(code, inputQty = null) {
-            if (isScannerLocked) return; 
+            if (isScannerLocked) return;
 
-            let cleanCode = String(code).trim().toLowerCase();
-            
-            // 1. ໃຊ້ວິທີ LOOKUP ຫາສິນຄ້າຈາກ excelRows 
-            let foundItem = excelRows.find(item => {
-                let itemCode = String(item.code || '').trim().toLowerCase();
-                let itemName = String(item.name || '').trim().toLowerCase();
-                return itemCode === cleanCode || itemName === cleanCode || itemName.includes(cleanCode);
-            });
+            // =========================================================
+            // 1. ທຳຄວາມສະອາດ Barcode
+            // =========================================================
+            const cleanCode = String(code ?? '')
+                .trim()
+                .toLowerCase();
 
-            if (!foundItem) {
-                showAlert("ບໍ່ພົບສິນຄ້າ", `ບໍ່ພົບລະຫັດ ຫຼື ຊື່ສິນຄ້າ [${code}] ໃນສາງ!`, "⚠️");
+            if (!cleanCode) {
+                showAlert(
+                    "Barcode ບໍ່ຖືກຕ້ອງ",
+                    "ບໍ່ມີລະຫັດ Barcode!",
+                    "⚠️"
+                );
                 return;
             }
 
-            // 2. ⭐️ ບັງຄັບໃຊ້ຟັງຊັນ getProductCalculatedPrices() ທີ່ໃຊ້ໃນຕາຕະລາງ Inventory ໂດຍກົງ 
-            // ຮັບປະກັນວ່າ ໄດ້ຜົນລັບອອກມາ "ຊັດເຈນ ແລະ ຕົກຕາມຕາຕະລາງ Inventory 100%" ແນ່ນອນ
-            let calc = getProductCalculatedPrices(foundItem, currentSaleType);
-            
-            let exactSellingPrice = calc.newPrice; // ➔ ດຶງລາຄາຂາຍ (ໃໝ່) ທີ່ອອກມາຕາມ Rate ຫຼ້າສຸດໃນ Inventory ເປະ
-            let exactCost = calc.newCost;
-            let unitPerPack = calc.unitPerPack;
+            // =========================================================
+            // 2. LOOKUP ຫາສິນຄ້າໃນ excelRows
+            //
+            // ໃຫ້ຄົ້ນຫາ Barcode ແບບ EXACT MATCH ກ່ອນ
+            // ເຫມືອນ Excel:
+            //
+            // MATCH(Barcode, $C$4:$C$..., 0)
+            // =========================================================
+            let foundItem = excelRows.find(item => {
+                const itemCode = String(
+                    item?.code ??
+                    item?.barcode ??
+                    item?.Barcode ??
+                    ''
+                )
+                    .trim()
+                    .toLowerCase();
 
-            let finalPrice = exactSellingPrice;
-            
-            // 3. ຖ້າເປັນໂໝດຂາຍຍ່ອຍ ให้นຳລາຄາຂາຍນັ້ນມາຫານດ້ວຍ unitPerPack ຕົວຈິງ
-            if (currentSaleType === 'retail' && unitPerPack > 1) {
-                let retailRawPrice = exactSellingPrice / unitPerPack;
-                finalPrice = Math.ceil(retailRawPrice / 1000) * 1000;
+                return itemCode === cleanCode;
+            });
+
+            // =========================================================
+            // 3. ຖ້າ Barcode ບໍ່ພົບ
+            // =========================================================
+            if (!foundItem) {
+                showAlert(
+                    "ບໍ່ພົບສິນຄ້າ",
+                    `ບໍ່ພົບ Barcode [${code}] ໃນສາງ!`,
+                    "⚠️"
+                );
+                return;
             }
 
-            let processedItem = {
-                ...foundItem,
-                cost: exactCost,    
-                price: finalPrice, // ➔ ເອົາຄ່າທີ່ຄຳນວນຖືກຕ້ອງຕາມຕາຕະລາງ Inventory ມາໃສ່ກະຕ່າ
-                saleType: currentSaleType
+            // =========================================================
+            // 4. ຟັງຊັນຊ່ວຍປ່ຽນຄ່າເປັນຕົວເລກ
+            //
+            // ຮອງຮັບ:
+            // "6,529,000"
+            // "6529000"
+            // 6529000
+            // =========================================================
+            const toNumber = (value) => {
+                if (value === null || value === undefined || value === '') {
+                    return 0;
+                }
+
+                const number = parseFloat(
+                    String(value)
+                        .replace(/,/g, '')
+                        .replace(/\s/g, '')
+                );
+
+                return Number.isFinite(number) ? number : 0;
             };
 
-            let addQty = (inputQty !== null && !isNaN(inputQty) && inputQty > 0) ? inputQty : 1;
+            // =========================================================
+            // 5. ດຶງຄ່າ COLUMN O
+            //
+            // Column O = Column ທີ 15
+            // ໃນ Array index = 14
+            //
+            // ຈຸດນີ້ສຳຄັນ:
+            // ບໍ່ໃຫ້ getProductCalculatedPrices()
+            // ມາຄຳນວນທັບຄ່າ Column O.
+            // =========================================================
+            let columnOValue = 0;
 
-            // 4. ເພີ່ມລົງກະຕ່າຂາຍ
-            let existingCartItem = continuousCart.find(i => i.id === processedItem.id && i.saleType === currentSaleType);
-            if (existingCartItem) {
-                existingCartItem.price = finalPrice; 
-                existingCartItem.qty += addQty;
-            } else {
-                continuousCart.push({ ...processedItem, qty: addQty });
+            // ---------------------------------------------------------
+            // 5.1 ກໍລະນີ excelRows ເປັນ Array
+            // Column O = index 14
+            // ---------------------------------------------------------
+            if (Array.isArray(foundItem)) {
+                columnOValue = toNumber(foundItem[14]);
             }
 
+            // ---------------------------------------------------------
+            // 5.2 ກໍລະນີ excelRows ເປັນ Object
+            //
+            // ລອງຊອກຫາ property ທີ່ເປັນ Column O
+            // ---------------------------------------------------------
+            if (columnOValue === 0 && foundItem && !Array.isArray(foundItem)) {
+
+                const possibleColumnOKeys = [
+                    // ຊື່ທີ່ອາດໃຊ້ໃນລະບົບ
+                    'O',
+                    'o',
+                    'columnO',
+                    'column15',
+                    'colO',
+                    'col15',
+
+                    // ຊື່ທີ່ອາດໃຊ້ໃນ JavaScript
+                    'newSellingPrice',
+                    'sellingPriceNew',
+                    'newSalePrice',
+                    'salePriceNew',
+                    'newPrice',
+
+                    // ຊື່ທີ່ອາດໃຊ້ໃນ Excel import
+                    'ລາຄາ/ໜ່ວຍ (ໃໝ່) ຂາຍ',
+                    'ລາຄາ/ໜ່ວຍ(ໃໝ່) ຂາຍ',
+                    'ລາຄາໜ່ວຍ (ໃໝ່) ຂາຍ',
+                    'ລາຄາໜ່ວຍ(ໃໝ່) ຂາຍ',
+                    'ລາຄາຂາຍ (ໃໝ່)',
+                    'ລາຄາຂາຍໃໝ່'
+                ];
+
+                for (const key of possibleColumnOKeys) {
+                    if (
+                        Object.prototype.hasOwnProperty.call(foundItem, key) &&
+                        foundItem[key] !== null &&
+                        foundItem[key] !== undefined &&
+                        foundItem[key] !== ''
+                    ) {
+                        columnOValue = toNumber(foundItem[key]);
+
+                        if (columnOValue > 0) {
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // =========================================================
+            // 6. ຖ້າຍັງບໍ່ພົບ Column O
+            //
+            // ບໍ່ໃຫ້ເອົາລາຄາອື່ນມາໃຊ້ແທນແບບງຽບໆ
+            // ເພາະຈະເຮັດໃຫ້ລາຄາຂາຍຜິດ.
+            // =========================================================
+            if (columnOValue <= 0) {
+
+                console.error(
+                    '❌ ບໍ່ພົບຄ່າ Column O ຂອງສິນຄ້າ:',
+                    foundItem
+                );
+
+                showAlert(
+                    "ບໍ່ພົບລາຄາຂາຍ",
+                    `ພົບ Barcode [${code}] ແລ້ວ ແຕ່ບໍ່ພົບຄ່າລາຄາຂາຍໃນ Column O!`,
+                    "⚠️"
+                );
+
+                return;
+            }
+
+            // =========================================================
+            // 7. ໃຊ້ Column O ເປັນລາຄາຂາຍໂດຍກົງ
+            //
+            // ຕົວຢ່າງ:
+            //
+            // Column O = 6,529,000
+            //
+            // finalPrice = 6,529,000
+            //
+            // ບໍ່ໃຫ້ Rate ອື່ນມາຄຳນວນທັບ.
+            // =========================================================
+            const exactSellingPrice = columnOValue;
+
+            // =========================================================
+            // 8. ລາຄາທຶນ
+            //
+            // ສ່ວນນີ້ຍັງໃຊ້ getProductCalculatedPrices()
+            // ໄດ້ ແຕ່ບໍ່ໃຫ້ເອົາ calc.newPrice ມາໃຊ້.
+            // =========================================================
+            let exactCost = 0;
+            let unitPerPack = 1;
+
+            try {
+                const calc = getProductCalculatedPrices(
+                    foundItem,
+                    currentSaleType
+                );
+
+                if (calc) {
+                    exactCost = toNumber(
+                        calc.newCost ??
+                        calc.cost ??
+                        0
+                    );
+
+                    unitPerPack = parseInt(
+                        calc.unitPerPack ??
+                        foundItem.unitPerPack ??
+                        foundItem.unit_per_pack ??
+                        1,
+                        10
+                    ) || 1;
+                }
+            } catch (error) {
+
+                console.warn(
+                    '⚠️ getProductCalculatedPrices() ມີບັນຫາ:',
+                    error
+                );
+
+                // ຖ້າຟັງຊັນຄຳນວນບໍ່ສຳເລັດ
+                // ຢ່າໃຫ້ລາຄາຂາຍ Column O ເສຍ
+                exactCost = toNumber(
+                    foundItem.currentNewCost ??
+                    foundItem.cost ??
+                    0
+                );
+
+                unitPerPack = parseInt(
+                    foundItem.unitPerPack ??
+                    foundItem.unit_per_pack ??
+                    1,
+                    10
+                ) || 1;
+            }
+
+            // =========================================================
+            // 9. ລາຄາສຸດທ້າຍ
+            //
+            // ⭐️ ສຳຄັນ:
+            // ໃຊ້ Column O ໂດຍກົງ
+            //
+            // ບໍ່ຫານ unitPerPack
+            // ບໍ່ Math.ceil()
+            // ບໍ່ຄຳນວນ Rate ໃໝ່
+            // =========================================================
+            const finalPrice = exactSellingPrice;
+
+            // =========================================================
+            // 10. ສ້າງສິນຄ້າສຳລັບກະຕ່າ
+            // =========================================================
+            const processedItem = {
+                ...foundItem,
+
+                // ລາຄາທຶນ
+                cost: exactCost,
+
+                // ⭐️ ລາຄາຂາຍ = Column O
+                price: finalPrice,
+
+                // ປະເພດການຂາຍ
+                saleType: currentSaleType,
+
+                // ເກັບໄວ້ໃຫ້ກວດສອບໄດ້
+                columnOPrice: exactSellingPrice,
+
+                // ຈຳນວນຕໍ່ແພັກ
+                unitPerPack: unitPerPack
+            };
+
+            // =========================================================
+            // 11. ຈຳນວນທີ່ຈະເພີ່ມ
+            // =========================================================
+            const addQty =
+                (
+                    inputQty !== null &&
+                    inputQty !== undefined &&
+                    !isNaN(inputQty) &&
+                    Number(inputQty) > 0
+                )
+                    ? Number(inputQty)
+                    : 1;
+
+            // =========================================================
+            // 12. ກວດວ່າສິນຄ້າມີຢູ່ໃນກະຕ່າແລ້ວບໍ່
+            // =========================================================
+            const existingCartItem = continuousCart.find(
+                item =>
+                    item.id === processedItem.id &&
+                    item.saleType === currentSaleType
+            );
+
+            if (existingCartItem) {
+
+                // ອັບເດດລາຄາໃຫ້ເປັນ Column O ລ່າສຸດ
+                existingCartItem.price = finalPrice;
+
+                existingCartItem.columnOPrice = exactSellingPrice;
+
+                existingCartItem.cost = exactCost;
+
+                existingCartItem.unitPerPack = unitPerPack;
+
+                // ເພີ່ມຈຳນວນ
+                existingCartItem.qty += addQty;
+
+            } else {
+
+                // ສິນຄ້າໃໝ່
+                continuousCart.push({
+                    ...processedItem,
+                    qty: addQty
+                });
+            }
+
+            // =========================================================
+            // 13. ອັບເດດໜ້າຈໍກະຕ່າ
+            // =========================================================
             updateContinuousCartUI();
         }
 
