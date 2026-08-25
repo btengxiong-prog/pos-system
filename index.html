@@ -3074,24 +3074,53 @@ async function handleSalesBarcodeScanned(code, inputQty = null) {
         return;
     }
 
-    // 2. ⭐️ ດຶງຂໍ້ມູນຈາກຄໍລຳທີ່ຖືກຕ້ອງ (ຄໍລຳ 15 = currentSellingPrice)
-    // ແກ້ໄຂ: ໃຊ້ຊື່ຄໍລຳໃຫ້ຖືກຕ້ອງກັບຂໍ້ມູນຈາກ Excel
+    // 🔍 ກວດສອບຂໍ້ມູນ (ໃຊ້ສຳລັບ Debug)
+    console.log('=== ກວດສອບຂໍ້ມູນສິນຄ້າ ===');
+    console.log('ຊື່ສິນຄ້າ:', foundItem.name);
     
-    // ກວດສອບວ່າມີຄໍລຳໃດແດ່ທີ່ໃຊ້ງານໄດ້
+    // 2. ⭐️ ດຶງຂໍ້ມູນຈາກຄໍລຳ 15 (ຄ່າ 6,529,000)
+    // ແກ້ໄຂ: ໃຊ້ຊື່ຄໍລຳທີ່ຖືກຕ້ອງ
+    
     let sellingPrice = 0;
     let costPrice = 0;
     
-    // ລອງດຶງຈາກຊື່ຄໍລຳທີ່ເປັນໄປໄດ້
-    if (foundItem.currentSellingPrice !== undefined && foundItem.currentSellingPrice !== null && foundItem.currentSellingPrice !== '') {
-        sellingPrice = parseFloat(String(foundItem.currentSellingPrice).replace(/,/g, '')) || 0;
-    } else if (foundItem.sellingPrice !== undefined && foundItem.sellingPrice !== null && foundItem.sellingPrice !== '') {
-        sellingPrice = parseFloat(String(foundItem.sellingPrice).replace(/,/g, '')) || 0;
-    } else if (foundItem.price !== undefined && foundItem.price !== null && foundItem.price !== '') {
-        sellingPrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
-    } else {
-        // ຖ້າບໍ່ມີຄ່າໃດໆ ໃຫ້ເຕືອນ
-        showAlert("ຂໍ້ມູນບໍ່ຄົບຖ້ວນ", `ສິນຄ້າ [${foundItem.name}] ບໍ່ມີລາຄາຂາຍ!`, "⚠️");
-        return;
+    // 📌 ສຳຄັນ: ກວດສອບວ່າຄໍລຳໃດມີຄ່າ 6,529,000
+    // ຖ້າເຈົ້າຮູ້ວ່າຄໍລຳ 15 ຊື່ຫຍັງ ໃຫ້ໃຊ້ຊື່ນັ້ນເລີຍ
+    // ຕົວຢ່າງ: ຖ້າຊື່ຄໍລຳ 15 ຄື "ລາຄາຂາຍ" ໃຫ້ໃຊ້ foundItem["ລາຄາຂາຍ"]
+    
+    // ວິທີທີ 1: ຖ້າຮູ້ຊື່ຄໍລຳແນ່ນອນ (ໃຫ້ປ່ຽນຊື່ໃຫ້ຖືກຕ້ອງ)
+    // sellingPrice = parseFloat(String(foundItem["ລາຄາຂາຍ"] || 0).replace(/,/g, '')) || 0;
+    
+    // ວິທີທີ 2: ກວດຫາຄໍລຳທີ່ມີຄ່າ 6,529,000 (ໃຊ້ຕອນທຳອິດເພື່ອຫາຊື່ຄໍລຳທີ່ຖືກຕ້ອງ)
+    let foundCorrectColumn = false;
+    Object.keys(foundItem).forEach(key => {
+        let value = foundItem[key];
+        if (value !== undefined && value !== null && value !== '') {
+            let numValue = parseFloat(String(value).replace(/,/g, ''));
+            if (!isNaN(numValue) && numValue > 0) {
+                console.log(`ຄໍລຳ: "${key}" = ${value}`);
+                // ຖ້າຄ່າເທົ່າກັບ 6529000 ໃຫ້ໃຊ້ຄໍລຳນີ້
+                if (numValue === 6529000) {
+                    sellingPrice = numValue;
+                    foundCorrectColumn = true;
+                    console.log(`✅ ພົບຄໍລຳທີ່ຖືກຕ້ອງ: "${key}" = ${sellingPrice}`);
+                }
+            }
+        }
+    });
+    
+    // ຖ້າຍັງບໍ່ພົບຄ່າ 6,529,000 ໃຫ້ໃຊ້ວິທີເກົ່າ
+    if (!foundCorrectColumn) {
+        console.log('⚠️ ບໍ່ພົບຄ່າ 6,529,000, ກຳລັງໃຊ້ວິທີເກົ່າ...');
+        
+        // ລອງດຶງຈາກຊື່ຄໍລຳທີ່ເປັນໄປໄດ້
+        if (foundItem.currentSellingPrice !== undefined && foundItem.currentSellingPrice !== null && foundItem.currentSellingPrice !== '') {
+            sellingPrice = parseFloat(String(foundItem.currentSellingPrice).replace(/,/g, '')) || 0;
+        } else if (foundItem.sellingPrice !== undefined && foundItem.sellingPrice !== null && foundItem.sellingPrice !== '') {
+            sellingPrice = parseFloat(String(foundItem.sellingPrice).replace(/,/g, '')) || 0;
+        } else if (foundItem.price !== undefined && foundItem.price !== null && foundItem.price !== '') {
+            sellingPrice = parseFloat(String(foundItem.price).replace(/,/g, '')) || 0;
+        }
     }
     
     // ດຶງລາຄາທຶນ
@@ -3103,23 +3132,22 @@ async function handleSalesBarcodeScanned(code, inputQty = null) {
     
     let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack || 1);
     
+    // ກວດສອບຄ່າ
+    if (sellingPrice <= 0) {
+        showAlert("ຂໍ້ມູນບໍ່ຄົບຖ້ວນ", `ສິນຄ້າ [${foundItem.name}] ບໍ່ມີລາຄາຂາຍ!`, "⚠️");
+        return;
+    }
+    
     let finalPrice = sellingPrice;
     
     // 3. ຖ້າເປັນໂໝດຂາຍຍ່ອຍ ໃຫ້ນຳລາຄາຂາຍທີ່ດຶງມານັ້ນມາຫານດ້ວຍ unitPerPack
     if (currentSaleType === 'retail' && unitPerPack > 1 && sellingPrice > 0) {
         let retailRawPrice = sellingPrice / unitPerPack;
         finalPrice = Math.ceil(retailRawPrice / 1000) * 1000;
-        console.log(`ຂາຍຍ່ອຍ: ລາຄາເດີມ ${sellingPrice} / ${unitPerPack} = ${retailRawPrice} → ປັດເປັນ ${finalPrice}`);
+        console.log(`🔄 ຂາຍຍ່ອຍ: ${sellingPrice} / ${unitPerPack} = ${retailRawPrice} → ${finalPrice}`);
     } else {
-        // ຂາຍສົ່ງ ໃຊ້ລາຄາເຕັມ
         finalPrice = sellingPrice;
-        console.log(`ຂາຍສົ່ງ: ລາຄາ ${finalPrice}`);
-    }
-    
-    // ກວດສອບວ່າລາຄາທີ່ໄດ້ຖືກຕ້ອງ
-    if (finalPrice <= 0) {
-        showAlert("ລາຄາບໍ່ຖືກຕ້ອງ", `ສິນຄ້າ [${foundItem.name}] ມີລາຄາ ${finalPrice} ກີບ ກະລຸນາກວດສອບ!`, "⚠️");
-        return;
+        console.log(`📦 ຂາຍສົ່ງ: ລາຄາ ${finalPrice}`);
     }
 
     let processedItem = {
@@ -3127,7 +3155,7 @@ async function handleSalesBarcodeScanned(code, inputQty = null) {
         cost: costPrice,
         price: finalPrice,
         saleType: currentSaleType,
-        originalPrice: sellingPrice, // ເກັບລາຄາເດີມໄວ້
+        originalPrice: sellingPrice,
         unitPerPack: unitPerPack
     };
 
@@ -3140,26 +3168,18 @@ async function handleSalesBarcodeScanned(code, inputQty = null) {
         existingCartItem.cost = costPrice;
         existingCartItem.qty += addQty;
         existingCartItem.originalPrice = sellingPrice;
-        console.log(`ອັບເດດສິນຄ້າ: ${foundItem.name} ຈຳນວນ ${existingCartItem.qty} ລາຄາ ${finalPrice}`);
     } else {
         continuousCart.push({ ...processedItem, qty: addQty });
-        console.log(`ເພີ່ມສິນຄ້າໃໝ່: ${foundItem.name} ຈຳນວນ ${addQty} ລາຄາ ${finalPrice}`);
     }
 
     updateContinuousCartUI();
     
-    // 5. ເພີ່ມການກວດສອບສຳລັບການສະແດງຜົນ
-    console.log('ຂໍ້ມູນສິນຄ້າທີ່ດຶງມາ:', {
-        id: foundItem.id,
-        code: foundItem.code,
-        name: foundItem.name,
-        currentSellingPrice: foundItem.currentSellingPrice,
-        sellingPrice: sellingPrice,
-        finalPrice: finalPrice,
-        cost: costPrice,
-        unitPerPack: unitPerPack,
-        saleType: currentSaleType
-    });
+    // 📊 ສະແດງສະຫຼຸບ
+    console.log('✅ ສະຫຼຸບ:');
+    console.log(`   ຊື່: ${foundItem.name}`);
+    console.log(`   ລາຄາທີ່ດຶງໄດ້: ${sellingPrice.toLocaleString()} ກີບ`);
+    console.log(`   ລາຄາສຸດທ້າຍ: ${finalPrice.toLocaleString()} ກີບ`);
+    console.log(`   ຈຳນວນ: ${addQty}`);
 }
 
         function updateContinuousCartUI() {
