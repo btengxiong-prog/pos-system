@@ -4113,9 +4113,8 @@
         }
 
         async function confirmInlineCheckout() {
-            // ⭐️ ตรวจสอบว่ามีสินค้าในตะกร้าจริงหรือไม่ (ดึงจาก continuousCart หรือจากหน้าจอโดยตรง)
+            // 1. ตรวจสอบว่ามีสินค้าในตะกร้าจริงหรือไม่
             if (!continuousCart || continuousCart.length === 0) {
-                // เผื่อกรณีพิมพ์ชื่อสินค้าค้างไว้ในช่อง input แต่ยังไม่ได้กดเพิ่มลงตะกร้า ให้ดึงเพิ่มให้อัตโนมัติทันที
                 let barcodeInput = document.getElementById('scan-barcode-input');
                 if (barcodeInput && barcodeInput.value.trim() !== "") {
                     await handleDirectCheckout();
@@ -4130,8 +4129,15 @@
             let itemsToSave = [...continuousCart];
             let totalAmount = continuousCart.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
             let paymentMode = currentInlinePaymentMode || 'cash';
+            let currencyStr = itemsToSave[0]?.currency || 'ກີບ';
 
-            // 1. ລ້າງກະຕ່າ ແລະ ຣີເຊັດໜ້າຈໍທันทีเพื่อให้ผู้ใช้เห็นว่าทำรายการสำเร็จรวดเร็ว
+            // แปลงชื่อวิธีชำระเงินให้แสดงผลสวยงามเข้าใจง่าย
+            let paymentModeText = "ເງິນສົດ (ກີບ)";
+            if (paymentMode === 'cash_thb') paymentModeText = "ເງິນສົດ (ບາດ)";
+            else if (paymentMode === 'transfer_lak') paymentModeText = "ເງິນໂອນ (ບັນຊີກີບ)";
+            else if (paymentMode === 'transfer_thb') paymentModeText = "ເງິນໂອນ (ບັນຊີບາດ)";
+
+            // 2. ล้างตะกร้าและรีเซ็ตหน้าจอทันที
             continuousCart = [];
             updateContinuousCartUI();
             if (document.getElementById('scan-barcode-input')) {
@@ -4141,9 +4147,14 @@
                 document.getElementById('scan-qty-input').value = "";
             }
 
-            showAlert("ສຳເລັດ", `ຊຳລະເງິນ ແລະ ຢັ້ງຢືນການຈ່າຍສຳເລັດຮຽບຮ້ອຍ!`, "💰");
+            // 3. ⭐️ แสดงป๊ອບอัพแจ้งเตือนความสำเร็จที่โดดเด่นและชัดเจนตามที่คุณต้องการ
+            showAlert(
+                "✨ ສຳເລັດການຊຳລະເງິນ! ✨", 
+                `ทำรายการชำระเงินสำเร็จเรียบร้อย!\nยอดรวม: ${formatNumberWithCommas(totalAmount)} ${currencyStr}\nวิธีชำระ: ${paymentModeText}`, 
+                "✅"
+            );
 
-            // 2. บันทึกประวัติลง Firebase Firestore และตัดสต็อกสินค้าในคลังแบบ Background Batch ทันที
+            // 4. บันทึกประวัติและตัดสต็อกสินค้าในเบื้องหลัง (Background Sync)
             if (db) {
                 try {
                     let batch = db.batch();
@@ -4159,7 +4170,7 @@
                             price: parseFloat(it.price) || 0,
                             qty: parseInt(it.qty) || 1
                         })),
-                        currency: itemsToSave[0]?.currency || 'ກີບ',
+                        currency: currencyStr,
                         pay_mode: paymentMode,
                         total_amount: totalAmount,
                         created_at: new Date().toISOString()
