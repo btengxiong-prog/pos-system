@@ -3135,51 +3135,68 @@ function initFirebaseRealtime() {
         }
 
         function updateContinuousCartUI() {
-                    let container = document.getElementById('continuous-cart-items-list');
-                    let countEl = document.getElementById('cart-item-count');
-                    let totalAmountEl = document.getElementById('cart-total-amount');
-                    if (!container) return;
+            let container = document.getElementById('continuous-cart-items-list');
+            let countEl = document.getElementById('cart-item-count');
+            let totalAmountEl = document.getElementById('cart-total-amount');
+            if (!container) return;
 
-                    if (continuousCart.length === 0) {
-                        container.innerHTML = `<p class="text-center text-gray-400 py-2">ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ</p>`;
-                        if (countEl) countEl.innerText = "0";
-                        if (totalAmountEl) totalAmountEl.innerText = "0 ກີບ";
-                        window.currentCartTotalAmount = 0; // ➔ ຖ້າບໍ່ມີສິນຄ້າ ໃຫ້ເປັນ 0
-                        return;
-                    }
+            if (continuousCart.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-400 py-2">ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ</p>`;
+                if (countEl) countEl.innerText = "0";
+                if (totalAmountEl) totalAmountEl.innerText = "0 ກີບ";
+                window.currentCartTotalAmount = 0; 
+                return;
+            }
 
-                    let html = '';
-                    let totalAmt = 0;
-                    let totalCount = 0;
+            let html = '';
+            let totalAmtLAK = 0;
+            let totalCount = 0;
 
-                    continuousCart.forEach((item, idx) => {
-                        // ⭐️ ໃຊ້ລາຄາທີ່ຢູ່ໃນ continuousCart ໂດຍກົງ (ເຊິ່ງກົງກັບຮູບ 1 ແນ່ນອນ)
-                        let rowTotal = Number(item.price) * Number(item.qty);
-                        totalAmt += rowTotal;
-                        totalCount += item.qty;
-                        let saleModeLabel = item.saleType === 'retail' ? '(ຂາຍຍ່ອຍ)' : '(ຂາຍສົ່ງ)';
+            // ⭐️ ກວດສອບວ່າປັດຈຸບັນຕິກເລືອກຈ່າຍເປັນ ບາດ ຫຼື ກີບ
+            let isTHB = (currentInlinePaymentMode === 'cash_thb' || currentInlinePaymentMode === 'transfer_thb');
+            
+            // ⭐️ ດຶງ Rate ຊື້ໃໝ່ (ຄ່າເລີ່ມຕົ້ນ 680 ຖ້າບໍ່ມີໃນລະບົບ)
+            let buyRateNew = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 680;
+            if (buyRateNew <= 0) buyRateNew = 680;
 
-                        html += `
-                            <div class="flex justify-between items-center bg-white p-2 rounded-lg border shadow-sm">
-                                <div class="truncate max-w-[140px]">
-                                    <span class="font-bold text-gray-800">${item.name || item.code}</span>
-                                    <div class="text-[10px] text-gray-500">${formatNumberWithCommas(item.price)} x ${item.qty} ${saleModeLabel}</div>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <span class="font-bold text-green-600">${formatNumberWithCommas(rowTotal)}</span>
-                                    <button onclick="removeContinuousCartItem(${idx})" class="text-red-500 hover:text-red-700 font-bold px-1">✕</button>
-                                </div>
-                            </div>
-                        `;
-                    });
+            continuousCart.forEach((item, idx) => {
+                let rowTotalLAK = Number(item.price) * Number(item.qty);
+                totalAmtLAK += rowTotalLAK;
+                totalCount += item.qty;
+                let saleModeLabel = item.saleType === 'retail' ? '(ຂາຍຍ່ອຍ)' : '(ຂາຍສົ່ງ)';
 
-                    container.innerHTML = html;
-                    if (countEl) countEl.innerText = totalCount;
-                    if (totalAmountEl) totalAmountEl.innerText = formatNumberWithCommas(totalAmt) + " " + (continuousCart[0]?.currency || 'ກີບ');
-                    
-                    // ⭐️ ເກັບຄ่ายອດລວມຈາກຮູບ 1 ໄວ້ໃຊ້ສົ່ງຕໍ່ໂດຍກົງ
-                    window.currentCartTotalAmount = totalAmt;
-                }
+                // ⭐️ ຖ້າເປັນບາດ ໃຫ້ຫານ Rate ແລ້ວປັດຂຶ້ນ (Math.ceil), ຖ້າເປັນກີບ ໃຊ້ຄ່າເດີມ
+                let displayRowTotal = isTHB ? Math.ceil(rowTotalLAK / buyRateNew) : rowTotalLAK;
+                let displayUnitPrice = isTHB ? Math.ceil(Number(item.price) / buyRateNew) : Number(item.price);
+                let currencyLabel = isTHB ? 'ບາດ' : (item.currency || 'ກີບ');
+
+                // (ກ່ອງສັ້ນ) ສະແດງລາຍການຍ່ອຍ
+                html += `
+                    <div class="flex justify-between items-center bg-white p-2 rounded-lg border shadow-sm">
+                        <div class="truncate max-w-[140px]">
+                            <span class="font-bold text-gray-800">${item.name || item.code}</span>
+                            <div class="text-[10px] text-gray-500">${formatNumberWithCommas(displayUnitPrice)} x ${item.qty} ${saleModeLabel}</div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-green-600">${formatNumberWithCommas(displayRowTotal)} ${currencyLabel}</span>
+                            <button onclick="removeContinuousCartItem(${idx})" class="text-red-500 hover:text-red-700 font-bold px-1">✕</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+            if (countEl) countEl.innerText = totalCount;
+            
+            // ⭐️ (ກ່ອງຍາວ) ຄຳນວນຍອດລວມທັງໝົດ ແລ້ວປັດຂຶ້ນ
+            let displayTotalAmt = isTHB ? Math.ceil(totalAmtLAK / buyRateNew) : totalAmtLAK;
+            let totalCurrencyLabel = isTHB ? 'ບາດ' : (continuousCart[0]?.currency || 'ກີບ');
+            
+            if (totalAmountEl) totalAmountEl.innerText = formatNumberWithCommas(displayTotalAmt) + " " + totalCurrencyLabel;
+            
+            // ຮັກສາຍອດເງິນກີບໄວ້ເປັນຄ່າຕັ້ງຕົ້ນສະເໝີ ເພື່ອຄວາມຖືກຕ້ອງໃນການບັນທຶກ
+            window.currentCartTotalAmount = totalAmtLAK;
+        }
 
         function removeContinuousCartItem(index) {
             continuousCart.splice(index, 1);
