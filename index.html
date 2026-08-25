@@ -1894,6 +1894,10 @@
                     let batch = db.batch();
                     let hasChanges = false;
 
+                    // Rate ປັດຈຸບັນ
+                    let currentBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 685;
+                    let importBuyRate = 650; 
+
                     snapshot.forEach((doc) => {
                         let item = doc.data();
                         let docId = doc.id;
@@ -1906,16 +1910,31 @@
                             rowDevId = deviceId;
                         }
 
-                        // ⭐️ ດຶງລາຄາຂາຍ ໃໝ່ (ຄໍລຳ 15 / O) ມາເປັນລາຄາຂາຍຫຼັກໂດຍກົງ 100% ຕາມທີ່ກຳນົດ
-                        let directCost = parseFloat(String(item.cost || item.original_cost || 0).replace(/,/g, '')) || 0;
-                        let col15_newPrice = parseFloat(String(item.price || item.selling_price_new || item.currentSellingPrice || 0).replace(/,/g, '')) || 0;
+                        // 1. ดຶງລາຄາຕົ້ນທຶນເດີມ
+                        let originalCostVal = parseFloat(String(item.original_cost || item.cost || 5230000).replace(/,/g, '')) || 5230000;
+                        
+                        // 2. ⭐️ ຮັກສາເປີເຊັນກຳໄລ (%) ໄວ້ໃຫ້ຖືກຕ້ອງ (ຖ້າໃນ DB ເປັນ 0 ຫຼື ບໍ່มี ໃຫ້ໃຊ້ 23.90% ຕາມຮູບຂອງທ່ານ)
+                        let profitPct = parseFloat(item.profit_pct !== undefined ? item.profit_pct : (item.profitPct !== undefined ? item.profitPct : 23.90));
+                        if (isNaN(profitPct) || profitPct <= 0) {
+                            profitPct = 23.90; 
+                        }
+
+                        // 3. คำนวณລາຄາຊື້ໃໝ່ຕາມ Rate
+                        let calculatedNewCost = importBuyRate > 0 ? originalCostVal * (currentBuyRate / importBuyRate) : originalCostVal;
+                        let newCost = Math.ceil(calculatedNewCost / 1000) * 1000;
+
+                        // 4. ⭐️ คำนวณລາຄາຂາຍໃໝ່ (ຄໍລຳ 15 / O) ໂດຍເອົາລາຄາຊື້ໃໝ່ ມາบວກກັບເປີເຊັນກຳໄລ (%) ທີ່ຖືກຕ້ອງ
+                        let calculatedNewPrice = newCost * (1 + profitPct / 100);
+                        let col15_newPrice = Math.ceil(calculatedNewPrice / 1000) * 1000; // ຈະໄດ້ລາຄາຂາຍໃໝ່ที่ถูกต้อง 100%
 
                         tempArr.push({
                             id: docId,
                             code: item.code || '',
                             name: item.name || '',
-                            cost: directCost,
-                            price: col15_newPrice, // ➔ ບັງຄັບໃຊ້ລາຄາຈາກຄໍລຳ 15 (O) ຢ່າງຊັດເຈນ
+                            cost: newCost,
+                            originalCost: originalCostVal,
+                            profitPct: profitPct, // ➔ ຣັກສາຄ່າ 23.90% ไว้ไม่ให้เป็น 0%
+                            price: col15_newPrice, // ➔ ດຶງຄ່າຈາກຄໍລຳ 15 (O) ມາໃຊ້ໃນການຂາຍ
                             currentSellingPrice: col15_newPrice,
                             qty: item.qty !== undefined ? item.qty : 1,
                             initial_qty: item.initial_qty !== undefined ? item.initial_qty : (item.qty || 1),
@@ -1931,10 +1950,9 @@
                     }
 
                     excelRows = tempArr;
-                    updateExistingProductNamesDatalist(); // ➔ ຈະເອົາຊື່ສິນຄ້າຈາກສາງມารຽງໃສ່ກ່ອງທີ 1 (Dropdown/Datalist) ໃຫ້ໂດຍອັດຕະໂນມັດ
+                    updateExistingProductNamesDatalist();
                     checkExpiryAlertStatus();
                     
-                    // ຖ້າເປີດหน้า Inventory ຢູ່ ໃຫ້ໂຫຼດຕາຕະລາງສາງຄືນໃໝ່ພ້ອມກັນ
                     if (typeof loadInventory === 'function' && !document.getElementById('inventory-modal').classList.contains('hidden')) {
                         loadInventory();
                     }
