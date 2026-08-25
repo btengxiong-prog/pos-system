@@ -3039,33 +3039,31 @@ function initFirebaseRealtime() {
         }
 
         function handleScanBarcodeInputChange(input) {
-                updateStockDisplayOnQtyChange();
-                updateCartItemPreview();
+            window.explicitlySelectedItemId = null; // ⭐️ ລ້າງຄ່າຄວາມຈຳເກົ່າຖິ້ມທຸກຄັ້ງທີ່ມີການພິມ ຫຼື ເລືອກໃໝ່
 
-                // ⭐️ ເພີ່ມໂຄດສ່ວນນີ້: ກວດສອບທັນທີເມື່ອມີການພິມ ຫຼື ເລືອກຈາກ Dropdown
-                let val = input.value ? input.value.trim().toLowerCase() : "";
-                if (val !== "") {
-                    let exactMatches = excelRows.filter(item => {
-                        let itemCode = String(item.code || '').trim().toLowerCase();
-                        let itemName = String(item.name || '').trim().toLowerCase();
-                        return itemCode === val || itemName === val;
-                    });
+            updateStockDisplayOnQtyChange();
+            updateCartItemPreview();
 
-                    // ຖ້າພົບສິນຄ້າທີ່ຊື່ກົງກັນເປະ ແລະ ມີຫຼາຍກວ່າ 1 ລາຍການ (ຫຼາຍລາຄາ)
-                    if (exactMatches.length > 1) {
-                        let modal = document.getElementById('select-price-modal');
-                        // ກວດສອບວ່າປ໊ອບອັບປິດຢູ່ ຈຶ່ງສັ່ງໃຫ້ເປີດ (ປ້ອງກັນການເດັ້ງຊ້ຳຊ້ອນກັນ)
-                        if (modal && modal.classList.contains('hidden')) {
-                            let qtyInput = document.getElementById('scan-qty-input');
-                            let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
-                            let customQty = (rawQtyText === "" || isNaN(rawQtyText) || parseFloat(rawQtyText) <= 0) ? 1 : parseFloat(rawQtyText);
-                            
-                            // ສັ່ງເປີດປ໊ອບອັບເລືອກລາຄາຂຶ້ນມາທັນທີ!
-                            openSelectPriceModal(exactMatches, customQty, input.value.trim());
-                        }
+            let val = input.value ? input.value.trim().toLowerCase() : "";
+            if (val !== "") {
+                let exactMatches = excelRows.filter(item => {
+                    let itemCode = String(item.code || '').trim().toLowerCase();
+                    let itemName = String(item.name || '').trim().toLowerCase();
+                    return itemCode === val || itemName === val;
+                });
+
+                if (exactMatches.length > 1) {
+                    let modal = document.getElementById('select-price-modal');
+                    if (modal && modal.classList.contains('hidden')) {
+                        let qtyInput = document.getElementById('scan-qty-input');
+                        let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
+                        let customQty = (rawQtyText === "" || isNaN(rawQtyText) || parseFloat(rawQtyText) <= 0) ? 1 : parseFloat(rawQtyText);
+                        
+                        openSelectPriceModal(exactMatches, customQty, input.value.trim());
                     }
                 }
             }
+        }
 
         document.addEventListener("DOMContentLoaded", () => {
             let barcodeInput = document.getElementById('scan-barcode-input');
@@ -3105,16 +3103,26 @@ function initFirebaseRealtime() {
         async function handleSalesBarcodeScanned(code, inputQty = null) {
             if (isScannerLocked) return; 
 
+            let addQty = (inputQty !== null && !isNaN(inputQty) && inputQty > 0) ? inputQty : 1;
+
+            // ⭐️ ກວດສອບກ່ອນໝູ່: ຖ້າມີການເລືອກສິນຄ້າຈາກປ໊ອບອັບແລ້ວ ໃຫ້ດຶງເອົາໂຕນັ້ນເລີຍ ບໍ່ຕ້ອງຄົ້ນຫາໃໝ່!
+            if (window.explicitlySelectedItemId) {
+                let specificItem = excelRows.find(i => i.id === window.explicitlySelectedItemId);
+                if (specificItem) {
+                    processAndAddToCart(specificItem, addQty);
+                    window.explicitlySelectedItemId = null; // ລ້າງຄ່າຖິ້ມຫຼັງຈາກເພີ່ມລົງກະຕ່າສຳເລັດ
+                    return; // ຢຸດການເຮັດວຽກ ບໍ່ລົງໄປແຈ້ງເຕືອນອີກແລ້ວ
+                }
+            }
+
             let cleanCode = String(code).trim().toLowerCase();
             
-            // 1. ຄົ້ນຫາແບບຕົງກັນເປະໆ (Exact Match) ກ່ອນ (ລະຫັດ ຫຼື ຊື່ສິນຄ້າ)
             let exactMatches = excelRows.filter(item => {
                 let itemCode = String(item.code || '').trim().toLowerCase();
                 let itemName = String(item.name || '').trim().toLowerCase();
                 return itemCode === cleanCode || itemName === cleanCode;
             });
 
-            // 2. ຖ້າບໍ່ພົບແບບຕົງເປະ ໃຫ້ລອງຄົ້ນຫາແບບມີບາງສ່ວນກົງກັນ (Partial Match)
             let foundItems = exactMatches.length > 0 ? exactMatches : excelRows.filter(item => {
                 let itemName = String(item.name || '').trim().toLowerCase();
                 return itemName.includes(cleanCode);
@@ -3125,15 +3133,11 @@ function initFirebaseRealtime() {
                 return;
             }
 
-            let addQty = (inputQty !== null && !isNaN(inputQty) && inputQty > 0) ? inputQty : 1;
-
-            // ⭐️ 3. ກວດສອບວ່າພົບສິນຄ້າຊື່/ລະຫັດດຽວກັນຫຼາຍກວ່າ 1 ລາຍການ ຫຼື ບໍ່?
             if (foundItems.length > 1) {
                 openSelectPriceModal(foundItems, addQty, code);
-                return; // ຢຸດການເຮັດວຽກໄວ້ກ່ອນ ເພື່ອລໍຖ້າຜູ້ໃຊ້ເລືອກລາຄາໃນປ໊ອບອັບ
+                return; 
             }
 
-            // 4. ຖ້າພົບພຽງລາຍການດຽວ ໃຫ້ດຳເນີນການເພີ່ມລົງກະຕ່າປົກກະຕິ
             processAndAddToCart(foundItems[0], addQty);
         }
 
@@ -3252,23 +3256,22 @@ function initFirebaseRealtime() {
                 let input = document.getElementById('scan-barcode-input');
                 let qtyInput = document.getElementById('scan-qty-input');
                 
+                // ⭐️ ຈື່ ID ສິນຄ້າທີ່ຜູ້ໃຊ້ເລືອກໄວ້ ເພື່ອບໍ່ໃຫ້ລະບົບເດັ້ງຖາມອີກຕອນກົດຕົກລົງເພີ່ມລົງກະຕ່າ
+                window.explicitlySelectedItemId = selectedMultiPriceItemId;
+                
                 if (input) {
-                    // ⭐️ ດຶງລະຫັດຂອງເກຣດທີ່ເລືອກ ມາສະແດງໃນຊ່ອງປ້ອນຂໍ້ມູນ (ໃຊ້ລະຫັດເພື່ອປ້ອງກັນການເດັ້ງປ໊ອບອັບຊ້ຳ)
                     input.value = selectedItem.code || selectedItem.name; 
                 }
                 
                 if (qtyInput) {
-                    // ⭐️ ຍ້າຍ Cursor ໄປທີ່ຊ່ອງຈຳນວນອັດຕະໂນມັດ ເພື່ອໃຫ້ຜູ້ຂາຍພິມຈຳນວນໄດ້ເລີຍ
                     qtyInput.focus();
                     qtyInput.select();
                 }
                 
-                // ⭐️ ອັບເດດຍອດເຫຼືອໃນສາງ ແລະ ກ່ອງພຣີວິວລາຄາໃຫ້ກົງກັບເກຣດທີ່ເລືອກ
                 updateStockDisplayOnQtyChange();
                 updateCartItemPreview();
             }
             
-            // ປິດປ໊ອບອັບລົງ
             closeSelectPriceModal();
         }
 
