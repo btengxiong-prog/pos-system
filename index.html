@@ -3141,7 +3141,7 @@ function initFirebaseRealtime() {
             if (!container) return;
 
             if (continuousCart.length === 0) {
-                container.innerHTML = `<p class="text-center text-gray-400 py-2">ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ</p>`;
+                // ຖ້າກະຕ່າວ່າງ ໃຫ້ຕັ້ງຍອດເປັນ 0 (ແຕ່ຢ່າຟ້າວລ້າງໜ້າຈໍ ເພື່ອໃຫ້ພຣີວິວເຮັດວຽກຕໍ່)
                 if (countEl) countEl.innerText = "0";
                 if (totalAmountEl) totalAmountEl.innerText = "0 ກີບ";
                 window.currentCartTotalAmount = 0; 
@@ -3152,10 +3152,7 @@ function initFirebaseRealtime() {
             let totalAmtLAK = 0;
             let totalCount = 0;
 
-            // ⭐️ ກວດສອບວ່າປັດຈຸບັນຕິກເລືອກຈ່າຍເປັນ ບາດ ຫຼື ກີບ
             let isTHB = (currentInlinePaymentMode === 'cash_thb' || currentInlinePaymentMode === 'transfer_thb');
-            
-            // ⭐️ ດຶງ Rate ຊື້ໃໝ່ (ຄ່າເລີ່ມຕົ້ນ 680 ຖ້າບໍ່ມີໃນລະບົບ)
             let buyRateNew = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 680;
             if (buyRateNew <= 0) buyRateNew = 680;
 
@@ -3165,12 +3162,10 @@ function initFirebaseRealtime() {
                 totalCount += item.qty;
                 let saleModeLabel = item.saleType === 'retail' ? '(ຂາຍຍ່ອຍ)' : '(ຂາຍສົ່ງ)';
 
-                // ⭐️ ຖ້າເປັນບາດ ໃຫ້ຫານ Rate ແລ້ວປັດຂຶ້ນ (Math.ceil), ຖ້າເປັນກີບ ໃຊ້ຄ່າເດີມ
                 let displayRowTotal = isTHB ? Math.ceil(rowTotalLAK / buyRateNew) : rowTotalLAK;
                 let displayUnitPrice = isTHB ? Math.ceil(Number(item.price) / buyRateNew) : Number(item.price);
                 let currencyLabel = isTHB ? 'ບາດ' : (item.currency || 'ກີບ');
 
-                // (ກ່ອງສັ້ນ) ສະແດງລາຍການຍ່ອຍ
                 html += `
                     <div class="flex justify-between items-center bg-white p-2 rounded-lg border shadow-sm">
                         <div class="truncate max-w-[140px]">
@@ -3188,13 +3183,11 @@ function initFirebaseRealtime() {
             container.innerHTML = html;
             if (countEl) countEl.innerText = totalCount;
             
-            // ⭐️ (ກ່ອງຍາວ) ຄຳນວນຍອດລວມທັງໝົດ ແລ້ວປັດຂຶ້ນ
             let displayTotalAmt = isTHB ? Math.ceil(totalAmtLAK / buyRateNew) : totalAmtLAK;
             let totalCurrencyLabel = isTHB ? 'ບາດ' : (continuousCart[0]?.currency || 'ກີບ');
             
             if (totalAmountEl) totalAmountEl.innerText = formatNumberWithCommas(displayTotalAmt) + " " + totalCurrencyLabel;
             
-            // ຮັກສາຍອດເງິນກີບໄວ້ເປັນຄ່າຕັ້ງຕົ້ນສະເໝີ ເພື່ອຄວາມຖືກຕ້ອງໃນການບັນທຶກ
             window.currentCartTotalAmount = totalAmtLAK;
         }
 
@@ -3888,7 +3881,7 @@ function initFirebaseRealtime() {
             }
         }
 
-function updateCartItemPreview() {
+        function updateCartItemPreview() {
             let input = document.getElementById('scan-barcode-input');
             let qtyInput = document.getElementById('scan-qty-input');
             let container = document.getElementById('continuous-cart-items-list');
@@ -3909,7 +3902,7 @@ function updateCartItemPreview() {
 
             let val = input && input.value ? input.value.trim().toLowerCase() : "";
             if (val === "") {
-                updateContinuousCartUI(); 
+                container.innerHTML = `<p class="text-center text-gray-400 py-2">ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ</p>`;
                 return;
             }
 
@@ -3919,31 +3912,42 @@ function updateCartItemPreview() {
             );
 
             if (foundItem) {
-                // ⭐️ VLOOKUP ດຶງລາຄາຈາກ Inventory (ຫ້າມຄຳນວນ)
                 let exactSellingPrice = parseFloat(String(foundItem.currentSellingPrice || foundItem.price || 0).replace(/,/g, '')) || 0;
                 let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
-                let finalPrice = exactSellingPrice;
+                let finalPriceLAK = exactSellingPrice;
 
                 if (currentSaleType === 'retail' && unitPerPack > 1) {
                     let retailRawPrice = exactSellingPrice / unitPerPack;
-                    finalPrice = Math.ceil(retailRawPrice / 1000) * 1000;
+                    finalPriceLAK = Math.ceil(retailRawPrice / 1000) * 1000;
                 }
                 
-                let previewTotal = finalPrice * typingQty;
+                let previewTotalLAK = finalPriceLAK * typingQty;
                 let saleModeLabel = currentSaleType === 'retail' ? '(ຂາຍຍ່ອຍ)' : '(ຂາຍສົ່ງ)';
+
+                // ⭐️ ເພີ່ມການກວດສອບສະກຸນເງິນ (ບາດ/ກີບ) ສຳລັບພຣີວິວ
+                let isTHB = (currentInlinePaymentMode === 'cash_thb' || currentInlinePaymentMode === 'transfer_thb');
+                let buyRateNew = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 680;
+                if (buyRateNew <= 0) buyRateNew = 680;
+
+                let displayPrice = isTHB ? Math.ceil(finalPriceLAK / buyRateNew) : finalPriceLAK;
+                let displayTotal = isTHB ? Math.ceil(previewTotalLAK / buyRateNew) : previewTotalLAK;
+                let currencyLabel = isTHB ? 'ບາດ' : 'ກີບ';
+
                 container.innerHTML = `
                     <div class="flex justify-between items-center bg-blue-50/80 p-2 rounded-lg border border-blue-200 shadow-sm">
                         <div class="truncate max-w-[140px]">
                             <span class="font-bold text-blue-900">${foundItem.name || foundItem.code}</span>
-                            <div class="text-[10px] text-gray-600">${formatNumberWithCommas(finalPrice)} x ${typingQty} ${saleModeLabel}</div>
+                            <div class="text-[10px] text-gray-600">${formatNumberWithCommas(displayPrice)} x ${typingQty} ${saleModeLabel}</div>
                         </div>
                         <div class="flex items-center gap-2">
-                            <span class="font-bold text-green-600">${formatNumberWithCommas(previewTotal)} ກີບ</span>
+                            <span class="font-bold text-green-600">${formatNumberWithCommas(displayTotal)} ${currencyLabel}</span>
                         </div>
                     </div>
                 `;
                 if (countEl) countEl.innerText = typingQty;
-                if (totalAmountEl) totalAmountEl.innerText = formatNumberWithCommas(previewTotal) + " ກີບ";
+                if (totalAmountEl) totalAmountEl.innerText = formatNumberWithCommas(displayTotal) + " " + currencyLabel;
+            } else {
+                container.innerHTML = `<p class="text-center text-gray-400 py-2">ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ</p>`;
             }
         }
 
@@ -4165,8 +4169,9 @@ function handleDirectCheckout() {
                 labelElement.classList.add('border-blue-600', 'bg-blue-50/50');
             }
 
-            // ⭐️ ສັ່ງໃຫ້ກະຕ່າອັບເດດການສະແດງຜົນ (ກີບ/ບາດ) ໃໝ່ທັນທີທີ່ກົດເລືອກ
+            // ⭐️ ສັ່ງອັບເດດທັງ "ກະຕ່າຕົວຈິງ" ແລະ "ພຣີວິວ" ພ້ອມກັນ
             updateContinuousCartUI();
+            updateCartItemPreview();
         }
 
         // ⭐️ ເພີ່ມຟັງຊັນຊ່ວຍນີ້ໄວ້ທາງລຸ່ມຕໍ່ກັນໄດ້ເລີຍ
