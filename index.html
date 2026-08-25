@@ -3072,17 +3072,10 @@ function initFirebaseRealtime() {
 
             let code = input.value.trim();
             let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
-            
-            // ⭐️ ແກ້ໄຂໃຫ້ອ່ານຈຳນວນທີ່ປ້ອນໃນຊ່ອງ "ຈ/ນ ສິນຄ້າຂາຍ" ຢ່າງຖືກຕ້ອງ
             let customQty = (rawQtyText === "" || isNaN(rawQtyText) || parseFloat(rawQtyText) <= 0) ? 1 : parseFloat(rawQtyText);
 
+            // ເອີ້ນໃຊ້ຟັງຊັນຄົ້ນຫາ ແລະ ເພີ່ມລົງກະຕ່າ
             handleSalesBarcodeScanned(code, customQty);
-
-            input.value = "";
-            if (qtyInput) qtyInput.value = "";
-            let stockDisplay = document.getElementById('scan-stock-display');
-            if (stockDisplay) stockDisplay.value = "";
-            input.focus();
         }
 
         async function handleSalesBarcodeScanned(code, inputQty = null) {
@@ -3090,25 +3083,44 @@ function initFirebaseRealtime() {
 
             let cleanCode = String(code).trim().toLowerCase();
             
-            let foundItem = excelRows.find(item => {
+            // 1. ຄົ້ນຫາແບບຕົງກັນເປະໆ (Exact Match) ກ່ອນ (ລະຫັດ ຫຼື ຊື່ສິນຄ້າ)
+            let exactMatches = excelRows.filter(item => {
                 let itemCode = String(item.code || '').trim().toLowerCase();
                 let itemName = String(item.name || '').trim().toLowerCase();
-                return itemCode === cleanCode || itemName === cleanCode || itemName.includes(cleanCode);
+                return itemCode === cleanCode || itemName === cleanCode;
             });
 
-            if (!foundItem) {
+            // 2. ຖ້າບໍ່ພົບແບບຕົງເປະ ໃຫ້ລອງຄົ້ນຫາແບບມີບາງສ່ວນກົງກັນ (Partial Match)
+            let foundItems = exactMatches.length > 0 ? exactMatches : excelRows.filter(item => {
+                let itemName = String(item.name || '').trim().toLowerCase();
+                return itemName.includes(cleanCode);
+            });
+
+            if (!foundItems || foundItems.length === 0) {
                 showAlert("ບໍ່ພົບສິນຄ້າ", `ບໍ່ພົບລະຫັດ ຫຼື ຊື່ສິນຄ້າ [${code}] ໃນສາງ!`, "⚠️");
                 return;
             }
 
-            // ⭐️ VLOOKUP ດຶງລາຄາຂາຍທີ່ແທ້ຈິງທີ່ສຸດ ທີ່ຖືກບັນທຶກໄວ້ໃນ Array (ບໍ່ມີການຄຳນວນຫຍັງທັງນັ້ນ)
+            let addQty = (inputQty !== null && !isNaN(inputQty) && inputQty > 0) ? inputQty : 1;
+
+            // ⭐️ 3. ກວດສອບວ່າພົບສິນຄ້າຊື່/ລະຫັດດຽວກັນຫຼາຍກວ່າ 1 ລາຍການ ຫຼື ບໍ່?
+            if (foundItems.length > 1) {
+                openSelectPriceModal(foundItems, addQty, code);
+                return; // ຢຸດການເຮັດວຽກໄວ້ກ່ອນ ເພື່ອລໍຖ້າຜູ້ໃຊ້ເລືອກລາຄາໃນປ໊ອບອັບ
+            }
+
+            // 4. ຖ້າພົບພຽງລາຍການດຽວ ໃຫ້ດຳເນີນການເພີ່ມລົງກະຕ່າປົກກະຕິ
+            processAndAddToCart(foundItems[0], addQty);
+        }
+
+        // --- ຟັງຊັນຊ່ວຍສຳລັບການເພີ່ມລົງກະຕ່າ ---
+        function processAndAddToCart(foundItem, addQty) {
             let exactSellingPrice = parseFloat(String(foundItem.currentSellingPrice || foundItem.price || 0).replace(/,/g, '')) || 0;
             let exactCost = parseFloat(String(foundItem.currentNewCost || foundItem.cost || 0).replace(/,/g, '')) || 0;
             let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
 
             let finalPrice = exactSellingPrice;
             
-            // ຖ້າຂາຍຍ່ອຍ ກໍ່ພຽງແຕ່ເອົາລາຄານັ້ນມາຫານຈຳນວນ
             if (currentSaleType === 'retail' && unitPerPack > 1) {
                 let retailRawPrice = exactSellingPrice / unitPerPack;
                 finalPrice = Math.ceil(retailRawPrice / 1000) * 1000;
@@ -3117,11 +3129,9 @@ function initFirebaseRealtime() {
             let processedItem = {
                 ...foundItem,
                 cost: exactCost,    
-                price: finalPrice, // ➔ ດຶງຄ່າ 6,529,000 ກີບ ມາໃຊ້ໄດ້ຢ່າງສົມບູນແບບ!
+                price: finalPrice, 
                 saleType: currentSaleType
             };
-
-            let addQty = (inputQty !== null && !isNaN(inputQty) && inputQty > 0) ? inputQty : 1;
 
             let existingCartItem = continuousCart.find(i => i.id === processedItem.id && i.saleType === currentSaleType);
             if (existingCartItem) {
@@ -3132,6 +3142,94 @@ function initFirebaseRealtime() {
             }
 
             updateContinuousCartUI();
+            
+            // ຣີເຊັດຊ່ອງປ້ອນຂໍ້ມູນ ຫຼັງຈາກເພີ່ມລົງກະຕ່າສຳເລັດແລ້ວ
+            let input = document.getElementById('scan-barcode-input');
+            let qtyInput = document.getElementById('scan-qty-input');
+            let stockDisplay = document.getElementById('scan-stock-display');
+            
+            if (input) input.value = "";
+            if (qtyInput) qtyInput.value = "";
+            if (stockDisplay) stockDisplay.value = "";
+            if (input) input.focus();
+        }
+
+        // === ລະບົບຈັດການ Modal ເລືອກລາຄາ (Multi-Price Selection) ===
+        let pendingMultiPriceQty = 1;
+        let selectedMultiPriceItemId = null;
+        let pendingMultiPriceItems = [];
+
+        function openSelectPriceModal(items, qty, queryStr) {
+            pendingMultiPriceItems = items;
+            pendingMultiPriceQty = qty;
+            selectedMultiPriceItemId = items[0].id; // ຕັ້ງຄ່າເລີ່ມຕົ້ນໃຫ້ເລືອກອັນທຳອິດສະເໝີ
+            
+            let codeLabel = document.getElementById('multi-price-code');
+            if(codeLabel) codeLabel.innerText = queryStr;
+            
+            let listContainer = document.getElementById('multi-price-list');
+            let html = '';
+            
+            items.forEach((item, index) => {
+                let exactSellingPrice = parseFloat(String(item.currentSellingPrice || item.price || 0).replace(/,/g, '')) || 0;
+                let unitPerPack = parseInt(item.unitPerPack || item.unit_per_pack) || 1;
+                
+                let finalPrice = exactSellingPrice;
+                if (currentSaleType === 'retail' && unitPerPack > 1) {
+                    let retailRawPrice = exactSellingPrice / unitPerPack;
+                    finalPrice = Math.ceil(retailRawPrice / 1000) * 1000;
+                }
+                
+                let currency = item.currency || 'ກີບ';
+                let qtyLabel = item.qty !== undefined ? item.qty : 0;
+                let isSelectedClass = index === 0 ? 'border-blue-600 bg-blue-50/50' : 'border-gray-200';
+                let isChecked = index === 0 ? 'checked' : '';
+                
+                html += `
+                    <label class="flex items-center gap-3 p-3 mb-2 border-2 rounded-xl cursor-pointer hover:bg-gray-50 transition ${isSelectedClass}" onclick="selectPriceOption('${item.id}', this)">
+                        <input type="radio" name="multi_price_option" value="${item.id}" ${isChecked} class="w-4 h-4 text-blue-600">
+                        <div class="flex-1">
+                            <div class="font-bold text-gray-800 text-sm truncate" title="${item.name || item.code}">${item.name || item.code}</div>
+                            <div class="text-[11px] text-gray-500">ຄ້າງສາງ: ${formatNumberWithCommas(qtyLabel)} | ລະຫັດ: ${item.code}</div>
+                        </div>
+                        <div class="font-bold text-green-600">${formatNumberWithCommas(finalPrice)} ${currency}</div>
+                    </label>
+                `;
+            });
+            
+            if(listContainer) listContainer.innerHTML = html;
+            document.getElementById('select-price-modal').classList.remove('hidden');
+        }
+
+        function selectPriceOption(itemId, labelElement) {
+            selectedMultiPriceItemId = itemId;
+            let labels = document.querySelectorAll('#multi-price-list label');
+            labels.forEach(l => {
+                l.classList.remove('border-blue-600', 'bg-blue-50/50');
+                l.classList.add('border-gray-200');
+            });
+            if (labelElement) {
+                labelElement.classList.remove('border-gray-200');
+                labelElement.classList.add('border-blue-600', 'bg-blue-50/50');
+            }
+        }
+
+        function closeSelectPriceModal() {
+            document.getElementById('select-price-modal').classList.add('hidden');
+            pendingMultiPriceItems = [];
+            selectedMultiPriceItemId = null;
+        }
+
+        function confirmSelectedPriceOption() {
+            if (!selectedMultiPriceItemId) return;
+            
+            let selectedItem = pendingMultiPriceItems.find(i => i.id === selectedMultiPriceItemId);
+            if (selectedItem) {
+                // ເມື່ອກົດຕົກລົງໃນປ໊ອບອັບ, ໃຫ້ສົ່ງສິນຄ້າທີ່ເລືອກໄປເພີ່ມລົງກະຕ່າ
+                processAndAddToCart(selectedItem, pendingMultiPriceQty);
+            }
+            
+            closeSelectPriceModal();
         }
 
         function updateContinuousCartUI() {
