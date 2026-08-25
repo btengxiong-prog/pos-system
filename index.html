@@ -3985,15 +3985,24 @@ function initFirebaseRealtime() {
             if (!input || !stockDisplay) return;
 
             let val = input.value ? input.value.trim().toLowerCase() : "";
-            if (val === "") {
+            if (val === "" && !window.explicitlySelectedItemId) {
                 stockDisplay.value = "";
                 return;
             }
 
-            let foundItem = excelRows.find(item => 
-                String(item.code).trim().toLowerCase() === val || 
-                (item.name && item.name.trim().toLowerCase() === val)
-            );
+            let foundItem = null;
+
+            // ⭐️ ແກ້ໄຂບັກ: ດຶງຍອດເຫຼືອໃນສາງຈາກ ID ທີ່ເລືອກໃນປ໊ອບອັບໃຫ້ຖືກຕ້ອງ
+            if (window.explicitlySelectedItemId) {
+                foundItem = excelRows.find(i => i.id === window.explicitlySelectedItemId);
+            }
+
+            if (!foundItem) {
+                foundItem = excelRows.find(item => 
+                    String(item.code).trim().toLowerCase() === val || 
+                    (item.name && item.name.trim().toLowerCase() === val)
+                );
+            }
 
             if (foundItem) {
                 let currentQty = parseFloat(String(foundItem.qty !== undefined ? foundItem.qty : 0).replace(/,/g, '')) || 0;
@@ -4035,8 +4044,6 @@ function initFirebaseRealtime() {
             
             if (!container) return;
 
-            // ⭐️ ແກ້ໄຂບັກ (Bug) ທີ່ນີ້: ຖ້າໃນກະຕ່າໂຕຈິງມີສິນຄ້າແລ້ວ ໃຫ້ອັບເດດສະແດງກະຕ່າເລີຍ
-            // ໂດຍບໍ່ຕ້ອງເອົາຈຳນວນໃນຊ່ອງ input ໄປທັບ (Overwrite) ຈຳນວນສິນຄ້າໂຕເກົ່າໃນກະຕ່າເດັດຂາດ!
             if (continuousCart.length > 0) {
                 updateContinuousCartUI(); 
                 return;
@@ -4046,15 +4053,25 @@ function initFirebaseRealtime() {
             let typingQty = (rawQtyText === "" || parseFloat(rawQtyText) <= 0) ? 1 : parseFloat(rawQtyText);
 
             let val = input && input.value ? input.value.trim().toLowerCase() : "";
-            if (val === "") {
+            if (val === "" && !window.explicitlySelectedItemId) {
                 container.innerHTML = `<p class="text-center text-gray-400 py-2">ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ</p>`;
                 return;
             }
 
-            let foundItem = excelRows.find(item => 
-                String(item.code).trim().toLowerCase() === val || 
-                (item.name && item.name.trim().toLowerCase() === val)
-            );
+            let foundItem = null;
+
+            // ⭐️ ແກ້ໄຂບັກ: ຖ້າເລືອກຈາກປ໊ອບອັບມາແລ້ວ ໃຫ້ດຶງຂໍ້ມູນຈາກ ID ທີ່ເລືອກເລີຍ (ແກ້ບັນຫາລາຄາຊ້ຳກັນ)
+            if (window.explicitlySelectedItemId) {
+                foundItem = excelRows.find(i => i.id === window.explicitlySelectedItemId);
+            }
+
+            // ຖ້າບໍ່ມີການເລືອກຈາກປ໊ອບອັບ ຈຶ່ງຄ່ອຍຄົ້ນຫາປົກກະຕິ
+            if (!foundItem) {
+                foundItem = excelRows.find(item => 
+                    String(item.code).trim().toLowerCase() === val || 
+                    (item.name && item.name.trim().toLowerCase() === val)
+                );
+            }
 
             if (foundItem) {
                 let exactSellingPrice = parseFloat(String(foundItem.currentSellingPrice || foundItem.price || 0).replace(/,/g, '')) || 0;
