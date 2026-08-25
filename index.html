@@ -3062,7 +3062,7 @@
 
             let cleanCode = String(code).trim().toLowerCase();
             
-            // MATCH ຊອກຫາສິນຄ້າຈາກສາງ (excelRows)
+            // 1. ຊອກຫາສິນຄ້າຈາກສາງ (excelRows)
             let foundItem = excelRows.find(item => {
                 let itemCode = String(item.code || '').trim().toLowerCase();
                 let itemName = String(item.name || '').trim().toLowerCase();
@@ -3074,37 +3074,31 @@
                 return;
             }
 
-            // ດຶງລາຄາຂາຍສົ່ງ (ທີ່ຄຳນວນຕາມ Rate ປັດຈຸບັນ)
-            let col15Price = parseFloat(String(foundItem.price || foundItem.currentSellingPrice || 0).replace(/,/g, '')) || 0;
-            let exactCost = parseFloat(String(foundItem.cost || 0).replace(/,/g, '')) || 0;
-            
-            // ⭐️ ດຶງຈຳນວນຕໍ່ລາງ/ຫໍ່ ຕົວຈິງຈາກສິນຄ້າໂຕນັ້ນ (ທີ່ບັນທຶກໄວ້ຕອນນຳເຂົ້າ, ເຊັ່ນ: 10, 12, 24, 48...)
-            let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
+            // 2. ⭐️ ຄຳນວນລາຄາຂາຍສົD ຕາມ Rate ປັດຈຸບັນ 100% (ປ້ອງກັນການຄ້າງລາຄາເກົ່າ)
+            let calculatedPrices = getProductCalculatedPrices(foundItem, currentSaleType);
+            let finalPrice = calculatedPrices.newPrice; // ລາຄາຂາຍສົ່ງໃໝ່ທີ່ປັບຕາມ Rate ປັດຈຸບັນ
+            let exactCost = calculatedPrices.newCost;     // ລາຄາຊື້ໃໝ່ທີ່ປັບຕາມ Rate ປັດຈຸບັນ
 
-            let finalPrice = col15Price;
-            if (currentSaleType === 'retail') {
-                if (unitPerPack > 1) {
-                    // ⭐️ ເອົາລາຄາຂາຍສົ່ງ ຫານດ້ວຍ unitPerPack ຕົວຈິງຂອງສິນຄ້າໂຕນັ້ນ ແລ້ວປັດມົນຂຶ້ນເປັນຫຼັກພັນ
-                    let retailRawPrice = col15Price / unitPerPack; 
-                    finalPrice = Math.ceil(retailRawPrice / 1000) * 1000; 
-                } else {
-                    // ຖ້າ unitPerPack ເປັນ 1 ໃຫ້ໃຊ້ລາຄາເຕັມ
-                    finalPrice = col15Price;
-                }
+            // 3. ຖ້າເປັນໂໝດຂາຍຍ່ອຍ ໃຫ້ຫານດ້ວຍ unitPerPack ຕົວຈິງຂອງສິນຄ້າໂຕນັ້ນ
+            let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
+            if (currentSaleType === 'retail' && unitPerPack > 1) {
+                let retailRawPrice = calculatedPrices.newPrice / unitPerPack;
+                finalPrice = Math.ceil(retailRawPrice / 1000) * 1000;
             }
 
             let processedItem = {
                 ...foundItem,
                 cost: exactCost,    
-                price: finalPrice, // ➔ ດຶງຄ່າຈາກຄໍລຳ 15 (O) ມາສະແດງໃນກະຕ່າເປະໆ
+                price: finalPrice, // ➔ ໄດ້ລາຄາຂາຍທີ່ອັບເດດຕາມ Rate ປັດຈຸບັນຫຼ້າສຸດ
                 saleType: currentSaleType
             };
 
             let addQty = (inputQty !== null && !isNaN(inputQty) && inputQty > 0) ? inputQty : 1;
 
-            // ລະບົບລວມສິນຄ້າຊະນິດດຽວກັນໃນກະຕ່າອັດຕະໂນມັດ
+            // 4. ເພີ່ມລົງກະຕ່າອັດຕະໂນມັດ
             let existingCartItem = continuousCart.find(i => i.id === processedItem.id && i.saleType === currentSaleType);
             if (existingCartItem) {
+                existingCartItem.price = finalPrice; // ອັບເດດລາຄາໃນກະຕ່າໃຫ້ເປັນປັດຈຸບັນນຳ
                 existingCartItem.qty += addQty;
             } else {
                 continuousCart.push({ ...processedItem, qty: addQty });
