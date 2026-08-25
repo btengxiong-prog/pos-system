@@ -3062,7 +3062,7 @@
 
             let cleanCode = String(code).trim().toLowerCase();
             
-            // 1. ຊອກຫາສິນຄ້າຈາກສາງ (excelRows)
+            // 1. ຊອກຫາສິນຄ້າຈາກສາງ (excelRows ຫຼ້າສຸດ)
             let foundItem = excelRows.find(item => {
                 let itemCode = String(item.code || '').trim().toLowerCase();
                 let itemName = String(item.name || '').trim().toLowerCase();
@@ -3074,31 +3074,31 @@
                 return;
             }
 
-            // 2. ⭐️ ຄຳນວນລາຄາຂາຍສົD ຕາມ Rate ປັດຈຸບັນ 100% (ປ້ອງກັນການຄ້າງລາຄາເກົ່າ)
-            let calculatedPrices = getProductCalculatedPrices(foundItem, currentSaleType);
-            let finalPrice = calculatedPrices.newPrice; // ລາຄາຂາຍສົ່ງໃໝ່ທີ່ປັບຕາມ Rate ປັດຈຸບັນ
-            let exactCost = calculatedPrices.newCost;     // ລາຄາຊື້ໃໝ່ທີ່ປັບຕາມ Rate ປັດຈຸບັນ
+            // 2. ⭐️ ບັງຄັບດຶງ ແລະ ຄຳນວນລາຄາສົດໆ ຈາກ Rate ປັດຈຸບັນ (ທຽບເທົ່າກັບຕາຕະລາງ Inventory ທຸກປະການ)
+            let calc = getProductCalculatedPrices(foundItem, currentSaleType);
+            
+            let finalPrice = calc.newPrice; // ລາຄາຂາຍສົ່ງໃໝ່ທີ່ຄຳນວນຕາມ Rate ຫຼ້າສຸດ
+            let exactCost = calc.newCost;     // ລາຄາຊື້ໃໝ່ທີ່ຄຳນວນຕາມ Rate ຫຼ້າສຸດ
 
-            // 3. ຖ້າເປັນໂໝດຂາຍຍ່ອຍ ໃຫ້ຫານດ້ວຍ unitPerPack ຕົວຈິງຂອງສິນຄ້າໂຕນັ້ນ
-            let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
-            if (currentSaleType === 'retail' && unitPerPack > 1) {
-                let retailRawPrice = calculatedPrices.newPrice / unitPerPack;
+            // 3. ຖ້າເປັນໂໝດຂາຍຍ່ອຍ ໃຫ້ຫານດ້ວຍ unitPerPack ຕົວຈິງ
+            if (currentSaleType === 'retail' && calc.unitPerPack > 1) {
+                let retailRawPrice = calc.newPrice / calc.unitPerPack;
                 finalPrice = Math.ceil(retailRawPrice / 1000) * 1000;
             }
 
             let processedItem = {
                 ...foundItem,
                 cost: exactCost,    
-                price: finalPrice, // ➔ ໄດ້ລາຄາຂາຍທີ່ອັບເດດຕາມ Rate ປັດຈຸບັນຫຼ້າສຸດ
+                price: finalPrice, // ➔ ໄດ້ລາຄາຂາຍທີ່ອັບເດດສົດໃໝ່ຈາກ Rate ຫຼ້າສຸດທຸກຄັ້ງ 100%
                 saleType: currentSaleType
             };
 
             let addQty = (inputQty !== null && !isNaN(inputQty) && inputQty > 0) ? inputQty : 1;
 
-            // 4. ເພີ່ມລົງກະຕ່າອັດຕະໂນມັດ
+            // 4. ເພີ່ມລົງກະຕ່າ
             let existingCartItem = continuousCart.find(i => i.id === processedItem.id && i.saleType === currentSaleType);
             if (existingCartItem) {
-                existingCartItem.price = finalPrice; // ອັບເດດລາຄາໃນກະຕ່າໃຫ້ເປັນປັດຈຸບັນນຳ
+                existingCartItem.price = finalPrice; // ອັບເດດລາຄາໃນກະຕ່າໃຫ້ເປັນປັດຈຸບັນ
                 existingCartItem.qty += addQty;
             } else {
                 continuousCart.push({ ...processedItem, qty: addQty });
