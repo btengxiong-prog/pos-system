@@ -3074,18 +3074,23 @@
                 return;
             }
 
-            // ດึงລາຄາຂາຍສົ່ງຈາກຄໍລຳ 15 (O) ຫຼື price ຂອງສິນຄ້າ
+            // ດຶງລາຄາຂາຍສົ່ງ (ທີ່ຄຳນວນຕາມ Rate ປັດຈຸບັນ)
             let col15Price = parseFloat(String(foundItem.price || foundItem.currentSellingPrice || 0).replace(/,/g, '')) || 0;
             let exactCost = parseFloat(String(foundItem.cost || 0).replace(/,/g, '')) || 0;
             
-            // ⭐️ ດຶງຈຳນວນຕໍ່ແພັກ/ລາງ (unitPerPack) ຕົວຈິງຈາກສາງ (ເຊິ່ງຄວນເປັນ 48)
-            let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 12;
+            // ⭐️ ດຶງຈຳນວນຕໍ່ລາງ/ຫໍ່ ຕົວຈິງຈາກສິນຄ້າໂຕນັ້ນ (ທີ່ບັນທຶກໄວ້ຕອນນຳເຂົ້າ, ເຊັ່ນ: 10, 12, 24, 48...)
+            let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
 
             let finalPrice = col15Price;
-            if (currentSaleType === 'retail' && unitPerPack > 1) {
-                // ⭐️ ຫານດ້ວຍ unitPerPack (48) ແລ້ວປັດມົນຂຶ້ນເປັນຫຼັກພັນ (Math.ceil ຫານ 1000 ຄູນ 1000)
-                let retailRawPrice = col15Price / unitPerPack; // 6,830,000 / 48 = 142,291.67
-                finalPrice = Math.ceil(retailRawPrice / 1000) * 1000; // ➔ ໄດ້ 143,000 ກີບ ຢ່າງຖືກຕ້ອງ!
+            if (currentSaleType === 'retail') {
+                if (unitPerPack > 1) {
+                    // ⭐️ ເອົາລາຄາຂາຍສົ່ງ ຫານດ້ວຍ unitPerPack ຕົວຈິງຂອງສິນຄ້າໂຕນັ້ນ ແລ້ວປັດມົນຂຶ້ນເປັນຫຼັກພັນ
+                    let retailRawPrice = col15Price / unitPerPack; 
+                    finalPrice = Math.ceil(retailRawPrice / 1000) * 1000; 
+                } else {
+                    // ຖ້າ unitPerPack ເປັນ 1 ໃຫ້ໃຊ້ລາຄາເຕັມ
+                    finalPrice = col15Price;
+                }
             }
 
             let processedItem = {
