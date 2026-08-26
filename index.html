@@ -3992,7 +3992,6 @@ function initFirebaseRealtime() {
 
             let foundItem = null;
 
-            // ⭐️ ແກ້ໄຂບັກ: ດຶງຍອດເຫຼືອໃນສາງຈາກ ID ທີ່ເລືອກໃນປ໊ອບອັບໃຫ້ຖືກຕ້ອງ
             if (window.explicitlySelectedItemId) {
                 foundItem = excelRows.find(i => i.id === window.explicitlySelectedItemId);
             }
@@ -4011,23 +4010,40 @@ function initFirebaseRealtime() {
                 let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
                 let sellingQty = (rawQtyText === "" || parseFloat(rawQtyText) <= 0) ? 1 : parseFloat(rawQtyText);
 
-                let stockNoteDisplay = "";
+                // 1. ຄິດໄລ່ຍອດສິນຄ້າທັງໝົດໃນສາງ ເປັນຫົວໜ່ວຍຍ່ອຍທີ່ສຸດ (Total Singles)
+                let totalAvailableSingles = Math.round(currentQty * unitPerPack);
 
-                if (currentSaleType === 'wholesale') {
-                    let currentPacks = Math.floor(currentQty);
-                    let currentSingles = Math.round((currentQty - currentPacks) * unitPerPack);
-                    
-                    let remainingPacks = Math.max(0, currentPacks - sellingQty);
-                    stockNoteDisplay = unitPerPack > 1 ? `${remainingPacks}/${currentSingles}` : `${remainingPacks}`;
-                } else {
-                    let totalAvailableSingles = Math.round(currentQty * unitPerPack);
-                    let remainingSingles = Math.max(0, totalAvailableSingles - sellingQty);
-
-                    let packsX = Math.floor(remainingSingles / unitPerPack);
-                    let singlesY = remainingSingles % unitPerPack;
-                    
-                    stockNoteDisplay = unitPerPack > 1 ? `${packsX}/${singlesY}` : `${packsX}`;
+                // 2. ⭐️ ຄິດໄລ່ຍອດສິນຄ້າ "ທີ່ຢູ່ໃນກະຕ່າແລ້ວ" ວ່າລວມມີຈັກຫົວໜ່ວຍຍ່ອຍ
+                let cartSingles = 0;
+                if (typeof continuousCart !== 'undefined') {
+                    continuousCart.forEach(cartItem => {
+                        if (cartItem.id === foundItem.id) {
+                            let itemUnitPerPack = parseInt(cartItem.unitPerPack || cartItem.unit_per_pack) || 1;
+                            if (cartItem.saleType === 'wholesale') {
+                                cartSingles += (cartItem.qty * itemUnitPerPack);
+                            } else {
+                                cartSingles += cartItem.qty;
+                            }
+                        }
+                    });
                 }
+
+                // 3. ຄິດໄລ່ຍອດສິນຄ້າ "ທີ່ກຳລັງພິມໃນຊ່ອງ" ວ່າເປັນຈັກຫົວໜ່ວຍຍ່ອຍ
+                let inputSingles = 0;
+                if (currentSaleType === 'wholesale') {
+                    inputSingles = sellingQty * unitPerPack;
+                } else {
+                    inputSingles = sellingQty;
+                }
+
+                // 4. ⭐️ ຍອດເຫຼືອຕົວຈິງ = ສາງ - ໃນກະຕ່າ - ທີ່ກຳລັງພິມ (ຖ້າຕິດລົບໃຫ້ເປັນ 0)
+                let remainingSingles = Math.max(0, totalAvailableSingles - cartSingles - inputSingles);
+
+                // 5. ແປງກັບຄືນມາເປັນ ແພັກໃຫຍ່ (X) ແລະ ຫໍ່ນ້ອຍ (Y) ເພື່ອສະແດງຜົນ
+                let packsX = Math.floor(remainingSingles / unitPerPack);
+                let singlesY = remainingSingles % unitPerPack;
+                
+                let stockNoteDisplay = unitPerPack > 1 ? `${packsX}/${singlesY}` : `${packsX}`;
 
                 stockDisplay.value = stockNoteDisplay;
             } else {
