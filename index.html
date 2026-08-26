@@ -1458,22 +1458,24 @@
         let continuousCart = []; 
         let isScannerLocked = false; 
 
-        // 🔊 ຟັງຊັນສ້າງສຽງ Beep (ປັບໃຫ້ດັງຂຶ້ນ)
+        // 🔊 ຟັງຊັນສ້າງສຽງ Beep (ປັບໃຫ້ດັງ ແລະ ຊັດເຈນທີ່ສຸດ)
         function playBeepSound() {
             try {
                 let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 let oscillator = audioCtx.createOscillator();
                 let gainNode = audioCtx.createGain();
-                oscillator.type = 'sine';
-                oscillator.frequency.setValueAtTime(800, audioCtx.currentTime); // ຄວາມຖີ່ສຽງ
                 
-                // 🔊 ປັບຄວາມດັງຂຶ້ນຈາກ 0.1 ເປັນ 0.8 (ທ່ານສາມາດເພີ່ມຮອດ 1.0 ໄດ້)
-                gainNode.gain.setValueAtTime(0.8, audioCtx.currentTime); 
+                // ປ່ຽນຮູບແບບຄື້ນສຽງເປັນ 'square' ຈະເຮັດໃຫ້ສຽງດັງແຫຼມ ແລະ ຊັດເຈນກວ່າ 'sine'
+                oscillator.type = 'square';
+                oscillator.frequency.setValueAtTime(850, audioCtx.currentTime); 
+                
+                // 🔊 ປັບຄວາມດັງຂຶ້ນສູງສຸດ (1.0)
+                gainNode.gain.setValueAtTime(1.0, audioCtx.currentTime); 
                 
                 oscillator.connect(gainNode);
                 gainNode.connect(audioCtx.destination);
                 oscillator.start();
-                oscillator.stop(audioCtx.currentTime + 0.15); // ระยะเวลาความดังของเสียง (0.15 วินาที)
+                oscillator.stop(audioCtx.currentTime + 0.2); // ດັງດົນຂຶ້ນເປັນ 0.2 ວິນາທີ
             } catch (e) {}
         }
 
@@ -3022,14 +3024,51 @@ function initFirebaseRealtime() {
         let salesScannerInstance = null;
         function openScanner() {
             isScannerLocked = false;
+            let statusBadge = document.getElementById('scanner-status-badge');
+            
+            // ອັບເດດສະຖານະກ່ອນເປີດກ້ອງ
+            if(statusBadge) {
+                statusBadge.innerText = "ກຳລັງເປີດກ້ອງ...";
+                statusBadge.className = "text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold";
+            }
+            
             document.getElementById('scanner-container').classList.remove('hidden');
+            
             if (!salesScannerInstance) {
                 try { salesScannerInstance = new Html5Qrcode("reader"); } catch (e) {}
             }
+            
             salesScannerInstance.start(
                 { facingMode: "environment" },
                 { fps: 10, qrbox: 250 },
-                (decodedText) => handleSalesBarcodeScanned(decodedText.trim()),
+                (decodedText) => {
+                    // 1. ຖ້າກ້ອງລັອກຢູ່ (ພາຍໃນ 3 ວິ) ໃຫ້ຂ້າມການສະແກນໄປເລີຍ (ປ້ອງກັນກ້ອງລົວ)
+                    if (isScannerLocked) return;
+                    
+                    // 2. ລັອກກ້ອງທັນທີ ເພື່ອບໍ່ໃຫ້ສະແກນຊ້ຳ
+                    isScannerLocked = true;
+                    
+                    // 3. ຫຼິ້ນສຽງ Beep ດັງໆ
+                    playBeepSound();
+
+                    // 4. ອັບເດດ UI ແຈ້ງເຕືອນໜ້າຈໍວ່າກຳລັງພັກ 3 ວິນາທີ
+                    if(statusBadge) {
+                        statusBadge.innerText = "⏳ ພັກກ້ອງ 3 ວິ...";
+                        statusBadge.className = "text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded font-semibold";
+                    }
+
+                    // 5. ສົ່ງລະຫັດໄປປະມວນຜົນເພີ່ມລົງກະຕ່າ
+                    handleSalesBarcodeScanned(decodedText.trim());
+
+                    // 6. ຕັ້ງເວລາປົດລັອກຫຼັງຈາກ 3 ວິນາທີ (3000 ms)
+                    setTimeout(() => {
+                        isScannerLocked = false;
+                        if(statusBadge) {
+                            statusBadge.innerText = "ກຳລັງສະແກນ...";
+                            statusBadge.className = "text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold";
+                        }
+                    }, 3000);
+                },
                 (err) => {}
             ).catch(err => {});
         }
@@ -3102,7 +3141,6 @@ function initFirebaseRealtime() {
         }
 
         async function handleSalesBarcodeScanned(code, inputQty = null) {
-            if (isScannerLocked) return; 
 
             let addQty = (inputQty !== null && !isNaN(inputQty) && inputQty > 0) ? inputQty : 1;
 
