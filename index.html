@@ -3210,21 +3210,38 @@ function initFirebaseRealtime() {
 
             updateContinuousCartUI();
             
-            // ຣີເຊັດຊ່ອງປ້ອນຂໍ້ມູນ ຫຼັງຈາກເພີ່ມລົງກະຕ່າສຳເລັດແລ້ວ
+            // ⭐️ 1. ຄິດໄລ່ຍອດເຫຼືອຫຼ້າສຸດຂອງສິນຄ້າທີ່ຫາກໍ່ສະແກນລົງກະຕ່າໄປ (ຫັກລົບໃນກະຕ່າແລ້ວ)
+            let currentQty = parseFloat(String(foundItem.qty !== undefined ? foundItem.qty : 0).replace(/,/g, '')) || 0;
+            let totalAvailableSingles = Math.round(currentQty * unitPerPack);
+            let cartSingles = 0;
+            
+            continuousCart.forEach(cartItem => {
+                if (cartItem.id === foundItem.id) {
+                    let itemUnitPerPack = parseInt(cartItem.unitPerPack || cartItem.unit_per_pack) || 1;
+                    if (cartItem.saleType === 'wholesale') {
+                        cartSingles += (cartItem.qty * itemUnitPerPack);
+                    } else {
+                        cartSingles += cartItem.qty;
+                    }
+                }
+            });
+
+            let remainingSingles = Math.max(0, totalAvailableSingles - cartSingles);
+            let packsX = Math.floor(remainingSingles / unitPerPack);
+            let singlesY = remainingSingles % unitPerPack;
+            
+            let stockNoteDisplay = unitPerPack > 1 ? `${packsX}/${singlesY}` : `${packsX}`;
+            
+            // ⭐️ 2. ຣີເຊັດຊ່ອງປ້ອນຂໍ້ມູນ ແຕ່ໃຫ້ສະແດງຍອດເຫຼືອຫຼ້າສຸດຄ້າງໄວ້ໃຫ້ຜູ້ຂາຍເຫັນ
             let input = document.getElementById('scan-barcode-input');
             let qtyInput = document.getElementById('scan-qty-input');
             let stockDisplay = document.getElementById('scan-stock-display');
             
             if (input) input.value = "";
             if (qtyInput) qtyInput.value = "";
-            if (stockDisplay) stockDisplay.value = "";
+            if (stockDisplay) stockDisplay.value = stockNoteDisplay; // ສະແດງຍອດເຫຼືອຕົວຈິງຢູ່ບ່ອນນີ້
             if (input) input.focus();
         }
-
-        // === ລະບົບຈັດການ Modal ເລືອກລາຄາ (Multi-Price Selection) ===
-        let pendingMultiPriceQty = 1;
-        let selectedMultiPriceItemId = null;
-        let pendingMultiPriceItems = [];
 
         function openSelectPriceModal(items, qty, queryStr) {
             pendingMultiPriceItems = items;
