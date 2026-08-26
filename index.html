@@ -495,7 +495,7 @@
         </div>
     </div>
 
-    <!-- Popup ເລືອກປະເພດການຂາຍ (ກ່ອນເປີດກ້ອງສະແກນ) -->
+<!-- Popup ເລືອກປະເພດການຂາຍ (ກ່ອນເປີດກ້ອງສະແກນ) -->
     <div id="sale-type-select-modal" class="hidden fixed inset-0 bg-black/70 z-[340] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
             <div class="text-4xl">🏷️</div>
@@ -711,7 +711,7 @@
                                     </button>
                                 </div>
                             </div>
-                            <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); openSaleTypeSelectModal();" class="w-full px-4 py-2.5 text-xs font-semibold hover:bg-blue-50 flex items-center gap-2 text-left cursor-pointer transition border-t border-gray-100 text-blue-600" id="menu-stock-out">
+                                <button type="button" onclick="event.stopPropagation(); startDirectSale();" class="w-full px-4 py-2.5 text-xs font-semibold hover:bg-blue-50 flex items-center gap-2 text-left cursor-pointer transition border-t border-gray-100 text-blue-600" id="menu-stock-out"></button>
                                 🛒 ນຳອອກສິນຄ້າ (ຂາຍ)
                             </button>
                         </div>
@@ -2999,10 +2999,11 @@ function initFirebaseRealtime() {
             checkAdminButtonVisibility();
         });
 
-        function openSaleTypeSelectModal() {
+        // ⭐️ ຟັງຊັນໃໝ່: ກົດປຸບ ເປີດກ້ອງຂາຍເຄື່ອງເລີຍ ໂດຍຕັ້ງຄ່າເລີ່ມຕົ້ນເປັນຂາຍສົ່ງ
+        function startDirectSale() {
             closeAllCustomDropdowns();
             resetSaleInputFields();
-            document.getElementById('sale-type-select-modal').classList.remove('hidden');
+            openScanner();
         }
 
         function chooseSaleTypeAndOpenScanner(type) {
@@ -4131,16 +4132,19 @@ function initFirebaseRealtime() {
 
         function toggleSaleMode() {
             let btn = document.getElementById('toggle-sale-mode-btn');
+            let titleEl = document.getElementById('scanner-title-mode'); // ⭐️ ເພີ່ມການດຶງ ID ຫົວຂໍ້
             if (!btn) return;
 
             if (currentSaleType === 'wholesale') {
                 currentSaleType = 'retail';
                 btn.className = "bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow transition flex items-center gap-1";
                 btn.innerHTML = "🥤 ຂາຍຍ່ອຍ";
+                if (titleEl) titleEl.innerText = "📷 ກຳລັງສະແກນ QR / ບາໂຄດ (ຂາຍຍ່ອຍ)"; // ⭐️ ປ່ຽນຫົວຂໍ້
             } else {
                 currentSaleType = 'wholesale';
                 btn.className = "bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow transition flex items-center gap-1";
                 btn.innerHTML = "📦 ຂາຍສົ່ງ";
+                if (titleEl) titleEl.innerText = "📷 ກຳລັງສະແກນ QR / ບາໂຄດ (ຂາຍສົ່ງ)"; // ⭐️ ປ່ຽນຫົວຂໍ້
             }
 
             updateStockDisplayOnQtyChange();
@@ -4162,11 +4166,17 @@ function initFirebaseRealtime() {
                 toggleBtn.className = "bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow transition flex items-center gap-1";
                 toggleBtn.innerHTML = "📦 ຂາຍສົ່ງ";
             }
+            
+            // ⭐️ ເພີ່ມການຣີເຊັດຫົວຂໍ້ໃຫ້ກັບຄືນມາເປັນ ຂາຍສົ່ງ ສະເໝີ
+            let titleEl = document.getElementById('scanner-title-mode');
+            if (titleEl) {
+                titleEl.innerText = "📷 ກຳລັງສະແກນ QR / ບາໂຄດ (ຂາຍສົ່ງ)";
+            }
 
             updateContinuousCartUI();
         }
 
-function handleDirectCheckout() {
+        function handleDirectCheckout() {
             let input = document.getElementById('scan-barcode-input');
             
             if (input && input.value.trim() !== "") {
