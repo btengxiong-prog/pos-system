@@ -3136,7 +3136,25 @@ function initFirebaseRealtime() {
             let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
             let customQty = (rawQtyText === "" || isNaN(rawQtyText) || parseFloat(rawQtyText) <= 0) ? 1 : parseFloat(rawQtyText);
 
-            // ເອີ້ນໃຊ້ຟັງຊັນຄົ້ນຫາ ແລະ ເພີ່ມລົງກະຕ່າ
+            // ⭐️ ກວດສອບ: ຖ້າສິນຄ້າຖືກອັບເດດລົງກະຕ່າອໍໂຕ້ແລ້ວ ໃຫ້ລ້າງປ່ອງຂໍ້ມູນເພື່ອກຽມສະແກນອັນຕໍ່ໄປເລີຍ
+            let cleanCode = String(code).trim().toLowerCase();
+            let foundItem = excelRows.find(item => String(item.code).trim().toLowerCase() === cleanCode || (item.name && item.name.trim().toLowerCase() === cleanCode));
+            
+            if (foundItem && typeof continuousCart !== 'undefined') {
+                let existingCartItem = continuousCart.find(i => i.id === foundItem.id && i.saleType === currentSaleType);
+                
+                // ຖ້າມີໃນກະຕ່າແລ້ວ ແລະ ຈຳນວນກົງກັບທີ່ພິມ ໝາຍຄວາມວ່າລະບົບອັບເດດອໍໂຕ້ໃຫ້ແລ້ວ
+                if (existingCartItem && existingCartItem.qty === customQty && rawQtyText !== "") {
+                    input.value = "";
+                    qtyInput.value = "";
+                    let stockDisplay = document.getElementById('scan-stock-display');
+                    if (stockDisplay) stockDisplay.value = "";
+                    input.focus();
+                    return; // ຢຸດການເຮັດວຽກ ບໍ່ໃຫ້ບວກເພີ່ມຊ້ຳອີກ
+                }
+            }
+
+            // ຖ້າເປັນການພິມຊື່ສິນຄ້າໃໝ່ (ທີ່ບໍ່ມີໃນກະຕ່າ) ໃຫ້ເພີ່ມລົງກະຕ່າປົກກະຕິ
             handleSalesBarcodeScanned(code, customQty);
         }
 
@@ -4053,7 +4071,6 @@ function initFirebaseRealtime() {
             if (window.explicitlySelectedItemId) {
                 foundItem = excelRows.find(i => i.id === window.explicitlySelectedItemId);
             }
-
             if (!foundItem) {
                 foundItem = excelRows.find(item => 
                     String(item.code).trim().toLowerCase() === val || 
@@ -4062,18 +4079,30 @@ function initFirebaseRealtime() {
             }
 
             if (foundItem) {
+                let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
+                let typingQty = (rawQtyText === "" || isNaN(rawQtyText) || parseFloat(rawQtyText) <= 0) ? 1 : parseFloat(rawQtyText);
+
+                // ⭐️ 1. ອັບເດດຍອດເງິນໃນກະຕ່າທັນທີ (ແກ້ໄຂບັນຫາທີ 2)
+                let existingCartItem = null;
+                if (typeof continuousCart !== 'undefined') {
+                    existingCartItem = continuousCart.find(i => i.id === foundItem.id && i.saleType === currentSaleType);
+                    if (existingCartItem) {
+                        existingCartItem.qty = typingQty; // ແກ້ໄຂຈຳນວນໃນກະຕ່າໃຫ້ກົງກັບທີ່ພິມ
+                        updateContinuousCartUI(); // ສັ່ງອັບເດດຍອດເງິນ (ເຊັ່ນ 1,700,000) ທັນທີ
+                    }
+                }
+
+                // ⭐️ 2. ຄິດໄລ່ຍອດສະຕັອກຄົງເຫຼືອທີ່ຖືກຕ້ອງ (ແກ້ໄຂບັນຫາທີ 1: ບໍ່ໃຫ້ລົບຊ້ຳຊ້ອນ)
                 let currentQty = parseFloat(String(foundItem.qty !== undefined ? foundItem.qty : 0).replace(/,/g, '')) || 0;
                 let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
-                
-                let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
-                let sellingQty = (rawQtyText === "" || isNaN(rawQtyText)) ? 0 : parseFloat(rawQtyText);
-
                 let totalAvailableSingles = Math.round(currentQty * unitPerPack);
-
                 let cartSingles = 0;
+                let itemInCart = false;
+
                 if (typeof continuousCart !== 'undefined') {
                     continuousCart.forEach(cartItem => {
                         if (cartItem.id === foundItem.id) {
+                            itemInCart = true;
                             let itemUnitPerPack = parseInt(cartItem.unitPerPack || cartItem.unit_per_pack) || 1;
                             if (cartItem.saleType === 'wholesale') {
                                 cartSingles += (cartItem.qty * itemUnitPerPack);
@@ -4084,19 +4113,20 @@ function initFirebaseRealtime() {
                     });
                 }
 
-                let inputSingles = 0;
-                if (currentSaleType === 'wholesale') {
-                    inputSingles = sellingQty * unitPerPack;
-                } else {
-                    inputSingles = sellingQty;
+                // ຖ້າຍັງບໍ່ມີໃນກະຕ່າ (ພິມຊື່ດ້ວຍມື) ຈຶ່ງໃຫ້ລົບຕາມຈຳນວນທີ່ພິມ
+                if (!itemInCart) {
+                    if (currentSaleType === 'wholesale') {
+                        cartSingles += (typingQty * unitPerPack);
+                    } else {
+                        cartSingles += typingQty;
+                    }
                 }
 
-                let remainingSingles = Math.max(0, totalAvailableSingles - cartSingles - inputSingles);
+                let remainingSingles = Math.max(0, totalAvailableSingles - cartSingles);
                 let packsX = Math.floor(remainingSingles / unitPerPack);
                 let singlesY = remainingSingles % unitPerPack;
-                let stockNoteDisplay = unitPerPack > 1 ? `${packsX}/${singlesY}` : `${packsX}`;
-
-                stockDisplay.value = stockNoteDisplay;
+                
+                stockDisplay.value = unitPerPack > 1 ? `${packsX}/${singlesY}` : `${packsX}`;
             } else {
                 stockDisplay.value = "-";
             }
