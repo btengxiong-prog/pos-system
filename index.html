@@ -3241,7 +3241,7 @@ function initFirebaseRealtime() {
 
             updateContinuousCartUI();
             
-            // ⭐️ ສະແດງຍອດເຫຼືອໃນສາງ (ເອົາຈຳນວນເຕັມມາສະແດງເລີຍ ບໍ່ລົບ 1 ອອກ)
+            // ⭐️ ດຶງຍອດເຕັມໃນສາງມາສະແດງຜົນ ໂດຍບໍ່ແອບລົບຫຍັງທັງສິ້ນ
             let currentQty = parseFloat(String(foundItem.qty !== undefined ? foundItem.qty : 0).replace(/,/g, '')) || 0;
             let totalAvailableSingles = Math.round(currentQty * unitPerPack);
             
@@ -3254,8 +3254,8 @@ function initFirebaseRealtime() {
             let stockDisplay = document.getElementById('scan-stock-display');
             
             if (input) input.value = foundItem.name || foundItem.code;
-            if (qtyInput) qtyInput.value = ""; 
-            if (stockDisplay) stockDisplay.value = stockNoteDisplay; 
+            if (qtyInput) qtyInput.value = ""; // ຫວ່າງໄວ້ ເພື່ອໃຫ້ເປັນ 1 ອັດຕະໂນມັດ
+            if (stockDisplay) stockDisplay.value = stockNoteDisplay; // ຈະສະແດງ 90/0 ເຕັມໆ
         }
 
         function openSelectPriceModal(items, qty, queryStr) {
@@ -4065,7 +4065,6 @@ function initFirebaseRealtime() {
             if (window.explicitlySelectedItemId) {
                 foundItem = excelRows.find(i => i.id === window.explicitlySelectedItemId);
             }
-
             if (!foundItem) {
                 foundItem = excelRows.find(item => 
                     String(item.code).trim().toLowerCase() === val || 
@@ -4076,38 +4075,31 @@ function initFirebaseRealtime() {
             if (foundItem) {
                 let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
                 
-                // ⭐️ typingQty ສຳລັບອັບເດດກະຕ່າ (ຖ້າຊ່ອງຫວ່າງ ຈະເທົ່າກັບ 1 ສະເໝີ)
+                // 1. ອັບເດດລົງກະຕ່າ (ຖ້າຊ່ອງຫວ່າງ ໃຫ້ຖືເປັນ 1 ຊິ້ນໃນກະຕ່າ)
                 let typingQty = (rawQtyText === "" || isNaN(rawQtyText) || parseFloat(rawQtyText) <= 0) ? 1 : parseFloat(rawQtyText);
                 
-                // ⭐️ visualDeduct ສຳລັບຫັກລົບໃນໜ້າຈໍ (ຖ້າຊ່ອງຫວ່າງ ຈະເທົ່າກັບ 0 ເພື່ອໃຫ້ເຫັນຍອດເຕັມ)
-                let visualDeduct = (rawQtyText === "" || isNaN(rawQtyText)) ? 0 : parseFloat(rawQtyText);
-
-                // 1. ອັບເດດຍອດເງິນໃນກະຕ່າທັນທີ
-                let existingCartItem = null;
                 if (typeof continuousCart !== 'undefined') {
-                    existingCartItem = continuousCart.find(i => i.id === foundItem.id && i.saleType === currentSaleType);
+                    let existingCartItem = continuousCart.find(i => i.id === foundItem.id && i.saleType === currentSaleType);
                     if (existingCartItem) {
                         existingCartItem.qty = typingQty; 
                         updateContinuousCartUI(); 
                     }
                 }
 
-                // 2. ຄິດໄລ່ຍອດສະຕັອກຄົງເຫຼືອ (ເອົາຍອດເຕັມ - ຕົວເລກທີ່ພິມ)
+                // 2. ຄິດໄລ່ສະຕັອກສະແດງຜົນໜ້າຈໍ (ດຶງຍອດເຕັມມາເລີຍ ບໍ່ລົບຈຳນວນໃນກະຕ່າ)
                 let currentQty = parseFloat(String(foundItem.qty !== undefined ? foundItem.qty : 0).replace(/,/g, '')) || 0;
                 let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
                 let totalAvailableSingles = Math.round(currentQty * unitPerPack);
                 
-                let inputSingles = 0;
-                if (currentSaleType === 'wholesale') {
-                    inputSingles = visualDeduct * unitPerPack;
-                } else {
-                    inputSingles = visualDeduct;
-                }
+                // ຖ້າຊ່ອງຫວ່າງເປົ່າ ໃຫ້ລົບອອກ 0 (ເພື່ອໃຫ້ເຫັນຍອດເຕັມ 90/0)
+                let visualDeduct = (rawQtyText === "" || isNaN(rawQtyText)) ? 0 : parseFloat(rawQtyText);
+                let inputSingles = currentSaleType === 'wholesale' ? (visualDeduct * unitPerPack) : visualDeduct;
 
+                // ຍອດທີ່ຈະສະແດງ = ຍອດເຕັມໃນສາງ - ຕົວເລກທີ່ພິມໃນຊ່ອງ
                 let remainingSingles = Math.max(0, totalAvailableSingles - inputSingles);
+                
                 let packsX = Math.floor(remainingSingles / unitPerPack);
                 let singlesY = remainingSingles % unitPerPack;
-                
                 stockDisplay.value = unitPerPack > 1 ? `${packsX}/${singlesY}` : `${packsX}`;
             } else {
                 stockDisplay.value = "-";
