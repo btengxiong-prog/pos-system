@@ -3241,23 +3241,13 @@ function initFirebaseRealtime() {
 
             updateContinuousCartUI();
             
-            // ຄຳນວນຍອດເຫຼືອໃນສາງ
+            // ⭐️ ຄຳນວນຍອດເຫຼືອໃນສາງ (ສະແດງຍອດຈິງໃນສາງ 90/0 ຕາມທີ່ຕ້ອງການ)
             let currentQty = parseFloat(String(foundItem.qty !== undefined ? foundItem.qty : 0).replace(/,/g, '')) || 0;
             let totalAvailableSingles = Math.round(currentQty * unitPerPack);
-            let cartSingles = 0;
             
-            continuousCart.forEach(cartItem => {
-                if (cartItem.id === foundItem.id) {
-                    let itemUnitPerPack = parseInt(cartItem.unitPerPack || cartItem.unit_per_pack) || 1;
-                    if (cartItem.saleType === 'wholesale') {
-                        cartSingles += (cartItem.qty * itemUnitPerPack);
-                    } else {
-                        cartSingles += cartItem.qty;
-                    }
-                }
-            });
-
-            let remainingSingles = Math.max(0, totalAvailableSingles - cartSingles);
+            // ໃຫ້ສະແດງຍອດເຕັມຂອງສາງສະເໝີໃນຕອນທີ່ເລືອກສິນຄ້າ (ຍັງບໍ່ທັນພິມຕົວເລກລົບ)
+            let remainingSingles = Math.max(0, totalAvailableSingles); 
+            
             let packsX = Math.floor(remainingSingles / unitPerPack);
             let singlesY = remainingSingles % unitPerPack;
             let stockNoteDisplay = unitPerPack > 1 ? `${packsX}/${singlesY}` : `${packsX}`;
@@ -3266,9 +3256,8 @@ function initFirebaseRealtime() {
             let qtyInput = document.getElementById('scan-qty-input');
             let stockDisplay = document.getElementById('scan-stock-display');
             
-            // ໃຫ້ປ່ອງປ້ອນ Barcode ສະແດງຊື່ສິນຄ້າຂຶ້ນມາຕາມຮູບ 1
             if (input) input.value = foundItem.name || foundItem.code;
-            if (qtyInput) qtyInput.value = "";
+            if (qtyInput) qtyInput.value = ""; // ຫວ່າງໄວ້ ໝາຍເຖິງ 1 ໂດຍອັດຕະໂນມັດ
             if (stockDisplay) stockDisplay.value = stockNoteDisplay; 
         }
 
@@ -4079,6 +4068,7 @@ function initFirebaseRealtime() {
             if (window.explicitlySelectedItemId) {
                 foundItem = excelRows.find(i => i.id === window.explicitlySelectedItemId);
             }
+
             if (!foundItem) {
                 foundItem = excelRows.find(item => 
                     String(item.code).trim().toLowerCase() === val || 
@@ -4088,49 +4078,36 @@ function initFirebaseRealtime() {
 
             if (foundItem) {
                 let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
+                
+                // ⭐️ typingQty ສຳລັບອັບເດດກະຕ່າ (ຖ້າຊ່ອງຫວ່າງ ຈະເທົ່າກັບ 1 ສະເໝີ)
                 let typingQty = (rawQtyText === "" || isNaN(rawQtyText) || parseFloat(rawQtyText) <= 0) ? 1 : parseFloat(rawQtyText);
+                
+                // ⭐️ visualDeduct ສຳລັບຫັກລົບໃນຈໍສະແດງຜົນ (ຖ້າຊ່ອງຫວ່າງ ຈະເທົ່າກັບ 0 ເພື່ອໃຫ້ເຫັນຍອດເຕັມ 90/0)
+                let visualDeduct = (rawQtyText === "" || isNaN(rawQtyText)) ? 0 : parseFloat(rawQtyText);
 
-                // ⭐️ 1. ອັບເດດຍອດເງິນໃນກະຕ່າທັນທີ (ແກ້ໄຂບັນຫາທີ 2)
+                // 1. ອັບເດດຍອດເງິນໃນກະຕ່າທັນທີ
                 let existingCartItem = null;
                 if (typeof continuousCart !== 'undefined') {
                     existingCartItem = continuousCart.find(i => i.id === foundItem.id && i.saleType === currentSaleType);
                     if (existingCartItem) {
-                        existingCartItem.qty = typingQty; // ແກ້ໄຂຈຳນວນໃນກະຕ່າໃຫ້ກົງກັບທີ່ພິມ
-                        updateContinuousCartUI(); // ສັ່ງອັບເດດຍອດເງິນ (ເຊັ່ນ 1,700,000) ທັນທີ
+                        existingCartItem.qty = typingQty; 
+                        updateContinuousCartUI(); 
                     }
                 }
 
-                // ⭐️ 2. ຄິດໄລ່ຍອດສະຕັອກຄົງເຫຼືອທີ່ຖືກຕ້ອງ (ແກ້ໄຂບັນຫາທີ 1: ບໍ່ໃຫ້ລົບຊ້ຳຊ້ອນ)
+                // 2. ຄິດໄລ່ຍອດສະຕັອກຄົງເຫຼືອທີ່ຖືກຕ້ອງຕາມຈຳນວນທີ່ພິມ
                 let currentQty = parseFloat(String(foundItem.qty !== undefined ? foundItem.qty : 0).replace(/,/g, '')) || 0;
                 let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
                 let totalAvailableSingles = Math.round(currentQty * unitPerPack);
-                let cartSingles = 0;
-                let itemInCart = false;
-
-                if (typeof continuousCart !== 'undefined') {
-                    continuousCart.forEach(cartItem => {
-                        if (cartItem.id === foundItem.id) {
-                            itemInCart = true;
-                            let itemUnitPerPack = parseInt(cartItem.unitPerPack || cartItem.unit_per_pack) || 1;
-                            if (cartItem.saleType === 'wholesale') {
-                                cartSingles += (cartItem.qty * itemUnitPerPack);
-                            } else {
-                                cartSingles += cartItem.qty;
-                            }
-                        }
-                    });
+                
+                let inputSingles = 0;
+                if (currentSaleType === 'wholesale') {
+                    inputSingles = visualDeduct * unitPerPack;
+                } else {
+                    inputSingles = visualDeduct;
                 }
 
-                // ຖ້າຍັງບໍ່ມີໃນກະຕ່າ (ພິມຊື່ດ້ວຍມື) ຈຶ່ງໃຫ້ລົບຕາມຈຳນວນທີ່ພິມ
-                if (!itemInCart) {
-                    if (currentSaleType === 'wholesale') {
-                        cartSingles += (typingQty * unitPerPack);
-                    } else {
-                        cartSingles += typingQty;
-                    }
-                }
-
-                let remainingSingles = Math.max(0, totalAvailableSingles - cartSingles);
+                let remainingSingles = Math.max(0, totalAvailableSingles - inputSingles);
                 let packsX = Math.floor(remainingSingles / unitPerPack);
                 let singlesY = remainingSingles % unitPerPack;
                 
