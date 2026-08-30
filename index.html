@@ -4582,6 +4582,45 @@ function initFirebaseRealtime() {
             }
         }
 
+        function calculateInlineChange() {
+                    let cashInput = document.getElementById('inline-cash-given');
+                    let changeEl = document.getElementById('inline-change-amount');
+                    if (!cashInput || !changeEl) return;
+
+                    let cashGiven = parseFloat(cashInput.value.replace(/,/g, '')) || 0;
+                    
+                    let isTHB = (currentInlinePaymentMode === 'cash_thb' || currentInlinePaymentMode === 'transfer_thb');
+                    let currencyLabel = isTHB ? 'ບາດ' : 'ກີບ';
+
+                    // ຄິດໄລ່ຍອດລວມໃນກະຕ່າສົດໆ ເພື່ອປ້ອງກັນຕົວເລກຜິດພາດ
+                    let exactTotalLAK = 0;
+                    if (typeof continuousCart !== 'undefined') {
+                        exactTotalLAK = continuousCart.reduce((sum, item) => sum + (parseFloat(item.price) * parseFloat(item.qty)), 0);
+                    }
+
+                    let totalAmountToPay = exactTotalLAK;
+                    
+                    if (isTHB) {
+                        let buyRateNew = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 680;
+                        totalAmountToPay = Math.ceil(exactTotalLAK / buyRateNew);
+                    }
+
+                    // ເອົາເງິນທີ່ຮັບມາ ລົບ ເງິນທີ່ຕ້ອງຈ່າຍ
+                    let changeAmount = cashGiven - totalAmountToPay;
+
+                    // ການສະແດງຜົນເງິນທອນ
+                    if (cashInput.value.trim() === "") {
+                        changeEl.innerText = `0 ${currencyLabel}`;
+                        changeEl.className = "text-orange-600 text-sm";
+                    } else if (changeAmount < 0) {
+                        changeEl.innerText = `ຍັງຂາດ: ${formatNumberWithCommas(Math.abs(changeAmount))} ${currencyLabel}`;
+                        changeEl.className = "text-red-600 text-sm";
+                    } else {
+                        changeEl.innerText = `${formatNumberWithCommas(changeAmount)} ${currencyLabel}`;
+                        changeEl.className = "text-green-600 text-sm font-extrabold";
+                    }
+                }
+
     </script>
 </body>
 </html>
