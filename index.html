@@ -732,11 +732,13 @@
                 </div>
 
                 <div class="flex flex-col gap-1.5">
+                    
                     <!-- ⭐️ ປຸ່ມເພີ່ມໃໝ່: ກວດສອບລາຄາສິນຄ້າ -->
                     <button id="btn-check-price" onclick="openPriceChecker()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-xl font-medium shadow flex items-center justify-start gap-2 transition cursor-pointer text-xs">
                         <span>🔍</span> ກວດສອບລາຄາສິນຄ້າ
                     </button>
 
+                    <!-- ປຸ່ມເກົ່າ: ສິນຄ້າຄ້າງສາງ (ທີ່ທ່ານກ໋ອບມາ) -->
                     <button id="btn-inventory" onclick="openInventoryModal()" class="w-full bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-2 rounded-xl font-medium shadow flex items-center justify-start gap-2 transition cursor-pointer text-xs">
                         <span>📦</span> ສິນຄ້າຄ້າງສາງ
                     </button>
@@ -2734,7 +2736,7 @@ function initFirebaseRealtime() {
                     qty: newQty,
                     initial_qty: newQty,
                     expiry_date: expDate,
-                    updated_at: new DatetoISOString()
+                    updated_at: new Date().toISOString()
                 });
                 showAlert("ສຳເລັດ", "ລວມສິນຄ້າສຳເລັດຮຽບຮ້ອຍ!", "✅");
             } else {
@@ -3603,6 +3605,516 @@ function initFirebaseRealtime() {
 
                     if (!isNaN(expDate.getTime())) {
                         let diffTime = expDate - today;
+                        let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                        if (diffDays <= 60 && currentQty > 0) {
+                            expiryFilteredRows.push({ ...row, diffDays: diffDays });
+                        }
+                    }
+                }
+            });
+
+            if (expiryFilteredRows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃກ້ໝົດອາຍຸໃນສາງ</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            let countIndex = 1;
+
+            expiryFilteredRows.forEach((row) => {
+                let expDateStr = row.expiry_date || row.expiryDate || '';
+                let mfgDateStr = row.mfg_date || row.mfgDate || '-';
+                let rawImportDate = row.date_added || row.dateAdded || '';
+                let formattedImportDate = rawImportDate ? formatDateToDDMMYYYY(rawImportDate) : '-';
+                let diffDays = row.diffDays;
+                let noteStatus = '';
+
+                if (diffDays < 0) {
+                    noteStatus = `<span class="text-red-600 font-extrabold">❌ ໝົດອາຍຸແລ້ວ (${Math.abs(diffDays)} ວັນ)</span>`;
+                } else if (diffDays === 0) {
+                    noteStatus = `<span class="text-red-500 font-bold">⚠️ ໝົດອາຍຸມື້ນີ້!</span>`;
+                } else {
+                    noteStatus = `<span class="text-amber-600 font-bold">⚠️ ໃກ້ໝົດອາຍຸ (ອີກ ${diffDays} ວັນ)</span>`;
+                }
+
+                let currency = row.currency || 'ກີບ';
+                html += `
+                    <tr class="hover:bg-gray-50 border-b">
+                        <td class="p-3 border-r text-center font-bold text-gray-500 text-xs">${countIndex++}</td>
+                        <td class="p-3 border-r font-bold text-gray-900">${row.name || row.code || '-'}</td>
+                        <td class="p-3 border-r text-center font-semibold text-purple-700">${formattedImportDate}</td>
+                        <td class="p-3 border-r text-center font-semibold text-gray-600">${formatDateToDDMMYYYY(mfgDateStr)}</td>
+                        <td class="p-3 border-r text-center font-bold text-red-600">${formatDateToDDMMYYYY(expDateStr)}</td>
+                        <td class="p-3 border-r text-right text-blue-600 font-semibold">${formatNumberWithCommas(row.cost)} ${currency}</td>
+                        <td class="p-3 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(row.price)} ${currency}</td>
+                        <td class="p-3 text-center text-xs">${noteStatus}</td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        function openExcelGenerator() { document.getElementById('excel-generator-modal').classList.remove('hidden'); renderExcelTable(); }
+        function closeExcelGenerator() { document.getElementById('excel-generator-modal').classList.add('hidden'); }
+
+        function renderExcelTable() {
+            let tbody = document.getElementById('excel-tbody');
+            if (!tbody) return;
+            if (!excelRows || excelRows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນສາງ</td></tr>`;
+                return;
+            }
+            let html = '';
+            let index = 1;
+            excelRows.forEach((row) => {
+                html += `
+                    <tr class="border-b">
+                        <td class="p-2.5 border-r text-center text-xs font-bold text-gray-500">${index++}</td>
+                        <td class="p-2.5 border-r text-center font-mono font-bold text-blue-600 text-xs">${row.code || '-'}</td>
+                        <td class="p-2.5 border-r font-bold text-gray-900 text-xs">${row.name || '-'}</td>
+                        <td class="p-2.5 border-r text-center font-semibold text-xs">${Math.round(parseFloat(row.initial_qty !== undefined ? row.initial_qty : row.qty) || 1)}</td>
+                        <td class="p-2.5 border-r text-right font-semibold text-blue-700 text-xs">${formatNumberWithCommas(row.cost || 0)}</td>
+                        <td class="p-2.5 text-right font-semibold text-green-700 text-xs">${formatNumberWithCommas(row.price || 0)}</td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+            generateExcelCodes();
+        }
+
+        function generateExcelCodes() {
+            let previewContainer = document.getElementById('excel-preview-cards');
+            if (!previewContainer) return;
+            if (!excelRows || excelRows.length === 0) {
+                previewContainer.innerHTML = `<p class="text-center text-gray-400 col-span-3">ບໍ່ມີຂໍ້ມູນສິນຄ້າສຳລັບສ້າງປ້າຍ</p>`;
+                return;
+            }
+
+            let html = '';
+            excelRows.forEach((row, idx) => {
+                let codeVal = row.code || 'POS000';
+                let nameVal = row.name || 'ສິນຄ້າ';
+                let canvasId = `code-canvas-${idx}`;
+
+                html += `
+                    <div class="bg-white p-4 rounded-xl border shadow-sm text-center space-y-2 flex flex-col items-center justify-center">
+                        <div class="font-bold text-gray-800 text-xs truncate max-w-[200px]">${nameVal}</div>
+                        <div class="py-1 bg-gray-50 border rounded-lg w-full flex justify-center items-center min-h-[90px]">
+                            ${currentCodeType === 'qrcode' ? `<div id="${canvasId}-qr" class="inline-block"></div>` : `<canvas id="${canvasId}-barcode" class="max-w-full"></canvas>`}
+                        </div>
+                        <div class="font-mono text-xs font-bold text-blue-600">${codeVal}</div>
+                    </div>
+                `;
+            });
+            previewContainer.innerHTML = html;
+
+            excelRows.forEach((row, idx) => {
+                let codeVal = row.code || 'POS000';
+                let canvasId = `code-canvas-${idx}`;
+                if (currentCodeType === 'qrcode') {
+                    let qrEl = document.getElementById(`${canvasId}-qr`);
+                    if (qrEl && window.QRCode) {
+                        qrEl.innerHTML = "";
+                        QRCode.toString(codeVal, { type: 'svg', width: 90, margin: 1 }, function (err, svgString) {
+                            if (!err && qrEl) qrEl.innerHTML = svgString;
+                        });
+                    }
+                } else {
+                    let barcodeEl = document.getElementById(`${canvasId}-barcode`);
+                    if (barcodeEl && window.JsBarcode) {
+                        try { JsBarcode(barcodeEl, codeVal, { format: "CODE128", width: 1.5, height: 40, displayValue: false }); } catch (e) {}
+                    }
+                }
+            });
+        }
+
+        function openRateAnalysisModal() { document.getElementById('rate-analysis-modal').classList.remove('hidden'); loadRateAnalysis(); }
+        function closeRateAnalysisModal() { document.getElementById('rate-analysis-modal').classList.add('hidden'); }
+
+        async function populateRateShopDropdown() {
+            let selectEl = document.getElementById('inventory-shop-filter-rate');
+            if (!selectEl) return;
+            let shopsSet = new Set();
+            if (db) {
+                try {
+                    let snap = await db.collection("daily_rates").get();
+                    snap.forEach(doc => {
+                        let d = doc.data();
+                        if (d.device_id && d.device_id !== '-') shopsSet.add(d.device_id.trim().toUpperCase());
+                    });
+                } catch (e) {}
+            }
+
+            let html = `<option value="ALL">🏪 ທຸກຮ້ານ (ທັງໝົດ)</option>`;
+            shopsSet.forEach(shopId => {
+                let shopName = localStorage.getItem('pos_shop_name_' + shopId) || shopId;
+                html += `<option value="${shopId}">${shopName} (${shopId})</option>`;
+            });
+            selectEl.innerHTML = html;
+        }
+
+        async function loadRateAnalysis() {
+            let tbody = document.getElementById('rate-history-tbody');
+            if (!tbody) return;
+            
+            // ⭐️ ຈື່ຄ່າຮ້ານທີ່ເລືອກໄວ້ກ່ອນ ເພື່ອບໍ່ໃຫ້ມັນຣີເຊັດ
+            let shopFilterSelect = document.getElementById('inventory-shop-filter-rate');
+            let currentSelectedShop = shopFilterSelect ? shopFilterSelect.value : 'ALL';
+
+            tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດປະຫວັດ Rate...</td></tr>`;
+
+            let userRole = localStorage.getItem('pos_user_role');
+            let shopOwner = localStorage.getItem('pos_shop_owner');
+            let isAdminMaster = (userRole === 'admin' || deviceId === 'POSXIONG' || (shopOwner === 'true' && deviceId === 'POSXIONG'));
+            
+            let adminRateDiv = document.getElementById('inventory-admin-action-buttons-rate');
+            if (adminRateDiv) {
+                if (isAdminMaster) {
+                    adminRateDiv.classList.remove('hidden');
+                    adminRateDiv.style.setProperty('display', 'flex', 'important');
+                    
+                    // ⭐️ ຖ້າຍັງບໍ່ມີລາຍຊື່ຮ້ານໃນ Dropdown ຈຶ່ງໄປດຶງມາໃໝ່ (ປ້ອງກັນການສ້າງໃໝ່ທຸກຄັ້ງທີ່ກົດເລືອກ)
+                    if (!shopFilterSelect || shopFilterSelect.options.length <= 1) {
+                        await populateRateShopDropdown();
+                        // ຫຼັງຈາກດຶງລາຍຊື່ສຳເລັດ ໃຫ້ຕັ້ງຄ່າກັບຄືນຮ້ານທີ່ເຮົາເລືອກ
+                        if(shopFilterSelect) shopFilterSelect.value = currentSelectedShop;
+                    }
+                } else {
+                    adminRateDiv.classList.add('hidden');
+                    adminRateDiv.style.setProperty('display', 'none', 'important');
+                }
+            }
+
+            let rateRecords = [];
+            if (db) {
+                try {
+                    let queryRef = db.collection("daily_rates");
+                    if (!isAdminMaster && deviceId !== 'POSXIONG') {
+                        queryRef = queryRef.where("device_id", "==", deviceId);
+                    }
+                    let snapshot = await queryRef.get();
+                    snapshot.forEach(doc => rateRecords.push(doc.data()));
+                } catch (e) {}
+            }
+
+            if (rateRecords.length === 0) {
+                rateRecords.push({
+                    device_id: deviceId,
+                    date: localStorage.getItem('pos_custom_manual_rate_date') || new Date().toISOString().split('T')[0],
+                    buyRate: localStorage.getItem('pos_custom_buy_rate') || '650',
+                    sellRate: localStorage.getItem('pos_custom_sell_rate') || '670',
+                    note: 'ຄ່າເລີ່ມຕົ້ນລະບົບ'
+                });
+            }
+
+            // ⭐️ ກັ່ນຕອງຂໍ້ມູນຕາມຮ້ານທີ່ເລືອກ (currentSelectedShop)
+            let filteredRecords = rateRecords;
+            if (isAdminMaster && currentSelectedShop && currentSelectedShop !== 'ALL') {
+                filteredRecords = rateRecords.filter(rec => String(rec.device_id || '').trim().toUpperCase() === currentSelectedShop);
+            }
+
+            filteredRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            let html = '';
+            let index = 1;
+            filteredRecords.forEach((rec) => {
+                let shopLabel = localStorage.getItem('pos_shop_name_' + rec.device_id) || rec.device_id || 'POSXIONG';
+                html += `
+                    <tr class="hover:bg-gray-50 border-b text-center">
+                        <td class="p-2 border-r font-bold text-gray-500 text-xs">${index++}</td>
+                        <td class="p-2 border-r font-bold text-blue-700 text-xs">${shopLabel}</td>
+                        <td class="p-2 border-r font-semibold text-purple-700 text-xs">${formatDateToDDMMYYYY(rec.date)}</td>
+                        <td class="p-2 border-r text-right font-bold text-blue-600 text-xs">${formatNumberWithCommas(rec.buyRate)} ກີບ</td>
+                        <td class="p-2 border-r text-right font-bold text-green-600 text-xs">${formatNumberWithCommas(rec.sellRate)} ກີບ</td>
+                        <td class="p-2 text-xs font-semibold text-gray-600">${rec.note || 'ປັບປຸງດ້ວຍມື'}</td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        function showUnifiedLoginModal() {
+            document.getElementById('role-select-modal').classList.add('hidden');
+            document.getElementById('unified-login-modal').classList.remove('hidden');
+        }
+
+        async function loadCloudHistory() {
+            let tbody = document.getElementById('history-table-tbody');
+            let summaryContainer = document.getElementById('history-summary');
+            if (!tbody) return;
+            tbody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດຂໍ້ມູນປະຫວັດ...</td></tr>`;
+
+            // ⭐️ ເພີ່ມບັນັດນີ້ເພື່ອໃຫ້ຕອນໂຫຼດຂໍ້ມູນໃໝ່ ມັນຕິກອອກ (Uncheck) ສະເໝີ
+            let selectAllCheckbox = document.getElementById('select-all-history-checkbox');
+            if (selectAllCheckbox) selectAllCheckbox.checked = false;
+
+            let salesHistory = [];
+            if (db) {
+                try {
+                    let userRole = localStorage.getItem('pos_user_role');
+                    let historyRef = (userRole === 'admin' || deviceId === 'POSXIONG') ?
+                        db.collection("sales_history") :
+                        db.collection("sales_history").where("device_id", "==", deviceId);
+                    let snapshot = await historyRef.get();
+                    snapshot.forEach(doc => {
+                        let data = doc.data();
+                        salesHistory.push({
+                            id: doc.id,
+                            date: data.date || data.timestamp || new Date().toISOString(),
+                            items: data.items || [],
+                            currency: data.currency || 'ກີບ',
+                            payMode: data.pay_mode || 'cash',
+                            totalAmount: data.total_amount || 0
+                        });
+                    });
+                } catch (e) {}
+            }
+
+            if (salesHistory.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີປະຫວັດການຂາຍໃນລະບົບ</td></tr>`;
+                if (summaryContainer) summaryContainer.classList.add('hidden');
+                return;
+            }
+
+            salesHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
+            let html = '', countIndex = 1, totalCostAll = 0, totalPriceAll = 0, cashTotal = 0, transferTotal = 0;
+
+            let userRole = localStorage.getItem('pos_user_role');
+            let shopOwner = localStorage.getItem('pos_shop_owner');
+            let isAdminMaster = (userRole === 'admin' || deviceId === 'POSXIONG' || (shopOwner === 'true' && deviceId === 'POSXIONG'));
+
+            salesHistory.forEach(tx => {
+                let formattedDate = formatDateToDDMMYYYY(tx.date);
+                if (tx.items && Array.isArray(tx.items)) {
+                    tx.items.forEach(it => {
+                        let cost = parseFloat(it.cost) || 0, price = parseFloat(it.price) || 0, qty = parseInt(it.qty) || 1;
+                        let totalRow = price * qty;
+                        totalCostAll += cost * qty;
+                        totalPriceAll += totalRow;
+                        if (tx.payMode && tx.payMode.includes('transfer')) transferTotal += totalRow; else cashTotal += totalRow;
+
+                        let rightCellHtml = isAdminMaster ? `<td class="p-3 text-center"><input type="checkbox" data-id="${tx.id}" class="history-row-checkbox w-4 h-4 cursor-pointer accent-blue-600"></td>` : ``;
+
+                        html += `
+                            <tr class="hover:bg-gray-50 border-b text-center">
+                                <td class="p-3 border-r font-bold text-gray-500 text-xs">${countIndex++}</td>
+                                <td class="p-3 border-r font-semibold text-purple-700 text-xs">${formattedDate}</td>
+                                <td class="p-3 border-r font-bold text-blue-600 font-mono text-xs">${it.code || '-'}</td>
+                                <td class="p-3 border-r font-bold text-gray-900 text-left text-xs">${it.name || '-'}</td>
+                                <td class="p-3 border-r text-right text-blue-600 text-xs">${formatNumberWithCommas(cost)}</td>
+                                <td class="p-3 border-r text-right text-green-600 text-xs">${formatNumberWithCommas(price)}</td>
+                                <td class="p-3 border-r text-center font-bold text-cyan-800 text-xs">${formatNumberWithCommas(qty)}</td>
+                                <td class="p-3 border-r text-right font-bold text-blue-800 bg-blue-50/30 text-xs">${formatNumberWithCommas(totalRow)}</td>
+                                <td class="p-3 text-center text-xs font-semibold text-amber-600">${tx.payMode || 'cash'}</td>
+                                ${rightCellHtml}
+                            </tr>
+                        `;
+                    });
+                }
+            });
+
+            tbody.innerHTML = html;
+            document.getElementById('sum-total-cost-lak').innerText = formatNumberWithCommas(totalCostAll) + " ກີບ";
+            document.getElementById('sum-total-price-lak').innerText = formatNumberWithCommas(totalPriceAll) + " ກີບ";
+            document.getElementById('sum-total-profit-lak').innerText = formatNumberWithCommas(totalPriceAll - totalCostAll) + " ກີບ";
+            document.getElementById('sum-cash-lak').innerText = formatNumberWithCommas(cashTotal) + " ກີບ";
+            document.getElementById('sum-transfer-lak').innerText = formatNumberWithCommas(transferTotal) + " ກີບ";
+            if (summaryContainer) summaryContainer.classList.remove('hidden');
+        }
+
+        function selectAllAdminDevices(btn) {
+            let checkboxes = document.querySelectorAll('.admin-device-checkbox');
+            if (checkboxes.length === 0) return;
+            let allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            checkboxes.forEach(cb => cb.checked = !allChecked);
+        }
+
+        async function promptDeleteSelectedOrAllDevices() {
+            let checkboxes = document.querySelectorAll('.inventory-row-checkbox, .admin-device-checkbox');
+            let checkedBoxes = Array.from(checkboxes).filter(cb => cb.checked);
+
+            if (checkedBoxes.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ບໍ່ມີຂໍ້ມູນທີ່ຖືກເລືອກໃຫ້ລຶບ!", "⚠️");
+                return;
+            }
+
+            let idsToDelete = checkedBoxes.map(cb => cb.getAttribute('data-id'));
+            let isInventoryDelete = checkedBoxes.some(cb => cb.classList.contains('inventory-row-checkbox'));
+
+            if (isInventoryDelete) {
+                if (!db) return;
+                try {
+                    let batch = db.batch();
+                    idsToDelete.forEach(docId => batch.delete(db.collection("products").doc(docId)));
+                    await batch.commit();
+                    loadInventory();
+                    showAlert("ສຳເລັດ", "ລຶບສິນຄ້າທີ່ເລືອກອອກຈາກສາງຮຽບຮ້ອຍແລ້ວ!", "🗑️");
+                } catch (e) {
+                    showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການລຶບສິນຄ້າ: " + e.message, "❌");
+                }
+            } else {
+                if (!db) return;
+                try {
+                    let batch = db.batch();
+                    idsToDelete.forEach(devId => {
+                        batch.delete(db.collection("devices_registry").doc(devId));
+                        localStorage.removeItem('pos_shop_name_' + devId);
+                        localStorage.removeItem('pos_shop_phone_' + devId);
+                        localStorage.removeItem('pos_shop_user_' + devId);
+                    });
+                    await batch.commit();
+                    await loadAllDevices();
+                    showAlert("ສຳເລັດ", "ລຶບຂໍ້ມູນຢູເຊີທີ່ເລືອກຮຽບຮ້ອຍແລ້ວ!", "🗑️");
+                } catch (e) {
+                    showAlert("ຜິດພາດ", "ເກີດຂໍ້ຜິດພາດໃນການລຶບຂໍ້ມູນ: " + e.message, "❌");
+                }
+            }
+        }
+
+        function toggleSelectAllAdminDevices(masterCheckbox) {
+            document.querySelectorAll('#device-list-container .admin-device-checkbox').forEach(cb => cb.checked = masterCheckbox.checked);
+            let targetInput = document.getElementById('new-target-device');
+            if (targetInput) targetInput.value = '';
+        }
+
+        function openCheckoutMethodModal() {
+            if (continuousCart.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາສະແກນສິນຄ້າໃສ່ກະຕ່າກ່ອນຊຳລະເງິນ!", "⚠️");
+                return;
+            }
+            
+            currentSelectedPaymentMode = 'cash'; 
+
+            // ⭐️ ດຶງເອົາຄ่ายอดລວມຈາກ "ລາຍການສິນຄ້າໃນກະຕ່າ" ມາໃສ່ໃນປ໋ອບອັບຊຳລະເງິນ (ຮູບ 2) ໂດຍກົງ 100% 
+            // ໂດຍຍຶດລາຄາຈາກກະຕ່າເປັນຫຼັກຕາຍຕົວ ຫ້າມຄຳນວນ Rate ທັບອີກ
+            let totalAmount = 0;
+            if (window.currentCartTotalAmount !== undefined && window.currentCartTotalAmount > 0) {
+                totalAmount = window.currentCartTotalAmount;
+            } else {
+                totalAmount = continuousCart.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
+            }
+            
+            // ຍອດເງິນກີບຫຼັກຈະຖືກໂຍນເຂົ້າມາສະແດງຜົນຢ່າງຖືກຕ້ອງເປະ (ເຊັ່ນ: 6,480,000 ກີບ)
+            document.getElementById('popup-total-amount-text').innerText = formatNumberWithCommas(totalAmount) + " " + (continuousCart[0]?.currency || 'ກີບ');
+            
+            // ສ່ວນເງິນບາດ ໃຫ້ສະແດງເປັນ Rate ປະກອບຊື່ໆ ໂດຍບໍ່ໃຫ້ໄປແຕະຕ້ອງ ຫຼື ປ່ຽນແປງຍອດເງິນກີບຫຼັກ
+            let currentRate = parseFloat(localStorage.getItem('rate_current_value')) || 650;
+            document.getElementById('popup-total-thb-text').innerText = `${formatNumberWithCommas(currentRate > 0 ? Math.round(totalAmount / currentRate) : 0)} ບາດ (Rate: ${formatNumberWithCommas(currentRate)})`;
+            
+            document.getElementById('modal-lak-acc-display').innerText = localStorage.getItem('pos_shop_lak_acc_' + deviceId) || '1006000000470';
+            document.getElementById('modal-thb-acc-display').innerText = localStorage.getItem('pos_shop_thb_acc_' + deviceId) || '-';
+            
+            let cashRadioLabel = document.querySelector('input[name="pay_mode"][value="cash"]');
+            if (cashRadioLabel) {
+                let parentLabel = cashRadioLabel.closest('label');
+                selectPaymentMode('cash', parentLabel);
+            }
+
+            // ເປີດປ໋ອບອັບຂຶ້ນມາທັນທີ
+            document.getElementById('checkout-method-modal').classList.remove('hidden');
+        }
+
+        function closeCheckoutMethodModal() { document.getElementById('checkout-method-modal').classList.add('hidden'); }
+
+        function selectPaymentMode(mode, labelElement) {
+            currentSelectedPaymentMode = mode;
+            document.querySelectorAll('#checkout-method-modal label').forEach(l => {
+                l.classList.remove('border-blue-600', 'bg-blue-50/50');
+                l.classList.add('border-gray-200');
+            });
+            if (labelElement) {
+                labelElement.classList.remove('border-gray-200');
+                labelElement.classList.add('border-blue-600', 'bg-blue-50/50');
+            }
+            document.getElementById('transfer-lak-qr-section').classList.toggle('hidden', mode !== 'transfer_lak');
+            document.getElementById('transfer-thb-qr-section').classList.toggle('hidden', mode !== 'transfer_thb');
+        }
+
+        async function confirmCheckoutPayment() {
+            if (continuousCart.length === 0) {
+                showAlert("ແຈ້ງເຕືອນ", "ບໍ່ມີສິນຄ້າໃນກະຕ່າສຳລັບຊຳລະເງິນ!", "⚠️");
+                return;
+            }
+
+            // 1. ປິດປ໋ອບອັບ ແລະ ລ້າງກະຕ່າທັນທີ ໃຫ້ຜູ້ໃຊ້ເຫັນວ່າວ່ອງໄວທັນໃຈ ບໍ່ມີການຄ້າງ
+            let currentMode = currentSelectedPaymentMode || 'cash';
+            closeCheckoutMethodModal();
+            let itemsToSave = [...continuousCart];
+            continuousCart = [];
+            updateContinuousCartUI();
+            showAlert("ສຳເລັດ", `ຊຳລະເງິນສຳເລັດຮຽບຮ້ອຍ (ວິທີ: ${currentMode})!`, "💰");
+
+            // 2. ເຮັດວຽກບັນທຶກ ແລະ ຕັດ Stock ເບື້ອງຫຼັງ (Background Sync) ດ້ວຍ Firestore Batch ໃຫ້ໄວຂຶ້ນຫຼາຍເທົ່າ
+            if (db) {
+                try {
+                    let batch = db.batch();
+                    let totalAmount = itemsToSave.reduce((sum, it) => sum + (parseFloat(it.price) * parseFloat(it.qty)), 0);
+
+                    // ບັນທຶກປະຫວັດການຂາຍ
+                    let historyRef = db.collection("sales_history").doc();
+                    batch.set(historyRef, {
+                        date: new Date().toISOString(),
+                        device_id: deviceId,
+                        items: itemsToSave.map(it => ({
+                            code: it.code || '',
+                            name: (it.name || '') + (it.saleType === 'retail' ? " (ຂາຍຍ່ອຍ)" : " (ຂາຍສົ່ງ)"),
+                            cost: parseFloat(it.cost) || 0,
+                            price: parseFloat(it.price) || 0,
+                            qty: parseInt(it.qty) || 1
+                        })),
+                        currency: itemsToSave[0]?.currency || 'ກີບ',
+                        pay_mode: currentMode,
+                        total_amount: totalAmount,
+                        created_at: new Date().toISOString()
+                    });
+
+                    // ດຶງຂໍ້ມູນສິນຄ້າມາຕັດ Stock ພ້ອມກັນ
+                    for (let it of itemsToSave) {
+                        if (it.id) {
+                            let docRef = db.collection("products").doc(it.id);
+                            let docSnap = await docRef.get();
+                            if (docSnap.exists) {
+                                let pData = docSnap.data();
+                                let currentStockQty = parseFloat(pData.qty) || 0;
+                                let unitPerPack = parseInt(it.unitPerPack || pData.unit_per_pack || 1) || 1;
+                                let totalAvailableSingles = Math.round(currentStockQty * unitPerPack);
+                                let soldSingles = it.saleType === 'retail' ? parseInt(it.qty) : (parseInt(it.qty) * unitPerPack);
+                                let newTotalSingles = Math.max(0, totalAvailableSingles - soldSingles);
+                                let newStockQty = newTotalSingles / unitPerPack;
+                                
+                                batch.update(docRef, { qty: newStockQty });
+                            }
+                        }
+                    }
+
+                    // ສ่งຄຳສັ່ງດຽວຈົບ (Batch Commit) ວ່ອງໄວທີ່ສຸດ
+                    await batch.commit();
+                } catch (e) {
+                    console.error("Background sync error:", e);
+                }
+            }
+        }
+
+        function checkExpiryAlertStatus() {
+            let badge = document.getElementById('expiry-alert-badge');
+            if (!excelRows || excelRows.length === 0) {
+                if (badge) {
+                    badge.innerText = "0";
+                    badge.classList.add('hidden');
+                }
+                return;
+            }
+
+            let today = new Date();
+            let nearExpiryCount = 0;
+
+            excelRows.forEach((row) => {
+                let expDateStr = row.expiry_date || row.expiryDate || '';
+                if (expDateStr && expDateStr.trim() !== '' && expDateStr.trim() !== '-') {
+                    let isoStr = parseDDMMYYYYToISO(expDateStr);
+                    let expDate = new Date(isoStr);
+                    if (!isNaN(expDate.getTime())) {
                         let diffDays = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
                         if (diffDays <= 60) {
                             nearExpiryCount++;
@@ -3868,14 +4380,19 @@ function initFirebaseRealtime() {
             document.getElementById('calc-pct-modal').classList.remove('hidden');
         }
 
-    // ⭐️ ຟັງຊັນໃໝ່ສຳລັບຄຳນວນຫົວໜ່ວຍຍ່ອຍພາຍໃນ Modal ນີ້
+// ⭐️ 1. ຟັງຊັນຄຳນວນຫົວໜ່ວຍຍ່ອຍພາຍໃນ Modal ໃຫ້ຄູນກັນສົດໆ
         function calculateCalcModalTotalUnit() {
-            let qty = parseInt(document.getElementById('calc-modal-qty').value) || 1;
-            let unitPerPack = parseInt(document.getElementById('calc-modal-unit-per-pack').value) || 12;
-            document.getElementById('calc-modal-total-calculated').value = qty * unitPerPack;
+            let qtyStr = document.getElementById('calc-modal-qty').value;
+            let unitStr = document.getElementById('calc-modal-unit-per-pack').value;
+            
+            // ດຶງຕົວເລກຕາມທີ່ພິມຈິງ ຖ້າຫວ່າງໃຫ້ເປັນ 0 ກ່ອນ
+            let qty = parseInt(qtyStr) || 0;
+            let unitPerPack = parseInt(unitStr) || 0;
+            
+            document.getElementById('calc-modal-total-calculated').value = (qty * unitPerPack);
         }
 
-        // ⭐️ ແກ້ໄຂ: ດຶງຄ່າ "ຈຳນວນຕໍ່ລາງ" ຈາກໜ້າຈໍຫຼັກ ມາໃສ່ Modal ກ່ອນເປີດ
+    // ⭐️ 2. ຟັງຊັນເປີດ Modal
         function openCalcModal() {
             let currentName = document.getElementById('stock-in-custom-name').value;
             let currentCost = document.getElementById('stock-in-cost').value;
@@ -3888,10 +4405,12 @@ function initFirebaseRealtime() {
             document.getElementById('calc-modal-price').value = currentPrice;
             
             if(currentQty) document.getElementById('calc-modal-qty').value = currentQty;
-            if(currentUnitPerPack) document.getElementById('calc-modal-unit-per-pack').value = currentUnitPerPack;
+            
+            // ອັບເດດຈຳນວນຕໍ່ລາງໃຫ້ກົງກັບໜ້າຫຼັກ (ຖ້າໜ້າຫຼັກບໍ່ມີຄ່າ ຈຶ່ງຄ່ອຍສະແດງ 12)
+            document.getElementById('calc-modal-unit-per-pack').value = currentUnitPerPack ? currentUnitPerPack : 12;
             
             autoComputePct();
-            calculateCalcModalTotalUnit(); // ຄຳນວນຍອດຫົວໜ່ວຍຍ່ອຍໃຫ້ອັດຕະໂນມັດ
+            calculateCalcModalTotalUnit();
             document.getElementById('calc-pct-modal').classList.remove('hidden');
         }
 
@@ -3939,10 +4458,12 @@ function initFirebaseRealtime() {
             closeCalcModal();
         }
 
+    // ⭐️ 3. ຟັງຊັນປິດ Modal
         function closeCalcModal() {
             document.getElementById('calc-pct-modal').classList.add('hidden');
         }
 
+    // ⭐️ 4. ຟັງຊັນຄຳນວນເປີເຊັນກຳໄລ
         function autoComputePct() {
             let cost = parseFloat(document.getElementById('calc-modal-cost').value.replace(/,/g, '')) || 0;
             let price = parseFloat(document.getElementById('calc-modal-price').value.replace(/,/g, '')) || 0;
@@ -3957,38 +4478,40 @@ function initFirebaseRealtime() {
             }
         }
 
+    // ⭐️ 5. ຟັງຊັນກົດຕົກລົງ ແລະ ສົ່ງຄ່າກັບໄປໜ້າຫຼັກ
         function confirmCalcModal() {
             let name = document.getElementById('calc-modal-name').value.trim();
             let cost = parseFloat(document.getElementById('calc-modal-cost').value.replace(/,/g, '')) || 0;
             let price = parseFloat(document.getElementById('calc-modal-price').value.replace(/,/g, '')) || 0;
-            let qty = parseInt(document.getElementById('calc-modal-qty').value) || 1; 
+            
+            let qtyStr = document.getElementById('calc-modal-qty').value;
+            let unitStr = document.getElementById('calc-modal-unit-per-pack').value;
+            
+            let qty = parseInt(qtyStr) || 1; 
+            let unitPerPack = parseInt(unitStr) || 1; // ດຶງຄ່າທີ່ພິມຈິງໆສົ່ງກັບໄປ
             
             if (cost > 0 && price >= cost) {
                 let profit = price - cost;
                 let pct = (profit / cost) * 100; 
                 
-                if (name) {
-                    let nameInput = document.getElementById('stock-in-custom-name');
-                    if (nameInput) nameInput.value = name;
-                }
+                let nameInput = document.getElementById('stock-in-custom-name');
+                if (nameInput && name) nameInput.value = name;
 
                 let costInput = document.getElementById('stock-in-cost');
-                if (costInput) {
-                    costInput.value = formatNumberWithCommas(cost);
-                }
+                if (costInput) costInput.value = formatNumberWithCommas(cost);
 
                 let pctInput = document.getElementById('stock-in-profit-pct');
-                if (pctInput) {
-                    pctInput.value = pct.toFixed(2); 
-                }
+                if (pctInput) pctInput.value = pct.toFixed(2); 
 
+                // ⭐️ ສົ່ງຈຳນວນນຳເຂົ້າ ແລະ ຈຳນວນຕໍ່ລາງ ກັບໄປໜ້າຫຼັກ
                 let qtyInput = document.getElementById('stock-in-qty');
-                if (qtyInput) {
-                    qtyInput.value = qty;
-                    calculateTotalUnit(); 
-                }
+                if (qtyInput) qtyInput.value = qty;
 
-                calculateStockInPrice();
+                let unitPerPackInput = document.getElementById('stock-in-unit-per-pack');
+                if (unitPerPackInput) unitPerPackInput.value = unitPerPack;
+
+                if (typeof calculateTotalUnit === 'function') calculateTotalUnit(); 
+                if (typeof calculateStockInPrice === 'function') calculateStockInPrice();
             }
             
             closeCalcModal();
