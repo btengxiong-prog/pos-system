@@ -732,6 +732,13 @@
                 </div>
 
                 <div class="flex flex-col gap-1.5">
+                    
+                    <!-- ⭐️ ປຸ່ມເພີ່ມໃໝ່: ກວດສອບລາຄາສິນຄ້າ -->
+                    <button id="btn-check-price" onclick="openPriceChecker()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-xl font-medium shadow flex items-center justify-start gap-2 transition cursor-pointer text-xs">
+                        <span>🔍</span> ກວດສອບລາຄາສິນຄ້າ
+                    </button>
+
+                    <!-- ປຸ່ມເກົ່າ: ສິນຄ້າຄ້າງສາງ (ທີ່ທ່ານກ໋ອບມາ) -->
                     <button id="btn-inventory" onclick="openInventoryModal()" class="w-full bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-2 rounded-xl font-medium shadow flex items-center justify-start gap-2 transition cursor-pointer text-xs">
                         <span>📦</span> ສິນຄ້າຄ້າງສາງ
                     </button>
@@ -1159,6 +1166,48 @@
                     <button onclick="closeCalcModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer text-sm">ຍົກເລີກ</button>
                     <button onclick="confirmCalcModal()" class="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">ຕົກລົງ</button>
                 </div>
+            </div>
+        </div>
+        <!-- Modal ກວດສອບລາຄາສິນຄ້າ (Price Checker) -->
+        <div id="price-check-modal" class="hidden fixed inset-0 bg-black/80 z-[400] flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-md w-full p-5 text-center space-y-3 shadow-2xl">
+                <div class="flex justify-between items-center border-b pb-2">
+                    <h3 class="font-bold text-lg text-indigo-800 flex items-center gap-2"><span>🔍</span> ກວດສອບລາຄາ</h3>
+                    <button onclick="closePriceChecker()" class="text-gray-500 hover:text-red-500 font-bold text-xl cursor-pointer">✕</button>
+                </div>
+                
+                <!-- ສ່ວນເປີດກ້ອງສະແກນ -->
+                <div class="bg-gray-100 rounded-xl overflow-hidden border-2 border-indigo-100">
+                    <div id="price-check-reader" class="w-full max-w-sm mx-auto min-h-[150px]"></div>
+                </div>
+                
+                <!-- ສ່ວນພິມລະຫັດ ຫຼື ໃຊ້ປືນຍິງ -->
+                <div class="text-left space-y-2 mt-2">
+                    <label class="block text-[11px] font-bold text-gray-700">⌨️ ພິມຊື່, ລະຫັດ ຫຼື ຍິງບາໂຄດໃສ່ນີ້:</label>
+                    <div class="flex items-center gap-2">
+                        <input type="text" id="price-check-input" list="existing-product-names-list" onkeydown="handlePriceCheckKey(event)" placeholder="ປ້ອນລະຫັດ ຫຼື ຊື່ສິນຄ້າ..." class="flex-1 border rounded-lg px-3 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-50 uppercase">
+                        <button type="button" onclick="submitPriceCheck()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow transition cursor-pointer">ຄົ້ນຫາ</button>
+                    </div>
+                </div>
+
+                <!-- ສ່ວນສະແດງຜົນການຄົ້ນຫາລາຄາ -->
+                <div id="price-check-result" class="hidden bg-indigo-50 p-4 rounded-xl border border-indigo-200 text-left space-y-2 mt-3">
+                    <div class="font-bold text-blue-900 text-lg border-b border-indigo-200 pb-1 truncate" id="pc-name">-</div>
+                    <div class="flex justify-between text-sm text-gray-700 pt-1">
+                        <span class="font-semibold">ລະຫັດ:</span> <span id="pc-code" class="font-mono text-blue-700 font-bold">-</span>
+                    </div>
+                    <div class="flex justify-between text-sm text-gray-700">
+                        <span class="font-semibold">ຍອດເຫຼືອໃນສາງ:</span> <span id="pc-stock" class="font-bold text-cyan-700">-</span>
+                    </div>
+                    <div class="flex justify-between text-sm text-gray-700 mt-2 bg-white p-2 rounded border border-indigo-100">
+                        <span class="font-bold text-gray-800">📦 ລາຄາຂາຍສົ່ງ:</span> <span id="pc-wholesale" class="font-extrabold text-red-600 text-base">-</span>
+                    </div>
+                    <div class="flex justify-between text-sm text-gray-700 bg-white p-2 rounded border border-indigo-100">
+                        <span class="font-bold text-gray-800">🥤 ລາຄາຂາຍຍ່ອຍ:</span> <span id="pc-retail" class="font-extrabold text-green-600 text-base">-</span>
+                    </div>
+                </div>
+                
+                <button onclick="closePriceChecker()" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition shadow mt-2 text-sm cursor-pointer">ປິດໜ້າຈໍ</button>
             </div>
         </div>
     </main>
@@ -4617,6 +4666,111 @@ function initFirebaseRealtime() {
             }
         }
 
+        let priceCheckScanner = null;
+
+        // ເປີດໜ້າຈໍ ແລະ ເປີດກ້ອງ
+        function openPriceChecker() {
+            document.getElementById('price-check-modal').classList.remove('hidden');
+            document.getElementById('price-check-result').classList.add('hidden');
+            document.getElementById('price-check-input').value = "";
+            
+            // ໂຟກັສໄປທີ່ຊ່ອງປ້ອນເພື່ອໃຫ້ພ້ອມໃຊ້ປືນຍິງບາໂຄດ
+            setTimeout(() => { document.getElementById('price-check-input').focus(); }, 300);
+
+            if (!priceCheckScanner) {
+                try { priceCheckScanner = new Html5Qrcode("price-check-reader"); } catch (e) {}
+            }
+            if (priceCheckScanner) {
+                priceCheckScanner.start(
+                    { facingMode: "environment" },
+                    { fps: 10, qrbox: 250 },
+                    (decodedText) => {
+                        playBeepSound(); // ຫຼິ້ນສຽງ Beep ເມື່ອສະແກນໄດ້
+                        searchAndDisplayPrice(decodedText.trim());
+                    },
+                    (err) => {}
+                ).catch(err => {});
+            }
+        }
+
+        // ປິດໜ້າຈໍ ແລະ ປິດກ້ອງ
+        function closePriceChecker() {
+            document.getElementById('price-check-modal').classList.add('hidden');
+            if (priceCheckScanner) {
+                priceCheckScanner.stop().catch(() => {});
+            }
+        }
+
+        // ກວດສອບເມື່ອກົດ Enter
+        function handlePriceCheckKey(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                submitPriceCheck();
+            }
+        }
+
+        function submitPriceCheck() {
+            let inputVal = document.getElementById('price-check-input').value.trim();
+            if (inputVal !== "") {
+                searchAndDisplayPrice(inputVal);
+            }
+        }
+
+        // ຟັງຊັນຄົ້ນຫາ ແລະ ຄຳນວນລາຄາມາສະແດງ
+        function searchAndDisplayPrice(query) {
+            let cleanQuery = String(query).trim().toLowerCase();
+            let resultDiv = document.getElementById('price-check-result');
+            let inputField = document.getElementById('price-check-input');
+            
+            // ຄົ້ນຫາສິນຄ້າຈາກຊື່ ຫຼື ລະຫັດບາໂຄດ
+            let foundItem = excelRows.find(item => 
+                String(item.code).trim().toLowerCase() === cleanQuery || 
+                (item.name && item.name.trim().toLowerCase() === cleanQuery)
+            );
+
+            // ຖ້າບໍ່ພົບໃຫ້ລອງຄົ້ນຫາແບບມີຄຳກ່ຽວຂ້ອງ (Partial Match)
+            if (!foundItem) {
+                foundItem = excelRows.find(item => 
+                    (item.name && item.name.trim().toLowerCase().includes(cleanQuery))
+                );
+            }
+
+            if (foundItem) {
+                // ດຶງຂໍ້ມູນລາຄາຂາຍຫຼ້າສຸດ ແລະ ໜົວໜ່ວຍຍ່ອຍ
+                let exactSellingPrice = parseFloat(String(foundItem.currentSellingPrice || foundItem.price || 0).replace(/,/g, '')) || 0;
+                let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
+                
+                let wholesalePrice = exactSellingPrice;
+                let retailPrice = exactSellingPrice;
+                
+                // ຄຳນວນລາຄາຂາຍຍ່ອຍ
+                if (unitPerPack > 1) {
+                    retailPrice = Math.ceil((exactSellingPrice / unitPerPack) / 1000) * 1000;
+                }
+
+                // ຄຳນວນຍອດເຫຼືອໃນສາງ
+                let currentQty = parseFloat(String(foundItem.qty !== undefined ? foundItem.qty : 0).replace(/,/g, '')) || 0;
+                let totalAvailableSingles = Math.round(currentQty * unitPerPack);
+                let packsX = Math.floor(totalAvailableSingles / unitPerPack);
+                let singlesY = totalAvailableSingles % unitPerPack;
+                let stockNoteDisplay = unitPerPack > 1 ? `${packsX} ໃຫຍ່ / ${singlesY} ນ້ອຍ` : `${packsX}`;
+                let currency = foundItem.currency || 'ກີບ';
+
+                // ສົ່ງຂໍ້ມູນໄປສະແດງຜົນ
+                document.getElementById('pc-name').innerText = foundItem.name || '-';
+                document.getElementById('pc-code').innerText = foundItem.code || '-';
+                document.getElementById('pc-stock').innerText = stockNoteDisplay;
+                document.getElementById('pc-wholesale').innerText = formatNumberWithCommas(wholesalePrice) + " " + currency;
+                document.getElementById('pc-retail').innerText = formatNumberWithCommas(retailPrice) + " " + currency;
+                
+                resultDiv.classList.remove('hidden');
+                inputField.value = ""; // ລ້າງຊ່ອງເພື່ອກຽມກວດສິນຄ້າອັນຕໍ່ໄປ
+                inputField.focus();
+            } else {
+                showAlert("ບໍ່ພົບສິນຄ້າ", `ບໍ່ພົບລະຫັດ ຫຼື ຊື່ສິນຄ້າ [${query}] ໃນລະບົບ!`, "⚠️");
+                resultDiv.classList.add('hidden');
+            }
+        }
     </script>
 </body>
 </html>
