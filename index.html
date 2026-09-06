@@ -3743,6 +3743,11 @@ function initFirebaseRealtime() {
         async function loadRateAnalysis() {
             let tbody = document.getElementById('rate-history-tbody');
             if (!tbody) return;
+            
+            // ⭐️ ຈື່ຄ່າຮ້ານທີ່ເລືອກໄວ້ກ່ອນ ເພື່ອບໍ່ໃຫ້ມັນຣີເຊັດ
+            let shopFilterSelect = document.getElementById('inventory-shop-filter-rate');
+            let currentSelectedShop = shopFilterSelect ? shopFilterSelect.value : 'ALL';
+
             tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດປະຫວັດ Rate...</td></tr>`;
 
             let userRole = localStorage.getItem('pos_user_role');
@@ -3754,7 +3759,13 @@ function initFirebaseRealtime() {
                 if (isAdminMaster) {
                     adminRateDiv.classList.remove('hidden');
                     adminRateDiv.style.setProperty('display', 'flex', 'important');
-                    populateRateShopDropdown();
+                    
+                    // ⭐️ ຖ້າຍັງບໍ່ມີລາຍຊື່ຮ້ານໃນ Dropdown ຈຶ່ງໄປດຶງມາໃໝ່ (ປ້ອງກັນການສ້າງໃໝ່ທຸກຄັ້ງທີ່ກົດເລືອກ)
+                    if (!shopFilterSelect || shopFilterSelect.options.length <= 1) {
+                        await populateRateShopDropdown();
+                        // ຫຼັງຈາກດຶງລາຍຊື່ສຳເລັດ ໃຫ້ຕັ້ງຄ່າກັບຄືນຮ້ານທີ່ເຮົາເລືອກ
+                        if(shopFilterSelect) shopFilterSelect.value = currentSelectedShop;
+                    }
                 } else {
                     adminRateDiv.classList.add('hidden');
                     adminRateDiv.style.setProperty('display', 'none', 'important');
@@ -3783,12 +3794,10 @@ function initFirebaseRealtime() {
                 });
             }
 
-            let shopFilterSelect = document.getElementById('inventory-shop-filter-rate');
-            let selectedShop = shopFilterSelect ? shopFilterSelect.value : 'ALL';
-
+            // ⭐️ ກັ່ນຕອງຂໍ້ມູນຕາມຮ້ານທີ່ເລືອກ (currentSelectedShop)
             let filteredRecords = rateRecords;
-            if (isAdminMaster && selectedShop && selectedShop !== 'ALL') {
-                filteredRecords = rateRecords.filter(rec => String(rec.device_id || '').trim().toUpperCase() === selectedShop);
+            if (isAdminMaster && currentSelectedShop && currentSelectedShop !== 'ALL') {
+                filteredRecords = rateRecords.filter(rec => String(rec.device_id || '').trim().toUpperCase() === currentSelectedShop);
             }
 
             filteredRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
