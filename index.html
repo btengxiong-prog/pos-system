@@ -4288,25 +4288,31 @@ function initFirebaseRealtime() {
                 if (titleEl) titleEl.innerText = "📷 ກຳລັງສະແກນ QR / ບາໂຄດ (ຂາຍສົ່ງ)";
             }
 
-            // ⭐️ ເພີ່ມໂຄດส่วนນີ້: ວົນລູບປັບລາຄາສິນຄ້າທັງໝົດໃນກະຕ່າ ໃຫ້ປ່ຽນເປັນລາຄາສົ່ງ ຫຼື ລາຄາຍ່ອຍໃໝ່ທັນທີ
+            // ⭐️ ແກ້ໄຂ: ດຶງລາຄາຕົ້ນສະບັບຈາກ excelRows ມາຄິດໄລ່ໃໝ່ສະເໝີ ເພື່ອບໍ່ໃຫ້ລາຄາກາຍເປັນ 0
             if (continuousCart && continuousCart.length > 0) {
                 continuousCart.forEach(item => {
                     item.saleType = currentSaleType;
-                    let exactSellingPrice = parseFloat(String(item.currentSellingPrice || item.price || 0).replace(/,/g, '')) || 0;
-                    let unitPerPack = parseInt(item.unitPerPack || item.unit_per_pack) || 1;
                     
-                    let finalPrice = exactSellingPrice;
-                    if (currentSaleType === 'retail' && unitPerPack > 1) {
-                        let retailRawPrice = exactSellingPrice / unitPerPack;
-                        finalPrice = Math.ceil(retailRawPrice / 1000) * 1000;
+                    // ດຶງຂໍ້ມູນຈາກສາງຫຼັກ ເພື່ອມາເປັນຖານຄິດໄລ່
+                    let originalItem = excelRows.find(ex => ex.id === item.id);
+                    
+                    if (originalItem) {
+                        let exactSellingPrice = parseFloat(String(originalItem.currentSellingPrice || originalItem.price || 0).replace(/,/g, '')) || 0;
+                        let unitPerPack = parseInt(originalItem.unitPerPack || originalItem.unit_per_pack) || 1;
+                        
+                        let finalPrice = exactSellingPrice;
+                        if (currentSaleType === 'retail' && unitPerPack > 1) {
+                            let retailRawPrice = exactSellingPrice / unitPerPack;
+                            finalPrice = Math.ceil(retailRawPrice / 1000) * 1000;
+                        }
+                        item.price = finalPrice;
                     }
-                    item.price = finalPrice;
                 });
             }
 
             updateStockDisplayOnQtyChange();
             updateCartItemPreview();
-            updateContinuousCartUI(); // ⭐️ ເພີ່ມການສັ່ງອັບເດດ UI ຂອງກະຕ່າລວມທັງລາຄາ
+            updateContinuousCartUI();
         }
 
         function resetSaleInputFields() {
