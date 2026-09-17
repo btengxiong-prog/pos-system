@@ -2917,14 +2917,43 @@ function initFirebaseRealtime() {
             closeStockInScanner();
             currentStockInCode = code;
             document.getElementById('stock-in-code').innerText = code;
+            
             let importDateInput = document.getElementById('stock-in-import-date');
-            if (importDateInput && !importDateInput.value) {
-                let today = new Date();
-                let dd = String(today.getDate()).padStart(2, '0');
-                let mm = String(today.getMonth() + 1).padStart(2, '0');
-                let yyyy = today.getFullYear();
-                importDateInput.value = `${dd}/${mm}/${yyyy}`;
+            let today = new Date();
+            let dd = String(today.getDate()).padStart(2, '0');
+            let mm = String(today.getMonth() + 1).padStart(2, '0');
+            let yyyy = today.getFullYear();
+            if (importDateInput) importDateInput.value = `${dd}/${mm}/${yyyy}`; // ອັບເດດວັນທີນຳເຂົ້າເປັນມື້ປັດຈຸບັນສະເໝີ
+
+            // ⭐️ ກວດສອບວ່າລະຫັດນີ້ມີໃນສາງແລ້ວ ຫຼື ບໍ່
+            let cleanCode = String(code).trim().toLowerCase();
+            let foundItem = excelRows.find(item => String(item.code).trim().toLowerCase() === cleanCode);
+
+            if (foundItem) {
+                // ຖ້າມີໃນສາງ: ດຶງຂໍ້ມູນເກົ່າມາສະແດງອັດຕະໂນມັດ
+                document.getElementById('stock-in-custom-name').value = foundItem.name || '';
+                document.getElementById('stock-in-cost').value = formatNumberWithCommas(foundItem.originalCost || foundItem.cost || 0);
+                document.getElementById('stock-in-profit-pct').value = foundItem.profit_pct !== undefined ? foundItem.profit_pct : (foundItem.profitPct || '');
+                calculateStockInPrice(); 
+                document.getElementById('stock-in-unit-per-pack').value = foundItem.unitPerPack || foundItem.unit_per_pack || 12;
+                document.getElementById('stock-in-qty').value = '1'; // ຕັ້ງຄ່າເລີ່ມຕົ້ນເປັນ 1 ລາງ/ແພັກ ສະເໝີ
+                calculateTotalUnit();
+            } else {
+                // ຖ້າເປັນສິນຄ້າໃໝ່ (ບໍ່ມີໃນສາງ): ລ້າງຂໍ້ມູນໃນຟອມໃຫ້ວ່າງເປົ່າ
+                document.getElementById('stock-in-custom-name').value = '';
+                document.getElementById('stock-in-cost').value = '';
+                document.getElementById('stock-in-calculated-price').value = '0';
+                document.getElementById('stock-in-profit-pct').value = '';
+                document.getElementById('stock-in-qty').value = '1';
+                document.getElementById('stock-in-unit-per-pack').value = '12';
+                document.getElementById('stock-in-total-calculated').value = '12';
+                
+                let mfgDate = document.getElementById('stock-in-mfg-date');
+                if(mfgDate) mfgDate.value = '';
+                let expDate = document.getElementById('stock-in-exp-date');
+                if(expDate) expDate.value = '';
             }
+
             document.getElementById('stock-in-modal').classList.remove('hidden');
         }
 
@@ -2944,15 +2973,18 @@ function initFirebaseRealtime() {
             
             if (!foundByName) {
                 foundByName = excelRows.find(item => String(item.code).trim().toLowerCase() === userInput.toLowerCase());
-            }
+        }
 
-            if (foundByName) {
+        if (foundByName) {
                 closeStockInScanner();
                 currentStockInCode = foundByName.code;
                 document.getElementById('stock-in-code').innerText = foundByName.code;
                 document.getElementById('stock-in-custom-name').value = foundByName.name || '';
-                document.getElementById('stock-in-cost').value = formatNumberWithCommas(foundByName.cost || 0);
-                document.getElementById('stock-in-profit-pct').value = foundByName.profit_pct !== undefined ? foundByName.profit_pct : '';
+                document.getElementById('stock-in-cost').value = formatNumberWithCommas(foundByName.originalCost || foundByName.cost || 0);
+                document.getElementById('stock-in-profit-pct').value = foundByName.profit_pct !== undefined ? foundByName.profit_pct : (foundByName.profitPct || '');
+                document.getElementById('stock-in-qty').value = '1';
+                document.getElementById('stock-in-unit-per-pack').value = foundByName.unitPerPack || foundByName.unit_per_pack || 12;
+                calculateTotalUnit();
                 calculateStockInPrice(); 
                 document.getElementById('stock-in-modal').classList.remove('hidden');
                 return;
