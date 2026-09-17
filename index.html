@@ -4273,23 +4273,40 @@ function initFirebaseRealtime() {
 
         function toggleSaleMode() {
             let btn = document.getElementById('toggle-sale-mode-btn');
-            let titleEl = document.getElementById('scanner-title-mode'); // ⭐️ ເພີ່ມການດຶງ ID ຫົວຂໍ້
+            let titleEl = document.getElementById('scanner-title-mode');
             if (!btn) return;
 
             if (currentSaleType === 'wholesale') {
                 currentSaleType = 'retail';
                 btn.className = "bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow transition flex items-center gap-1";
                 btn.innerHTML = "🥤 ຂາຍຍ່ອຍ";
-                if (titleEl) titleEl.innerText = "📷 ກຳລັງສະແກນ QR / ບາໂຄດ (ຂາຍຍ່ອຍ)"; // ⭐️ ປ່ຽນຫົວຂໍ້
+                if (titleEl) titleEl.innerText = "📷 ກຳລັງສະແກນ QR / ບາໂຄດ (ຂາຍຍ່ອຍ)";
             } else {
                 currentSaleType = 'wholesale';
                 btn.className = "bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow transition flex items-center gap-1";
                 btn.innerHTML = "📦 ຂາຍສົ່ງ";
-                if (titleEl) titleEl.innerText = "📷 ກຳລັງສະແກນ QR / ບາໂຄດ (ຂາຍສົ່ງ)"; // ⭐️ ປ່ຽນຫົວຂໍ້
+                if (titleEl) titleEl.innerText = "📷 ກຳລັງສະແກນ QR / ບາໂຄດ (ຂາຍສົ່ງ)";
+            }
+
+            // ⭐️ ເພີ່ມໂຄດส่วนນີ້: ວົນລູບປັບລາຄາສິນຄ້າທັງໝົດໃນກະຕ່າ ໃຫ້ປ່ຽນເປັນລາຄາສົ່ງ ຫຼື ລາຄາຍ່ອຍໃໝ່ທັນທີ
+            if (continuousCart && continuousCart.length > 0) {
+                continuousCart.forEach(item => {
+                    item.saleType = currentSaleType;
+                    let exactSellingPrice = parseFloat(String(item.currentSellingPrice || item.price || 0).replace(/,/g, '')) || 0;
+                    let unitPerPack = parseInt(item.unitPerPack || item.unit_per_pack) || 1;
+                    
+                    let finalPrice = exactSellingPrice;
+                    if (currentSaleType === 'retail' && unitPerPack > 1) {
+                        let retailRawPrice = exactSellingPrice / unitPerPack;
+                        finalPrice = Math.ceil(retailRawPrice / 1000) * 1000;
+                    }
+                    item.price = finalPrice;
+                });
             }
 
             updateStockDisplayOnQtyChange();
             updateCartItemPreview();
+            updateContinuousCartUI(); // ⭐️ ເພີ່ມການສັ່ງອັບເດດ UI ຂອງກະຕ່າລວມທັງລາຄາ
         }
 
         function resetSaleInputFields() {
