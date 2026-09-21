@@ -597,6 +597,7 @@ let state = {
   activities: [],
   planTarget: 75
 };
+let isDataLoaded = false; // ✅ ຕົວປ່ຽນລັອກຄວາມປອດໄພ
 // 1. ຕັ້ງຄ່າການເຊື່ອມຕໍ່ Firebase (ໂຄດຂອງທ່ານ)
 const firebaseConfig = {
     apiKey: "AIzaSyAL3XdAIhNDh-TOp1XjQyE6lWRrKTAUJ3k",
@@ -621,6 +622,9 @@ function saveState() {
   const globalState = { user: state.user, school: state.school };
   localStorage.setItem('mcp_global_state', JSON.stringify(globalState));
 
+  // ✅ ຖ້າຂໍ້ມູນໃໝ່ຍັງໂຫຼດບໍ່ສຳເລັດ ຫ້າມບັນທຶກທັບຖານຂໍ້ມູນເດັດຂາດ! (ປ້ອງກັນຂໍ້ມູນຫາຍ)
+  if (!isDataLoaded) return;
+
   if (state.school && state.school.code) {
     const schoolKey = state.school.code + '_' + state.school.year;
     // ສົ່ງຂໍ້ມູນຂຶ້ນ Firebase Realtime
@@ -632,7 +636,6 @@ function saveState() {
       activities: state.activities,
       planTarget: state.planTarget
     }).catch((error) => {
-        // ຖ້າບັນທຶກບໍ່ໄດ້ ຈະມີແຈ້ງເຕືອນຂຶ້ນມາບອກສາເຫດ
         alert("ເກີດຂໍ້ຜິດພາດໃນການບັນທຶກລົງ Firebase:\n" + error.message);
     });
   }
@@ -662,17 +665,17 @@ let currentStudentRef = null;
 
 // 4. ຟັງຊັນດຶງຂໍ້ມູນແບບ Realtime ຈາກ Firebase
 function loadSchoolData() {
+  isDataLoaded = false; // ✅ ປິດລັອກ: ຕັ້ງຄ່າວ່າກຳລັງໂຫຼດຂໍ້ມູນ (ຫ້າມ Save)
+
   if (!state.school || !state.school.code) return;
   const schoolKey = state.school.code + '_' + state.school.year;
 
-  // 2. ປິດການດຶງຂໍ້ມູນ (Listener) ຂອງໂຮງຮຽນເກົ່າກ່ອນທີ່ຈະເປີດອັນໃໝ່ ປ້ອງກັນຂໍ້ມູນຕີກັນ
   if (currentSchoolRef) currentSchoolRef.off('value');
   if (currentStudentRef) currentStudentRef.off('value');
 
   currentSchoolRef = db.ref('schools/' + schoolKey);
   currentStudentRef = db.ref('studentScores/' + schoolKey);
 
-  // ດຶງຂໍ້ມູນ ມຄພ ພາກ 1, 2 ແລະ ອື່ນໆ
   currentSchoolRef.on('value', (snapshot) => {
     const data = snapshot.val();
     if (data) {
@@ -686,17 +689,17 @@ function loadSchoolData() {
       state.part1 = {}; state.part2 = {}; state.part3 = {};
       state.focusAreas = []; state.activities = []; state.planTarget = 75;
     }
+    
+    isDataLoaded = true; // ✅ ປົດລັອກ: ຂໍ້ມູນໂຫຼດສຳເລັດແລ້ວ ອະນຸຍາດໃຫ້ Save ໄດ້!
     renderAll();
   });
 
-  // ດຶງຄະແນນນັກຮຽນ (ພາກທີ III)
   currentStudentRef.on('value', (snapshot) => {
     const data = snapshot.val();
     studentScores = {};
     if (data) {
-        // ແປງຄີ (Key) ຈາກຂີດລຸ່ມ (_) ກັບຄືນມາເປັນຈ້ຳ (.) ຄືເກົ່າ ເພື່ອໃຫ້ລະບົບສະແດງຜົນຖືກຕ້ອງ
         for (let safeKey in data) {
-            const originalKey = safeKey.replace('_', '.'); // ປ່ຽນ ປ_1 ເປັນ ປ.1
+            const originalKey = safeKey.replace('_', '.'); 
             studentScores[originalKey] = data[safeKey];
         }
     }
@@ -1261,21 +1264,21 @@ function renderDashboard() {
 
 function saveSchoolInfo() {
   const schoolSelect = document.getElementById('filterSchool');
-  
+
   // 1. ລ້າງຂໍ້ມູນຄະແນນເກົ່າອອກກ່ອນທັນທີ ເພື່ອກຽມຮັບຂໍ້ມູນໃໝ່
+  isDataLoaded = false; // ✅ ປິດລັອກການບັນທຶກທັນທີທີ່ປ່ຽນໂຮງຮຽນ
   state.part1 = {}; state.part2 = {}; state.part3 = {}; studentScores = {};
   state.focusAreas = []; state.activities = []; state.planTarget = 75;
-  
+
   if (!schoolSelect || schoolSelect.value === "") {
      state.school.code = "";
      state.school.name = "ລວມຂໍ້ມູນທັງໝົດ";
      state.school.year = document.getElementById('academicYear').value;
-     
+
      if (typeof currentSchoolRef !== 'undefined' && currentSchoolRef) currentSchoolRef.off('value');
      if (typeof currentStudentRef !== 'undefined' && currentStudentRef) currentStudentRef.off('value');
-     
+
      if(typeof updateDashboardAggregate === 'function') updateDashboardAggregate();
-     // ✅ ບັນທຶກສະເພາະ LocalStorage ເພື່ອບໍ່ໃຫ້ທັບ Firebase
      localStorage.setItem('mcp_global_state', JSON.stringify({ user: state.user, school: state.school }));
      return;
   }
@@ -1283,15 +1286,12 @@ function saveSchoolInfo() {
   state.school.code = schoolSelect.value;
   state.school.name = schoolSelect.options[schoolSelect.selectedIndex].text;
   state.school.year = document.getElementById('academicYear').value;
-  
-  // ✅ ບັນທຶກການເລືອກໂຮງຮຽນລົງແຕ່ໃນ LocalStorage ເທົ່ານັ້ນ
+
   localStorage.setItem('mcp_global_state', JSON.stringify({ user: state.user, school: state.school }));
 
   // 2. ໂຫຼດຂໍ້ມູນຈາກ Firebase ຢ່າງດຽວ
   loadSchoolData();
-  
-  // ❌ (ໄດ້ລຶບຄຳສັ່ງ saveState() ອອກແລ້ວ ເພື່ອບໍ່ໃຫ້ເອົາຄ່າວ່າງໄປທັບຂໍ້ມູນໃນຖານຂໍ້ມູນ)
-  
+
   renderAll();
   showToast('ເລືອກໂຮງຮຽນ ແລະ ໂຫຼດຂໍ້ມູນສຳເລັດ', 'success');
 }
