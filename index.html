@@ -631,21 +631,32 @@ function cleanForFirebase(data) {
     return cleanObj;
 }
 
-// 2. ຟັງຊັນບັນທຶກລົງທັງ LocalStorage (ສຳລັບ User) ແລະ Firebase (ສຳລັບຂໍ້ມູນໂຮງຮຽນ)
+// 2. ຟັງຊັນບັນທຶກລົງທັງ LocalStorage ແລະ Firebase
 function saveState() {
   const globalState = { user: state.user, school: state.school };
   localStorage.setItem('mcp_global_state', JSON.stringify(globalState));
 
   if (state.school && state.school.code) {
     const schoolKey = state.school.code + '_' + state.school.year;
-    // ✅ ແກ້ໄຂແລ້ວ: ໃຊ້ .update() ສະເພາະວຽກອື່ນໆ ໂດຍບໍ່ໃຫ້ແຕະຕ້ອງ (ບໍ່ລຶບ) ພາກ 1 ແລະ 2 ເດັດຂາດ!
-    db.ref('schools/' + schoolKey).update({
+    
+    // ກັ່ນຕອງຂໍ້ມູນໃຫ້ສະອາດ ປ້ອງກັນບັນຫາ Firebase ບໍ່ຮັບຂໍ້ມູນ
+    const cleanData = (obj) => {
+        if(!obj) return {};
+        let res = {};
+        for(let k in obj) { if(obj[k] !== undefined && obj[k] !== null) res[k] = obj[k]; }
+        return res;
+    };
+
+    const safeData = {
+      part1: cleanData(state.part1),
+      part2: cleanData(state.part2),
+      part3: cleanData(state.part3),
       focusAreas: state.focusAreas || [],
       activities: state.activities || [],
       planTarget: state.planTarget || 75
-    }).catch((error) => {
-        console.error("Save error:", error);
-    });
+    };
+
+    db.ref('schools/' + schoolKey).set(safeData).catch(e => console.error("Save Error:", e));
   }
 }
 
@@ -826,20 +837,24 @@ function renderPartForm(partNum, containerId) {
 
 function setPart(partNum, idx, value) {
   if (!state.school || !state.school.code) {
-      showToast('ກະລຸນາເລືອກໂຮງຮຽນຢູ່ໜ້າແດຊບອດ ແລ້ວກົດບັນທຶກກ່ອນ!', 'warning');
+      showToast('ກະລຸນາເລືອກໂຮງຮຽນຢູ່ໜ້າແດຊບອດກ່ອນ!', 'warning');
       renderAll(); 
       return;
   }
   if (!state['part' + partNum]) state['part' + partNum] = {};
+  
+  // 1. ຈື່ຄ່າທີ່ຕິກໄວ້ໃນໜ້າຈໍ
   state['part' + partNum][idx] = value;
   
-  // ✅ ແກ້ໄຂແລ້ວ: ຍິງຂໍ້ມູນກົງເຂົ້າຖານຂໍ້ມູນ "ສະເພາະຂໍ້ທີ່ຕິກ" ເລີຍ (Bulletproof! ຂໍ້ມູນບໍ່ມີທາງຫາຍ)
-  const schoolKey = state.school.code + '_' + state.school.year;
-  db.ref(`schools/${schoolKey}/part${partNum}/${idx}`).set(value).catch(e => console.error(e));
-  
+  // 2. ຄິດໄລ່ເປີເຊັນໃໝ່ທັນທີ ແຕ່ບໍ່ຕ້ອງ renderAll() ເພື່ອບໍ່ໃຫ້ປຸ່ມວິທະຍຸກາຍເປັນຄ່າວ່າງ
   calculateAll();
+  
+  // 3. ສົ່ງໄປບັນທຶກໃນຖານຂໍ້ມູນແບບງຽບໆ
+  saveState();
+  
   showToast(`ບັນທຶກຂໍ້ ${idx + 1} ແລ້ວ!`, 'success');
 }
+
 function savePartManual(partNum) {
   if (!state['part' + partNum]) state['part' + partNum] = {};
   const total = partNum === 1 ? 25 : 20;
@@ -1279,34 +1294,29 @@ function renderDashboard() {
 function saveSchoolInfo() {
   const schoolSelect = document.getElementById('filterSchool');
 
+  // ລ້າງຂໍ້ມູນເກົ່າອອກກ່ອນທັນທີ ເພື່ອກຽມຮັບຂໍ້ມູນໂຮງຮຽນໃໝ່
+  state.part1 = {}; state.part2 = {}; state.part3 = {}; studentScores = {};
+  state.focusAreas = []; state.activities = []; state.planTarget = 75;
+
   if (!schoolSelect || schoolSelect.value === "") {
      state.school.code = "";
      state.school.name = "ລວມຂໍ້ມູນທັງໝົດ";
      state.school.year = document.getElementById('academicYear').value;
-
-     if (typeof currentSchoolRef !== 'undefined' && currentSchoolRef) currentSchoolRef.off('value');
-     if (typeof currentStudentRef !== 'undefined' && currentStudentRef) currentStudentRef.off('value');
 
      if(typeof updateDashboardAggregate === 'function') updateDashboardAggregate();
      localStorage.setItem('mcp_global_state', JSON.stringify({ user: state.user, school: state.school }));
      return;
   }
 
-  // ✅ 3. ລ້າງຂໍ້ມູນຄະແນນເກົ່າອອກກ່ອນທັນທີ ເພື່ອກຽມຮັບຂໍ້ມູນໃໝ່ (ຍ້າຍລົງມາກ່ອນການໂຫຼດ)
-  state.part1 = {}; state.part2 = {}; state.part3 = {}; studentScores = {};
-  state.focusAreas = []; state.activities = []; state.planTarget = 75;
-
   state.school.code = schoolSelect.value;
   state.school.name = schoolSelect.options[schoolSelect.selectedIndex].text;
   state.school.year = document.getElementById('academicYear').value;
 
-  // ບັນທຶກການເລືອກໂຮງຮຽນລົງແຕ່ໃນ LocalStorage ເທົ່ານັ້ນ ຫ້າມມີ saveState ຢູ່ບ່ອນນີ້
+  // ບັນທຶກການເລືອກໂຮງຮຽນລົງແຕ່ໃນ LocalStorage
   localStorage.setItem('mcp_global_state', JSON.stringify({ user: state.user, school: state.school }));
 
-  // ໂຫຼດຂໍ້ມູນຈາກ Firebase ຢ່າງດຽວ
+  // ໂຫຼດຂໍ້ມູນຈາກ Firebase (ໂຫຼດແລ້ວຈົບເລີຍ ບໍ່ມີການສົ່ງຄ່າວ່າງໄປທັບອີກ)
   loadSchoolData();
-
-  renderAll();
   showToast('ເລືອກໂຮງຮຽນ ແລະ ໂຫຼດຂໍ້ມູນສຳເລັດ', 'success');
 }
 
