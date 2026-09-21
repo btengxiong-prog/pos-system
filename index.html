@@ -618,24 +618,39 @@ if (!firebase.apps.length) {
 const db = firebase.database();
 
 // 2. ຟັງຊັນບັນທຶກລົງທັງ LocalStorage (ສຳລັບ User) ແລະ Firebase (ສຳລັບຂໍ້ມູນໂຮງຮຽນ)
+
+// ✅ 1. ເພີ່ມຟັງຊັນກັ່ນຕອງຂໍ້ມູນ ປ້ອງກັນບັນຫາ Firebase ປະຕິເສດການບັນທຶກ (ແກ້ບັນຫາຂໍ້ມູນຫາຍ)
+function cleanForFirebase(data) {
+    if (!data) return {};
+    let cleanObj = {};
+    for (let key in data) {
+        if (data[key] !== undefined && data[key] !== null) {
+            cleanObj[key] = data[key];
+        }
+    }
+    return cleanObj;
+}
+
 function saveState() {
   const globalState = { user: state.user, school: state.school };
   localStorage.setItem('mcp_global_state', JSON.stringify(globalState));
 
-  // ✅ ຖ້າຂໍ້ມູນໃໝ່ຍັງໂຫຼດບໍ່ສຳເລັດ ຫ້າມບັນທຶກທັບຖານຂໍ້ມູນເດັດຂາດ! (ປ້ອງກັນຂໍ້ມູນຫາຍ)
-  if (!isDataLoaded) return;
-
   if (state.school && state.school.code) {
     const schoolKey = state.school.code + '_' + state.school.year;
+    
+    // ✅ 2. ແປງຂໍ້ມູນໃຫ້ເປັນ Object ທີ່ສະອາດກ່ອນບັນທຶກສະເໝີ ເພື່ອບັງຄັບໃຫ້ Firebase ຮັບຂໍ້ມູນ
+    const safeData = {
+      part1: cleanForFirebase(state.part1),
+      part2: cleanForFirebase(state.part2),
+      part3: cleanForFirebase(state.part3),
+      focusAreas: state.focusAreas || [],
+      activities: state.activities || [],
+      planTarget: state.planTarget || 75
+    };
+
     // ສົ່ງຂໍ້ມູນຂຶ້ນ Firebase Realtime
-    db.ref('schools/' + schoolKey).set({
-      part1: state.part1,
-      part2: state.part2,
-      part3: state.part3,
-      focusAreas: state.focusAreas,
-      activities: state.activities,
-      planTarget: state.planTarget
-    }).catch((error) => {
+    db.ref('schools/' + schoolKey).set(safeData).catch((error) => {
+        console.error("Firebase Save Error:", error);
         alert("ເກີດຂໍ້ຜິດພາດໃນການບັນທຶກລົງ Firebase:\n" + error.message);
     });
   }
@@ -1262,13 +1277,10 @@ function renderDashboard() {
   }
 }
 
+// --------------------------------------------------------
+
 function saveSchoolInfo() {
   const schoolSelect = document.getElementById('filterSchool');
-
-  // 1. ລ້າງຂໍ້ມູນຄະແນນເກົ່າອອກກ່ອນທັນທີ ເພື່ອກຽມຮັບຂໍ້ມູນໃໝ່
-  isDataLoaded = false; // ✅ ປິດລັອກການບັນທຶກທັນທີທີ່ປ່ຽນໂຮງຮຽນ
-  state.part1 = {}; state.part2 = {}; state.part3 = {}; studentScores = {};
-  state.focusAreas = []; state.activities = []; state.planTarget = 75;
 
   if (!schoolSelect || schoolSelect.value === "") {
      state.school.code = "";
@@ -1283,13 +1295,18 @@ function saveSchoolInfo() {
      return;
   }
 
+  // ✅ 3. ລ້າງຂໍ້ມູນຄະແນນເກົ່າອອກກ່ອນທັນທີ ເພື່ອກຽມຮັບຂໍ້ມູນໃໝ່ (ຍ້າຍລົງມາກ່ອນການໂຫຼດ)
+  state.part1 = {}; state.part2 = {}; state.part3 = {}; studentScores = {};
+  state.focusAreas = []; state.activities = []; state.planTarget = 75;
+
   state.school.code = schoolSelect.value;
   state.school.name = schoolSelect.options[schoolSelect.selectedIndex].text;
   state.school.year = document.getElementById('academicYear').value;
 
+  // ບັນທຶກການເລືອກໂຮງຮຽນລົງແຕ່ໃນ LocalStorage ເທົ່ານັ້ນ ຫ້າມມີ saveState ຢູ່ບ່ອນນີ້
   localStorage.setItem('mcp_global_state', JSON.stringify({ user: state.user, school: state.school }));
 
-  // 2. ໂຫຼດຂໍ້ມູນຈາກ Firebase ຢ່າງດຽວ
+  // ໂຫຼດຂໍ້ມູນຈາກ Firebase ຢ່າງດຽວ
   loadSchoolData();
 
   renderAll();
