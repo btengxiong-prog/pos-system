@@ -1409,6 +1409,13 @@ function initLocationSelectors() {
     });
 }
 
+// ເພີ່ມຟັງຊັນນີ້ເພື່ອລ້າງຄ່າເກົ່າ ແລະ ຢຸດການໂຫຼດຂໍ້ມູນຂອງໂຮງຮຽນເກົ່າ
+function clearOldListeners() {
+    state.school.code = ""; // ລ້າງລະຫັດໂຮງຮຽນເກົ່າຖິ້ມ
+    if (typeof currentSchoolRef !== 'undefined' && currentSchoolRef) currentSchoolRef.off('value');
+    if (typeof currentStudentRef !== 'undefined' && currentStudentRef) currentStudentRef.off('value');
+}
+
 function onDistrictChange() {
     const districtCode = document.getElementById('filterDistrict').value;
     const groupSelect = document.getElementById('filterGroup');
@@ -1423,6 +1430,7 @@ function onDistrictChange() {
             });
         }
     }
+    clearOldListeners(); // ປິດການໂຫຼດຂໍ້ມູນໂຮງຮຽນເກົ່າ
     updateDashboardAggregate(); // ສັ່ງອັບເດດຂໍ້ມູນສັງລວມ
 }
 
@@ -1440,6 +1448,7 @@ function onGroupChange() {
             });
         }
     }
+    clearOldListeners(); // ປິດການໂຫຼດຂໍ້ມູນໂຮງຮຽນເກົ່າ
     updateDashboardAggregate(); // ສັ່ງອັບເດດຂໍ້ມູນສັງລວມ
 }
 
@@ -1815,6 +1824,9 @@ function updateDashboardAggregate() {
     const groupCode = document.getElementById('filterGroup')?.value || "";
     const year = document.getElementById('academicYear')?.value || "";
     
+    // ** ເຄຣຍໜ້າຈໍໃຫ້ເປັນ 0% ກ່ອນທັນທີ ເພື່ອສະແດງການຕອບສະໜອງແບບອໍໂຕ້ **
+    updateDashboardCardsUI(0, 0, 0, 0, "ກຳລັງໂຫຼດຂໍ້ມູນ...");
+
     // 1. ຊອກຫາລະຫັດໂຮງຮຽນທັງໝົດທີ່ຕົງກັບເງື່ອນໄຂ (ເມືອງ ແລະ ກຸ່ມ)
     let targetSchoolCodes = [];
     LOCATION_DATA.forEach(d => {
@@ -1866,11 +1878,14 @@ function updateDashboardAggregate() {
                 totalOverall /= count;
             }
 
-            // 3. ອັບເດດໜ້າຈໍແດຊບອດ (ກ່ອງສີແດງ 2)
+            // 3. ອັບເດດໜ້າຈໍແດຊບອດ
             let labelMsg = count > 0 ? `ສັງລວມຈາກ ${count} ໂຮງຮຽນ` : "ຍັງບໍ່ມີການປະເມີນ";
             updateDashboardCardsUI(totalP1, totalP2, totalP3, totalOverall, labelMsg);
         });
-    }).catch(err => console.error("Error loading aggregate data: ", err));
+    }).catch(err => {
+        console.error("Error loading aggregate data: ", err);
+        updateDashboardCardsUI(0, 0, 0, 0, "ເກີດຂໍ້ຜິດພາດໃນການໂຫຼດຂໍ້ມູນ");
+    });
 }
 
 function calcPart1ScoreForData(part1Data) {
