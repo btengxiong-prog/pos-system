@@ -1223,15 +1223,31 @@ function renderDashboard() {
               }
           }
       }
+      
+      // ✅ ແກ້ໄຂແລ້ວ: ປ່ຽນວິທີການເລືອກ Dropdown ບໍ່ໃຫ້ໄປເອີ້ນ onDistrictChange() ທີ່ເປັນຕົວລ້າງຂໍ້ມູນ
       if (foundDist) {
           const distSelect = document.getElementById('filterDistrict');
-          if(distSelect) { distSelect.value = foundDist; onDistrictChange(); }
+          if(distSelect) distSelect.value = foundDist;
           
+          const district = LOCATION_DATA.find(d => d.district_code === foundDist);
           const groupSelect = document.getElementById('filterGroup');
-          if(groupSelect) { groupSelect.value = foundGroup; onGroupChange(); }
+          if(groupSelect && district && district.groups) { 
+              groupSelect.innerHTML = '<option value="">-- ເລືອກກຸ່ມໂຮງຮຽນ --</option>';
+              district.groups.forEach(g => {
+                  groupSelect.innerHTML += `<option value="${g.group_code}">${g.group_name}</option>`;
+              });
+              groupSelect.value = foundGroup; 
+          }
           
+          const group = district ? district.groups.find(g => g.group_code === foundGroup) : null;
           const schoolSelect = document.getElementById('filterSchool');
-          if(schoolSelect) { schoolSelect.value = state.school.code; }
+          if(schoolSelect && group && group.schools) { 
+              schoolSelect.innerHTML = '<option value="">-- ເລືອກໂຮງຮຽນ --</option>';
+              group.schools.forEach(s => {
+                  schoolSelect.innerHTML += `<option value="${s.school_code}">${s.school_name}</option>`;
+              });
+              schoolSelect.value = state.school.code; 
+          }
       }
   }
 
@@ -1239,29 +1255,27 @@ function renderDashboard() {
   if (state.school && state.school.code) {
       calculateAll();
   } else {
-      updateDashboardAggregate();
+      if(typeof updateDashboardAggregate === 'function') updateDashboardAggregate();
   }
 }
 
 function saveSchoolInfo() {
   const schoolSelect = document.getElementById('filterSchool');
-
-  // 1. ລ້າງຂໍ້ມູນຄະແນນເກົ່າອອກກ່ອນທັນທີ (ເພື່ອກຽມຮັບຂໍ້ມູນໃໝ່)
+  
+  // 1. ລ້າງຂໍ້ມູນຄະແນນເກົ່າອອກກ່ອນທັນທີ ເພື່ອກຽມຮັບຂໍ້ມູນໃໝ່
   state.part1 = {}; state.part2 = {}; state.part3 = {}; studentScores = {};
   state.focusAreas = []; state.activities = []; state.planTarget = 75;
-
+  
   if (!schoolSelect || schoolSelect.value === "") {
-     // ຖ້າບໍ່ໄດ້ເລືອກໂຮງຮຽນ ໃຫ້ປ່ຽນໄປເປັນໂໝດສັງລວມ (Aggregate Mode)
      state.school.code = "";
      state.school.name = "ລວມຂໍ້ມູນທັງໝົດ";
      state.school.year = document.getElementById('academicYear').value;
-
+     
      if (typeof currentSchoolRef !== 'undefined' && currentSchoolRef) currentSchoolRef.off('value');
      if (typeof currentStudentRef !== 'undefined' && currentStudentRef) currentStudentRef.off('value');
-
-     updateDashboardAggregate();
      
-     // ບັນທຶກສະເພາະການຕັ້ງຄ່າລົງໃນເຄື່ອງ (Browser LocalStorage) ຫ້າມໃຊ້ saveState()
+     if(typeof updateDashboardAggregate === 'function') updateDashboardAggregate();
+     // ✅ ບັນທຶກສະເພາະ LocalStorage ເພື່ອບໍ່ໃຫ້ທັບ Firebase
      localStorage.setItem('mcp_global_state', JSON.stringify({ user: state.user, school: state.school }));
      return;
   }
@@ -1269,13 +1283,15 @@ function saveSchoolInfo() {
   state.school.code = schoolSelect.value;
   state.school.name = schoolSelect.options[schoolSelect.selectedIndex].text;
   state.school.year = document.getElementById('academicYear').value;
-
-  // ບັນທຶກການຈື່ໂຮງຮຽນລົງໃນເຄື່ອງເທົ່ານັ້ນ
+  
+  // ✅ ບັນທຶກການເລືອກໂຮງຮຽນລົງແຕ່ໃນ LocalStorage ເທົ່ານັ້ນ
   localStorage.setItem('mcp_global_state', JSON.stringify({ user: state.user, school: state.school }));
 
-  // 2. ໂຫຼດຂໍ້ມູນຈາກ Firebase ຢ່າງດຽວ ໂດຍບໍ່ມີການສົ່ງຂໍ້ມູນໄປທັບ (ລຶບ saveState ອອກແລ້ວ)
+  // 2. ໂຫຼດຂໍ້ມູນຈາກ Firebase ຢ່າງດຽວ
   loadSchoolData();
-
+  
+  // ❌ (ໄດ້ລຶບຄຳສັ່ງ saveState() ອອກແລ້ວ ເພື່ອບໍ່ໃຫ້ເອົາຄ່າວ່າງໄປທັບຂໍ້ມູນໃນຖານຂໍ້ມູນ)
+  
   renderAll();
   showToast('ເລືອກໂຮງຮຽນ ແລະ ໂຫຼດຂໍ້ມູນສຳເລັດ', 'success');
 }
