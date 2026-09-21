@@ -631,27 +631,20 @@ function cleanForFirebase(data) {
     return cleanObj;
 }
 
+// 2. ຟັງຊັນບັນທຶກລົງທັງ LocalStorage (ສຳລັບ User) ແລະ Firebase (ສຳລັບຂໍ້ມູນໂຮງຮຽນ)
 function saveState() {
   const globalState = { user: state.user, school: state.school };
   localStorage.setItem('mcp_global_state', JSON.stringify(globalState));
 
   if (state.school && state.school.code) {
     const schoolKey = state.school.code + '_' + state.school.year;
-    
-    // ✅ 2. ແປງຂໍ້ມູນໃຫ້ເປັນ Object ທີ່ສະອາດກ່ອນບັນທຶກສະເໝີ ເພື່ອບັງຄັບໃຫ້ Firebase ຮັບຂໍ້ມູນ
-    const safeData = {
-      part1: cleanForFirebase(state.part1),
-      part2: cleanForFirebase(state.part2),
-      part3: cleanForFirebase(state.part3),
+    // ✅ ແກ້ໄຂແລ້ວ: ໃຊ້ .update() ສະເພາະວຽກອື່ນໆ ໂດຍບໍ່ໃຫ້ແຕະຕ້ອງ (ບໍ່ລຶບ) ພາກ 1 ແລະ 2 ເດັດຂາດ!
+    db.ref('schools/' + schoolKey).update({
       focusAreas: state.focusAreas || [],
       activities: state.activities || [],
       planTarget: state.planTarget || 75
-    };
-
-    // ສົ່ງຂໍ້ມູນຂຶ້ນ Firebase Realtime
-    db.ref('schools/' + schoolKey).set(safeData).catch((error) => {
-        console.error("Firebase Save Error:", error);
-        alert("ເກີດຂໍ້ຜິດພາດໃນການບັນທຶກລົງ Firebase:\n" + error.message);
+    }).catch((error) => {
+        console.error("Save error:", error);
     });
   }
 }
@@ -834,12 +827,16 @@ function renderPartForm(partNum, containerId) {
 function setPart(partNum, idx, value) {
   if (!state.school || !state.school.code) {
       showToast('ກະລຸນາເລືອກໂຮງຮຽນຢູ່ໜ້າແດຊບອດ ແລ້ວກົດບັນທຶກກ່ອນ!', 'warning');
-      renderAll(); // ຄືນຄ່າວິທະຍຸ(radio)ບໍ່ໃຫ້ມັນຕິກ
+      renderAll(); 
       return;
   }
   if (!state['part' + partNum]) state['part' + partNum] = {};
   state['part' + partNum][idx] = value;
-  saveState();
+  
+  // ✅ ແກ້ໄຂແລ້ວ: ຍິງຂໍ້ມູນກົງເຂົ້າຖານຂໍ້ມູນ "ສະເພາະຂໍ້ທີ່ຕິກ" ເລີຍ (Bulletproof! ຂໍ້ມູນບໍ່ມີທາງຫາຍ)
+  const schoolKey = state.school.code + '_' + state.school.year;
+  db.ref(`schools/${schoolKey}/part${partNum}/${idx}`).set(value).catch(e => console.error(e));
+  
   calculateAll();
   showToast(`ບັນທຶກຂໍ້ ${idx + 1} ແລ້ວ!`, 'success');
 }
@@ -2036,40 +2033,41 @@ function closePasteModal() {
 function confirmPasteExcel() {
   const partNum = document.getElementById('pasteExcelPart').value;
   const data = document.getElementById('pasteExcelData').value.trim();
-  
+
   if (!data) {
     showToast('ກະລຸນາວາງຂໍ້ມູນກ່ອນ', 'warning');
     return;
   }
 
-  // ແຍກແຖວທີ່ວາງມາຈາກ Excel
   const lines = data.split(/\r?\n/).map(line => line.trim()).filter(line => line !== '');
-  const maxItems = partNum == 1 ? 25 : 20; // ພາກ 1 ມີ 25 ຂໍ້, ພາກ 2 ມີ 20 ຂໍ້
-  
+  const maxItems = partNum == 1 ? 25 : 20; 
+
   if (!state['part' + partNum]) state['part' + partNum] = {};
-  
+
   let count = 0;
   for (let i = 0; i < Math.min(lines.length, maxItems); i++) {
     let val = lines[i].toLowerCase();
     let status = '';
-    
-// ກວດສອບເງື່ອນໄຂ (ຮອງຮັບຕົວເລກ 2, 1, 0 ແລະ ຂໍ້ຄວາມບາງສ່ວນ)
-        if (val === '2' || val.includes('ຜ່ານ')) {
-          status = 'pass';
-        } else if (val === '1' || val.includes('ໜ້ອຍ')) {
-          status = 'improve';
-        } else if (val === '0' || val.includes('ຫຼາຍ') || val.includes('ບໍ່ຜ່ານ')) {
-          status = 'fail';
-        }
-    
+
+    if (val === '2' || val.includes('ຜ່ານ')) {
+      status = 'pass';
+    } else if (val === '1' || val.includes('ໜ້ອຍ')) {
+      status = 'improve';
+    } else if (val === '0' || val.includes('ຫຼາຍ') || val.includes('ບໍ່ຜ່ານ')) {
+      status = 'fail';
+    }
+
     if (status) {
       state['part' + partNum][i] = status;
       count++;
     }
   }
-  
-  saveState();
-  renderPartForm(partNum, 'part' + partNum + 'Form'); // ໂຫຼດຟອມໃໝ່ເພື່ອໃຫ້ປຸ່ມວິທະຍຸຕິກອັດຕະໂນມັດ
+
+  // ✅ ແກ້ໄຂແລ້ວ: ອັບເດດຍິງກົງເຂົ້າພາກນັ້ນໆເລີຍ ໂດຍບໍ່ແຕະຕ້ອງພາກອື່ນ
+  const schoolKey = state.school.code + '_' + state.school.year;
+  db.ref(`schools/${schoolKey}/part${partNum}`).update(state['part' + partNum]).catch(e => console.error(e));
+
+  renderPartForm(partNum, 'part' + partNum + 'Form'); 
   calculateAll();
   closePasteModal();
   showToast(`ດຶງຂໍ້ມູນ ແລະ ບັນທຶກສຳເລັດ ${count} ລາຍການ`, 'success');
