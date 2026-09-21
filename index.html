@@ -1410,18 +1410,54 @@ function initLocationSelectors() {
 }
 
 // ເພີ່ມຟັງຊັນນີ້ເພື່ອລ້າງຄ່າເກົ່າ ແລະ ຢຸດການໂຫຼດຂໍ້ມູນຂອງໂຮງຮຽນເກົ່າ
+// 1. ຟັງຊັນລ້າງ Listener ເກົ່າ ແລະ ບັງຄັບຣີເຊັດໜ້າຈໍໃຫ້ເປັນ 0% ອັດຕະໂນມັດທັນທີ
 function clearOldListeners() {
-    state.school.code = ""; // ລ້າງລະຫັດໂຮງຮຽນເກົ່າຖິ້ມ
-    if (typeof currentSchoolRef !== 'undefined' && currentSchoolRef) currentSchoolRef.off('value');
-    if (typeof currentStudentRef !== 'undefined' && currentStudentRef) currentStudentRef.off('value');
+    state.school.code = "";
+    state.school.name = "ລວມຂໍ້ມູນທັງໝົດ";
+    state.part1 = {}; state.part2 = {}; state.part3 = {}; studentScores = {};
+    
+    if (typeof currentSchoolRef !== 'undefined' && currentSchoolRef) {
+        currentSchoolRef.off('value');
+    }
+    if (typeof currentStudentRef !== 'undefined' && currentStudentRef) {
+        currentStudentRef.off('value');
+    }
+
+    // ບັງຄັບໃຫ້ຕົວເລກໜ້າຈໍທຸກອັນກາຍເປັນ 0% ທັນທີເມື່ອປ່ຽນ Dropdown
+    const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
+    setTxt('dashPart1', '0.00%');
+    setTxt('dashPart2', '0.00%');
+    setTxt('dashPart3', '0.00%');
+    setTxt('dashTotal', '0.00%');
+    
+    // ປ່ຽນສະຖານະເປັນກຳລັງໂຫຼດ
+    const catEl = document.getElementById('dashCategory');
+    if (catEl) {
+        catEl.innerText = 'ກຳລັງໂຫຼດຂໍ້ມູນ...';
+        catEl.className = 'badge badge-yellow text-base px-4 py-2';
+    }
+    const prog = document.getElementById('dashProgress');
+    if (prog) {
+        prog.style.width = '0%';
+        prog.style.background = '#f59e0b';
+        prog.innerText = '0.00%';
+    }
+    
+    // ລຶບກຣາບເກົ່າຖິ້ມທັນທີ
+    if (typeof chartParts !== 'undefined' && chartParts) chartParts.destroy();
+    if (typeof chartAspects !== 'undefined' && chartAspects) chartAspects.destroy();
 }
 
+// 2. ເມື່ອປ່ຽນເມືອງ
 function onDistrictChange() {
-    const districtCode = document.getElementById('filterDistrict').value;
+    const distSelect = document.getElementById('filterDistrict');
+    const districtCode = distSelect ? distSelect.value : "";
     const groupSelect = document.getElementById('filterGroup');
     const schoolSelect = document.getElementById('filterSchool');
-    groupSelect.innerHTML = '<option value="">-- ເລືອກກຸ່ມໂຮງຮຽນ --</option>';
-    schoolSelect.innerHTML = '<option value="">-- ເລືອກໂຮງຮຽນ --</option>';
+    
+    if (groupSelect) groupSelect.innerHTML = '<option value="">-- ເລືອກກຸ່ມໂຮງຮຽນ --</option>';
+    if (schoolSelect) schoolSelect.innerHTML = '<option value="">-- ເລືອກໂຮງຮຽນ --</option>';
+    
     if (districtCode) {
         const district = LOCATION_DATA.find(d => d.district_code === districtCode);
         if (district && district.groups) {
@@ -1430,26 +1466,37 @@ function onDistrictChange() {
             });
         }
     }
-    clearOldListeners(); // ປິດການໂຫຼດຂໍ້ມູນໂຮງຮຽນເກົ່າ
-    updateDashboardAggregate(); // ສັ່ງອັບເດດຂໍ້ມູນສັງລວມ
+    
+    // ເອີ້ນໃຊ້ການລ້າງໜ້າຈໍທັນທີ!
+    clearOldListeners(); 
+    // ແລ້ວຈຶ່ງໂຫຼດຂໍ້ມູນໃໝ່
+    if(typeof updateDashboardAggregate === 'function') updateDashboardAggregate(); 
 }
 
+// 3. ເມື່ອປ່ຽນກຸ່ມໂຮງຮຽນ
 function onGroupChange() {
-    const districtCode = document.getElementById('filterDistrict').value;
-    const groupCode = document.getElementById('filterGroup').value;
+    const distSelect = document.getElementById('filterDistrict');
+    const districtCode = distSelect ? distSelect.value : "";
+    const groupSelect = document.getElementById('filterGroup');
+    const groupCode = groupSelect ? groupSelect.value : "";
     const schoolSelect = document.getElementById('filterSchool');
-    schoolSelect.innerHTML = '<option value="">-- ເລືອກໂຮງຮຽນ --</option>';
+    
+    if (schoolSelect) schoolSelect.innerHTML = '<option value="">-- ເລືອກໂຮງຮຽນ --</option>';
+    
     if (districtCode && groupCode) {
         const district = LOCATION_DATA.find(d => d.district_code === districtCode);
-        const group = district.groups.find(g => g.group_code === groupCode);
+        const group = district ? district.groups.find(g => g.group_code === groupCode) : null;
         if (group && group.schools) {
             group.schools.forEach(s => {
                 schoolSelect.innerHTML += `<option value="${s.school_code}">${s.school_name}</option>`;
             });
         }
     }
-    clearOldListeners(); // ປິດການໂຫຼດຂໍ້ມູນໂຮງຮຽນເກົ່າ
-    updateDashboardAggregate(); // ສັ່ງອັບເດດຂໍ້ມູນສັງລວມ
+    
+    // ເອີ້ນໃຊ້ການລ້າງໜ້າຈໍທັນທີ!
+    clearOldListeners(); 
+    // ແລ້ວຈຶ່ງໂຫຼດຂໍ້ມູນໃໝ່
+    if(typeof updateDashboardAggregate === 'function') updateDashboardAggregate();
 }
 
 function getFlatLocationData() {
