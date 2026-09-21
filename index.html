@@ -597,7 +597,6 @@ let state = {
   activities: [],
   planTarget: 75
 };
-let isDataLoaded = false; // ✅ ຕົວປ່ຽນລັອກຄວາມປອດໄພ
 // 1. ຕັ້ງຄ່າການເຊື່ອມຕໍ່ Firebase (ໂຄດຂອງທ່ານ)
 const firebaseConfig = {
     apiKey: "AIzaSyAL3XdAIhNDh-TOp1XjQyE6lWRrKTAUJ3k",
@@ -618,45 +617,24 @@ if (!firebase.apps.length) {
 const db = firebase.database();
 
 // 2. ຟັງຊັນບັນທຶກລົງທັງ LocalStorage (ສຳລັບ User) ແລະ Firebase (ສຳລັບຂໍ້ມູນໂຮງຮຽນ)
-
-// ✅ 1. ເພີ່ມຟັງຊັນກັ່ນຕອງຂໍ້ມູນ ປ້ອງກັນບັນຫາ Firebase ປະຕິເສດການບັນທຶກ (ແກ້ບັນຫາຂໍ້ມູນຫາຍ)
-function cleanForFirebase(data) {
-    if (!data) return {};
-    let cleanObj = {};
-    for (let key in data) {
-        if (data[key] !== undefined && data[key] !== null) {
-            cleanObj[key] = data[key];
-        }
-    }
-    return cleanObj;
-}
-
-// 2. ຟັງຊັນບັນທຶກລົງທັງ LocalStorage ແລະ Firebase
 function saveState() {
   const globalState = { user: state.user, school: state.school };
   localStorage.setItem('mcp_global_state', JSON.stringify(globalState));
 
   if (state.school && state.school.code) {
     const schoolKey = state.school.code + '_' + state.school.year;
-    
-    // ກັ່ນຕອງຂໍ້ມູນໃຫ້ສະອາດ ປ້ອງກັນບັນຫາ Firebase ບໍ່ຮັບຂໍ້ມູນ
-    const cleanData = (obj) => {
-        if(!obj) return {};
-        let res = {};
-        for(let k in obj) { if(obj[k] !== undefined && obj[k] !== null) res[k] = obj[k]; }
-        return res;
-    };
-
-    const safeData = {
-      part1: cleanData(state.part1),
-      part2: cleanData(state.part2),
-      part3: cleanData(state.part3),
-      focusAreas: state.focusAreas || [],
-      activities: state.activities || [],
-      planTarget: state.planTarget || 75
-    };
-
-    db.ref('schools/' + schoolKey).set(safeData).catch(e => console.error("Save Error:", e));
+    // ສົ່ງຂໍ້ມູນຂຶ້ນ Firebase Realtime
+    db.ref('schools/' + schoolKey).set({
+      part1: state.part1,
+      part2: state.part2,
+      part3: state.part3,
+      focusAreas: state.focusAreas,
+      activities: state.activities,
+      planTarget: state.planTarget
+    }).catch((error) => {
+        // ຖ້າບັນທຶກບໍ່ໄດ້ ຈະມີແຈ້ງເຕືອນຂຶ້ນມາບອກສາເຫດ
+        alert("ເກີດຂໍ້ຜິດພາດໃນການບັນທຶກລົງ Firebase:\n" + error.message);
+    });
   }
 }
 
@@ -678,24 +656,12 @@ function loadState() {
 }
 
 // 4. ຟັງຊັນດຶງຂໍ້ມູນແບບ Realtime ຈາກ Firebase
-// ເພີ່ມຕົວປ່ຽນເກັບ Reference ຂອງ Firebase ເພື່ອເອົາໄວ້ປິດ Listener ເກົ່າ
-let currentSchoolRef = null;
-let currentStudentRef = null;
-
-// 4. ຟັງຊັນດຶງຂໍ້ມູນແບບ Realtime ຈາກ Firebase
 function loadSchoolData() {
-  isDataLoaded = false; // ✅ ປິດລັອກ: ຕັ້ງຄ່າວ່າກຳລັງໂຫຼດຂໍ້ມູນ (ຫ້າມ Save)
-
   if (!state.school || !state.school.code) return;
   const schoolKey = state.school.code + '_' + state.school.year;
 
-  if (currentSchoolRef) currentSchoolRef.off('value');
-  if (currentStudentRef) currentStudentRef.off('value');
-
-  currentSchoolRef = db.ref('schools/' + schoolKey);
-  currentStudentRef = db.ref('studentScores/' + schoolKey);
-
-  currentSchoolRef.on('value', (snapshot) => {
+  // ດຶງຂໍ້ມູນ ມຄພ ພາກ 1, 2 ແລະ ອື່ນໆ
+  db.ref('schools/' + schoolKey).on('value', (snapshot) => {
     const data = snapshot.val();
     if (data) {
       state.part1 = data.part1 || {};
@@ -708,17 +674,17 @@ function loadSchoolData() {
       state.part1 = {}; state.part2 = {}; state.part3 = {};
       state.focusAreas = []; state.activities = []; state.planTarget = 75;
     }
-    
-    isDataLoaded = true; // ✅ ປົດລັອກ: ຂໍ້ມູນໂຫຼດສຳເລັດແລ້ວ ອະນຸຍາດໃຫ້ Save ໄດ້!
     renderAll();
   });
 
-  currentStudentRef.on('value', (snapshot) => {
+  // ດຶງຄະແນນນັກຮຽນ (ພາກທີ III)
+  db.ref('studentScores/' + schoolKey).on('value', (snapshot) => {
     const data = snapshot.val();
     studentScores = {};
     if (data) {
+        // ແປງຄີ (Key) ຈາກຂີດລຸ່ມ (_) ກັບຄືນມາເປັນຈ້ຳ (.) ຄືເກົ່າ ເພື່ອໃຫ້ລະບົບສະແດງຜົນຖືກຕ້ອງ
         for (let safeKey in data) {
-            const originalKey = safeKey.replace('_', '.'); 
+            const originalKey = safeKey.replace('_', '.'); // ປ່ຽນ ປ_1 ເປັນ ປ.1
             studentScores[originalKey] = data[safeKey];
         }
     }
@@ -837,24 +803,16 @@ function renderPartForm(partNum, containerId) {
 
 function setPart(partNum, idx, value) {
   if (!state.school || !state.school.code) {
-      showToast('ກະລຸນາເລືອກໂຮງຮຽນຢູ່ໜ້າແດຊບອດກ່ອນ!', 'warning');
-      renderAll(); 
+      showToast('ກະລຸນາເລືອກໂຮງຮຽນຢູ່ໜ້າແດຊບອດ ແລ້ວກົດບັນທຶກກ່ອນ!', 'warning');
+      renderAll(); // ຄືນຄ່າວິທະຍຸ(radio)ບໍ່ໃຫ້ມັນຕິກ
       return;
   }
   if (!state['part' + partNum]) state['part' + partNum] = {};
-  
-  // 1. ຈື່ຄ່າທີ່ຕິກໄວ້ໃນໜ້າຈໍ
   state['part' + partNum][idx] = value;
-  
-  // 2. ຄິດໄລ່ເປີເຊັນໃໝ່ທັນທີ ແຕ່ບໍ່ຕ້ອງ renderAll() ເພື່ອບໍ່ໃຫ້ປຸ່ມວິທະຍຸກາຍເປັນຄ່າວ່າງ
-  calculateAll();
-  
-  // 3. ສົ່ງໄປບັນທຶກໃນຖານຂໍ້ມູນແບບງຽບໆ
   saveState();
-  
+  calculateAll();
   showToast(`ບັນທຶກຂໍ້ ${idx + 1} ແລ້ວ!`, 'success');
 }
-
 function savePartManual(partNum) {
   if (!state['part' + partNum]) state['part' + partNum] = {};
   const total = partNum === 1 ? 25 : 20;
@@ -1170,9 +1128,6 @@ function renderCharts(p1, p2, p3) {
   });
 }
 function calculateAll() {
-  // ຖ້າບໍ່ໄດ້ເລືອກໂຮງຮຽນ (ຢູ່ໃນໂໝດສັງລວມ) ບໍ່ຕ້ອງໃຫ້ຟັງຊັນນີ້ເຮັດວຽກ ໃຫ້ updateDashboardAggregate ຈັດການແທນ
-  if (!state.school || !state.school.code) return;
-
   const p1 = calcPart1();
   const p2 = calcPart2();
   const p3 = calcPart3();
@@ -1253,70 +1208,38 @@ function renderDashboard() {
               }
           }
       }
-      
-      // ✅ ແກ້ໄຂແລ້ວ: ປ່ຽນວິທີການເລືອກ Dropdown ບໍ່ໃຫ້ໄປເອີ້ນ onDistrictChange() ທີ່ເປັນຕົວລ້າງຂໍ້ມູນ
       if (foundDist) {
           const distSelect = document.getElementById('filterDistrict');
-          if(distSelect) distSelect.value = foundDist;
+          if(distSelect) { distSelect.value = foundDist; onDistrictChange(); }
           
-          const district = LOCATION_DATA.find(d => d.district_code === foundDist);
           const groupSelect = document.getElementById('filterGroup');
-          if(groupSelect && district && district.groups) { 
-              groupSelect.innerHTML = '<option value="">-- ເລືອກກຸ່ມໂຮງຮຽນ --</option>';
-              district.groups.forEach(g => {
-                  groupSelect.innerHTML += `<option value="${g.group_code}">${g.group_name}</option>`;
-              });
-              groupSelect.value = foundGroup; 
-          }
+          if(groupSelect) { groupSelect.value = foundGroup; onGroupChange(); }
           
-          const group = district ? district.groups.find(g => g.group_code === foundGroup) : null;
           const schoolSelect = document.getElementById('filterSchool');
-          if(schoolSelect && group && group.schools) { 
-              schoolSelect.innerHTML = '<option value="">-- ເລືອກໂຮງຮຽນ --</option>';
-              group.schools.forEach(s => {
-                  schoolSelect.innerHTML += `<option value="${s.school_code}">${s.school_name}</option>`;
-              });
-              schoolSelect.value = state.school.code; 
-          }
+          if(schoolSelect) { schoolSelect.value = state.school.code; }
       }
   }
 
-  // Check ວ່າຈະສະແດງໂໝດສັງລວມ ຫຼື ລາຍໂຮງຮຽນ
-  if (state.school && state.school.code) {
-      calculateAll();
-  } else {
-      if(typeof updateDashboardAggregate === 'function') updateDashboardAggregate();
-  }
+  calculateAll();
 }
-
-// --------------------------------------------------------
 
 function saveSchoolInfo() {
   const schoolSelect = document.getElementById('filterSchool');
-
-  // ລ້າງຂໍ້ມູນເກົ່າອອກກ່ອນທັນທີ ເພື່ອກຽມຮັບຂໍ້ມູນໂຮງຮຽນໃໝ່
-  state.part1 = {}; state.part2 = {}; state.part3 = {}; studentScores = {};
-  state.focusAreas = []; state.activities = []; state.planTarget = 75;
-
   if (!schoolSelect || schoolSelect.value === "") {
-     state.school.code = "";
-     state.school.name = "ລວມຂໍ້ມູນທັງໝົດ";
-     state.school.year = document.getElementById('academicYear').value;
-
-     if(typeof updateDashboardAggregate === 'function') updateDashboardAggregate();
-     localStorage.setItem('mcp_global_state', JSON.stringify({ user: state.user, school: state.school }));
+     showToast('ກະລຸນາເລືອກໂຮງຮຽນໃນຊ່ອງຄົ້ນຫາກ່ອນ!', 'warning');
      return;
   }
-
+  
   state.school.code = schoolSelect.value;
   state.school.name = schoolSelect.options[schoolSelect.selectedIndex].text;
   state.school.year = document.getElementById('academicYear').value;
-
-  // ບັນທຶກການເລືອກໂຮງຮຽນລົງແຕ່ໃນ LocalStorage
-  localStorage.setItem('mcp_global_state', JSON.stringify({ user: state.user, school: state.school }));
-
-  // ໂຫຼດຂໍ້ມູນຈາກ Firebase (ໂຫຼດແລ້ວຈົບເລີຍ ບໍ່ມີການສົ່ງຄ່າວ່າງໄປທັບອີກ)
+  
+  // ໂຫຼດຂໍ້ມູນການປະເມີນໃໝ່ ໃຫ້ກົງກັບໂຮງຮຽນທີ່ເລືອກ
   loadSchoolData();
+  saveState();
+  
+  // ລ້າງຟອມ ແລະ ເຣັນເດີໃໝ່ເພື່ອສະແດງຂໍ້ມູນຂອງໂຮງຮຽນນີ້
+  renderAll();
   showToast('ເລືອກໂຮງຮຽນ ແລະ ໂຫຼດຂໍ້ມູນສຳເລັດ', 'success');
 }
 
@@ -1455,287 +1378,32 @@ function initLocationSelectors() {
     });
 }
 
-// ========================================================
-// ຊຸດຄຳສັ່ງໃໝ່: ສຳລັບຄິດໄລ່ຂໍ້ມູນສັງລວມ (Aggregate) ແບບ 100%
-// ========================================================
-
-// 1. ຟັງຊັນລ້າງຄ່າເກົ່າທັນທີທີ່ປ່ຽນ Dropdown
-function clearOldListeners() {
-    state.school.code = "";
-    state.school.name = "ລວມຂໍ້ມູນທັງໝົດ";
-    state.part1 = {}; state.part2 = {}; state.part3 = {}; studentScores = {};
-    
-    if (typeof currentSchoolRef !== 'undefined' && currentSchoolRef) {
-        currentSchoolRef.off('value');
-    }
-    if (typeof currentStudentRef !== 'undefined' && currentStudentRef) {
-        currentStudentRef.off('value');
-    }
-
-    // ບັງຄັບໃຫ້ຕົວເລກໜ້າຈໍທຸກອັນກາຍເປັນ 0% ທັນທີ
-    const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
-    setTxt('dashPart1', '0.00%');
-    setTxt('dashPart2', '0.00%');
-    setTxt('dashPart3', '0.00%');
-    setTxt('dashTotal', '0.00%');
-    
-    const catEl = document.getElementById('dashCategory');
-    if (catEl) {
-        catEl.innerText = 'ກຳລັງໂຫຼດຂໍ້ມູນ...';
-        catEl.className = 'badge badge-yellow text-base px-4 py-2';
-    }
-    const prog = document.getElementById('dashProgress');
-    if (prog) {
-        prog.style.width = '0%';
-        prog.style.background = '#f59e0b';
-        prog.innerText = '0.00%';
-    }
-
-    // ລ້າງກຣາບເກົ່າອອກໃຫ້ເປັນໜ້າຂາວ
-    if (typeof chartParts !== 'undefined' && chartParts) { chartParts.destroy(); chartParts = null; }
-    if (typeof chartAspects !== 'undefined' && chartAspects) { chartAspects.destroy(); chartAspects = null; }
-}
-
-// 2. ເມື່ອປ່ຽນເມືອງ
 function onDistrictChange() {
-    const distSelect = document.getElementById('filterDistrict');
-    const districtCode = distSelect ? distSelect.value : "";
+    const districtCode = document.getElementById('filterDistrict').value;
     const groupSelect = document.getElementById('filterGroup');
     const schoolSelect = document.getElementById('filterSchool');
-    
-    if (groupSelect) groupSelect.innerHTML = '<option value="">-- ເລືອກກຸ່ມໂຮງຮຽນ --</option>';
-    if (schoolSelect) schoolSelect.innerHTML = '<option value="">-- ເລືອກໂຮງຮຽນ --</option>';
-    
-    if (districtCode) {
-        const district = LOCATION_DATA.find(d => d.district_code === districtCode);
-        if (district && district.groups) {
-            district.groups.forEach(g => {
-                groupSelect.innerHTML += `<option value="${g.group_code}">${g.group_name}</option>`;
-            });
-        }
+    groupSelect.innerHTML = '<option value="">-- ເລືອກກຸ່ມໂຮງຮຽນ --</option>';
+    schoolSelect.innerHTML = '<option value="">-- ເລືອກໂຮງຮຽນ --</option>';
+    if (!districtCode) return;
+    const district = LOCATION_DATA.find(d => d.district_code === districtCode);
+    if (district && district.groups) {
+        district.groups.forEach(g => {
+            groupSelect.innerHTML += `<option value="${g.group_code}">${g.group_name}</option>`;
+        });
     }
-    clearOldListeners(); 
-    updateDashboardAggregate(); 
 }
 
-// 3. ເມື່ອປ່ຽນກຸ່ມໂຮງຮຽນ
 function onGroupChange() {
-    const distSelect = document.getElementById('filterDistrict');
-    const districtCode = distSelect ? distSelect.value : "";
-    const groupSelect = document.getElementById('filterGroup');
-    const groupCode = groupSelect ? groupSelect.value : "";
+    const districtCode = document.getElementById('filterDistrict').value;
+    const groupCode = document.getElementById('filterGroup').value;
     const schoolSelect = document.getElementById('filterSchool');
-    
-    if (schoolSelect) schoolSelect.innerHTML = '<option value="">-- ເລືອກໂຮງຮຽນ --</option>';
-    
-    if (districtCode && groupCode) {
-        const district = LOCATION_DATA.find(d => d.district_code === districtCode);
-        const group = district ? district.groups.find(g => g.group_code === groupCode) : null;
-        if (group && group.schools) {
-            group.schools.forEach(s => {
-                schoolSelect.innerHTML += `<option value="${s.school_code}">${s.school_name}</option>`;
-            });
-        }
-    }
-    clearOldListeners(); 
-    updateDashboardAggregate();
-}
-
-// 4. ຄິດໄລ່ ແລະ ແຕ້ມໜ້າຈໍສັງລວມ
-function updateDashboardAggregate() {
-    const distCode = document.getElementById('filterDistrict')?.value || "";
-    const groupCode = document.getElementById('filterGroup')?.value || "";
-    const year = document.getElementById('academicYear')?.value || "";
-
-    let targetSchoolCodes = [];
-    LOCATION_DATA.forEach(d => {
-        if (!distCode || d.district_code === distCode) {
-            (d.groups || []).forEach(g => {
-                if (!groupCode || g.group_code === groupCode) {
-                    (g.schools || []).forEach(s => {
-                        targetSchoolCodes.push(s.school_code);
-                    });
-                }
-            });
-        }
-    });
-
-    if(targetSchoolCodes.length === 0) {
-        updateDashboardCardsUI(0, 0, 0, 0, "ບໍ່ມີໂຮງຮຽນໃນເຂດນີ້", [], []);
-        return;
-    }
-
-    db.ref('schools').once('value').then(snapSchools => {
-        db.ref('studentScores').once('value').then(snapScores => {
-            let allSchools = snapSchools.val() || {};
-            let allScores = snapScores.val() || {};
-
-            let totalP1 = 0, totalP2 = 0, totalP3 = 0, totalOverall = 0;
-            let count = 0;
-            
-            // ຕົວປ່ຽນສຳລັບເກັບຄ່າສະເລ່ຍແຕ່ລະດ້ານ
-            let aspectSums = new Array(MCP_DATA.part1.aspects.length + MCP_DATA.part2.aspects.length + MCP_DATA.part3.aspects.length).fill(0);
-            let aspectLabels = [];
-            
-            // ສ້າງຊື່ Labels ໃຫ້ກຣາບ
-            MCP_DATA.part1.aspects.forEach(a => aspectLabels.push(a.name.substring(0, 20)));
-            MCP_DATA.part2.aspects.forEach(a => aspectLabels.push(a.name.substring(0, 20)));
-            MCP_DATA.part3.aspects.forEach(a => aspectLabels.push(a.name.substring(0, 20)));
-
-            targetSchoolCodes.forEach(code => {
-                let key = code + '_' + year;
-                if (allSchools[key] || allScores[key]) {
-                    let p1Data = allSchools[key]?.part1 || {};
-                    let p2Data = allSchools[key]?.part2 || {};
-                    let p3Data = allScores[key] || {};
-                    
-                    let p1 = calcPart1ScoreForData(p1Data);
-                    let p2 = calcPart2ScoreForData(p2Data);
-                    let p3 = calcPart3ScoreForData(p3Data);
-                    
-                    totalP1 += p1;
-                    totalP2 += p2;
-                    totalP3 += p3;
-                    totalOverall += (p1 * 0.2) + (p2 * 0.3) + (p3 * 0.5);
-                    
-                    // ຄິດໄລ່ແຕ່ລະດ້ານສຳລັບກຣາບ
-                    let aspectIndex = 0;
-                    MCP_DATA.part1.aspects.forEach((a, ai) => {
-                        let sum = 0, c = 0;
-                        for (let i = ai * 5; i < (ai * 5) + 5; i++) {
-                            const v = p1Data[i];
-                            if (v === 'pass') sum += 100; else if (v === 'improve') sum += 50;
-                            c++;
-                        }
-                        aspectSums[aspectIndex++] += (c > 0 ? sum / c : 0);
-                    });
-                    
-                    const p2Ranges = [[0,5],[5,12],[12,20]];
-                    MCP_DATA.part2.aspects.forEach((a, ai) => {
-                        let sum = 0, c = 0; const [s, e] = p2Ranges[ai];
-                        for (let i = s; i < e; i++) {
-                            const v = p2Data[i];
-                            if (v === 'pass') sum += 100; else if (v === 'improve') sum += 50;
-                            c++;
-                        }
-                        aspectSums[aspectIndex++] += (c > 0 ? sum / c : 0);
-                    });
-                    
-                    const grades = ['ປ.1', 'ປ.2', 'ປ.3', 'ປ.4', 'ປ.5'];
-                    MCP_DATA.part3.aspects.forEach((a, ai) => {
-                        let sum = 0; const subjectKey = ai === 0 ? 'lao' : 'math';
-                        grades.forEach(grade => {
-                            let safeGrade = grade.replace('.', '_');
-                            let list = p3Data[safeGrade] || p3Data[grade] || [];
-                            if (!Array.isArray(list)) list = Object.values(list);
-                            if (list.length > 0) {
-                                let passCount = 0;
-                                list.forEach(st => { if (Number(st[subjectKey]) === 1) passCount++; });
-                                sum += (passCount / list.length) * 100;
-                            }
-                        });
-                        aspectSums[aspectIndex++] += (sum / 5);
-                    });
-                    
-                    count++;
-                }
-            });
-
-            if (count > 0) {
-                totalP1 /= count; totalP2 /= count; totalP3 /= count; totalOverall /= count;
-                for(let i=0; i<aspectSums.length; i++) aspectSums[i] /= count;
-            }
-
-            let labelMsg = count > 0 ? `ສັງລວມຈາກ ${count} ໂຮງຮຽນ` : "ຍັງບໍ່ມີການປະເມີນ";
-            updateDashboardCardsUI(totalP1, totalP2, totalP3, totalOverall, labelMsg, aspectLabels, aspectSums);
-        });
-    }).catch(err => {
-        updateDashboardCardsUI(0, 0, 0, 0, "ເກີດຂໍ້ຜິດພາດ", [], []);
-    });
-}
-
-function calcPart1ScoreForData(part1Data) {
-    if (!part1Data) return 0;
-    let pass = 0, improve = 0;
-    for (let i = 0; i < 25; i++) {
-        const v = part1Data[i] || part1Data[String(i)];
-        if (v === 'pass') pass++; else if (v === 'improve') improve++;
-    }
-    return ((pass * 100) + (improve * 50)) / 25;
-}
-
-function calcPart2ScoreForData(part2Data) {
-    if (!part2Data) return 0;
-    let pass = 0, improve = 0;
-    for (let i = 0; i < 20; i++) {
-        const v = part2Data[i] || part2Data[String(i)];
-        if (v === 'pass') pass++; else if (v === 'improve') improve++;
-    }
-    return ((pass * 100) + (improve * 50)) / 20;
-}
-
-function calcPart3ScoreForData(studentData) {
-    if (!studentData) return 0;
-    let totalPercentSum = 0;
-    const grades = ['ປ.1', 'ປ.2', 'ປ.3', 'ປ.4', 'ປ.5'];
-    grades.forEach(grade => {
-        let safeGrade = grade.replace('.', '_');
-        let list = studentData[safeGrade] || studentData[grade] || [];
-        if (!Array.isArray(list)) list = Object.values(list);
-        if (list.length > 0) {
-            let totalLao = 0, totalMath = 0;
-            list.forEach(st => {
-                if (Number(st.lao) === 1) totalLao++;
-                if (Number(st.math) === 1) totalMath++;
-            });
-            totalPercentSum += ((totalLao / list.length) * 100) + ((totalMath / list.length) * 100);
-        }
-    });
-    return totalPercentSum / 10;
-}
-
-function updateDashboardCardsUI(p1, p2, p3, total, label, aspectLabels, aspectScores) {
-    const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
-    setTxt('dashPart1', p1.toFixed(2) + '%');
-    setTxt('dashPart2', p2.toFixed(2) + '%');
-    setTxt('dashPart3', p3.toFixed(2) + '%');
-    setTxt('dashTotal', total.toFixed(2) + '%');
-
-    const cat = getCategory(total);
-    const catEl = document.getElementById('dashCategory');
-    if (catEl) {
-        catEl.innerText = label ? `[${label}] ${cat.label}` : cat.label;
-        catEl.className = 'badge ' + cat.cls + ' text-base px-4 py-2';
-    }
-    const prog = document.getElementById('dashProgress');
-    if (prog) {
-        prog.style.width = Math.min(total, 100) + '%';
-        prog.style.background = cat.color;
-        prog.innerText = total.toFixed(2) + '%';
-    }
-    
-    // ແຕ້ມກຣາບຄືນໃໝ່ທັງໝົດ
-    if (typeof chartParts !== 'undefined' && chartParts) { chartParts.destroy(); chartParts = null; }
-    if (typeof chartAspects !== 'undefined' && chartAspects) { chartAspects.destroy(); chartAspects = null; }
-    
-    if (document.getElementById('chartParts')) {
-        chartParts = new Chart(document.getElementById('chartParts'), {
-            type: 'bar',
-            data: {
-              labels: ['ພາກທີ I', 'ພາກທີ II', 'ພາກທີ III'],
-              datasets: [{ label: 'ອັດຕາ % (ສະເລ່ຍ)', data: [p1, p2, p3], backgroundColor: ['#3b82f6', '#f59e0b', '#8b5cf6'] }]
-            },
-            options: { responsive: true, scales: { y: { beginAtZero: true, max: 100 } } }
-        });
-    }
-    if (document.getElementById('chartAspects') && aspectLabels.length > 0) {
-        chartAspects = new Chart(document.getElementById('chartAspects'), {
-            type: 'bar',
-            data: {
-              labels: aspectLabels,
-              datasets: [{ label: 'ອັດຕາ % (ສະເລ່ຍ)', data: aspectScores, backgroundColor: aspectScores.map(s => s >= 75 ? '#16a34a' : (s >= 50 ? '#f59e0b' : '#dc2626')) }]
-            },
-            options: { indexAxis: 'y', responsive: true, scales: { x: { beginAtZero: true, max: 100 } }, plugins: { legend: { display: false } } }
+    schoolSelect.innerHTML = '<option value="">-- ເລືອກໂຮງຮຽນ --</option>';
+    if (!districtCode || !groupCode) return;
+    const district = LOCATION_DATA.find(d => d.district_code === districtCode);
+    const group = district.groups.find(g => g.group_code === groupCode);
+    if (group && group.schools) {
+        group.schools.forEach(s => {
+            schoolSelect.innerHTML += `<option value="${s.school_code}">${s.school_name}</option>`;
         });
     }
 }
@@ -2043,41 +1711,40 @@ function closePasteModal() {
 function confirmPasteExcel() {
   const partNum = document.getElementById('pasteExcelPart').value;
   const data = document.getElementById('pasteExcelData').value.trim();
-
+  
   if (!data) {
     showToast('ກະລຸນາວາງຂໍ້ມູນກ່ອນ', 'warning');
     return;
   }
 
+  // ແຍກແຖວທີ່ວາງມາຈາກ Excel
   const lines = data.split(/\r?\n/).map(line => line.trim()).filter(line => line !== '');
-  const maxItems = partNum == 1 ? 25 : 20; 
-
+  const maxItems = partNum == 1 ? 25 : 20; // ພາກ 1 ມີ 25 ຂໍ້, ພາກ 2 ມີ 20 ຂໍ້
+  
   if (!state['part' + partNum]) state['part' + partNum] = {};
-
+  
   let count = 0;
   for (let i = 0; i < Math.min(lines.length, maxItems); i++) {
     let val = lines[i].toLowerCase();
     let status = '';
-
-    if (val === '2' || val.includes('ຜ່ານ')) {
-      status = 'pass';
-    } else if (val === '1' || val.includes('ໜ້ອຍ')) {
-      status = 'improve';
-    } else if (val === '0' || val.includes('ຫຼາຍ') || val.includes('ບໍ່ຜ່ານ')) {
-      status = 'fail';
-    }
-
+    
+// ກວດສອບເງື່ອນໄຂ (ຮອງຮັບຕົວເລກ 2, 1, 0 ແລະ ຂໍ້ຄວາມບາງສ່ວນ)
+        if (val === '2' || val.includes('ຜ່ານ')) {
+          status = 'pass';
+        } else if (val === '1' || val.includes('ໜ້ອຍ')) {
+          status = 'improve';
+        } else if (val === '0' || val.includes('ຫຼາຍ') || val.includes('ບໍ່ຜ່ານ')) {
+          status = 'fail';
+        }
+    
     if (status) {
       state['part' + partNum][i] = status;
       count++;
     }
   }
-
-  // ✅ ແກ້ໄຂແລ້ວ: ອັບເດດຍິງກົງເຂົ້າພາກນັ້ນໆເລີຍ ໂດຍບໍ່ແຕະຕ້ອງພາກອື່ນ
-  const schoolKey = state.school.code + '_' + state.school.year;
-  db.ref(`schools/${schoolKey}/part${partNum}`).update(state['part' + partNum]).catch(e => console.error(e));
-
-  renderPartForm(partNum, 'part' + partNum + 'Form'); 
+  
+  saveState();
+  renderPartForm(partNum, 'part' + partNum + 'Form'); // ໂຫຼດຟອມໃໝ່ເພື່ອໃຫ້ປຸ່ມວິທະຍຸຕິກອັດຕະໂນມັດ
   calculateAll();
   closePasteModal();
   showToast(`ດຶງຂໍ້ມູນ ແລະ ບັນທຶກສຳເລັດ ${count} ລາຍການ`, 'success');
@@ -2103,86 +1770,6 @@ function renderAll() {
   if (typeof renderSummaryPart3 === 'function') renderSummaryPart3();
   renderDashboard();
   calculateAll();
-}
-
-function calcPart1ScoreForData(part1Data) {
-    if (!part1Data) return 0;
-    let pass = 0, improve = 0;
-    for (let i = 0; i < 25; i++) {
-        const v = part1Data[i] || part1Data[String(i)];
-        if (v === 'pass') pass++; else if (v === 'improve') improve++;
-    }
-    return ((pass * 100) + (improve * 50)) / 25;
-}
-
-function calcPart2ScoreForData(part2Data) {
-    if (!part2Data) return 0;
-    let pass = 0, improve = 0;
-    for (let i = 0; i < 20; i++) {
-        const v = part2Data[i] || part2Data[String(i)];
-        if (v === 'pass') pass++; else if (v === 'improve') improve++;
-    }
-    return ((pass * 100) + (improve * 50)) / 20;
-}
-
-function calcPart3ScoreForData(studentData) {
-    if (!studentData) return 0;
-    let totalPercentSum = 0;
-    const grades = ['ປ.1', 'ປ.2', 'ປ.3', 'ປ.4', 'ປ.5'];
-    grades.forEach(grade => {
-        let safeGrade = grade.replace('.', '_');
-        let list = studentData[safeGrade] || studentData[grade] || [];
-        if (!Array.isArray(list)) list = Object.values(list);
-        if (list.length > 0) {
-            let totalLao = 0, totalMath = 0;
-            list.forEach(st => {
-                if (Number(st.lao) === 1) totalLao++;
-                if (Number(st.math) === 1) totalMath++;
-            });
-            totalPercentSum += ((totalLao / list.length) * 100) + ((totalMath / list.length) * 100);
-        }
-    });
-    return totalPercentSum / 10;
-}
-
-function updateDashboardCardsUI(p1, p2, p3, total, label = "") {
-    const setTxt = (id, val) => {
-        const el = document.getElementById(id);
-        if (el) el.innerText = val;
-    };
-
-    setTxt('dashPart1', p1.toFixed(2) + '%');
-    setTxt('dashPart2', p2.toFixed(2) + '%');
-    setTxt('dashPart3', p3.toFixed(2) + '%');
-    setTxt('dashTotal', total.toFixed(2) + '%');
-
-    const cat = getCategory(total);
-    const catEl = document.getElementById('dashCategory');
-    if (catEl) {
-        catEl.innerText = label ? `[${label}] ${cat.label}` : cat.label;
-        catEl.className = 'badge ' + cat.cls + ' text-base px-4 py-2';
-    }
-
-    const prog = document.getElementById('dashProgress');
-    if (prog) {
-        prog.style.width = Math.min(total, 100) + '%';
-        prog.style.background = cat.color;
-        prog.innerText = total.toFixed(2) + '%';
-    }
-    
-    if (chartParts) chartParts.destroy();
-    if (chartAspects) chartAspects.destroy();
-    
-    if (document.getElementById('chartParts')) {
-        chartParts = new Chart(document.getElementById('chartParts'), {
-            type: 'bar',
-            data: {
-              labels: ['ພາກທີ I', 'ພາກທີ II', 'ພາກທີ III'],
-              datasets: [{ label: 'ອັດຕາ % (ສະເລ່ຍ)', data: [p1, p2, p3], backgroundColor: ['#3b82f6', '#f59e0b', '#8b5cf6'] }]
-            },
-            options: { responsive: true, scales: { y: { beginAtZero: true, max: 100 } } }
-        });
-    }
 }
 
 loadState();
