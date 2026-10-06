@@ -1,1495 +1,399 @@
 <!DOCTYPE html>
 <html lang="lo">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ລະບົບຄັງເງິນສົດ</title>
-<style>
-:root{
-  --primary:#0f766e;--primary2:#115e59;--bg:linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);--card:#fff;
-  --text:#172033;--muted:#64748b;--border:#d9e1e7;--danger:#b91c1c;
-  --success:#15803d;--warning:#b45309;--shadow:0 8px 24px rgba(15,23,42,.08)
-}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font-family:"Noto Sans Lao","Phetsarath OT","Segoe UI",sans-serif}
-button,input,select,textarea{font:inherit}
-button{cursor:pointer}
-.app{display:flex;min-height:100vh}
-.sidebar{width:245px;background:#0f172a;color:#fff;position:fixed;inset:0 auto 0 0;padding:18px 14px;overflow:auto}
-.brand{font-weight:800;font-size:19px;padding:8px 10px 20px;line-height:1.35}
-.brand small{display:block;color:#94a3b8;font-size:11px;font-weight:500;margin-top:4px}
-.nav{display:grid;gap:5px}
-.nav button{border:0;background:transparent;color:#cbd5e1;text-align:left;padding:11px 12px;border-radius:9px}
-.nav button:hover,.nav button.active{background:#134e4a;color:#fff}
-.main{margin-left:245px;width:calc(100% - 245px);padding:18px 22px}
-.topbar{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-bottom:18px}
-.topbar h1{margin:0;font-size:22px}
-.topbar .date{color:var(--muted);font-size:13px}
-.btn{border:0;border-radius:8px;padding:9px 14px;font-weight:700}
-.btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary2)}
-.btn-light{background:#fff;border:1px solid var(--border);color:var(--text)}
-.btn-danger{background:#fee2e2;color:#991b1b;border:1px solid #fecaca}
-.btn-success{background:#dcfce7;color:#166534;border:1px solid #bbf7d0}
-.actions{display:flex;gap:8px;flex-wrap:wrap}
-.grid{display:grid;gap:14px}
-.cards{grid-template-columns:repeat(6,minmax(0,1fr))}
-
-/* --- ພິມໃບບິນ & ຢືມທົດລອງ --- */
-@media print {
-  body.printing-voucher #mainApp, body.printing-voucher .sidebar, body.printing-voucher #toastBox, body.printing-voucher .modal { display: none !important; }
-  #printVoucherArea { display: block !important; }
-}
-#printVoucherArea { display: none; padding: 20px; font-family: "Phetsarath OT", sans-serif; }
-.voucher-header { text-align: center; margin-bottom: 20px; }
-.voucher-title { font-size: 24px; font-weight: bold; margin: 10px 0; }
-.voucher-row { margin-bottom: 12px; font-size: 16px; display: flex; align-items: baseline; }
-.voucher-label { font-weight: bold; width: 150px; flex-shrink: 0; }
-.voucher-value { flex-grow: 1; border-bottom: 1px dotted #000; min-height: 20px; }
-.voucher-signs { display: flex; justify-content: space-between; margin-top: 60px; text-align: center; }
-.voucher-signs div { width: 30%; }
-.badge.advance { background: #fef08a; color: #854d0e; }
-.card{position:relative;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;box-shadow:var(--shadow)}
-.math-op::after { position: absolute; left: calc(100% + 7px); top: 50%; transform: translate(-50%, -50%); font-size: 28px; font-weight: 400; color: #334155; z-index: 10; }
-.math-plus::after { content: "+"; }
-.math-minus::after { content: "-"; }
-.math-equal::after { content: "="; }
-@media(max-width:1000px) { .math-op::after { display: none; } }
-.card .label{font-size:13px;color:var(--muted)}.card .value{font-size:25px;font-weight:800;margin-top:6px}
-.card.receipt .value{color:var(--success)}.card.payment .value{color:var(--danger)}.card.balance .value{color:var(--primary)}
-.panel{background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);margin-top:16px;overflow:hidden}
-.panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border)}
-.panel-head h2{font-size:16px;margin:0}
-.panel-body{padding:16px}
-.table-wrap{overflow:auto;max-height:calc(100vh - 190px)}
-.panel.full-view { height: calc(100vh - 120px); display: flex; flex-direction: column; }
-.panel.full-view .panel-body { flex: 1; display: flex; flex-direction: column; min-height: 0; padding-bottom: 0; }
-.panel.full-view #txList { flex: 1; display: flex; flex-direction: column; min-height: 0; }
-.panel.full-view .table-wrap { flex: 1; max-height: none; overflow: auto; min-height: 0; }
-table{border-collapse:separate;border-spacing:0;width:100%;min-width:980px;border-left:2px solid #94a3b8;border-top:2px solid #94a3b8}
-thead{position:sticky;top:0;z-index:10;background:#f1f5f9;box-shadow:0 2px 4px rgba(0,0,0,0.06)}
-th,td{border-right:2px solid #94a3b8;border-bottom:2px solid #94a3b8;padding:8px 9px;font-size:13px}
-th{background:#f1f5f9;font-weight:800;white-space:nowrap;background-clip:padding-box}
-td.num{text-align:right;font-variant-numeric:tabular-nums}
-td.center{text-align:center}
-.badge{display:inline-block;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:800}
-.badge.receipt{background:#dcfce7;color:#166534}.badge.payment{background:#fee2e2;color:#991b1b}
-.badge.active{background:#ccfbf1;color:#115e59}
-.form-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
-.field label{display:block;font-size:12px;font-weight:700;margin-bottom:5px}
-.field input,.field select,.field textarea{width:100%;padding:9px;border:1px solid var(--border);border-radius:8px;background:#fff}
-.field textarea{min-height:80px;resize:vertical}
-.full{grid-column:1/-1}
-.modal{position:fixed;inset:0;background:rgba(15,23,42,.5);display:none;align-items:center;justify-content:center;padding:20px;z-index:20}
-.modal.open{display:flex}
-.modal-box{width:min(760px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
-.modal-head{display:flex;justify-content:space-between;align-items:center;padding:15px 18px;border-bottom:1px solid var(--border)}
-.modal-head h3{margin:0;font-size:17px}.modal-body{padding:18px}.modal-foot{padding:14px 18px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
-.kpi{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px dashed var(--border)}.kpi:last-child{border-bottom:0}
-.empty{text-align:center;color:var(--muted);padding:30px}
-.searchbar{display:flex;gap:8px;flex-wrap:wrap}.searchbar input,.searchbar select{padding:9px;border:1px solid var(--border);border-radius:8px}
-.report-title{text-align:center;margin:4px 0 14px}.report-title h2{margin:0;font-size:18px}.report-title p{margin:4px 0;color:var(--muted);font-size:12px}
-.right{text-align:right}.muted{color:var(--muted)}.danger{color:var(--danger)}.success{color:var(--success)}
-hr.sep{border:0;border-top:1px solid var(--border);margin:16px 0}
-@media(max-width:1000px){.cards{grid-template-columns:repeat(2,1fr)}.form-grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:700px){.sidebar{position:static;width:100%;height:auto}.app{display:block}.main{margin:0;width:100%;padding:12px}.nav{grid-template-columns:repeat(2,1fr)}.cards,.form-grid{grid-template-columns:1fr}.topbar{align-items:flex-start;flex-direction:column}}
-@media print{
-  .table-wrap{max-height:none!important;overflow:visible!important}
-  .sidebar,.topbar,.no-print,.panel-head .actions,.modal{display:none!important}
-  .main{margin:0;width:100%;padding:0}.panel{box-shadow:none;border:0}.panel-body{padding:0}
-  body{background:#fff}table{min-width:0;font-size:10px}th,td{padding:5px}
-  @page{size:A4 landscape;margin:8mm}
-}
-
-/* ------------------- CUSTOM POPUP UI ------------------- */
-.toast-container { position: fixed; top: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 12px; pointer-events: none; }
-.toast { background: #fff; border-left: 5px solid var(--primary); padding: 16px 24px; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 12px; font-weight: 600; font-size: 14px; color: var(--text); animation: slideInRight 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; pointer-events: auto; }
-.toast.hide { animation: slideOutRight 0.3s ease forwards; }
-.toast-icon { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; background: #ccfbf1; color: var(--primary); border-radius: 50%; font-size: 14px; font-weight: 900; }
-.toast.error { border-left-color: var(--danger); }
-.toast.error .toast-icon { background: #fee2e2; color: var(--danger); }
-
-.confirm-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.4); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 10000; opacity: 0; transition: opacity 0.2s ease; }
-.confirm-overlay.open { display: flex; opacity: 1; }
-.confirm-box { background: #fff; padding: 32px 24px; border-radius: 16px; width: min(380px, 90%); text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); transform: translateY(20px) scale(0.95); transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-.confirm-overlay.open .confirm-box { transform: translateY(0) scale(1); }
-.confirm-icon { width: 64px; height: 64px; background: #fee2e2; color: #dc2626; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 20px; }
-.confirm-text { font-size: 17px; margin-bottom: 28px; color: var(--text); font-weight: 600; line-height: 1.4; white-space: pre-line; }
-.confirm-actions { display: flex; gap: 12px; justify-content: center; }
-.confirm-actions .btn { flex: 1; padding: 12px; font-size: 14px; }
-
-@keyframes slideInRight { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-@keyframes slideOutRight { from { transform: translateX(0); opacity: 1; } to { transform: translateX(120%); opacity: 0; } }
-/* ------------------------------------------------------- */
-
-/* --- LOGIN SCREEN --- */
-#loginScreen { position: fixed; inset: 0; background: var(--bg); z-index: 99999; display: flex; align-items: center; justify-content: center; transition: opacity 0.3s; }
-.login-box { background: #fff; padding: 40px 30px; border-radius: 16px; width: min(380px, 90%); box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); text-align: center; }
-.login-box h2 { color: var(--primary); margin: 0 0 5px; font-size: 24px; }
-.login-box p { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
-.login-box .field { margin-bottom: 15px; text-align: left; }
-.login-box button { width: 100%; padding: 12px; font-size: 16px; margin-top: 10px; }
-.hidden { display: none !important; }
-.user-badge { background: #e2e8f0; color: #334155; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: bold; margin-left: 10px; display: inline-flex; align-items: center; gap: 5px;}
-.user-badge.admin { background: #fef08a; color: #854d0e; }
-.user-badge.cashier { background: #bae6fd; color: #075985; }
-
-</style>
-</head>
-<body>
-<!-- ໜ້າ Login -->
-<div id="loginScreen">
-  <div class="login-box">
-    <h2>ລະບົບຄັງເງິນສົດ</h2>
-    <p>ກະລຸນາເຂົ້າສູ່ລະບົບເພື່ອສືບຕໍ່</p>
-    <form id="loginForm">
-      <div class="field">
-        <label>ຊື່ຜູ້ໃຊ້ (Username)</label>
-        <input type="text" id="loginUser" required autocomplete="off">
-      </div>
-      <div class="field">
-        <label>ລະຫັດຜ່ານ (Password)</label>
-        <input type="password" id="loginPass" required>
-      </div>
-      <button type="submit" class="btn btn-primary">ເຂົ້າສູ່ລະບົບ</button>
-    </form>
-  </div>
-</div>
-
-<div class="app hidden" id="mainApp">
-<aside class="sidebar">
-  <div class="brand">ຄັງເງິນສົດ<small>Cash Treasury Management</small></div>
-  <div class="nav">
-    <button data-page="dashboard" class="active">🏠 ໜ້າຫຼັກ</button>
-    <button data-page="cashbook">📒 ປື້ມຄັງເງິນສົດ</button>
-    <button data-page="transactions">🧾 ບັນທຶກຮັບ–ຈ່າຍ</button>
-    <button data-page="accounts">📚 ໂຄງບັນຊີ</button>
-    <button data-page="reports">📊 ລາຍງານ</button>
-    <button data-page="settings">⚙️ ຕັ້ງຄ່າ</button>
-  </div>
-</aside>
-
-<main class="main">
-  <div class="topbar">
-    <div><h1 id="pageTitle">ໜ້າຫຼັກ</h1><div class="date" id="today"></div></div>
-    <div class="actions no-print">
-      <button class="btn btn-light" onclick="backupData()">💾 Backup</button>
-    </div>
-  </div>
-  <div id="content"></div>
-</main>
-</div>
-
-<div class="modal" id="txModal">
- <div class="modal-box">
-  <div class="modal-head"><h3 id="txModalTitle">ບັນທຶກຮັບ–ຈ່າຍ</h3><button class="btn btn-light" onclick="closeModal()">✕</button></div>
-  <form id="txForm">
-   <div class="modal-body">
-    <input type="hidden" id="txId">
-    <div class="form-grid">
-      <div class="field"><label>ປະເພດລາຍການ *</label><select id="txType"><option value="receipt">ຮັບເງິນ</option><option value="payment">ຈ່າຍເງິນ</option></select></div>
-      <div class="field"><label>ວັນທີ *</label><input id="txDate" type="date" required></div>
-      <div class="field"><label>ເລກທີເອກະສານ</label><input id="txRef" placeholder="ຕົວຢ່າງ: ຮຈ-001/2026"></div>
-      <div class="field"><label>ໝວດເງິນ *</label><select id="txFund" required></select></div>
-      <div class="field full"><label>ເນື້ອໃນລາຍການ *</label><input id="txDesc" required placeholder="ລາຍລະອຽດການຮັບ ຫຼື ຈ່າຍ"></div>
-      <div class="field"><label>ບັນຊີ/ລະຫັດ</label><select id="txAccount"></select></div>
-      <div class="field"><label>ຈຳນວນເງິນ (ກີບ) *</label><input id="txAmount" type="text" inputmode="numeric" required oninput="this.value = this.value.replace(/[^0-9]/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',')"></div>
-      <div class="field" id="txStatusWrapper" style="display:none;">
-        <label>ສະຖານະຈ່າຍເງິນ</label>
-        <select id="txStatus">
-          <option value="completed">ຈ່າຍຂາດ (ປົກກະຕິ)</option>
-          <option value="advance">ຢືມທົດລອງ (ລໍຖ້າສະສາງ)</option>
-        </select>
-      </div>
-      <div class="field full"><label>ໝາຍເຫດ (ຊື່ຜູ້ຮັບ/ຈ່າຍ)</label><textarea id="txNote" placeholder="ປ້ອນຊື່ຜູ້ຮັບ ຫຼື ຜູ້ຈ່າຍ ເພື່ອໃຫ້ອອກໃນໃບບິນ..."></textarea></div>
-      <div class="field full">
-        <label>ແນບໄຟລ໌ຫຼັກຖານ (ຮູບພາບ/PDF)</label>
-        <input type="file" id="txFile" accept="image/*,application/pdf">
-        <div id="txFilePreview" style="margin-top:8px; font-size:13px;"></div>
-      </div>
-    </div>
-   </div>
-   <div class="modal-foot"><button type="button" class="btn btn-light" onclick="closeModal()">ຍົກເລີກ</button><button class="btn btn-primary">💾 ບັນທຶກ</button></div>
-  </form>
- </div>
-</div>
-
-<div class="modal" id="accountModal">
- <div class="modal-box">
-  <div class="modal-head"><h3>ເພີ່ມ/ແກ້ໄຂບັນຊີ</h3><button class="btn btn-light" onclick="closeAccountModal()">✕</button></div>
-  <form id="accountForm">
-   <div class="modal-body"><input type="hidden" id="accId"><div class="form-grid">
-    <div class="field"><label>ລະຫັດບັນຊີ *</label><input id="accCode" required placeholder="1101"></div>
-    <div class="field"><label>ຊື່ບັນຊີ *</label><input id="accName" required placeholder="ເງິນສົດ"></div>
-    <div class="field"><label>ປະເພດ *</label><select id="accType"><option value="asset">ຊັບສິນ</option><option value="income">ລາຍຮັບ</option><option value="expense">ລາຍຈ່າຍ</option></select></div>
-    <div class="field"><label>ໝວດເງິນ</label><select id="accFund"></select></div>
-    <div class="field full"><label>ລາຍລະອຽດ</label><input id="accNote"></div>
-   </div></div>
-   <div class="modal-foot"><button type="button" class="btn btn-light" onclick="closeAccountModal()">ຍົກເລີກ</button><button class="btn btn-primary">💾 ບັນທຶກ</button></div>
-  </form>
- </div>
-</div>
-
-<div class="modal" id="importModal">
- <div class="modal-box">
-  <div class="modal-head"><h3>📋 ນຳເຂົ້າຂໍ້ມູນ (ກ໋ອບປີ້ຈາກ Excel ມາວາງ)</h3><button class="btn btn-light" onclick="closeImportModal()">✕</button></div>
-  <div class="modal-body">
-   <p class="muted" style="margin-top:0;font-size:13px;margin-bottom:10px;">ກະລຸນາທາສີຂໍ້ມູນໃນ Excel (ລວມທັງແຖວຫົວຂໍ້ ຫຼື ບໍ່ລວມກໍໄດ້) ແລ້ວກ໋ອບປີ້ (Ctrl+C) ມາວາງລົງໃນຊ່ອງລຸ່ມນີ້ (Ctrl+V):</p>
-   <textarea id="pasteArea" style="width:100%;height:200px;padding:10px;border:1px solid var(--border);border-radius:8px;font-family:inherit" placeholder="ວາງຂໍ້ມູນຢູ່ທີ່ນີ້..."></textarea>
-  </div>
-  <div class="modal-foot">
-   <button type="button" class="btn btn-light" onclick="closeImportModal()">ຍົກເລີກ</button>
-   <button class="btn btn-primary" onclick="processPasteData()">💾 ນຳເຂົ້າຂໍ້ມູນ</button>
-  </div>
- </div>
-</div>
-
-<div class="modal" id="userModal">
- <div class="modal-box" style="width: min(500px, 100%);">
-  <div class="modal-head"><h3 id="userModalTitle">ເພີ່ມ/ແກ້ໄຂຜູ້ໃຊ້</h3><button class="btn btn-light" onclick="closeUserModal()">✕</button></div>
-  <form id="userForm">
-   <div class="modal-body">
-    <input type="hidden" id="oldUsername">
-    <div class="form-grid" style="grid-template-columns: 1fr;">
-      <div class="field"><label>Username (ຊື່ເຂົ້າໃຊ້) *</label><input id="uUsername" required></div>
-      <div class="field"><label>Password (ລະຫັດຜ່ານ) *</label><input id="uPassword" required></div>
-      <div class="field"><label>ຊື່ສະແດງ (Title) *</label><input id="uTitle" required placeholder="ຕົວຢ່າງ: ພະນັກງານບັນຊີ"></div>
-      <div class="field">
-        <label>ສິດການໃຊ້ງານ (Role) *</label>
-        <select id="uRole">
-          <option value="admin">Super Admin (ເຮັດໄດ້ທຸກຢ່າງ)</option>
-          <option value="cashier">ນາຍຄັງ (ປ້ອນໄດ້, ຫ້າມລຶບ/ແກ້)</option>
-          <option value="viewer">ຜູ້ບໍລິຫານ (ເບິ່ງໄດ້ຢ່າງດຽວ)</option>
-        </select>
-      </div>
-    </div>
-   </div>
-   <div class="modal-foot">
-    <button type="button" class="btn btn-light" onclick="closeUserModal()">ຍົກເລີກ</button>
-    <button type="submit" class="btn btn-primary">💾 ບັນທຶກ</button>
-   </div>
-  </form>
- </div>
-</div>
-
-<!-- ພື້ນທີ່ສຳລັບການພິມໃບບິນ (ຈະຖືກຊ່ອນໄວ້ ແລະ ສະແດງສະເພາະຕອນກົດພິມ) -->
-<div id="printVoucherArea"></div>
-
-<!-- ນຳເຂົ້າ Firebase -->
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
-
-<script>
-const firebaseConfig = {
-  apiKey: "AIzaSyAkue9Xc8Qt-Cpi0_OX6RaHWxhgc9fP7qg",
-  authDomain: "cash-treasury-lao.firebaseapp.com",
-  projectId: "cash-treasury-lao",
-  storageBucket: "cash-treasury-lao.firebasestorage.app",
-  messagingSenderId: "916531130146",
-  appId: "1:916531130146:web:71ad671ccc167972f07f7b",
-  measurementId: "G-CNQX8DF3LZ",
-  databaseURL: "https://cash-treasury-lao-default-rtdb.firebaseio.com"
-};
-// ເລີ່ມຕົ້ນເຊື່ອມຕໍ່ Firebase
-firebase.initializeApp(firebaseConfig);
-const database = firebase.database();
-const storage = firebase.storage(); // ເພີ່ມແຖວນີ້ເພື່ອໃຫ້ລະບົບຮູ້ຈັກການອັບໂຫຼດໄຟລ໌
-
-const KEY='cash_treasury_v1';
-
-const defaultFunds=[
- {id:'budget',name:'ງົບປະມານ'},
- {id:'academic',name:'ວິຊາການ'},
- {id:'support',name:'ຊ່ວຍເຫຼືອ'},
- {id:'fee',name:'ຄ່າທຳນຽມ'}
-];
-
-const defaultAccounts=[
- {id:'a110',code:'110',name:'ເງິນສົດ',type:'asset',fund:'',note:'ເງິນສົດໃນຄັງ'},
- {id:'a120',code:'120',name:'ເງິນຝາກທະນາຄານ',type:'asset',fund:'',note:''},
- {id:'i410',code:'410',name:'ລາຍຮັບຈາກງົບປະມານ',type:'income',fund:'budget',note:''},
- {id:'i420',code:'420',name:'ລາຍຮັບວິຊາການ',type:'income',fund:'academic',note:''},
- {id:'i430',code:'430',name:'ເງິນຊ່ວຍເຫຼືອ',type:'income',fund:'support',note:''},
- {id:'i440',code:'440',name:'ລາຍຮັບຄ່າທຳນຽມ',type:'income',fund:'fee',note:''},
- {id:'e510',code:'510',name:'ລາຍຈ່າຍງົບປະມານ',type:'expense',fund:'budget',note:''},
- {id:'e520',code:'520',name:'ລາຍຈ່າຍວິຊາການ',type:'expense',fund:'academic',note:''},
- {id:'e530',code:'530',name:'ລາຍຈ່າຍຊ່ວຍເຫຼືອ',type:'expense',fund:'support',note:''},
- {id:'e540',code:'540',name:'ລາຍຈ່າຍຄ່າທຳນຽມ',type:'expense',fund:'fee',note:''}
-];
-
-const defaultUsers = {
-  'ADMIN-CASH': { pass: 'C@29962200', role: 'admin', title: 'Super Admin' },
-  'XBL-CASH': { pass: 'C@160800', role: 'viewer', title: 'ຜູ້ບໍລິຫານ (ເບິ່ງ)' },
-  'XBL00': { pass: 'C@16080100', role: 'cashier', title: 'ນາຍຄັງ' }
-};
-
-function loadDB() {
-  try {
-    const stored = localStorage.getItem(KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      if (!parsed.transactions) parsed.transactions = [];
-      if (!parsed.funds) parsed.funds = defaultFunds;
-      if (!parsed.accounts) parsed.accounts = defaultAccounts;
-      if (!parsed.audit) parsed.audit = [];
-      if (!parsed.settings) parsed.settings = {orgName:'ຫ້ອງການ/ໜ່ວຍງານ',currency:'ກີບ',opening:{budget:0,academic:0,support:0,fee:0}};
-      if (!parsed.users) parsed.users = defaultUsers; // <== ເພີ່ມບ່ອນນີ້
-      return parsed;
-    }
-  } catch (e) {
-    console.error("Local storage error:", e);
-  }
-  return {settings:{orgName:'ຫ້ອງການ/ໜ່ວຍງານ',currency:'ກີບ',opening:{budget:0,academic:0,support:0,fee:0}},funds:defaultFunds,accounts:defaultAccounts,transactions:[],audit:[],users:defaultUsers};
-}
-
-// --- ລະບົບ USER & LOGIN ---
-let currentUser = JSON.parse(localStorage.getItem('treasury_user')) || null;
-
-function renderUserBadge() {
-  if(!currentUser) return '';
-  return `<span class="user-badge ${currentUser.role}">👤 ${currentUser.title}</span>`;
-}
-
-function logout() {
-  localStorage.removeItem('treasury_user');
-  location.reload();
-}
-
-document.getElementById('loginForm').addEventListener('submit', (e) => {
-  e.preventDefault();
-  const u = document.getElementById('loginUser').value.trim();
-  const p = document.getElementById('loginPass').value.trim();
-  
-  if(db.users && db.users[u] && db.users[u].pass === p) {
-    currentUser = { username: u, ...db.users[u] };
-    localStorage.setItem('treasury_user', JSON.stringify(currentUser));
-    document.getElementById('loginScreen').classList.add('hidden');
-    document.getElementById('mainApp').classList.remove('hidden');
-    showPage('dashboard');
-    alert(`ຍິນດີຕ້ອນຮັບ ${currentUser.title}`);
-  } else {
-    alert('ຊື່ຜູ້ໃຊ້ ຫຼື ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ!');
-  }
-});
-
-// ກວດສອບຕອນໂຫຼດໜ້າເວັບ
-window.addEventListener('DOMContentLoaded', () => {
-  if(currentUser) {
-    document.getElementById('loginScreen').classList.add('hidden');
-    document.getElementById('mainApp').classList.remove('hidden');
-    document.getElementById('pageTitle').innerHTML += renderUserBadge();
-  }
-});
-// -------------------------
-
-let db = loadDB(); // ໂຫຼດຈາກ Local ກ່ອນສະເໝີປ້ອງກັນຂໍ້ມູນຫາຍຕອນ Refresh
-let currentPage = 'dashboard';
-let isFirstLoad = true;
-
-// ຕົວແປສຳລັບແບ່ງໜ້າ (Pagination)
-let txCurrentPage = 1;
-const TX_PER_PAGE = 50; // ກຳນົດໃຫ້ສະແດງໜ້າລະ 50 ລາຍການ
-
-// ຟັງຊັນບັນທຶກຂໍ້ມູນ (ບັນທຶກລົງເຄື່ອງພ້ອມ ແລະ ຂຶ້ນ Firebase ພ້ອມ)
-function saveDB() {
-  localStorage.setItem(KEY, JSON.stringify(db));
-  database.ref('treasury_data').set(db)
-    .then(() => {
-        console.log("💾 ບັນທຶກລົງ Firebase ສຳເລັດ");
-    })
-    .catch(err => {
-        console.error("Firebase save error:", err);
-        alert("❌ ການບັນທຶກອອນລາຍລົ້ມເຫຼວ (ກວດສອບ Rules ໃນ Firebase): " + err.message);
-    });
-}
-
-// ຟັງຊັນບັງຄັບດັນຂໍ້ມູນຈາກເຄື່ອງນີ້ຂຶ້ນ Cloud
-window.forceSync = function() {
-  myConfirm('ຕ້ອງການດັນຂໍ້ມູນຈາກເຄື່ອງນີ້ຂຶ້ນໄປທັບຂໍ້ມູນໃນ Cloud ແທ້ບໍ່?\n\n(ຂໍ້ຄວນລະວັງ: ຄວນກົດຈາກເຄື່ອງຄອມພິວເຕີທີ່ມີຂໍ້ມູນ 245 ລາຍການເທົ່ານັ້ນ ເພື່ອເອົາໄປທັບເຄື່ອງອື່ນ)', () => {
-    saveDB();
-    alert('ອັບໂຫຼດຂໍ້ມູນຂຶ້ນ Cloud ສຳເລັດແລ້ວ! ກະລຸນາກວດເບິ່ງໃນໂທລະສັບຂອງທ່ານ.');
-  });
-};
-
-// ດຶງຂໍ້ມູນແບບ Realtime ຈາກ Firebase
-database.ref('treasury_data').on('value', (snapshot) => {
-  const data = snapshot.val();
-  
-  if (data) {
-    const toArray = (obj) => {
-      if (!obj) return [];
-      return Array.isArray(obj) ? obj : Object.values(obj);
-    };
-
-    db.settings = data.settings || {orgName:'ຫ້ອງການ/ໜ່ວຍງານ',currency:'ກີບ',opening:{budget:0,academic:0,support:0,fee:0}};
-    db.users = data.users || defaultUsers; // <== ຊິງຄ໌ລະບົບ User
-    db.transactions = toArray(data.transactions);
-    
-    let tempFunds = toArray(data.funds);
-    db.funds = tempFunds.length > 0 ? tempFunds : defaultFunds;
-    
-    let tempAccs = toArray(data.accounts);
-    db.accounts = tempAccs.length > 0 ? tempAccs : defaultAccounts;
-    
-    db.audit = toArray(data.audit);
-    
-    localStorage.setItem(KEY, JSON.stringify(db));
-    
-    try {
-      if (currentPage === 'transactions' && document.getElementById('txList')) {
-        filterTx(false);
-      } else if (currentPage === 'cashbook' && document.getElementById('cashbookContainer')) {
-        generateCashbook();
-      } else if (currentPage === 'reports' && document.getElementById('reportContainer')) {
-        generateReport();
-      } else if (currentPage === 'dashboard' && document.getElementById('content')) {
-        renderDashboard();
-      } else if (currentPage === 'accounts' && document.getElementById('content')) {
-        renderAccounts();
-      }
-    } catch (err) {
-      console.error("UI Update Error:", err);
-    }
-  } else {
-    // 🌟 ຖ້າ Cloud ຫວ່າງເປົ່າ ຈະບໍ່ອັບໂຫຼດອັດຕະໂນມັດແລ້ວ ເພື່ອປ້ອງກັນບໍ່ໃຫ້ເຄື່ອງໂທລະສັບ (ທີ່ມີ 0 ລາຍການ) ໄປລຶບຂໍ້ມູນໃນ Cloud
-    console.warn("ຂໍ້ມູນໃນ Cloud ຫວ່າງເປົ່າ. ກະລຸນາກົດປຸ່ມ 'ດັນຂໍ້ມູນຂຶ້ນ Cloud' ຈາກເຄື່ອງຄອມພິວເຕີ.");
-  }
-  
-  if (isFirstLoad) {
-    console.log("✅ ເຊື່ອມຕໍ່ Realtime Database ສຳເລັດ!");
-    isFirstLoad = false;
-  }
-}, (error) => {
-    console.error("❌ ຂໍ້ຜິດພາດ Firebase:", error);
-    alert("❌ ເກີດຂໍ້ຜິດພາດໃນການເຊື່ອມຕໍ່ Firebase (ກວດສອບ Rules): " + error.message);
-});
-
-function money(n){return Number(n||0).toLocaleString('en-US')}
-function updateOpeningText(text) {
-  db.settings.openingText = text.trim() || 'ຍອດຍົກມາ';
-  saveDB();
-}
-function num(n){
-  if(typeof n === 'string') return Number(n.replace(/,/g, '')) || 0;
-  return Number(n||0);
-}
-function today(){return new Date().toISOString().slice(0,10)}
-function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
-function fundName(id){return db.funds.find(x=>x.id===id)?.name||'—'}
-function accountName(id){return db.accounts.find(x=>x.id===id)?.name||'—'}
-function fmtDate(s){if(!s)return ''; const [y,m,d]=s.split('-'); return `${d}/${m}/${y}`}
-function log(action,detail){db.audit.unshift({id:Date.now(),date:new Date().toISOString(),action,detail});db.audit=db.audit.slice(0,500);saveDB()}
-
-document.getElementById('today').textContent=new Date().toLocaleDateString('lo-LA',{year:'numeric',month:'long',day:'numeric'});
-
-document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>showPage(b.dataset.page)));
-
-function showPage(page){
- currentPage=page;
- document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
- const titles={dashboard:'ໜ້າຫຼັກ',cashbook:'',transactions:'ບັນທຶກຮັບ–ຈ່າຍ',accounts:'ໂຄງບັນຊີ',reports:'ລາຍງານ',settings:'ຕັ້ງຄ່າ'};
- document.getElementById('pageTitle').textContent=titles[page];
- 
- // ເຊື່ອງຫົວຂໍ້ໜ້າ ແລະ ວັນທີເບື້ອງຊ້າຍ ຖ້າເປັນໜ້າປື້ມຄັງເງິນສົດ (ເພື່ອໃຫ້ເຫຼືອແຕ່ປຸ່ມເບື້ອງຂວາ)
- if (page === 'cashbook') {
-     document.getElementById('pageTitle').parentElement.style.display = 'none';
- } else {
-     document.getElementById('pageTitle').parentElement.style.display = 'block';
- }
- 
-// ຣີເຊັດປຸ່ມໃນ Topbar ໃຫ້ກັບມາເປັນປົກກະຕິທຸກຄັ້ງທີ່ປ່ຽນໜ້າ
- let topbarHtml = `<button class="btn btn-light" onclick="backupData()">💾 Backup</button>`;
- if (page === 'dashboard') {
-    topbarHtml += ` <button class="btn btn-danger no-print" onclick="logout()">ອອກລະບົບ</button>`;
- }
- document.querySelector('.topbar .actions').innerHTML = topbarHtml;
- 
- ({dashboard:renderDashboard,cashbook:renderCashbook,transactions:renderTransactions,accounts:renderAccounts,reports:renderReports,settings:renderSettings}[page])();
-}
-
-function totals(){
- let out={receipt:0,payment:0,balance:0,opening:0,advance:0};
- // ບວກຍອດຍົກມາທັງໝົດກ່ອນ
- db.funds.forEach(f => out.opening += num(db.settings.opening[f.id]));
- db.transactions.forEach(t=>{
-   out[t.type]+=num(t.amount);
-   if(t.type==='payment' && t.status==='advance') out.advance+=num(t.amount);
- });
- // ຍອດເຫຼືອສຸດທ້າຍ = ຍອດຍົກມາ + ຮັບ - ຈ່າຍ
- out.balance = out.opening + out.receipt - out.payment;
- return out;
-}
-
-function fundTotals(){
- const out={}; db.funds.forEach(f=>out[f.id]={receipt:0,payment:0,balance:num(db.settings.opening[f.id])});
- db.transactions.forEach(t=>{if(!out[t.fund])out[t.fund]={receipt:0,payment:0,balance:0}; out[t.fund][t.type]+=num(t.amount);out[t.fund].balance+=t.type==='receipt'?num(t.amount):-num(t.amount)});
- return out;
-}
-
-function renderDashboard(){
- const t=totals(), ft=fundTotals();
- 
- // ຄິດໄລ່ຜົນລວມສຳລັບຕາຕະລາງ
- let totalOpen = 0, totalRec = 0, totalPay = 0, totalBal = 0;
- db.funds.forEach(f => {
-   totalOpen += num(db.settings.opening[f.id]);
-   totalRec += ft[f.id].receipt;
-   totalPay += ft[f.id].payment;
-   totalBal += ft[f.id].balance;
- });
-
- document.getElementById('content').innerHTML=`
- <div class="grid cards">
-  <div class="card math-op math-plus"><div class="label">ຍອດຍົກມາລວມ</div><div class="value">${money(totalOpen)}</div></div>
-  <div class="card math-op math-minus receipt"><div class="label">ຮັບເງິນທັງໝົດ</div><div class="value">${money(t.receipt)}</div></div>
-  <div class="card math-op math-equal payment"><div class="label">ຈ່າຍເງິນທັງໝົດ</div><div class="value">${money(t.payment)}</div></div>
-  <div class="card balance"><div class="label">ຍອດເຫຼືອສຸດທ້າຍ</div><div class="value">${money(t.balance)}</div></div>
-  <div class="card" style="border-top:3px solid var(--warning);"><div class="label">ຢືມທົດລອງ (ລໍຖ້າ)</div><div class="value" style="color:var(--warning)">${money(t.advance)}</div></div>
-  <div class="card"><div class="label">ຈຳນວນລາຍການ</div><div class="value">${db.transactions.length.toLocaleString()}</div></div>
- </div>
- <div class="panel"><div class="panel-head"><h2>ຍອດແຍກຕາມໝວດເງິນ</h2><div class="actions no-print"><button class="btn btn-light" onclick="showPage('reports')">ເບິ່ງລາຍງານ</button></div></div>
- <div class="panel-body"><div class="table-wrap"><table><thead><tr><th>ໝວດ</th><th>ຍອດຍົກມາ</th><th>ຮັບ</th><th>ຈ່າຍ</th><th>ຍັງເຫຼືອ</th></tr></thead><tbody>
- ${db.funds.map(f=>`<tr><td><b>${esc(f.name)}</b></td><td class="num">${money(db.settings.opening[f.id])}</td><td class="num success">${money(ft[f.id].receipt)}</td><td class="num danger">${money(ft[f.id].payment)}</td><td class="num"><b>${money(ft[f.id].balance)}</b></td></tr>`).join('')}
- <tr style="background:#f1f5f9; font-weight:800;">
-   <td class="center">ລວມທັງໝົດ</td>
-   <td class="num">${money(totalOpen)}</td>
-   <td class="num success">${money(totalRec)}</td>
-   <td class="num danger">${money(totalPay)}</td>
-   <td class="num" style="color:var(--primary)">${money(totalBal)}</td>
- </tr>
- </tbody></table></div></div></div>
- <div class="panel">
-  <div class="panel-body" style="text-align: center; padding: 40px 20px; line-height: 1.6;">
-   <h2 style="color: var(--primary); margin: 0 0 12px 0; font-size: 20px;">ລະບົບຄຸ້ມຄອງຄັງເງິນສົດ ພະແນກສຶກສາທິການ ແລະ ກິລາແຂວງ</h2>
-   <div style="font-size: 16px; color: var(--text);">ຂຽນ ແລະ ພັດທະນາໂດຍ: <b>ອາຈານ ບຸນແຕ່ງ ຊົ່ງຕົງມົວ</b></div>
-   <div style="font-size: 15px; color: var(--muted); margin-top: 6px;">ໂທ: 020 5945 6999, 020 9944 4448</div>
-  </div>
- </div>`;
-}
-
-function txTable(list){
- if(!list.length)return '<div class="empty">ຍັງບໍ່ມີລາຍການ</div>';
- 
- let thead = `<tr><th>ລ/ດ</th><th>ວັນທີ</th><th>ເລກທີ</th><th>ເນື້ອໃນ</th><th>ໝວດ</th><th>ປະເພດ</th><th>ຈຳນວນ</th>`;
- thead += `<th class="no-print">ຈັດການ</th></tr>`;
-
- let tbody = list.map((t,i) => {
-  let typeBadge = t.type==='receipt' ? '<span class="badge receipt">ຮັບ</span>' : '<span class="badge payment">ຈ່າຍ</span>';
-  if(t.type==='payment' && t.status==='advance') typeBadge = '<span class="badge advance">ຢືມທົດລອງ</span>';
-  
-  let fileLink = t.fileUrl ? `<a href="${t.fileUrl}" target="_blank" title="ເບິ່ງຫຼັກຖານ" style="text-decoration:none; margin-left:6px;">📎</a>` : '';
-  
-  let row = `<tr><td class="center">${i+1}</td><td>${fmtDate(t.date)}</td><td>${esc(t.ref||'')}</td><td>${esc(t.desc)} ${fileLink}</td><td>${esc(fundName(t.fund))}</td><td>${typeBadge}</td><td class="num">${money(t.amount)}</td>`;
-  
-  let actionBtns = `<button class="btn btn-light" onclick="printVoucher('${t.id}')" title="ພິມໃບບິນ">🖨</button> `;
-  if(t.type==='payment' && t.status==='advance' && currentUser.role !== 'viewer') {
-     actionBtns += `<button class="btn btn-success" onclick="clearAdvance('${t.id}')" title="ສະສາງເງິນຢືມ">✓ ສະສາງ</button> `;
-  }
-  if (currentUser.role === 'admin') {
-    actionBtns += `<button class="btn btn-light" onclick="editTx('${t.id}')">ແກ້</button> <button class="btn btn-danger" onclick="deleteTx('${t.id}')">ລົບ</button>`;
-  }
-  
-  row += `<td class="no-print" style="white-space:nowrap;">${actionBtns}</td></tr>`;
-  return row;
- }).join('');
-
- return `<div class="table-wrap"><table><thead>${thead}</thead><tbody>${tbody}</tbody></table></div>`;
-}
-
-function renderTransactions(){
- let topbarActions = '';
- if (currentUser.role !== 'viewer') {
-   topbarActions += `<button class="btn btn-primary no-print" onclick="openTransactionModal()">＋ ເພີ່ມລາຍການ</button>`;
- }
- topbarActions += `<button class="btn btn-light" onclick="backupData()">💾 Backup</button>`;
- document.querySelector('.topbar .actions').innerHTML = topbarActions;
-
- let pasteExcelBtn = '';
- if(currentUser.role === 'admin') {
-   pasteExcelBtn = `<button class="btn btn-success" onclick="openImportModal()">📋 ວາງຂໍ້ມູນຈາກ Excel</button>`;
- }
-
- document.getElementById('content').innerHTML=`
- <div class="panel full-view" style="margin-top:0;">
- <div class="panel-body"><div class="searchbar no-print">
- <input id="txSearch" placeholder="ຄົ້ນຫາເນື້ອໃນ/ເລກທີ" oninput="filterTx(true)">
- <select id="txFilterType" onchange="filterTx(true)"><option value="">ທັງໝົດ</option><option value="receipt">ຮັບ</option><option value="payment">ຈ່າຍ</option></select>
- <select id="txFilterFund" onchange="filterTx(true)"><option value="">ທຸກໝວດ</option>${db.funds.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('')}</select>
- <button class="btn btn-light" onclick="exportCSV()">⬇ ໂຫຼດອອກ Excel</button>
- ${pasteExcelBtn}
- </div><div id="txList" style="margin-top:12px; flex:1; display:flex; flex-direction:column;"></div></div></div>`;
- 
- filterTx(true);
-}
-
-// ຟັງຊັນປ່ຽນໜ້າ
-function changeTxPage(direction) {
-  txCurrentPage += direction;
-  filterTx(false);
-}
-
-// ວາງຟັງຊັນ importCSV ນີ້ໄວ້ລຸ່ມຟັງຊັນ renderTransactions() ຫຼື ລຸ່ມ filterTx() ກໍໄດ້
-function importCSV(ev){
- const f = ev.target.files[0];
- if(!f) return;
- const r = new FileReader();
- r.onload = (e) => {
-  const text = e.target.result;
-  const rows = text.split('\n');
-  let imported = 0;
-  
-  // ຂ້າມແຖວທຳອິດ (ແຖວຫົວຂໍ້)
-  for(let i = 1; i < rows.length; i++){
-   let row = rows[i].trim();
-   if(!row) continue;
-   
-   let cols = [];
-   let inQuotes = false;
-   let val = '';
-   for(let char of row){
-    if(char === '"') inQuotes = !inQuotes;
-    else if(char === ',' && !inQuotes){ cols.push(val.trim().replace(/^"|"$/g, '')); val = ''; }
-    else val += char;
-   }
-   cols.push(val.trim().replace(/^"|"$/g, ''));
-   
-   // ກວດສອບຄວາມຖືກຕ້ອງຂອງຄໍລຳ: ວັນທີ(1), ເລກທີ(2), ເນື້ອໃນ(3), ໝວດ(4), ປະເພດ(5), ຈຳນວນ(6), ບັນຊີ(7), ໝາຍເຫດ(8)
-   if(cols.length >= 7 && cols[3] && cols[6]){
-    let date = cols[1];
-    let ref = cols[2];
-    let desc = cols[3];
-    let fundName = cols[4];
-    let typeName = cols[5];
-    let amount = num(cols[6].replace(/,/g, ''));
-    let accountName = cols[7] || '';
-    let note = cols[8] || '';
-
-    if(desc && amount > 0){
-     let fundObj = db.funds.find(x => x.name === fundName);
-     let accObj = db.accounts.find(x => x.name === accountName);
-     
-     db.transactions.push({
-      id: crypto.randomUUID(),
-      date: date || today(),
-      ref: ref,
-      desc: desc,
-      fund: fundObj ? fundObj.id : db.funds[0].id,
-      type: typeName === 'ຮັບ' ? 'receipt' : 'payment',
-      amount: amount,
-      account: accObj ? accObj.id : '',
-      note: note,
-      created: Date.now() + i
-     });
-     imported++;
-    }
-   }
-  }
-  
-  if(imported > 0){ 
-   saveDB(); 
-   alert(`ນຳເຂົ້າສຳເລັດ ${imported} ລາຍການ`); 
-   showPage('transactions'); 
-  } else { 
-   alert('ບໍ່ພົບຂໍ້ມູນທີ່ຈະນຳເຂົ້າ ຫຼື ໄຟລ໌ບໍ່ຖືກຮູບແບບ ໃສ່ຂໍ້ມູນຕາມຟອມທີ່ໂຫຼດອອກໄປເທົ່ານັ້ນ'); 
-  }
-  ev.target.value = ''; // ເຄຍຄ່າ input ເພື່ອໃຫ້ສາມາດອັບໂຫຼດໄຟລ໌ເດີມຊ້ຳໄດ້
- };
- r.readAsText(f);
-}
-
-function filterTx(resetPage = false){
- if(resetPage) txCurrentPage = 1;
- 
- const q=(document.getElementById('txSearch').value||'').toLowerCase(),ty=document.getElementById('txFilterType').value,fu=document.getElementById('txFilterFund').value;
- let list=db.transactions.filter(t=>(!q||`${t.desc} ${t.ref} ${t.note}`.toLowerCase().includes(q))&&(!ty||t.type===ty)&&(!fu||t.fund===fu)).sort((a,b)=>b.date.localeCompare(a.date)||b.created-a.created);
- 
- // ປະມວນຜົນແບ່ງໜ້າ (Pagination)
- const totalPages = Math.ceil(list.length / TX_PER_PAGE) || 1;
- if(txCurrentPage > totalPages) txCurrentPage = totalPages;
- 
- const startIdx = (txCurrentPage - 1) * TX_PER_PAGE;
- const endIdx = startIdx + TX_PER_PAGE;
- const paginatedList = list.slice(startIdx, endIdx);
- 
- let html = txTable(paginatedList);
- 
- // ປຸ່ມກົດປ່ຽນໜ້າ
- if(list.length > 0) {
-   html += `
-   <div class="no-print" style="display:flex; justify-content:space-between; align-items:center; margin-top:15px; padding-top:15px; border-top:1px solid var(--border);">
-     <div class="muted" style="font-size:13px">ສະແດງລາຍການທີ ${startIdx + 1} ຫາ ${Math.min(endIdx, list.length)} ຈາກທັງໝົດ ${list.length.toLocaleString()} ລາຍການ</div>
-     <div style="display:flex; gap:8px; align-items:center;">
-       <button class="btn btn-light" onclick="changeTxPage(-1)" ${txCurrentPage <= 1 ? 'disabled style="opacity:0.5"' : ''}>⬅ ກ່ອນໜ້າ</button>
-       <div style="font-weight:700; font-size:14px; padding:0 8px;">ໜ້າ ${txCurrentPage} / ${totalPages}</div>
-       <button class="btn btn-light" onclick="changeTxPage(1)" ${txCurrentPage >= totalPages ? 'disabled style="opacity:0.5"' : ''}>ຕໍ່ໄປ ➡</button>
-     </div>
-   </div>`;
- }
- 
- document.getElementById('txList').innerHTML = html;
-}
-
-function renderCashbook(){
- // ດຶງລາຍຊື່ປີທີ່ມີໃນຖານຂໍ້ມູນອອກມາສະແດງ
- let years = [...new Set(db.transactions.map(t => t.date.substring(0,4)))].sort((a,b) => b - a);
- if(years.length === 0) years = [new Date().getFullYear().toString()];
- 
- // ເອົາຕົວເລືອກ ແລະ ປຸ່ມພິມ ໄປໄວ້ແຖວດຽວກັບປຸ່ມ Backup ໃນ Topbar (ລຶບສະຖານະອອນລາຍອອກແລ້ວ)
- document.querySelector('.topbar .actions').innerHTML = `
-  <select id="cbYear" onchange="generateCashbook()" style="padding: 8px; border: 1px solid var(--border); border-radius: 8px; outline: none;">
-   ${years.map(y => `<option value="${y}">ປະຈຳປີ ${y}</option>`).join('')}
-  </select>
-  <select id="cbMonth" onchange="generateCashbook()" style="padding: 8px; border: 1px solid var(--border); border-radius: 8px; outline: none;">
-   <option value="all">ສະແດງທັງໝົດທຸກເດືອນໃນປີ</option>
-   <option value="01">ສະເພາະເດືອນ 1</option><option value="02">ສະເພາະເດືອນ 2</option><option value="03">ສະເພາະເດືອນ 3</option>
-   <option value="04">ສະເພາະເດືອນ 4</option><option value="05">ສະເພາະເດືອນ 5</option><option value="06">ສະເພາະເດືອນ 6</option>
-   <option value="07">ສະເພາະເດືອນ 7</option><option value="08">ສະເພາະເດືອນ 8</option><option value="09">ສະເພາະເດືອນ 9</option>
-   <option value="10">ສະເພາະເດືອນ 10</option><option value="11">ສະເພາະເດືອນ 11</option><option value="12">ສະເພາະເດືອນ 12</option>
-  </select>
-  <button class="btn btn-primary" onclick="window.print()">🖨 ພິມເອກະສານ</button>
-  <button class="btn btn-light" onclick="backupData()">💾 Backup</button>
- `;
-
- // ເພີ່ມ full-view ເຂົ້າໄປເພື່ອໃຫ້ຕາຕະລາງຍືດເຕັມຈໍ
- document.getElementById('content').innerHTML=`
- <div class="panel full-view" id="cashbookContainer" style="margin-top:0;"></div>`;
- 
- generateCashbook();
-}
-
-function generateCashbook(){
- const year = document.getElementById('cbYear').value;
- const month = document.getElementById('cbMonth').value;
- const periodText = month === 'all' ? `ປີ ${year}` : `ເດືອນ ${month}/${year}`;
- 
- document.getElementById('cashbookContainer').innerHTML=`
-  <div class="panel-body" style="padding-top:16px;">
-   <div class="report-title"><h2>ປື້ມຄັງເງິນສົດ</h2></div>
-   <div class="table-wrap"><table id="cashbookTable">
-
-   <thead style="text-align: center;">
-    <tr>
-      <th rowspan="3" style="vertical-align: middle;">ລ/ດ</th>
-      <th colspan="2">ເອກະສານຢັ້ງຢືນ</th>
-      <th rowspan="3" style="vertical-align: middle;">ເນື້ອໃນລາຍການ</th>
-      <th colspan="15">ລາຍການເຄື່ອນໄຫວ(ເງິນສົດ)</th>
-    </tr>
-    <tr>
-      <th rowspan="2" style="vertical-align: middle;">ວ.ດ.ປ</th>
-      <th rowspan="2" style="vertical-align: middle;">ເລກທີ</th>
-      <th colspan="5">ຮັບເງິນສົດ</th>
-      <th colspan="5">ຈ່າຍເງິນສົດ</th>
-      <th colspan="5">ຍັງເຫຼືອ</th>
-    </tr>
-    <tr>${fundHeaders()}${fundHeaders()}${fundHeaders()}</tr>
-   </thead>
-   <tbody>${cashbookRowsFiltered(year, month)}</tbody>
-   </table></div>
-  </div>`;
-
-  // ຍ້າຍແຖວ "ຍອດຍົກມາ" ໄປປະກອບເຂົ້າກັບ thead ເພື່ອໃຫ້ມັນຕິດກ້ອງຫົວຂໍ້ຕາຕະລາງສະເໝີເວລາເລື່ອນ
-  const thead = document.querySelector('#cashbookTable thead');
-  const tbody = document.querySelector('#cashbookTable tbody');
-  if(thead && tbody && tbody.firstElementChild) {
-    const firstRow = tbody.firstElementChild;
-    if (firstRow.innerText.includes('ຍອດຍົກມາ') || firstRow.querySelector('[contenteditable]')) {
-      // ໃສ່ສີພື້ນຫຼັງໃຫ້ຖັນຕ່າງໆ ປ້ອງກັນບໍ່ໃຫ້ຂໍ້ມູນຕົວໜັງສືຊ້ອນທັບກັນເວລາເລື່ອນຂຶ້ນ
-      Array.from(firstRow.children).forEach(td => {
-        td.style.background = '#e5e7eb';
-      });
-      thead.appendChild(firstRow);
-    }
-  }
-}
-
-function fundHeaders(){return db.funds.map(f=>`<th>${esc(f.name)}</th>`).join('')+'<th>ລວມ</th>'}
-
-function cashbookRowsFiltered(year, month){
- let bal={};db.funds.forEach(f=>bal[f.id]=num(db.settings.opening[f.id]));
- 
- // ກຳນົດເງື່ອນໄຂການກອງວັນທີ
- let prefix = month === 'all' ? `${year}-` : `${year}-${month}-`;
- 
- const sortedTx = db.transactions.slice().sort((a,b)=>a.date.localeCompare(b.date)||a.created-b.created);
- let filteredTx = [];
- 
- sortedTx.forEach(t => {
-   // ຖ້າເປັນລາຍການເກົ່າກວ່າຊ່ວງທີ່ເລືອກ ໃຫ້ບວກ/ລົບ ເຂົ້າຍອດຍົກມາ
-   if (t.date < prefix || (month === 'all' && t.date.substring(0,4) < year)) {
-     if(t.type==='receipt') bal[t.fund]+=num(t.amount); 
-     else bal[t.fund]-=num(t.amount);
-   } 
-   // ຖ້າເປັນລາຍການໃນຊ່ວງທີ່ເລືອກ ໃຫ້ເກັບໄວ້ສະແດງ
-   else if (t.date.startsWith(prefix)) {
-     filteredTx.push(t);
-   }
- });
-
- const openingTotal=Object.values(bal).reduce((a,b)=>a+b,0);
- const openingText = db.settings.openingText || 'ຍອດຍົກມາ';
- 
- let canEdit = currentUser.role !== 'viewer' ? 'contenteditable="true"' : '';
- let rows=`<tr style="background:#e5e7eb;font-weight:700">
-  <td colspan="4" ${canEdit} onblur="updateOpeningText(this.innerText)" style="cursor: ${canEdit ? 'text' : 'default'}; outline: none; border: ${canEdit ? '1px dashed #94a3b8' : 'none'};" title="${canEdit ? 'ຄລິກເພື່ອພິມແກ້ໄຂຂໍ້ຄວາມ' : ''}">${esc(openingText)}</td>
-  ${db.funds.map(()=>'<td></td>').join('')}<td></td>
-  ${db.funds.map(()=>'<td></td>').join('')}<td></td>
-  ${db.funds.map(f=>`<td class="num">${bal[f.id] ? money(bal[f.id]) : ''}</td>`).join('')}
-  <td class="num">${openingTotal ? money(openingTotal) : ''}</td>
- </tr>`;
- 
- filteredTx.forEach((t,i)=>{
-   let recTotal=t.type==='receipt'?num(t.amount):0,payTotal=t.type==='payment'?num(t.amount):0;
-   if(t.type==='receipt')bal[t.fund]+=num(t.amount);else bal[t.fund]-=num(t.amount);
-   let currentTotal = Object.values(bal).reduce((a,b)=>a+b,0);
-   
-   rows+=`<tr>
-    <td class="center">${i+1}</td>
-    <td>${fmtDate(t.date)}</td>
-    <td>${esc(t.ref||'')}</td>
-    <td>${esc(t.desc)}</td>
-    ${db.funds.map(f=>`<td class="num">${t.type==='receipt'&&t.fund===f.id?money(t.amount):''}</td>`).join('')}<td class="num">${recTotal?money(recTotal):''}</td>
-    ${db.funds.map(f=>`<td class="num">${t.type==='payment'&&t.fund===f.id?money(t.amount):''}</td>`).join('')}<td class="num">${payTotal?money(payTotal):''}</td>
-    ${db.funds.map(f=>`<td class="num">${bal[f.id] ? money(bal[f.id]) : ''}</td>`).join('')}
-    <td class="num"><b>${currentTotal ? money(currentTotal) : ''}</b></td>
-   </tr>`;
- });
- if(filteredTx.length === 0) {
-   rows += `<tr><td colspan="${4 + (db.funds.length*3) + 3}" class="center muted" style="padding:20px;">ບໍ່ມີລາຍການເຄື່ອນໄຫວໃນຊ່ວງເວລານີ້</td></tr>`;
- }
- return rows;
-}
-
-function renderAccounts(){
- let topbarActions = '';
- if(currentUser.role === 'admin') {
-   topbarActions += `<button class="btn btn-primary no-print" onclick="openAccountModal()">＋ ເພີ່ມບັນຊີ</button>`;
- }
- topbarActions += `<button class="btn btn-light" onclick="backupData()">💾 Backup</button>`;
- document.querySelector('.topbar .actions').innerHTML = topbarActions;
-
- let thead = `<tr><th>ລະຫັດ</th><th>ຊື່ບັນຊີ</th><th>ປະເພດ</th><th>ໝວດເງິນ</th><th>ລາຍລະອຽດ</th>`;
- if(currentUser.role === 'admin') thead += `<th class="no-print">ຈັດການ</th>`;
- thead += `</tr>`;
-
- let tbody = db.accounts.map(a => {
-   let row = `<tr><td><b>${esc(a.code)}</b></td><td>${esc(a.name)}</td><td>${a.type==='asset'?'ຊັບສິນ':a.type==='income'?'ລາຍຮັບ':'ລາຍຈ່າຍ'}</td><td>${esc(fundName(a.fund))}</td><td>${esc(a.note||'')}</td>`;
-   if (currentUser.role === 'admin') {
-     row += `<td class="no-print"><button class="btn btn-light" onclick="editAccount('${a.id}')">ແກ້</button> <button class="btn btn-danger" onclick="deleteAccount('${a.id}')">ລົບ</button></td>`;
-   }
-   row += `</tr>`;
-   return row;
- }).join('');
-
- document.getElementById('content').innerHTML=`
- <div class="panel" style="margin-top:0;">
-  <div class="table-wrap"><table><thead>${thead}</thead><tbody>${tbody}</tbody></table></div></div></div>`;
-}
-
-function renderReports(){
-  // ດຶງປີທັງໝົດທີ່ມີໃນຖານຂໍ້ມູນອອກມາເປັນຕົວເລືອກ
-  let years = [...new Set(db.transactions.map(t => t.date.substring(0,4)))].sort((a,b) => b - a);
-  if(years.length === 0) years = [new Date().getFullYear().toString()];
-  
-  document.getElementById('content').innerHTML = `
-  <div class="panel no-print" style="margin-bottom:16px;">
-    <div class="panel-head">
-      <h2>ຕົວເລືອກລາຍງານ</h2>
-      <div class="actions">
-        <button class="btn btn-primary" onclick="window.print()">🖨 ພິມລາຍງານ</button>
-        <button class="btn btn-light" onclick="exportReportCSV()">⬇ CSV</button>
-      </div>
-    </div>
-    <div class="panel-body">
-      <div class="searchbar">
-        <select id="repYear" onchange="generateReport()">
-          ${years.map(y => `<option value="${y}">ປະຈຳປີ ${y}</option>`).join('')}
-        </select>
-        <select id="repPeriod" onchange="generateReport()">
-          <optgroup label="ປະຈຳເດືອນ">
-            <option value="1">ປະຈຳເດືອນ 1</option><option value="2">ປະຈຳເດືອນ 2</option><option value="3">ປະຈຳເດືອນ 3</option>
-            <option value="4">ປະຈຳເດືອນ 4</option><option value="5">ປະຈຳເດືອນ 5</option><option value="6">ປະຈຳເດືອນ 6</option>
-            <option value="7">ປະຈຳເດືອນ 7</option><option value="8">ປະຈຳເດືອນ 8</option><option value="9">ປະຈຳເດືອນ 9</option>
-            <option value="10">ປະຈຳເດືອນ 10</option><option value="11">ປະຈຳເດືອນ 11</option><option value="12">ປະຈຳເດືອນ 12</option>
-          </optgroup>
-          <optgroup label="ປະຈຳໄຕມາດ">
-            <option value="q1">ໄຕມາດ 1 (ເດືອນ 1-3)</option>
-            <option value="q2">ໄຕມາດ 2 (ເດືອນ 4-6)</option>
-            <option value="q3">ໄຕມາດ 3 (ເດືອນ 7-9)</option>
-            <option value="q4">ໄຕມາດ 4 (ເດືອນ 10-12)</option>
-          </optgroup>
-          <optgroup label="ສະຫຼຸບລວມ">
-            <option value="m3">ປະຈຳ 3 ເດືອນ (ເດືອນ 1-3)</option>
-            <option value="m6">ປະຈຳ 6 ເດືອນ (ເດືອນ 1-6)</option>
-            <option value="m9">ປະຈຳ 9 ເດືອນ (ເດືອນ 1-9)</option>
-            <option value="m12" selected>ປະຈຳ 12 ເດືອນ (ທັງໝົດປີ)</option>
-          </optgroup>
-        </select>
-      </div>
-    </div>
-  </div>
-  <div id="reportContainer"></div>`;
-  
-  generateReport();
-}
-
-function generateReport() {
-  const year = document.getElementById('repYear').value;
-  const period = document.getElementById('repPeriod').value;
-  const sel = document.getElementById('repPeriod');
-  const periodName = sel.options[sel.selectedIndex].text;
-
-  // ກຳນົດເດືອນເລີ່ມຕົ້ນ ແລະ ສິ້ນສຸດ ຕາມເງື່ອນໄຂ
-  let sm = 1, em = 12;
-  if (!isNaN(period)) { sm = parseInt(period); em = parseInt(period); }
-  else if (period === 'q1' || period === 'm3') { sm = 1; em = 3; }
-  else if (period === 'q2') { sm = 4; em = 6; }
-  else if (period === 'q3') { sm = 7; em = 9; }
-  else if (period === 'q4') { sm = 10; em = 12; }
-  else if (period === 'm6') { sm = 1; em = 6; }
-  else if (period === 'm9') { sm = 1; em = 9; }
-  else if (period === 'm12') { sm = 1; em = 12; }
-
-  const startDate = `${year}-${String(sm).padStart(2, '0')}-01`;
-  const endDate = `${year}-${String(em).padStart(2, '0')}-31`;
-
-  // ກຽມໂຄງສ້າງເກັບຄ່າ
-  let reportData = db.funds.map(f => ({
-    id: f.id, name: f.name, opening: num(db.settings.opening[f.id]), receipt: 0, payment: 0, balance: 0
-  }));
-
-  // ຄິດໄລ່ຍອດຍົກມາ ແລະ ການເຄື່ອນໄຫວໃນໄລຍະ
-  db.transactions.forEach(t => {
-    let fData = reportData.find(x => x.id === t.fund);
-    if (!fData) return;
-
-    let amount = num(t.amount);
-    // ຖ້າເປັນລາຍການເກົ່າກ່ອນໄລຍະທີ່ເລືອກ ໃຫ້ໄປບວກເຂົ້າ "ຍອດຍົກມາ"
-    if (t.date < startDate) {
-       if (t.type === 'receipt') fData.opening += amount;
-       else fData.opening -= amount;
-    } 
-    // ຖ້າເປັນລາຍການໃນໄລຍະທີ່ເລືອກ ໃຫ້ບວກເຂົ້າ "ຮັບ" ຫຼື "ຈ່າຍ"
-    else if (t.date >= startDate && t.date <= endDate) {
-       if (t.type === 'receipt') fData.receipt += amount;
-       else fData.payment += amount;
-    }
-  });
-
-  // ຄິດໄລ່ຜົນລວມສຸດທ້າຍ
-  let tOpen = 0, tRec = 0, tPay = 0, tBal = 0;
-  reportData.forEach(f => {
-    f.balance = f.opening + f.receipt - f.payment;
-    tOpen += f.opening; tRec += f.receipt; tPay += f.payment; tBal += f.balance;
-  });
-
-  document.getElementById('reportContainer').innerHTML = `
-  <div class="panel">
-    <div class="panel-body">
-      <div class="report-title">
-        <h2 style="font-size: 22px; font-weight: bold;">ລາຍງານຄັງເງິນສົດ ${periodName} ສົກປີ ${year}</h2>
-      </div>
-      <div class="table-wrap">
-        <table id="reportTableData">
-          <thead>
-            <tr><th style="width:50px">ລ/ດ</th><th>ໝວດເງິນ</th><th>ຍອດຍົກມາ</th><th>ຮັບ</th><th>ຈ່າຍ</th><th>ຍັງເຫຼືອ</th></tr>
-          </thead>
-          <tbody>
-            ${reportData.map((f, i) => `
-            <tr>
-              <td class="center">${i+1}</td>
-              <td>${esc(f.name)}</td>
-              <td class="num">${f.opening ? money(f.opening) : ''}</td>
-              <td class="num">${f.receipt ? money(f.receipt) : ''}</td>
-              <td class="num">${f.payment ? money(f.payment) : ''}</td>
-              <td class="num"><b>${f.balance ? money(f.balance) : ''}</b></td>
-            </tr>`).join('')}
-            <tr style="font-weight:800;background:#f8fafc">
-              <td colspan="2" class="center">ລວມທັງໝົດ</td>
-              <td class="num">${tOpen ? money(tOpen) : ''}</td>
-              <td class="num">${tRec ? money(tRec) : ''}</td>
-              <td class="num">${tPay ? money(tPay) : ''}</td>
-              <td class="num" style="color:var(--primary)">${tBal ? money(tBal) : ''}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>`;
-}
-
-function exportReportCSV() {
-  const year = document.getElementById('repYear').value;
-  const sel = document.getElementById('repPeriod');
-  const periodName = sel.options[sel.selectedIndex].text;
-  
-  const table = document.getElementById('reportTableData');
-  if(!table) return;
-  
-  let csv = '\ufeff' + `ລາຍງານຄັງເງິນສົດ ${periodName} ສົກປີ ${year}\n\n`;
-  for(let row of table.rows) {
-    let rData = [];
-    for(let cell of row.cells) {
-      rData.push(`"${cell.innerText.replace(/"/g, '""')}"`);
-    }
-    csv += rData.join(',') + '\n';
-  }
-  downloadBlob(csv, `ລາຍງານ_${periodName}_${year}.csv`, 'text/csv;charset=utf-8');
-}
-
-function renderSettings(){
- let d = currentUser.role !== 'admin' ? 'disabled' : '';
- 
- let saveBtn = currentUser.role === 'admin' ? `<div class="actions no-print" style="margin-top:14px"><button class="btn btn-primary" onclick="saveSettings()">💾 ບັນທຶກຕັ້ງຄ່າ</button></div>` : '';
- let restoreBtn = currentUser.role === 'admin' ? `<label class="btn btn-light">⬆ ກູ້ຄືນ JSON<input type="file" accept=".json" onchange="restoreData(event)" hidden></label><button class="btn btn-danger" onclick="resetData()">⚠ ລ້າງຂໍ້ມູນທົດລອງ</button>` : '';
-
- let usersPanel = '';
- if (currentUser.role === 'admin' && db.users) {
-   let userRows = Object.keys(db.users).map((username, i) => {
-     let u = db.users[username];
-     let roleStr = u.role === 'admin' ? 'Super Admin' : (u.role === 'cashier' ? 'ນາຍຄັງ' : 'ຜູ້ບໍລິຫານ (ເບິ່ງ)');
-     let actions = username !== currentUser.username ? `<button class="btn btn-light" onclick="editUser('${username}')">ແກ້</button> <button class="btn btn-danger" onclick="deleteUser('${username}')">ລົບ</button>` : `<span class="muted" style="font-size:12px;">ກຳລັງໃຊ້ງານ</span>`;
-     return `<tr><td class="center">${i+1}</td><td><b>${esc(username)}</b></td><td>${esc(u.pass)}</td><td>${esc(u.title)}</td><td><span class="badge ${u.role === 'admin' ? 'receipt' : (u.role === 'cashier' ? 'active' : 'payment')}">${roleStr}</span></td><td class="no-print">${actions}</td></tr>`;
-   }).join('');
-
-   usersPanel = `
-   <div class="panel">
-     <div class="panel-head">
-       <h2>👥 ຈັດການຜູ້ໃຊ້ (User Management)</h2>
-       <div class="actions no-print"><button class="btn btn-primary" onclick="openUserModal()">＋ ເພີ່ມຜູ້ໃຊ້</button></div>
-     </div>
-     <div class="panel-body">
-       <div class="table-wrap">
-         <table>
-           <thead><tr><th style="width:50px">ລ/ດ</th><th>Username</th><th>Password</th><th>ຊື່ສະແດງ</th><th>ສິດການໃຊ້ງານ</th><th class="no-print">ຈັດການ</th></tr></thead>
-           <tbody>${userRows}</tbody>
-         </table>
-       </div>
-     </div>
-   </div>`;
- }
-
- document.getElementById('content').innerHTML=`
- <div class="panel"><div class="panel-head"><h2>ຕັ້ງຄ່າຍອດຍົກມາ</h2></div><div class="panel-body">
- <div class="form-grid">${db.funds.map(f=>`<div class="field"><label>${esc(f.name)}</label><input type="text" id="open_${f.id}" value="${money(db.settings.opening[f.id])}" oninput="this.value = this.value.replace(/[^0-9]/g, '').replace(/\\B(?=(\\d{3})+(?!\\d))/g, ',')" ${d}></div>`).join('')}</div>
- ${saveBtn}
- </div></div>
- ${usersPanel}
- <div class="panel"><div class="panel-head"><h2>ສຳຮອງ/ກູ້ຄືນຂໍ້ມູນ</h2></div><div class="panel-body"><div class="actions no-print"><button class="btn btn-light" onclick="backupData()">⬇ ສຳຮອງ JSON</button>${restoreBtn}</div></div></div>`;
-}
-
-function fillFunds(selectId,allowBlank=false){
- const s=document.getElementById(selectId);if(!s)return;
- s.innerHTML=(allowBlank?'<option value="">— ບໍ່ກຳນົດ —</option>':'')+db.funds.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('');
-}
-function fillAccounts(){
- const s=document.getElementById('txAccount');if(!s)return;
- s.innerHTML='<option value="">— ເລືອກບັນຊີ —</option>'+db.accounts.map(a=>`<option value="${a.id}">${esc(a.code)} — ${esc(a.name)}</option>`).join('');
-}
-function openTransactionModal(id=null){
- fillFunds('txFund');fillAccounts();document.getElementById('txForm').reset();
- document.getElementById('txId').value=id||'';document.getElementById('txDate').value=today();document.getElementById('txModalTitle').textContent=id?'ແກ້ໄຂລາຍການ':'ບັນທຶກຮັບ–ຈ່າຍ';
- document.getElementById('txFilePreview').innerHTML = '';
- 
- const typeEl = document.getElementById('txType');
- typeEl.onchange = () => { document.getElementById('txStatusWrapper').style.display = typeEl.value === 'payment' ? 'block' : 'none'; };
- 
- if(id){
-   const t=db.transactions.find(x=>x.id===id);
-   if(t){
-  ['type','date','ref','fund','desc','account','amount','note','status'].forEach(k=>{
-             if(document.getElementById('tx'+k[0].toUpperCase()+k.slice(1))) document.getElementById('tx'+k[0].toUpperCase()+k.slice(1)).value=t[k]??'';
-           });
-           // ເພີ່ມການຈັດຮູບແບບຕົວເລກໃຫ້ມີຈຸດຈຸລະພາກຕອນກົດແກ້ໄຂ
-           if(t.amount) document.getElementById('txAmount').value = money(t.amount);
-           if(t.fileUrl) document.getElementById('txFilePreview').innerHTML = `ໄຟລ໌ເດີມ: <a href="${t.fileUrl}" target="_blank">📄 ${t.fileName || 'ເບິ່ງຫຼັກຖານ'}</a>`;
-   }
- }
- if(!id) document.getElementById('txStatus').value = 'completed';
- typeEl.dispatchEvent(new Event('change'));
- document.getElementById('txModal').classList.add('open');
-}
-function closeModal(){document.getElementById('txModal').classList.remove('open')}
-
-document.getElementById('txForm').addEventListener('submit',e=>{
- e.preventDefault();
- const id=document.getElementById('txId').value;
- const oldT = id ? db.transactions.find(x=>x.id===id) : null;
- 
- const t = {
-   id: id||crypto.randomUUID(),
-   type: document.getElementById('txType').value,
-   date: document.getElementById('txDate').value,
-   ref: document.getElementById('txRef').value.trim(),
-   fund: document.getElementById('txFund').value,
-   desc: document.getElementById('txDesc').value.trim(),
-   account: document.getElementById('txAccount').value,
-   amount: num(document.getElementById('txAmount').value),
-   note: document.getElementById('txNote').value.trim(),
-   status: document.getElementById('txType').value === 'payment' ? document.getElementById('txStatus').value : 'completed',
-   created: oldT ? oldT.created : Date.now(),
-   fileUrl: oldT ? oldT.fileUrl : null,
-   fileName: oldT ? oldT.fileName : null
- };
- 
- if(!t.amount||!t.desc){alert('ກະລຸນາປ້ອນເນື້ອໃນ ແລະ ຈຳນວນເງິນ');return;}
- 
- const btn = e.target.querySelector('.btn-primary');
- const fileInput = document.getElementById('txFile');
- const file = fileInput.files[0];
-
- const proceedSave = () => {
-   if(id){db.transactions[db.transactions.findIndex(x=>x.id===id)]=t; log('EDIT',t.desc);}else{db.transactions.push(t); log('ADD',t.desc);}
-   saveDB(); closeModal(); showPage(currentPage);
-   if(btn) btn.innerHTML = '💾 ບັນທຶກ';
- };
-
- if (file) {
-   if(btn) btn.innerHTML = '⏳ ກຳລັງອັບໂຫຼດ...';
-   const ref = storage.ref('receipts/' + Date.now() + '_' + file.name);
-   ref.put(file).then(snap => snap.ref.getDownloadURL()).then(url => {
-     t.fileUrl = url; t.fileName = file.name;
-     proceedSave();
-   }).catch(err => {
-     alert('ເກີດຂໍ້ຜິດພາດອັບໂຫຼດ: ' + err.message + '\n(ກວດເບິ່ງ Firebase Storage Rules ວ່າຕັ້ງເປັນ Public ຫຼື ຍັງ)');
-     if(btn) btn.innerHTML = '💾 ບັນທຶກ';
-   });
- } else {
-   proceedSave();
- }
-});
-
-// ຟັງຊັນສະສາງເງິນຢືມ
-function clearAdvance(id) {
-  myConfirm('ຢືນຢັນການສະສາງເງິນຢືມລາຍການນີ້\nໃຫ້ກາຍເປັນລາຍຈ່າຍປົກກະຕິແລ້ວບໍ່?', () => {
-    const t = db.transactions.find(x => x.id === id);
-    if(t) { t.status = 'completed'; saveDB(); showPage(currentPage); }
-  });
-}
-
-// ຟັງຊັນພິມໃບບິນ
-function printVoucher(id) {
-  const t = db.transactions.find(x => x.id === id);
-  if(!t) return;
-  const vType = t.type === 'receipt' ? 'ໃບຮັບເງິນ' : (t.status === 'advance' ? 'ໃບຈ່າຍເງິນ (ຢືມທົດລອງ)' : 'ໃບຈ່າຍເງິນ');
-  const vTitleEng = t.type === 'receipt' ? 'RECEIPT VOUCHER' : 'PAYMENT VOUCHER';
-  const person = t.note ? t.note.split('\n')[0] : '.............................................................';
-  
-  document.getElementById('printVoucherArea').innerHTML = `
-    <div class="voucher-header">
-      <div style="font-size:18px;">${db.settings.orgName || 'ຫ້ອງການ/ໜ່ວຍງານ'}</div>
-      <div class="voucher-title">${vType}</div>
-      <div style="font-size:14px;">${vTitleEng}</div>
-    </div>
-    <div style="text-align:right; margin-bottom: 20px;">
-      ວັນທີ: ${fmtDate(t.date)}<br>
-      ເລກທີ: ${t.ref || '.......................'}
-    </div>
-    <div class="voucher-row"><div class="voucher-label">${t.type === 'receipt' ? 'ໄດ້ຮັບເງິນຈາກ:' : 'ຈ່າຍເງິນໃຫ້:'}</div><div class="voucher-value">${person}</div></div>
-    <div class="voucher-row"><div class="voucher-label">ເປັນຈຳນວນເງິນ:</div><div class="voucher-value" style="font-weight:bold;">${money(t.amount)} ກີບ</div></div>
-    <div class="voucher-row"><div class="voucher-label">ຈຸດປະສົງ:</div><div class="voucher-value">${t.desc}</div></div>
-    <div class="voucher-row"><div class="voucher-label">ແຫຼ່ງທຶນ/ໝວດເງິນ:</div><div class="voucher-value">${fundName(t.fund)}</div></div>
-    <div class="voucher-signs">
-      <div><b>ຫົວໜ້າໜ່ວຍງານ</b><br><br><br><br>( ....................................... )</div>
-      <div><b>ຜູ້ອະນຸມັດ/ນາຍຄັງ</b><br><br><br><br>( ....................................... )</div>
-      <div><b>ຜູ້${t.type === 'receipt' ? 'ມອບ' : 'ຮັບ'}ເງິນ</b><br><br><br><br>( ....................................... )</div>
-    </div>`;
-  
-  document.body.classList.add('printing-voucher');
-  window.print();
-  document.body.classList.remove('printing-voucher');
-}
-function editTx(id){openTransactionModal(id)}
-function deleteTx(id){
-  const t = db.transactions.find(x => x.id === id); 
-  if(!t) return;
-  myConfirm(`ທ່ານຕ້ອງການລຶບລາຍການ:\n"${t.desc}" ແທ້ບໍ່?`, () => {
-    db.transactions = db.transactions.filter(x => x.id !== id);
-    log('DELETE', t.desc);
-    saveDB(); 
-    showPage(currentPage);
-  });
-}
-
-function openAccountModal(id=null){
- fillFunds('accFund',true);document.getElementById('accountForm').reset();document.getElementById('accId').value=id||'';
- if(id){const a=db.accounts.find(x=>x.id===id);if(a){document.getElementById('accCode').value=a.code;document.getElementById('accName').value=a.name;document.getElementById('accType').value=a.type;document.getElementById('accFund').value=a.fund||'';document.getElementById('accNote').value=a.note||''}}
- document.getElementById('accountModal').classList.add('open');
-}
-function closeAccountModal(){document.getElementById('accountModal').classList.remove('open')}
-document.getElementById('accountForm').addEventListener('submit',e=>{
- e.preventDefault();const id=document.getElementById('accId').value;
- const a={id:id||crypto.randomUUID(),code:document.getElementById('accCode').value.trim(),name:document.getElementById('accName').value.trim(),type:document.getElementById('accType').value,fund:document.getElementById('accFund').value,note:document.getElementById('accNote').value.trim()};
- if(!a.code||!a.name){alert('ກະລຸນາປ້ອນລະຫັດ ແລະ ຊື່ບັນຊີ');return}
- if(id){db.accounts[db.accounts.findIndex(x=>x.id===id)]=a}else db.accounts.push(a);
- saveDB();closeAccountModal();showPage('accounts');
-});
-function editAccount(id){openAccountModal(id)}
-
-function deleteAccount(id){
-  if(db.transactions.some(t => t.account === id)){ 
-    alert('ບັນຊີນີ້ຖືກນຳໃຊ້ໃນລາຍການແລ້ວ ຈຶ່ງລົບບໍ່ໄດ້'); 
-    return; 
-  }
-  const a = db.accounts.find(x => x.id === id); 
-  if(!a) return;
-  myConfirm(`ທ່ານຕ້ອງການລົບບັນຊີ:\n"${a.name}" ແທ້ບໍ່?`, () => {
-    db.accounts = db.accounts.filter(x => x.id !== id);
-    saveDB(); 
-    showPage('accounts');
-  });
-}
-
-function saveSettings(){
- db.funds.forEach(f=>db.settings.opening[f.id]=num(document.getElementById('open_'+f.id).value));
- saveDB();alert('ບັນທຶກຕັ້ງຄ່າແລ້ວ');showPage('settings');
-}
-
-function exportCSV(){
- const rows=[['ລ/ດ','ວັນທີ','ເລກທີ','ເນື້ອໃນ','ໝວດ','ປະເພດ','ຈຳນວນ','ບັນຊີ','ໝາຍເຫດ']];
- db.transactions.slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach((t,i)=>rows.push([i+1,t.date,t.ref||'',t.desc,fundName(t.fund),t.type==='receipt'?'ຮັບ':'ຈ່າຍ',t.amount,accountName(t.account),t.note||'']));
- const csv='\ufeff'+rows.map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');
- downloadBlob(csv,'cashbook.csv','text/csv;charset=utf-8');
-}
-function backupData(){downloadBlob(JSON.stringify(db,null,2),'cash-treasury-backup.json','application/json')}
-function downloadBlob(content,name,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
-function restoreData(ev){
- const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const x=JSON.parse(r.result);if(!x.transactions||!x.accounts||!x.funds)throw Error();
- if(!x.users) x.users = db.users; // ຮັກສາ user ເກົ່າໄວ້ຖ້າໄຟລ໌ backup ເປັນຮຸ່ນເກົ່າ
- db=x;saveDB();alert('ກູ້ຄືນຂໍ້ມູນສຳເລັດ');showPage(currentPage)}catch(e){alert('ໄຟລ໌ JSON ບໍ່ຖືກຕ້ອງ')}};r.readAsText(f)}
-
-function resetData(){
-  myConfirm('ຈະລຶບຂໍ້ມູນລາຍການທັງໝົດ ແລະກັບໄປຄ່າເລີ່ມຕົ້ນ.\nຂໍ້ມູນທີ່ລຶບແລ້ວບໍ່ສາມາດກູ້ຄືນໄດ້, ແນ່ໃຈບໍ?', () => {
-    localStorage.removeItem(KEY);
-    db = loadDB(); 
-    saveDB(); // ຕ້ອງສັ່ງ saveDB ເພື່ອໄປລຶບຂໍ້ມູນໃນ Firebase ນຳ
-    showPage('dashboard');
-  });
-}
-
-showPage('dashboard');
-
-function openImportModal(){
- document.getElementById('pasteArea').value = '';
- document.getElementById('importModal').classList.add('open');
-}
-function closeImportModal(){
- document.getElementById('importModal').classList.remove('open');
-}
-
-function processPasteData(){
- const text = document.getElementById('pasteArea').value.trim();
- if(!text){ alert('ກະລຸນາວາງຂໍ້ມູນກ່ອນ'); return; }
- 
- function parseTSV(str) {
-  let rows = [];
-  let row = [];
-  let val = '';
-  let inQuotes = false;
-  for (let i = 0; i < str.length; i++) {
-   let c = str[i];
-   if (c === '"') {
-    if (inQuotes && str[i+1] === '"') { val += '"'; i++; } 
-    else { inQuotes = !inQuotes; }
-   } else if (c === '\t' && !inQuotes) {
-    row.push(val); val = '';
-   } else if (c === '\n' && !inQuotes) {
-    row.push(val); rows.push(row); row = []; val = '';
-   } else {
-    val += c;
-   }
-  }
-  row.push(val);
-  if (row.length > 1 || row[0] !== '') rows.push(row);
-  return rows;
- }
-
- const parsedRows = parseTSV(text);
- let imported = 0;
- let skipped = 0; // ຕົວແປສຳລັບນັບຈຳນວນທີ່ຊ້ຳກັນແລ້ວຖືກຂ້າມ
- 
- const fundIds = ['budget', 'academic', 'support', 'fee'];
-
- for(let i = 0; i < parsedRows.length; i++){
-  let cols = parsedRows[i].map(c => c.trim().replace(/^"|"$/g, ''));
-  
-  if(cols.length < 5) continue;
-  if(cols[0] === 'ວ.ດ.ປ' || cols[2] === 'ເນື້ອໃນລາຍການ') continue;
-  
-  let dateStr = cols[0];
-  let ref = cols[1] || '';
-  let desc = cols[2];
-
-  if(!desc) continue;
-  desc = desc.replace(/\n/g, ' '); 
-  
-  let parsedDate = dateStr;
-  if(dateStr && dateStr.includes('/')){
-    let parts = dateStr.split('/');
-    if(parts.length === 3 && parts[2].length === 4){
-      parsedDate = `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
-    }
-  } else if(!dateStr) {
-    parsedDate = today();
-  }
-
-  // 1. ກວດສອບເງິນຮັບ
-  for(let f = 0; f < 4; f++){
-    let amt = num((cols[3 + f] || '').replace(/,/g, ''));
-    if(amt > 0){
-      // ກວດສອບວ່າເຄີຍມີລາຍການນີ້ແລ້ວບໍ່ (ຂໍ້ມູນຊ້ຳກັນ)
-      let isDuplicate = db.transactions.some(t => 
-          t.date === parsedDate && t.ref === ref && t.desc === desc && 
-          t.fund === fundIds[f] && t.type === 'receipt' && num(t.amount) === amt
-      );
-
-      if(!isDuplicate){
-          db.transactions.push({
-           id: crypto.randomUUID(),
-           date: parsedDate,
-           ref: ref,
-           desc: desc,
-           fund: fundIds[f],
-           type: 'receipt',
-           amount: amt,
-           account: '',
-           note: '',
-           created: Date.now() + i + (f * 0.1)
-          });
-          imported++;
-      } else {
-          skipped++; // ຖ້າຊ້ຳກັນ ໃຫ້ບວກຈຳນວນຂ້າມ ແລະ ບໍ່ບັນທຶກ
-      }
-    }
-  }
-
-  // 2. ກວດສອບເງິນຈ່າຍ
-  for(let f = 0; f < 4; f++){
-    if(8 + f < cols.length) {
-        let amt = num((cols[8 + f] || '').replace(/,/g, ''));
-        if(amt > 0){
-          // ກວດສອບວ່າເຄີຍມີລາຍການນີ້ແລ້ວບໍ່ (ຂໍ້ມູນຊ້ຳກັນ)
-          let isDuplicate = db.transactions.some(t => 
-              t.date === parsedDate && t.ref === ref && t.desc === desc && 
-              t.fund === fundIds[f] && t.type === 'payment' && num(t.amount) === amt
-          );
-
-          if(!isDuplicate){
-              db.transactions.push({
-               id: crypto.randomUUID(),
-               date: parsedDate,
-               ref: ref,
-               desc: desc,
-               fund: fundIds[f],
-               type: 'payment',
-               amount: amt,
-               account: '',
-               note: '',
-               created: Date.now() + i + 0.5 + (f * 0.1)
-              });
-              imported++;
-          } else {
-              skipped++; // ຖ້າຊ້ຳກັນ ໃຫ້ບວກຈຳນວນຂ້າມ ແລະ ບໍ່ບັນທຶກ
-          }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ລະບົບຂາຍເຄື່ອງ POS - Firebase Realtime Sync</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Html5-qrcode CDN -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <!-- SheetJS (xlsx) for Excel Import -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- JsBarcode & QRCode CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+    <!-- Google Fonts -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Lao:wght@400;700&display=swap');
+        body {
+            font-family: 'Phetsarath OT', 'Saysettha OT', 'Noto Serif Lao', 'Times New Roman', Times, serif;
         }
-    }
-  }
- }
- 
- if(imported > 0 || skipped > 0){ 
-  if(imported > 0) saveDB(); 
-  
-  let msg = `ນຳເຂົ້າສຳເລັດ ${imported} ລາຍການ`;
-  if(skipped > 0) msg += ` (ຂ້າມຂໍ້ມູນທີ່ຊ້ຳກັນ ${skipped} ລາຍການ)`;
-  
-  alert(msg); 
-  closeImportModal();
-  showPage('transactions'); 
- } else { 
-  alert('ບໍ່ພົບຂໍ້ມູນທີ່ຈະນຳເຂົ້າ ຫຼື ອາດເປັນຂໍ້ມູນທີ່ຊ້ຳກັນທັງໝົດແລ້ວ.'); 
- }
-}
+        .has-submenu {
+            position: relative;
+        }
+        .has-submenu .submenu {
+            display: none;
+            position: absolute;
+            left: 100%;
+            top: 0;
+            min-width: 240px;
+            z-index: 1000;
+        }
+        .has-submenu:hover .submenu {
+            display: block !important;
+        }
+        @media print {
+            body * {
+                visibility: hidden !important;
+            }
+            #excel-generator-modal, #excel-generator-modal *,
+            #stock-in-modal, #stock-in-modal *,
+            #rate-input-modal, #rate-input-modal *,
+            #inventory-modal, #inventory-modal *,
+            #rate-analysis-modal, #rate-analysis-modal *,
+            #expiry-modal, #expiry-modal *,
+            #history-modal, #history-modal *,
+            #report-modal, #report-modal *,
+            #checkout-method-modal, #checkout-method-modal *,
+            #sales-popup-modal, #sales-popup-modal * {
+                visibility: visible !important;
+            }
+            #sales-popup-modal {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                height: auto !important;
+                background: white !important;
+                z-index: 999999 !important;
+            }
+            @page {
+                size: auto;
+                margin: 5mm;
+            }
+        }
+        .submenu {
+            background: white !important;
+            border-radius: 12px !important;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15) !important;
+        }
+        .submenu button:hover {
+            background: #f0f7ff !important;
+        }
+        .btn-primary {
+            background: #1e3a8a;
+            color: white;
+            transition: all 0.2s;
+        }
+        .btn-primary:hover {
+            background: #1e40af;
+            transform: translateY(-1px);
+        }
+        .btn-success {
+            background: #059669;
+            color: white;
+            transition: all 0.2s;
+        }
+        .btn-success:hover {
+            background: #047857;
+            transform: translateY(-1px);
+        }
+        .btn-danger {
+            background: #dc2626;
+            color: white;
+            transition: all 0.2s;
+        }
+        .btn-danger:hover {
+            background: #b91c1c;
+            transform: translateY(-1px);
+        }
+        .btn-warning {
+            background: #d97706;
+            color: white;
+            transition: all 0.2s;
+        }
+        .btn-warning:hover {
+            background: #b45309;
+            transform: translateY(-1px);
+        }
+        .btn-purple {
+            background: #7c3aed;
+            color: white;
+            transition: all 0.2s;
+        }
+        .btn-purple:hover {
+            background: #6d28d9;
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen pb-10">
 
-// ================= USER MANAGEMENT SYSTEM =================
-function openUserModal(username = null) {
-  document.getElementById('userForm').reset();
-  document.getElementById('oldUsername').value = username || '';
-  document.getElementById('userModalTitle').textContent = username ? 'ແກ້ໄຂຜູ້ໃຊ້' : 'ເພີ່ມຜູ້ໃຊ້ໃໝ່';
-  
-  if(username && db.users[username]) {
-    const u = db.users[username];
-    document.getElementById('uUsername').value = username;
-    document.getElementById('uPassword').value = u.pass;
-    document.getElementById('uTitle').value = u.title;
-    document.getElementById('uRole').value = u.role;
-  }
-  
-  document.getElementById('userModal').classList.add('open');
-}
+    <!-- Hidden File Input for Excel Import -->
+    <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" class="hidden" onchange="handleExcelFileImport(event)">
 
-function closeUserModal() {
-  document.getElementById('userModal').classList.remove('open');
-}
+    <!-- Shared Datalist for Product Names Auto-suggest -->
+    <datalist id="existing-product-names-list"></datalist>
 
-document.getElementById('userForm').addEventListener('submit', e => {
-  e.preventDefault();
-  const oldU = document.getElementById('oldUsername').value;
-  const newU = document.getElementById('uUsername').value.trim();
-  const pass = document.getElementById('uPassword').value.trim();
-  const title = document.getElementById('uTitle').value.trim();
-  const role = document.getElementById('uRole').value;
-  
-  if(!newU || !pass || !title) { alert('ກະລຸນາປ້ອນຂໍ້ມູນໃຫ້ຄົບຖ້ວນ'); return; }
-  
-  // ກວດສອບຊື່ຊ້ຳກັນ
-  if(oldU && oldU !== newU && db.users[newU]) {
-     alert('Username ນີ້ມີໃນລະບົບແລ້ວ!'); return;
-  } else if(!oldU && db.users[newU]) {
-     alert('Username ນີ້ມີໃນລະບົບແລ້ວ!'); return;
-  }
-  
-  if(!db.users) db.users = {};
-  
-  // ຖ້າປ່ຽນ Username ໃໝ່ ໃຫ້ລຶບໂຕເກົ່າຖິ້ມ
-  if (oldU && oldU !== newU) {
-    delete db.users[oldU];
-  }
-  
-  db.users[newU] = { pass, title, role };
-  
-  saveDB();
-  closeUserModal();
-  showPage('settings');
-  alert('ບັນທຶກຂໍ້ມູນຜູ້ໃຊ້ສຳເລັດ!');
-});
-
-function editUser(username) {
-  openUserModal(username);
-}
-
-function deleteUser(username) {
-  if (username === currentUser.username) {
-    alert('ບໍ່ສາມາດລຶບ User ໂຕເອງໄດ້!');
-    return;
-  }
-  myConfirm(`ທ່ານຕ້ອງການລຶບຜູ້ໃຊ້: "${username}" ແທ້ບໍ່?`, () => {
-    delete db.users[username];
-    saveDB();
-    showPage('settings');
-  });
-}
-
-// ================= CUSTOM POPUP SYSTEM =================
-document.body.insertAdjacentHTML('beforeend', `
-<div class="toast-container" id="toastBox"></div>
-<div class="confirm-overlay" id="confirmUI">
-  <div class="confirm-box">
-    <div class="confirm-icon">⚠️</div>
-    <div class="confirm-text" id="confirmMessage">ທ່ານແນ່ໃຈບໍ່?</div>
-    <div class="confirm-actions">
-      <button class="btn btn-light" id="confirmCancel">ຍົກເລີກ</button>
-      <button class="btn btn-danger" id="confirmOk">ຢືນຢັນລຶບ</button>
+    <!-- Role Selection Modal -->
+    <div id="role-select-modal" class="hidden fixed inset-0 bg-black/80 z-[300] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
+            <div class="text-4xl">🔐</div>
+            <h3 class="text-xl font-bold text-gray-800">ກະລຸນາເລືອກ ປະເພດການເຂົ້າໃຊ້ງານ</h3>
+            <p class="text-gray-600 text-xs">ກະລຸນາເລືອກໂໝດທີ່ທ່ານຕ້ອງການເຂົ້າສູ່ລະບົບ POS</p>
+            <div class="space-y-3 pt-2">
+                <button onclick="selectRole('trial')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition cursor-pointer shadow flex items-center justify-center gap-2">
+                    ⏳ ທົດລອງໃຊ້ 15 ວັນ / ພະນັກງານຂາຍ
+                </button>
+                <button onclick="openStaffScannerFromRole()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-xl transition cursor-pointer shadow flex items-center justify-center gap-2">
+                    📷 ສະແກນ QR ເຊື່ອມຕໍ່ຮ້ານ Admin
+                </button>
+                <button onclick="showUnifiedLoginModal()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl transition cursor-pointer shadow flex items-center justify-center gap-2">
+                    🔑 ລັອກອິນເຂົ້າລະບົບ (ເຈົ້າຂອງຮ້ານ / Admin)
+                </button>
+            </div>
+            <div class="pt-2 border-t text-[11px] text-gray-400 font-semibold">
+                Ver: 2.0.5 (Inventory Stock Fixed Display)
+            </div>
+        </div>
     </div>
-<<<<<<< HEAD
+
+    <!-- Unified Login Modal -->
+    <div id="unified-login-modal" class="hidden fixed inset-0 bg-black/80 z-[300] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
+            <div class="text-4xl">🔑</div>
+            <h3 class="text-xl font-bold text-gray-800">ລັອກອິນເຂົ້າລະບົບ</h3>
+            <p class="text-xs text-gray-600">ປ້ອນ Username ແລະ Password ຂອງເຈົ້າຂອງຮ້ານ</p>
+            <div class="space-y-3 text-left">
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">Username:</label>
+                    <input type="text" id="unified-login-username" class="w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-emerald-500 font-semibold uppercase" placeholder="ປ້ອນ Username">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">Password:</label>
+                    <input type="password" id="unified-login-password" onkeydown="handleUnifiedLoginKeydown(event)" class="w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-emerald-500 font-semibold" placeholder="ປ້ອນ Password">
+                </div>
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button onclick="backToRoleSelectFromUnified()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer">ຍົກເລີກ</button>
+                <button onclick="verifyUnifiedLogin()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">ລັອກອິນ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ⭐️ ໂຄດທີ່ແກ້ໄຂແລ້ວ (ຕັດ max-h-[85vh] ແລະ overflow-y-auto ຂອງ Modal ໂຕນອກອອກ) -->
+    <div id="admin-manager-modal" class="hidden fixed inset-0 bg-black/60 z-[250] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-3xl w-full p-6 space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                    <span>📋 ຈັດການບັນຊີ ແລະ ລະບົບ POS (Admin)</span>
+                </h3>
+                <button onclick="loadAllDevices()" class="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg cursor-pointer font-bold flex items-center gap-1 shadow">🔄 ໂຫຼດຂໍ້ມູນໃໝ່</button>
+            </div>
+            
+            <div class="bg-blue-50 p-4 rounded-xl border border-blue-200 space-y-3">
+                <h4 class="font-bold text-blue-900 text-sm">➕ ສ້າງ Username ແລະ Password ໃຫ້ເຈົ້າຂອງຮ້ານ</h4>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <input type="text" id="new-target-device" list="trial-devices-list" placeholder="ID ເຄື່ອງ (ເລືອກ ຫຼື ພິມ)" class="border rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none bg-white">
+                    <datalist id="trial-devices-list"></datalist>
+                    <input type="text" id="new-admin-user" placeholder="USERNAME (ເຊັ່ນ: SHOP001)" class="border rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none bg-white">
+                    <input type="text" id="new-admin-pass" placeholder="Password" class="border rounded-lg px-3 py-2 text-xs font-semibold outline-none bg-white">
+                </div>
+                <button onclick="adminCreateUser()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg text-xs transition cursor-pointer shadow">
+                    💾 ບັນທຶກ ແລະ ສ້າງບັນຊີເຈົ້າຂອງຮ້ານ
+                </button>
+            </div>
+
+            <div class="space-y-2">
+                <div class="flex justify-between items-center">
+                    <label class="font-bold text-xs text-gray-700 flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="select-all-admin-devices-checkbox" onclick="toggleSelectAllAdminDevices(this)" class="w-4 h-4 cursor-pointer accent-blue-600">
+                        <span>📋 ລາຍຊື່ບັນຊີ ແລະ ເຄື່ອງທັງໝົດໃນລະບົບ (ເລືອກທັງໝົດ):</span>
+                    </label>
+                    <button onclick="promptDeleteSelectedOrAllDevices()" class="text-xs bg-red-100 text-red-700 px-3 py-1.5 rounded-lg cursor-pointer font-bold flex items-center gap-1 shadow">🗑️ ລຶບຂໍ້ມູນທີ່ເລືອກ</button>
+                </div>
+
+                <!-- ⭐️ ໃຫ້ Scroll ຢູ່ສະເພາະຈຸດນີ້ໂຕດຽວ (ຄົງ max-h-80 ແລະ overflow-y-auto ໄວ້ຄືເກົ່າ) -->
+                <div id="device-list-container" class="space-y-2 text-sm text-gray-700 max-h-80 overflow-y-auto">
+                    <p class="text-center py-4 text-gray-400">ກຳລັງໂຫຼດ...</p>
+                </div>
+            </div>
+
+            <button onclick="closeAdminManager()" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ປິດ</button>
+        </div>
+    </div>
+
+    <!-- Modal ແກ້ໄຂຂໍ້ມູນຮ້ານ -->
+    <div id="edit-user-modal" class="hidden fixed inset-0 bg-black/60 z-[350] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto shadow-2xl space-y-3 text-left">
+            <div class="text-3xl text-center">✏️</div>
+            <h3 class="text-lg font-bold text-blue-900 text-center">ແກ້ໄຂຂໍ້ມູນຢູເຊີຮ້ານ</h3>
+            <p class="text-xs text-gray-600 text-center">ID ເຄື່ອງ: <span id="edit-modal-device-id" class="font-mono font-bold text-blue-600"></span></p>
+            
+            <div class="space-y-3 text-left text-xs pt-2">
+                <div>
+                    <label class="block font-bold text-gray-700 mb-1">🏪 ຊື່ຮ້ານ:</label>
+                    <input type="text" id="edit-modal-shop-name" class="w-full border rounded-lg px-3 py-2.5 font-semibold outline-none bg-white text-sm" placeholder="ປ້ອນຊື່ຮ້ານ">
+                </div>
+                <div>
+                    <label class="block font-bold text-gray-700 mb-1">📞 ເບີໂທລະສັບ:</label>
+                    <input type="text" id="edit-modal-phone" class="w-full border rounded-lg px-3 py-2.5 font-semibold outline-none bg-white text-sm" placeholder="ປ້ອນເບີໂທລະສັບ">
+                </div>
+                <div>
+                    <label class="block font-bold text-gray-700 mb-1">👤 ຢູເຊີເນມ (Username):</label>
+                    <input type="text" id="edit-modal-username" class="w-full border rounded-lg px-3 py-2.5 font-semibold uppercase outline-none bg-white text-sm" placeholder="ປ້ອນ Username">
+                </div>
+                <div>
+                    <label class="block font-bold text-gray-700 mb-1">🔑 ພາສ໌ເວີດ (Password):</label>
+                    <input type="text" id="edit-modal-password" class="w-full border rounded-lg px-3 py-2.5 font-semibold outline-none bg-white text-sm" placeholder="ປ້ອນ Password">
+                </div>
+                <div>
+                    <label class="block font-bold text-gray-700 mb-1">🏦 ເລກບັນຊີທະນາຄານ (ກີບ):</label>
+                    <input type="text" id="edit-modal-lak-acc" class="w-full border rounded-lg px-3 py-2.5 font-semibold outline-none bg-white text-sm" placeholder="ປ້ອນເລກບັນຊີກີບ">
+                </div>
+                <div>
+                    <label class="block font-bold text-gray-700 mb-1">🇹🇭 ເລກບັນຊີທະນາຄານ (ບາດ):</label>
+                    <input type="text" id="edit-modal-thb-acc" class="w-full border rounded-lg px-3 py-2.5 font-semibold outline-none bg-white text-sm" placeholder="ປ້ອນເລກບັນຊີບາດ">
+                </div>
+            </div>
+
+            <div class="flex gap-2 pt-3 border-t">
+                <button onclick="closeEditUserModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl transition cursor-pointer text-sm">ຍົກເລີກ</button>
+                <button onclick="saveEditedUser()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer text-sm shadow">💾 ບັນທຶກການແກ້ໄຂ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Connect QR Code Modal -->
+    <div id="admin-qr-modal" class="hidden fixed inset-0 bg-black/70 z-[350] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
+            <div class="text-3xl">📱</div>
+            <h3 class="text-lg font-bold text-purple-900">QR Code ເຊື່ອມຕໍ່ພະນັກງານຂາຍ</h3>
+            <p class="text-xs text-gray-600">ໃຫ້ພະນັກງານຂາຍໃຊ້ໂທລະສັບສະແກນ QR ນີ້ເພື່ອຜູກຮ້ານ</p>
+            <div class="bg-purple-50 p-4 rounded-xl border flex justify-center items-center my-2">
+                <div id="admin-connect-qrcode" class="bg-white p-3 rounded-xl border inline-block min-h-[160px]"></div>
+            </div>
+            <button onclick="closeAdminQrModal()" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer">ປິດໜ້າຈໍ</button>
+        </div>
+    </div>
+
+    <!-- Show My Device ID & Connect QR Scanner Modal -->
+    <div id="my-device-modal" class="hidden fixed inset-0 bg-black/60 z-[250] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
+            <div class="text-4xl">🆔</div>
+            <h3 class="text-lg font-bold text-gray-800">ລະຫັດ ID ເຄື່ອງຂອງທ່ານ</h3>
+            <p class="text-xs text-gray-600">ສະແກນ QR Code ເພື່ອເຊື່ອມຕໍ່ກັບເຈົ້າຂອງຮ້ານ (Admin)</p>
+            <div class="bg-gray-50 p-3 rounded-xl border">
+                <p id="my-device-id-text" class="font-mono font-bold text-blue-600 text-sm break-all"></p>
+            </div>
+            <div class="space-y-2">
+                <button onclick="openStaffScanner()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">📷 ສະແກນ QR ເຊື່ອມຕໍ່ຮ້ານ Admin</button>
+                <button onclick="copyMyDeviceId()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-sm transition cursor-pointer shadow">📋 ກ໋ອບປີ ID</button>
+                <button onclick="closeMyDeviceModal()" class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl text-sm transition cursor-pointer">ປິດ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Staff QR Scanner Container Modal -->
+    <div id="staff-scanner-modal" class="hidden fixed inset-0 bg-black/80 z-[350] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-5 text-center space-y-3 shadow-2xl">
+            <h3 class="font-bold text-base text-purple-700">📷 ສະແກນ QR Code ເຊື່ອມຕໍ່ຮ້ານ Admin</h3>
+            <div id="staff-reader" class="w-full max-w-sm mx-auto"></div>
+            <button onclick="closeStaffScanner()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl w-full font-bold cursor-pointer text-sm">ປິດກ້ອງ</button>
+        </div>
+    </div>
+
+    <!-- Inventory Modal -->
+    <div id="inventory-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl max-w-6xl w-full p-6 max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center border-b pb-3 flex-wrap gap-2">
+                <h3 class="text-xl font-bold text-cyan-800 flex items-center gap-2">
+                    <span>📦 ສິນຄ້າຄ້າງສາງ (Inventory Stock)</span>
+                </h3>
+                <div id="inventory-admin-action-buttons" class="hidden items-center gap-2">
+                    <select id="inventory-shop-filter" onchange="loadInventory()" class="text-xs bg-blue-50 text-blue-800 border border-blue-300 px-3 py-1.5 rounded-lg cursor-pointer font-bold outline-none shadow">
+                        <option value="ALL">🏪 ທຸກຮ້ານ (ທັງໝົດ)</option>
+                    </select>
+                    <button onclick="promptDeleteSelectedOrAllDevices()" class="text-xs bg-red-100 text-red-700 px-3 py-1.5 rounded-lg cursor-pointer font-bold flex items-center gap-1 shadow">🗑️ ລຶບຂໍ້ມູນ</button>
+                </div>
+            </div>
+            
+                <div class="overflow-x-auto border rounded-xl">
+                    <table class="w-full text-left border-collapse bg-white min-w-[1550px]">
+                        <thead>
+                            <tr class="bg-cyan-800 text-white text-[10px] uppercase text-center">
+                                <th rowspan="2" class="p-2 border-r align-middle w-12">ລ/ດ</th>
+                                <th rowspan="2" class="p-2 border-r align-middle">ລະຫັດສິນຄ້າ</th>
+                                <th rowspan="2" class="p-2 border-r align-middle">ຊື່ສິນຄ້າ</th>
+                                <th colspan="2" class="p-2 border-r align-middle">ວັນ/ເດືອນ/ປີ</th>
+                                <th rowspan="2" class="p-2 border-r align-middle">ຈ/ນ ສິນຄ້າ</th>
+                                <th colspan="2" class="p-2 border-r align-middle">ອັດຕາແລກປ່ຽນ (ເດີມ)</th>
+                                <th colspan="2" class="p-2 border-r align-middle">ອັດຕາແລກປ່ຽນ (ໃໝ່)</th>
+                                <th rowspan="2" class="p-2 border-r align-middle">ເປີເຊັນຂາຍ (%)</th>
+                                <th colspan="2" class="p-2 border-r align-middle">ລາຄາ/ໜ່ວຍ (ເດີມ)</th>
+                                <th colspan="2" class="p-2 border-r align-middle">ລາຄາ/ໜ່ວຍ (ໃໝ່)</th>
+                                <th rowspan="2" class="p-2 border-r align-middle">ໝາຍເຫດ</th>
+                                <th id="inventory-col-action-header" rowspan="2" class="p-2 align-middle w-16 hidden">
+                                    <input type="checkbox" id="select-all-inventory-checkbox" onclick="toggleSelectAllInventory(this)" class="w-4 h-4 cursor-pointer accent-cyan-600" title="ເລືອກທັງໝົດ">
+                                </th>
+                            </tr>
+                            <tr class="bg-cyan-700 text-white text-[9px] uppercase text-center">
+                                <th class="p-1 border-r">ນຳເຂົ້າ</th>
+                                <th class="p-1 border-r">ປະຈຸບັນ</th>
+                                <th class="p-1 border-r">Rate ຊື້</th>
+                                <th class="p-1 border-r">Rate ຂາຍ</th>
+                                <th class="p-1 border-r">Rate ຊື້</th>
+                                <th class="p-1 border-r">Rate ຂາຍ</th>
+                                <th class="p-1 border-r">ຊື້</th>
+                                <th class="p-1 border-r">ຂາຍ</th>
+                                <th class="p-1 border-r">ຊື້</th>
+                                <th class="p-1 border-r">ຂາຍ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventory-tbody" class="divide-y divide-gray-200 text-sm">
+                        </tbody>
+                    </table>
+                </div>
+
+            <div class="flex gap-2 pt-2">
+                <button onclick="window.print()" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">🖨️ ພິມລາຍງານ</button>
+                <button onclick="closeInventoryModal()" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ປິດ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rate Analysis Modal -->
+    <div id="rate-analysis-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl max-w-7xl w-full p-6 max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center border-b pb-3 flex-wrap gap-2">
+                <h3 class="text-xl font-bold text-cyan-800 flex items-center gap-2">
+                    <span>📦 ຂໍ້ມູນອັດຕາແລກປ່ຽນ (Exchange rate information)</span>
+                </h3>
+                <div id="inventory-admin-action-buttons-rate" class="hidden items-center gap-2">
+                    <select id="inventory-shop-filter-rate" onchange="loadRateAnalysis()" class="text-xs bg-blue-50 text-blue-800 border border-blue-300 px-3 py-1.5 rounded-lg cursor-pointer font-bold outline-none shadow">
+                        <option value="ALL">🏪 ທຸກຮ້ານ (ທັງໝົດ)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="overflow-x-auto border rounded-xl mb-4">
+                <table class="w-full text-left border-collapse bg-white min-w-[750px]">
+                    <thead>
+                        <tr class="bg-blue-900 text-white text-[11px] uppercase text-center">
+                            <th class="p-2 border-r w-12">ລ/ດ</th>
+                            <th class="p-2 border-r">ຊື່ຮ້ານ / ID ເຄື່ອງ</th>
+                            <th class="p-2 border-r">ວັນ/ເດືອນ/ປີ</th>
+                            <th class="p-2 border-r">ຊື້ (Rate)</th>
+                            <th class="p-2 border-r">ຂາຍ (Rate)</th>
+                            <th class="p-2">ໝາຍເຫດ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rate-history-tbody" class="divide-y divide-gray-200 text-sm">
+                        <tr><td colspan="6" class="p-6 text-center text-gray-400">ກຳລັງໂຫຼດປະຫວັດ Rate...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="flex gap-2 pt-2">
+                <button onclick="window.print()" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">🖨️ ພິມລາຍງານ</button>
+                <button onclick="closeRateAnalysisModal()" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">ປິດ</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Expiry Modal -->
     <div id="expiry-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
@@ -6020,44 +4924,5 @@ function initFirebaseRealtime() {
             }
         }
     </script>
-=======
-  </div>
-</div>`);
-
-// ແປງຮ່າງ alert() ທຳມະດາ ໃຫ້ກາຍເປັນໂຕແຈ້ງເຕືອນແບບງາມໆ
-window.alert = function(msg) {
-  const box = document.getElementById('toastBox');
-  const toast = document.createElement('div');
-  
-  // ກວດສອບຖ້າເປັນຂໍ້ຄວາມເຕືອນ ຫຼື ຜິດພາດ ໃຫ້ປ່ຽນສີເປັນສີແດງ
-  let isError = msg.includes('ບໍ່') || msg.includes('ຜິດ') || msg.includes('ກະລຸນາ');
-  toast.className = 'toast' + (isError ? ' error' : '');
-  
-  let icon = isError ? '!' : '✓';
-  toast.innerHTML = `<div class="toast-icon">${icon}</div> <span>${msg}</span>`;
-  
-  box.appendChild(toast);
-  setTimeout(() => {
-    toast.classList.add('hide');
-    setTimeout(() => toast.remove(), 300);
-  }, 3500);
-};
-
-// ສ້າງຟັງຊັນ myConfirm ສຳລັບແທນທີ່ໂຕເກົ່າ
-window.myConfirm = function(msg, onYes) {
-  const ui = document.getElementById('confirmUI');
-  document.getElementById('confirmMessage').textContent = msg;
-  ui.classList.add('open');
-  const btnOk = document.getElementById('confirmOk');
-  const btnCancel = document.getElementById('confirmCancel');
-  
-  const cleanUp = () => { ui.classList.remove('open'); btnOk.onclick = null; btnCancel.onclick = null; };
-  btnOk.onclick = () => { cleanUp(); onYes(); };
-  btnCancel.onclick = () => { cleanUp(); };
-};
-// =======================================================
-
-</script>
->>>>>>> 85b13399ac4c41f50045fdeeb96b25563e4ac2e3
 </body>
 </html>
