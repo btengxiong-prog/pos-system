@@ -2864,11 +2864,14 @@ function initFirebaseRealtime() {
                 }
             });
 
-            document.getElementById('rep-total-cost-lak').innerText = formatNumberWithCommas(totalCostLak) + " ກີບ";
-            document.getElementById('rep-total-price-lak').innerText = formatNumberWithCommas(totalPriceLak) + " ກີບ";
-            document.getElementById('rep-total-profit-lak').innerText = formatNumberWithCommas(totalPriceLak - totalCostLak) + " ກີບ";
-            document.getElementById('rep-cash-lak').innerText = formatNumberWithCommas(cashLak) + " ກີບ";
-            document.getElementById('rep-transfer-lak').innerText = formatNumberWithCommas(transferLak) + " ກີບ";
+// ⭐️ ປັດມົນຕົວເລກຂຶ້ນເປັນຫຼັກພັນ (-3) ປ້ອງກັນເລກເສດທົດສະນິຍົມ
+            let roundLAK = (val) => Math.ceil(val / 1000) * 1000;
+
+            document.getElementById('rep-total-cost-lak').innerText = formatNumberWithCommas(roundLAK(totalCostLak)) + " ກີບ";
+            document.getElementById('rep-total-price-lak').innerText = formatNumberWithCommas(roundLAK(totalPriceLak)) + " ກີບ";
+            document.getElementById('rep-total-profit-lak').innerText = formatNumberWithCommas(roundLAK(totalPriceLak) - roundLAK(totalCostLak)) + " ກີບ";
+            document.getElementById('rep-cash-lak').innerText = formatNumberWithCommas(roundLAK(cashLak)) + " ກີບ";
+            document.getElementById('rep-transfer-lak').innerText = formatNumberWithCommas(roundLAK(transferLak)) + " ກີບ";
 
             document.getElementById('rep-total-cost-thb').innerText = formatNumberWithCommas(totalCostThb) + " ບາດ";
             document.getElementById('rep-total-price-thb').innerText = formatNumberWithCommas(totalPriceThb) + " ບາດ";
@@ -2917,14 +2920,43 @@ function initFirebaseRealtime() {
             closeStockInScanner();
             currentStockInCode = code;
             document.getElementById('stock-in-code').innerText = code;
+            
             let importDateInput = document.getElementById('stock-in-import-date');
-            if (importDateInput && !importDateInput.value) {
-                let today = new Date();
-                let dd = String(today.getDate()).padStart(2, '0');
-                let mm = String(today.getMonth() + 1).padStart(2, '0');
-                let yyyy = today.getFullYear();
-                importDateInput.value = `${dd}/${mm}/${yyyy}`;
+            let today = new Date();
+            let dd = String(today.getDate()).padStart(2, '0');
+            let mm = String(today.getMonth() + 1).padStart(2, '0');
+            let yyyy = today.getFullYear();
+            if (importDateInput) importDateInput.value = `${dd}/${mm}/${yyyy}`; // ອັບເດດວັນທີນຳເຂົ້າເປັນມື້ປັດຈຸບັນສະເໝີ
+
+            // ⭐️ ກວດສອບວ່າລະຫັດນີ້ມີໃນສາງແລ້ວ ຫຼື ບໍ່
+            let cleanCode = String(code).trim().toLowerCase();
+            let foundItem = excelRows.find(item => String(item.code).trim().toLowerCase() === cleanCode);
+
+            if (foundItem) {
+                // ຖ້າມີໃນສາງ: ດຶງຂໍ້ມູນເກົ່າມາສະແດງອັດຕະໂນມັດ
+                document.getElementById('stock-in-custom-name').value = foundItem.name || '';
+                document.getElementById('stock-in-cost').value = formatNumberWithCommas(foundItem.originalCost || foundItem.cost || 0);
+                document.getElementById('stock-in-profit-pct').value = foundItem.profit_pct !== undefined ? foundItem.profit_pct : (foundItem.profitPct || '');
+                calculateStockInPrice(); 
+                document.getElementById('stock-in-unit-per-pack').value = foundItem.unitPerPack || foundItem.unit_per_pack || 12;
+                document.getElementById('stock-in-qty').value = '1'; // ຕັ້ງຄ່າເລີ່ມຕົ້ນເປັນ 1 ລາງ/ແພັກ ສະເໝີ
+                calculateTotalUnit();
+            } else {
+                // ຖ້າເປັນສິນຄ້າໃໝ່ (ບໍ່ມີໃນສາງ): ລ້າງຂໍ້ມູນໃນຟອມໃຫ້ວ່າງເປົ່າ
+                document.getElementById('stock-in-custom-name').value = '';
+                document.getElementById('stock-in-cost').value = '';
+                document.getElementById('stock-in-calculated-price').value = '0';
+                document.getElementById('stock-in-profit-pct').value = '';
+                document.getElementById('stock-in-qty').value = '1';
+                document.getElementById('stock-in-unit-per-pack').value = '12';
+                document.getElementById('stock-in-total-calculated').value = '12';
+                
+                let mfgDate = document.getElementById('stock-in-mfg-date');
+                if(mfgDate) mfgDate.value = '';
+                let expDate = document.getElementById('stock-in-exp-date');
+                if(expDate) expDate.value = '';
             }
+
             document.getElementById('stock-in-modal').classList.remove('hidden');
         }
 
@@ -2944,15 +2976,18 @@ function initFirebaseRealtime() {
             
             if (!foundByName) {
                 foundByName = excelRows.find(item => String(item.code).trim().toLowerCase() === userInput.toLowerCase());
-            }
+        }
 
-            if (foundByName) {
+        if (foundByName) {
                 closeStockInScanner();
                 currentStockInCode = foundByName.code;
                 document.getElementById('stock-in-code').innerText = foundByName.code;
                 document.getElementById('stock-in-custom-name').value = foundByName.name || '';
-                document.getElementById('stock-in-cost').value = formatNumberWithCommas(foundByName.cost || 0);
-                document.getElementById('stock-in-profit-pct').value = foundByName.profit_pct !== undefined ? foundByName.profit_pct : '';
+                document.getElementById('stock-in-cost').value = formatNumberWithCommas(foundByName.originalCost || foundByName.cost || 0);
+                document.getElementById('stock-in-profit-pct').value = foundByName.profit_pct !== undefined ? foundByName.profit_pct : (foundByName.profitPct || '');
+                document.getElementById('stock-in-qty').value = '1';
+                document.getElementById('stock-in-unit-per-pack').value = foundByName.unitPerPack || foundByName.unit_per_pack || 12;
+                calculateTotalUnit();
                 calculateStockInPrice(); 
                 document.getElementById('stock-in-modal').classList.remove('hidden');
                 return;
@@ -3053,6 +3088,12 @@ function initFirebaseRealtime() {
             }
             closeStockInModal();
             showAlert("ສຳເລັດ", "ນຳເຂົ້າສິນຄ້າໃໝ່ສຳເລັດຮຽບຮ້ອຍ!", "📦");
+            
+            // ⭐️ ເພີ່ມໃໝ່: ປິດແຈ້ງເຕືອນອັດຕະໂນມັດໃນ 1.5 ວິ ແລ້ວເປີດກ້ອງຂຶ້ນມາໃໝ່ເພື່ອສະແກນຕໍ່ເນື່ອງ
+            setTimeout(() => {
+                closeCustomAlert();
+                openStockInScannerWithExpiry(isExpiryMode);
+            }, 1500);
         }
 
         function copyBankAccount() {
@@ -3298,14 +3339,16 @@ function initFirebaseRealtime() {
             let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
 
             let finalPrice = exactSellingPrice;
+            let finalCost = exactCost;
             if (currentSaleType === 'retail' && unitPerPack > 1) {
                 let retailRawPrice = exactSellingPrice / unitPerPack;
                 finalPrice = Math.ceil(retailRawPrice / 1000) * 1000;
+                finalCost = exactCost / unitPerPack; // ⭐️ ແກ້ໄຂ: ຫານຕົ້ນທຶນສຳລັບຂາຍຍ່ອຍ
             }
 
             let processedItem = {
                 ...foundItem,
-                cost: exactCost,    
+                cost: finalCost,    
                 price: finalPrice, 
                 saleType: currentSaleType
             };
@@ -3918,12 +3961,15 @@ function initFirebaseRealtime() {
                 }
             });
 
+// ⭐️ ປັດມົນຕົວເລກຂຶ້ນເປັນຫຼັກພັນ (-3) ປ້ອງກັນເລກເສດທົດສະນິຍົມ
+            let roundLAK = (val) => Math.ceil(val / 1000) * 1000;
+
             tbody.innerHTML = html;
-            document.getElementById('sum-total-cost-lak').innerText = formatNumberWithCommas(totalCostAll) + " ກີບ";
-            document.getElementById('sum-total-price-lak').innerText = formatNumberWithCommas(totalPriceAll) + " ກີບ";
-            document.getElementById('sum-total-profit-lak').innerText = formatNumberWithCommas(totalPriceAll - totalCostAll) + " ກີບ";
-            document.getElementById('sum-cash-lak').innerText = formatNumberWithCommas(cashTotal) + " ກີບ";
-            document.getElementById('sum-transfer-lak').innerText = formatNumberWithCommas(transferTotal) + " ກີບ";
+            document.getElementById('sum-total-cost-lak').innerText = formatNumberWithCommas(roundLAK(totalCostAll)) + " ກີບ";
+            document.getElementById('sum-total-price-lak').innerText = formatNumberWithCommas(roundLAK(totalPriceAll)) + " ກີບ";
+            document.getElementById('sum-total-profit-lak').innerText = formatNumberWithCommas(roundLAK(totalPriceAll) - roundLAK(totalCostAll)) + " ກີບ";
+            document.getElementById('sum-cash-lak').innerText = formatNumberWithCommas(roundLAK(cashTotal)) + " ກີບ";
+            document.getElementById('sum-transfer-lak').innerText = formatNumberWithCommas(roundLAK(transferTotal)) + " ກີບ";
             if (summaryContainer) summaryContainer.classList.remove('hidden');
         }
 
@@ -4273,22 +4319,49 @@ function initFirebaseRealtime() {
 
         function toggleSaleMode() {
             let btn = document.getElementById('toggle-sale-mode-btn');
-            let titleEl = document.getElementById('scanner-title-mode'); // ⭐️ ເພີ່ມການດຶງ ID ຫົວຂໍ້
+            let titleEl = document.getElementById('scanner-title-mode');
             if (!btn) return;
 
             if (currentSaleType === 'wholesale') {
                 currentSaleType = 'retail';
                 btn.className = "bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow transition flex items-center gap-1";
                 btn.innerHTML = "🥤 ຂາຍຍ່ອຍ";
-                if (titleEl) titleEl.innerText = "📷 ກຳລັງສະແກນ QR / ບາໂຄດ (ຂາຍຍ່ອຍ)"; // ⭐️ ປ່ຽນຫົວຂໍ້
+                if (titleEl) titleEl.innerText = "📷 ກຳລັງສະແກນ QR / ບາໂຄດ (ຂາຍຍ່ອຍ)";
             } else {
                 currentSaleType = 'wholesale';
                 btn.className = "bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow transition flex items-center gap-1";
                 btn.innerHTML = "📦 ຂາຍສົ່ງ";
-                if (titleEl) titleEl.innerText = "📷 ກຳລັງສະແກນ QR / ບາໂຄດ (ຂາຍສົ່ງ)"; // ⭐️ ປ່ຽນຫົວຂໍ້
+                if (titleEl) titleEl.innerText = "📷 ກຳລັງສະແກນ QR / ບາໂຄດ (ຂາຍສົ່ງ)";
             }
 
-            updateStockDisplayOnQtyChange();
+            // ⭐️ ແກ້ໄຂ: ດຶງລາຄາຕົ້ນສະບັບຈາກ excelRows ມາຄິດໄລ່ໃໝ່ສະເໝີ ເພື່ອບໍ່ໃຫ້ລາຄາກາຍເປັນ 0
+            if (continuousCart && continuousCart.length > 0) {
+                continuousCart.forEach(item => {
+                    item.saleType = currentSaleType;
+                    
+                    // ດຶງຂໍ້ມູນຈາກສາງຫຼັກ ເພື່ອມາເປັນຖານຄິດໄລ່
+                    let originalItem = excelRows.find(ex => ex.id === item.id);
+                    
+                    if (originalItem) {
+                        let exactSellingPrice = parseFloat(String(originalItem.currentSellingPrice || originalItem.price || 0).replace(/,/g, '')) || 0;
+                        let exactCost = parseFloat(String(originalItem.currentNewCost || originalItem.cost || 0).replace(/,/g, '')) || 0;
+                        let unitPerPack = parseInt(originalItem.unitPerPack || originalItem.unit_per_pack) || 1;
+                        
+                        let finalPrice = exactSellingPrice;
+                        let finalCost = exactCost;
+                        if (currentSaleType === 'retail' && unitPerPack > 1) {
+                            let retailRawPrice = exactSellingPrice / unitPerPack;
+                            finalPrice = Math.ceil(retailRawPrice / 1000) * 1000;
+                            finalCost = exactCost / unitPerPack; // ⭐️ ແກ້ໄຂ: ຫານຕົ້ນທຶນສຳລັບຂາຍຍ່ອຍ
+                        }
+                        item.price = finalPrice;
+                        item.cost = finalCost;
+                    }
+                });
+            }
+
+        updateStockDisplayOnQtyChange();
+            updateContinuousCartUI(); 
             updateCartItemPreview();
         }
 
@@ -4338,14 +4411,16 @@ function initFirebaseRealtime() {
                     let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
 
                     let finalPrice = exactSellingPrice;
+                    let finalCost = exactCost;
                     if (currentSaleType === 'retail' && unitPerPack > 1) {
                         let retailRawPrice = exactSellingPrice / unitPerPack;
                         finalPrice = Math.ceil(retailRawPrice / 1000) * 1000;
+                        finalCost = exactCost / unitPerPack; // ⭐️ ແກ້ໄຂ: ຫານຕົ້ນທຶນສຳລັບຂາຍຍ່ອຍ
                     }
 
                     let processedItem = {
                         ...foundItem,
-                        cost: exactCost,    
+                        cost: finalCost,    
                         price: finalPrice, 
                         saleType: currentSaleType
                     };
@@ -4517,6 +4592,12 @@ function initFirebaseRealtime() {
             
             closeStockInModal();
             pendingStockInData = null;
+
+            // ⭐️ ເພີ່ມໃໝ່: ປິດແຈ້ງເຕືອນອັດຕະໂນມັດໃນ 1.5 ວິ ແລ້ວເປີດກ້ອງຂຶ້ນມາໃໝ່ເພື່ອສະແກນຕໍ່ເນື່ອງ
+            setTimeout(() => {
+                closeCustomAlert();
+                openStockInScannerWithExpiry(isExpiryMode);
+            }, 1500);
         }
 
         let currentInlinePaymentMode = 'cash';
@@ -4590,18 +4671,20 @@ function initFirebaseRealtime() {
                 );
 
                 if (foundItem) {
-                    let exactSellingPrice = parseFloat(String(foundItem.currentSellingPrice || foundItem.price || 0).replace(/,/g, '')) || 0;
+                let exactSellingPrice = parseFloat(String(foundItem.currentSellingPrice || foundItem.price || 0).replace(/,/g, '')) || 0;
                     let exactCost = parseFloat(String(foundItem.currentNewCost || foundItem.cost || 0).replace(/,/g, '')) || 0;
                     let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
 
                     let finalPrice = exactSellingPrice;
+                    let finalCost = exactCost;
                     if (currentSaleType === 'retail' && unitPerPack > 1) {
                         finalPrice = Math.ceil((exactSellingPrice / unitPerPack) / 1000) * 1000;
+                        finalCost = exactCost / unitPerPack; // ⭐️ ແກ້ໄຂ: ຫານຕົ້ນທຶນສຳລັບຂາຍຍ່ອຍ
                     }
 
                     continuousCart.push({
                         ...foundItem,
-                        cost: exactCost,    
+                        cost: finalCost,    
                         price: finalPrice, 
                         qty: customQty,
                         saleType: currentSaleType
