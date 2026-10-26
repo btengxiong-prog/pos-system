@@ -3203,6 +3203,56 @@ function initFirebaseRealtime() {
             });
         }
 
+// ກຳນົດຄ່າອັດຕາສ່ວນການແປງ (ຕົວຢ່າງ: 1 ແພັກນ້ອຍ = 12 ຂວດ, 1 ແພັກໃຫຍ່ = 10 ແພັກນ້ອຍ)
+const unitPerSmallPack = 12;      // ຈຳນວນຂວດ ຕໍ່ 1 ແພັກນ້ອຍ
+const smallPackPerBigPack = 10;   // ຈຳນວນແພັກນ້ອຍ ຕໍ່ 1 ແພັກໃຫຍ່
+
+function calculateTotalBaseUnits(bigPacks, smallPacks, baseUnits) {
+    // 1 ແພັກໃຫຍ່ ມີຈຳນວນຂວດລວມເທົ່າກັບ: 10 * 12 = 120 ຂວດ
+    let baseUnitsPerBigPack = unitPerSmallPack * smallPackPerBigPack;
+    
+    let total = (bigPacks * baseUnitsPerBigPack) + (smallPacks * unitPerSmallPack) + baseUnits;
+    return total;
+}
+
+// ຕົວຢ່າງການໃຊ້ງານ: ນຳເຂົ້າ 2 ແພັກໃຫຍ່, 3 ແພັກນ້ອຍ, 5 ຂວດ
+let totalStock = calculateTotalBaseUnits(2, 3, 5); 
+console.log("ຍອດລວມເປັນຂວດ:", totalStock); // Output: (2*120) + (3*12) + 5 = 281 ຂວດ
+
+function breakdownStock(totalBaseUnits) {
+    let baseUnitsPerBigPack = unitPerSmallPack * smallPackPerBigPack; // 120
+    
+    // ຫາຈຳນວນແພັກໃຫຍ່
+    let bigPacks = Math.floor(totalBaseUnits / baseUnitsPerBigPack);
+    let remainder = totalBaseUnits % baseUnitsPerBigPack;
+    
+    // ຫາຈຳນວນແພັກນ້ອຍຈາກເສດທີ່ເຫຼືອ
+    let smallPacks = Math.floor(remainder / unitPerSmallPack);
+    
+    // ຫາຈຳນວນຂວດທີ່ເປັນເສດສຸດທ້າຍ
+    let baseUnits = remainder % unitPerSmallPack;
+    
+    return { bigPacks, smallPacks, baseUnits };
+}
+
+// ຕົວຢ່າງການໃຊ້ງານ: ມີຂວດໃນສາງທັງໝົດ 281 ຂວດ
+let display = breakdownStock(281);
+console.log(`ຄົງເຫຼືອ: ${display.bigPacks} ແພັກໃຫຍ່, ${display.smallPacks} ແພັກນ້ອຍ, ${display.baseUnits} ຂວດ`); 
+// Output: ຄົງເຫຼືອ: 2 ແພັກໃຫຍ່, 3 ແພັກນ້ອຍ, 5 ຂວດ
+
+// ຕົວຢ່າງ: ຖ້າລູກຄ້າຊື້ ແພັກໃຫຍ່ 1 ອັນ
+let saleBigPacks = 1;
+let saleSmallPacks = 0;
+let saleBaseUnits = 0;
+
+let totalSoldUnits = calculateTotalBaseUnits(saleBigPacks, saleSmallPacks, saleBaseUnits);
+
+// ເອົາຍອດເຫຼືອໃນສາງ (ເຊັ່ນ: 281 ຂວດ) ມາລົບອອກ
+let currentStockInDatabase = 281;
+let newStock = currentStockInDatabase - totalSoldUnits;
+
+console.log("ຍອດສາງໃໝ່ຫຼັງຈາກຂາຍ:", newStock); // Output: 281 - 120 = 161 ຂວດ
+
         // ⭐️ ຟັງຊັນສຳຮອງ: ອ່ານ Barcode ຈາກໄຟລ໌ຮູບພາບ (ຮອງຮັບທຸກ Browser)
         function scanBarcodeFromFile(event) {
             let file = event.target.files[0];
