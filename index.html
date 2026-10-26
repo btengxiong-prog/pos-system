@@ -3003,43 +3003,41 @@ function initFirebaseRealtime() {
         }
 
         function submitManualBarcode() {
-            let input = document.getElementById('manual-barcode-input');
-            if (!input || input.value.trim() === "") return;
-            let userInput = input.value.trim();
-            input.value = "";
+    let input = document.getElementById('manual-barcode-input');
+    if (!input || input.value.trim() === "") return;
+    let userInput = input.value.trim();
+    input.value = "";
 
-            let foundByName = excelRows.find(item => item.name && item.name.trim().toLowerCase() === userInput.toLowerCase());
-            
-            if (!foundByName) {
-                foundByName = excelRows.find(item => String(item.code).trim().toLowerCase() === userInput.toLowerCase());
+    let cleanInput = userInput.toLowerCase();
+    
+    // ຄົ້ນຫາສິນຄ້າຈາກຊື່ ຫຼື ບາໂຄດ 3 ຊັ້ນ
+    let foundItem = excelRows.find(item => 
+        String(item.name || '').trim().toLowerCase() === cleanInput ||
+        String(item.code_single || item.code || '').trim().toLowerCase() === cleanInput ||
+        String(item.code_small || '').trim().toLowerCase() === cleanInput ||
+        String(item.code_large || '').trim().toLowerCase() === cleanInput
+    );
+
+    if (foundItem) {
+        // ຖ້າພົບສິນຄ້າ ໃຫ້ສົ່ງບາໂຄດຫຼັກໄປໃຫ້ handleStockInBarcodeScanned ເຮັດວຽກຕໍ່
+        let itemCode = foundItem.code_single || foundItem.code || userInput;
+        handleStockInBarcodeScanned(itemCode);
+    } else {
+        // ຖ້າບໍ່ພົບ (ເປັນສິນຄ້າໃໝ່)
+        let isLikelyBarcode = /^\d{6,}$/.test(userInput);
+        let finalCode = isLikelyBarcode ? userInput : '885' + Math.floor(100000000 + Math.random() * 900000000);
+        
+        handleStockInBarcodeScanned(finalCode);
+        
+        // ຖ້າພິມເປັນຊື່ (ບໍ່ແມ່ນຕົວເລກບາໂຄດ) ໃຫ້ເອົາຊື່ໄປໃສ່ໃນຊ່ອງຊື່ສິນຄ້າອັດຕະໂນມັດ
+        if (!isLikelyBarcode) {
+            setTimeout(() => {
+                let nameInput = document.getElementById('stock-in-custom-name');
+                if (nameInput) nameInput.value = userInput;
+            }, 100);
         }
-
-        if (foundByName) {
-                closeStockInScanner();
-                currentStockInCode = foundByName.code;
-                document.getElementById('stock-in-code').innerText = foundByName.code;
-                document.getElementById('stock-in-custom-name').value = foundByName.name || '';
-                document.getElementById('stock-in-cost').value = formatNumberWithCommas(foundByName.originalCost || foundByName.cost || 0);
-                document.getElementById('stock-in-profit-pct').value = foundByName.profit_pct !== undefined ? foundByName.profit_pct : (foundByName.profitPct || '');
-                document.getElementById('stock-in-qty').value = '1';
-                document.getElementById('stock-in-unit-per-pack').value = foundByName.unitPerPack || foundByName.unit_per_pack || 12;
-                calculateTotalUnit();
-                calculateStockInPrice(); 
-                document.getElementById('stock-in-modal').classList.remove('hidden');
-                return;
-            }
-
-            let isLikelyBarcode = /^\d{6,}$/.test(userInput);
-            let finalCode = isLikelyBarcode ? userInput : '885' + Math.floor(100000000 + Math.random() * 900000000);
-
-            handleStockInBarcodeScanned(finalCode);
-            if (!isLikelyBarcode) {
-                setTimeout(() => {
-                    let nameInput = document.getElementById('stock-in-custom-name');
-                    if (nameInput) nameInput.value = userInput;
-                }, 100);
-            }
-        }
+    }
+}
 
         function calculateStockInPrice() {
             let cost = parseFloat(document.getElementById('stock-in-cost').value.replace(/,/g, '')) || 0;
