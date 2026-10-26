@@ -119,6 +119,26 @@
             background: #6d28d9;
             transform: translateY(-1px);
         }
+
+/* ⭐️ ເອັກເຟັກໄຟສີ່ຍ່ານສຳລັບປຸ່ມສິນຄ້າໝົດອາຍຸ */
+        @keyframes hazardLightAlert {
+            0%, 100% { 
+                background-color: #dc2626 !important; /* ສີແດງ */
+                box-shadow: 0 0 15px rgba(220, 38, 38, 0.8) !important; 
+                transform: scale(1.02);
+            }
+            50% { 
+                background-color: #0d9488 !important; /* ສີຂຽວແກ່ເດີມ (Teal) */
+                box-shadow: none !important; 
+                transform: scale(1);
+            }
+        }
+        .hazard-alert-btn {
+            animation: hazardLightAlert 1.2s infinite !important;
+            border: 1px solid #f87171 !important;
+            color: white !important;
+        }
+
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen pb-10">
@@ -4230,44 +4250,50 @@ function initFirebaseRealtime() {
         }
 
         function checkExpiryAlertStatus() {
-            let badge = document.getElementById('expiry-alert-badge');
-            if (!excelRows || excelRows.length === 0) {
-                if (badge) {
-                    badge.innerText = "0";
-                    badge.classList.add('hidden');
-                }
-                return;
-            }
+    let badge = document.getElementById('expiry-alert-badge');
+    let btnExpiry = document.getElementById('btn-expiry'); // ⭐️ ດຶງປຸ່ມເມນູມາຄວບຄຸມ
+    
+    if (!excelRows || excelRows.length === 0) {
+        if (badge) {
+            badge.innerText = "0";
+            badge.classList.add('hidden');
+        }
+        if (btnExpiry) btnExpiry.classList.remove('hazard-alert-btn');
+        return;
+    }
 
-            let today = new Date();
-            let nearExpiryCount = 0;
+    let today = new Date();
+    let nearExpiryCount = 0;
 
-            excelRows.forEach((row) => {
-                let expDateStr = row.expiry_date || row.expiryDate || '';
-                let currentQty = parseFloat(String(row.qty !== undefined ? row.qty : 0).replace(/,/g, '')) || 0;
-                
-                if (expDateStr && expDateStr.trim() !== '' && expDateStr.trim() !== '-') {
-                    let isoStr = parseDDMMYYYYToISO(expDateStr);
-                    let expDate = new Date(isoStr);
-                    if (!isNaN(expDate.getTime())) {
-                        let diffDays = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
-                        // ປ່ຽນຈາກ 60 ວັນ ມາເປັນ 90 ວັນ ໃຫ້ກົງກັບໃນຕາຕະລາງ
-                        if (diffDays <= 90 && currentQty > 0) {
-                            nearExpiryCount++;
-                        }
-                    }
-                }
-            });
-
-            if (badge) {
-                badge.innerText = nearExpiryCount;
-                if (nearExpiryCount > 0) {
-                    badge.classList.remove('hidden');
-                } else {
-                    badge.classList.add('hidden');
+    excelRows.forEach((row) => {
+        let expDateStr = row.expiry_date || row.expiryDate || '';
+        let currentQty = parseFloat(String(row.qty !== undefined ? row.qty : 0).replace(/,/g, '')) || 0;
+        
+        if (expDateStr && expDateStr.trim() !== '' && expDateStr.trim() !== '-') {
+            let isoStr = parseDDMMYYYYToISO(expDateStr);
+            let expDate = new Date(isoStr);
+            if (!isNaN(expDate.getTime())) {
+                let diffDays = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
+                if (diffDays <= 90 && currentQty > 0) {
+                    nearExpiryCount++;
                 }
             }
         }
+    });
+
+    if (badge) {
+        badge.innerText = nearExpiryCount;
+        if (nearExpiryCount > 0) {
+            badge.classList.remove('hidden');
+            // ⭐️ ເພີ່ມເອັກເຟັກໄຟສີ່ຍ່ານໃສ່ປຸ່ມເມນູ ເມື່ອມີສິນຄ້າໝົດອາຍຸ
+            if (btnExpiry) btnExpiry.classList.add('hazard-alert-btn');
+        } else {
+            badge.classList.add('hidden');
+            // ⭐️ ເອົາເອັກເຟັກໄຟສີ່ຍ່ານອອກ ເມື່ອບໍ່ມີສິນຄ້າໝົດອາຍຸແລ້ວ
+            if (btnExpiry) btnExpiry.classList.remove('hazard-alert-btn');
+        }
+    }
+}
 
         function updateStockDisplayOnQtyChange() {
             let input = document.getElementById('scan-barcode-input');
