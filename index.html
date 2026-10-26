@@ -1100,21 +1100,34 @@
                         </div>
                     </div>
                     
-                    <div>
-                        <label class="block font-semibold text-gray-700 mb-1">📦 ຈຳນວນນຳເຂົ້າ (ລາງ / ຫໍ່ / ແພັກ):</label>
-                        <input type="number" id="stock-in-qty" value="1" min="1" oninput="calculateTotalUnit()" class="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-500 font-bold text-gray-800 text-lg bg-white" placeholder="ປ້ອນຈຳນວນ">
-                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+    <div>
+        <label class="block font-[10px] font-bold text-gray-700 mb-1">📦 ແພັກໃຫຍ່:</label>
+        <input type="number" id="stock-in-big-qty" value="0" min="0" oninput="calculate3TierTotal()" class="w-full border rounded-lg px-2 py-2 text-center font-bold text-gray-900 text-xs bg-white outline-none">
+    </div>
+    <div>
+        <label class="block font-[10px] font-bold text-gray-700 mb-1">📦 ແພັກນ້ອຍ:</label>
+        <input type="number" id="stock-in-small-qty" value="0" min="0" oninput="calculate3TierTotal()" class="w-full border rounded-lg px-2 py-2 text-center font-bold text-gray-900 text-xs bg-white outline-none">
+    </div>
+    <div>
+        <label class="block font-[10px] font-bold text-gray-700 mb-1">🥤 ຂວດ/ປ໋ອງ:</label>
+        <input type="number" id="stock-in-base-qty" value="1" min="0" oninput="calculate3TierTotal()" class="w-full border rounded-lg px-2 py-2 text-center font-bold text-gray-900 text-xs bg-white outline-none">
+    </div>
+</div>
 
-                    <div class="grid grid-cols-2 gap-2 bg-pink-50/50 p-3 rounded-xl border border-pink-200">
-                        <div>
-                            <label class="block font-[11px] font-bold text-gray-700 mb-1">🔢 ຈຳນວນຕໍ່ລາງ/ຫໍ່ (ຖ້າມີ):</label>
-                            <input type="number" id="stock-in-unit-per-pack" value="12" min="1" oninput="calculateTotalUnit()" class="w-full border rounded-lg px-2 py-1.5 text-center font-bold text-gray-900 text-sm bg-white outline-none" placeholder="ເຊັ່ນ: 12">
-                        </div>
-                        <div>
-                            <label class="block font-[11px] font-bold text-pink-800 mb-1">✨ ລວມຫົວໜ່ວຍຍ່ອຍ:</label>
-                            <input type="text" id="stock-in-total-calculated" readonly class="w-full border rounded-lg px-2 py-1.5 text-center font-extrabold text-pink-700 text-sm bg-pink-100 cursor-not-allowed" value="1">
-                        </div>
-                    </div>
+<div class="grid grid-cols-2 gap-2 bg-pink-50/50 p-3 rounded-xl border border-pink-200 mt-2">
+    <div>
+        <label class="block font-[11px] font-bold text-gray-700 mb-1">🔢 1 ໃຫຍ່ ມີຈັກນ້ອຍ:</label>
+        <input type="number" id="unit-per-big-pack" value="10" min="1" oninput="calculate3TierTotal()" class="w-full border rounded-lg px-2 py-1.5 text-center font-bold text-gray-900 text-sm bg-white outline-none">
+    </div>
+    <div>
+        <label class="block font-[11px] font-bold text-gray-700 mb-1">🔢 1 ນ້ອຍ ມີຈັກຂວດ:</label>
+        <input type="number" id="unit-per-small-pack" value="12" min="1" oninput="calculate3TierTotal()" class="w-full border rounded-lg px-2 py-1.5 text-center font-bold text-gray-900 text-sm bg-white outline-none">
+    </div>
+</div>
+<div class="mt-2 text-right text-xs font-bold text-pink-800">
+    ✨ ລວມຫົວໜ່ວຍຍ່ອຍທັງໝົດ: <span id="stock-in-total-calculated-3tier" class="text-sm font-extrabold text-red-600">12</span> ຂວດ
+</div>
 
                     <div id="expiry-input-group" class="hidden space-y-3">
                         <div>
@@ -2609,12 +2622,18 @@ function initFirebaseRealtime() {
                 let initialQtyVal = parseFloat(String(row.initial_qty !== undefined ? row.initial_qty : (row.qty || 0)).replace(/,/g, '')) || 0; 
                 let stockDisplayVal = formatNumberWithCommas(initialQtyVal);
 
-                let currentQty = parseFloat(String(row.qty !== undefined ? row.qty : 0).replace(/,/g, '')) || 0;
-                let unitPerPack = parseInt(row.unitPerPack || row.unit_per_pack) || 1;
-                let totalSingles = Math.round(currentQty * unitPerPack);
-                let packsX = Math.floor(totalSingles / unitPerPack);
-                let singlesY = totalSingles % unitPerPack;
-                let stockNoteDisplay = unitPerPack > 1 ? `ເຫຼືອ: ${packsX} / ${singlesY}` : `ເຫຼືອ: ${packsX}`;
+                // 📥 ໂຄດໃໝ່: ດຶງຄ່າອັດຕາສ່ວນຂອງແພັກໃຫຍ່ ແລະ ແພັກນ້ອຍ
+let unitBig = parseInt(row.unit_per_big_pack) || 10;   // 1 ແພັກໃຫຍ່ ມີ 10 ແພັກນ້ອຍ (ປັບແກ້ໄຂຕາມຈິງ)
+let unitSmall = parseInt(row.unit_per_small_pack) || 12; // 1 ແພັກນ້ອຍ ມີ 12 ຂວດ (ປັບແກ້ໄຂຕາມຈິງ)
+
+let currentQty = parseFloat(String(row.qty !== undefined ? row.qty : 0).replace(/,/g, '')) || 0;
+
+// ຄຳນວນຫົວໜ່ວຍຍ່ອຍລວມທັງໝົດ
+let totalSingles = Math.round(currentQty * (unitBig * unitSmall)); 
+
+// ແຍກອອກມາເປັນ 3 ຊັ້ນ
+let breakdown = breakdown3TierStock(totalSingles, unitBig, unitSmall);
+let stockNoteDisplay = `${breakdown.bigPacks} ໃຫຍ່, ${breakdown.smallPacks} ນ້ອຍ, ${breakdown.baseUnits} ຂວດ`;
 
                 // ⭐️ ດຶງລາຄາຊື້ນຳເຂົ້າຕົວຈິງ (ເດີມ) ມາສະແດງໂດຍບໍ່ໃຫ້ມີການປ່ຽນແປງ
                 let originalCostVal = parseFloat(String(row.original_cost || row.originalCost || row.cost || 0).replace(/,/g, '')) || 0;
@@ -3024,11 +3043,15 @@ function initFirebaseRealtime() {
             document.getElementById('stock-in-calculated-price').value = formatNumberWithCommas(roundedPrice);
         }
 
-        function calculateTotalUnit() {
-            let qty = parseInt(document.getElementById('stock-in-qty').value) || 1;
-            let unitPerPack = parseInt(document.getElementById('stock-in-unit-per-pack').value) || 12;
-            document.getElementById('stock-in-total-calculated').value = qty * unitPerPack;
-        }
+function breakdown3TierStock(totalBaseUnits, unitPerBig, unitPerSmall) {
+    let bigPacks = Math.floor(totalBaseUnits / (unitPerBig * unitPerSmall));
+    let remainder = totalBaseUnits % (unitPerBig * unitPerSmall);
+    
+    let smallPacks = Math.floor(remainder / unitPerSmall);
+    let baseUnits = remainder % unitPerSmall;
+    
+    return { bigPacks, smallPacks, baseUnits };
+}
 
         let pendingStockInData = null;
 
@@ -5002,6 +5025,25 @@ console.log("ຍອດສາງໃໝ່ຫຼັງຈາກຂາຍ:", newSto
                 resultDiv.classList.add('hidden');
             }
         }
+
+function calculate3TierTotalUnits(bigPacks, smallPacks, baseUnits, unitPerBig, unitPerSmall) {
+    let totalSmall = (bigPacks * unitPerBig) + smallPacks;
+    let totalBase = (totalSmall * unitPerSmall) + baseUnits;
+    return totalBase;
+}
+
+function calculate3TierTotal() {
+    let big = parseInt(document.getElementById('stock-in-big-qty').value) || 0;
+    let small = parseInt(document.getElementById('stock-in-small-qty').value) || 0;
+    let base = parseInt(document.getElementById('stock-in-base-qty').value) || 0;
+    let unitBig = parseInt(document.getElementById('unit-per-big-pack').value) || 1;
+    let unitSmall = parseInt(document.getElementById('unit-per-small-pack').value) || 1;
+
+    let total = calculate3TierTotalUnits(big, small, base, unitBig, unitSmall);
+    let totalEl = document.getElementById('stock-in-total-calculated-3tier');
+    if (totalEl) totalEl.innerText = formatNumberWithCommas(total);
+}
+
     </script>
 </body>
 </html>
