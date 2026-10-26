@@ -740,10 +740,10 @@
                                     <span class="text-[10px]">▶</span>
                                 </button>
                                 <div class="submenu rounded-xl bg-white text-gray-800 shadow-2xl ring-1 ring-black/10 py-1 z-[110]">
-                                    <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); openStockInScannerWithExpiry(true);" class="w-full px-4 py-2 text-xs font-semibold hover:bg-blue-50 flex items-center gap-2 text-left cursor-pointer transition" id="sub-expiry">
+                                    <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); promptStockInLevel(true);" class="w-full px-4 py-2 text-xs font-semibold hover:bg-blue-50 flex items-center gap-2 text-left cursor-pointer transition" id="sub-expiry">
                                         📅 ສິນຄ້າມີກຳນົດ (ມີວັນໝົດອາຍຸ)
                                     </button>
-                                    <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); openStockInScannerWithExpiry(false);" class="w-full px-4 py-2 text-xs font-semibold hover:bg-blue-50 flex items-center gap-2 text-left cursor-pointer transition" id="sub-no-expiry">
+                                    <button type="button" onclick="event.stopPropagation(); closeAllCustomDropdowns(); promptStockInLevel(false);" class="w-full px-4 py-2 text-xs font-semibold hover:bg-blue-50 flex items-center gap-2 text-left cursor-pointer transition" id="sub-no-expiry">
                                         📦 ສິນຄ້າບໍ່ມີກຳນົດ
                                     </button>
                                 </div>
@@ -1086,32 +1086,51 @@
                 </div>
             </div>
         </div>
-
+<!-- ⭐️ Popup ເລືອກຊັ້ນສິນຄ້ານຳເຂົ້າ (ເພີ່ມໃໝ່) -->
+    <div id="stock-in-level-modal" class="hidden fixed inset-0 bg-black/70 z-[400] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
+            <div class="text-4xl">📦</div>
+            <h3 class="text-lg font-bold text-blue-900">ເລືອກຮູບແບບຊັ້ນສິນຄ້າ</h3>
+            <p class="text-xs text-gray-600">ກະລຸນາເລືອກຮູບແບບການບັນຈຸສິນຄ້າທີ່ຕ້ອງການນຳເຂົ້າ:</p>
+            <div class="space-y-3 pt-2">
+                <button onclick="selectStockInLevel(1)" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3.5 rounded-xl transition cursor-pointer shadow flex items-center justify-center gap-2 text-sm">
+                    🥤 1 ຊັ້ນ (ຂາຍເປັນອັນ/ຂວດ ຢ່າງດຽວ)
+                </button>
+                <button onclick="selectStockInLevel(2)" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition cursor-pointer shadow flex items-center justify-center gap-2 text-sm">
+                    📦 2 ຊັ້ນ (ມີແພັກ ແລະ ຂວດ)
+                </button>
+                <button onclick="selectStockInLevel(3)" class="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-3.5 rounded-xl transition cursor-pointer shadow flex items-center justify-center gap-2 text-sm">
+                    🏢 3 ຊັ້ນ (ມີລາງ, ແພັກ ແລະ ຂວດ)
+                </button>
+            </div>
+            <button onclick="closeStockInLevelModal()" class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2.5 rounded-xl text-sm transition cursor-pointer mt-2">ຍົກເລີກ</button>
+        </div>
+    </div>
         <!-- Modal ນຳເຂົ້າສິນຄ້າ -->
         <div id="stock-in-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
                 <div class="text-3xl text-center">📥</div>
                 <h3 id="stock-in-title" class="text-xl font-bold text-pink-700 text-center">ນຳເຂົ້າສິນຄ້າ</h3>
                 <div class="bg-gray-50 p-4 rounded-xl text-left text-sm space-y-3 border">
-    <!-- ເພີ່ມຊ່ອງເກັບ 3 ບາໂຄດ -->
+    <!-- ຈັດການຊ່ອງເກັບບາໂຄດແບບໄດນາມິກ -->
     <div class="p-3 bg-white border border-pink-200 rounded-xl space-y-2 shadow-sm">
-        <label class="block font-bold text-pink-800 text-xs border-b pb-1">🏷️ ຈັດການບາໂຄດ 3 ຊັ້ນ (ສະແກນ ຫຼື ພິມໃສ່):</label>
+        <label id="barcode-level-label" class="block font-bold text-pink-800 text-xs border-b pb-1">🏷️ ຈັດການບາໂຄດ 3 ຊັ້ນ (ສະແກນ ຫຼື ພິມໃສ່):</label>
         
-        <div class="flex items-center gap-2">
+        <div id="wrap-code-large" class="flex items-center gap-2">
             <span class="text-xs font-bold text-gray-600 w-16">ລາງ/ແພັກໃຫຍ່:</span>
-            <input type="text" id="stock-in-code-large" class="flex-1 border rounded-lg px-2 py-1.5 text-xs font-mono font-bold text-blue-700 outline-none focus:ring-2 focus:ring-pink-500 bg-gray-50" placeholder="ບາໂຄດລາງ...">
+            <input type="text" id="stock-in-code-large" onkeydown="handleBarcodeEnter(event, 'stock-in-code-small')" class="flex-1 border rounded-lg px-2 py-1.5 text-xs font-mono font-bold text-blue-700 outline-none focus:ring-2 focus:ring-pink-500 bg-gray-50" placeholder="ບາໂຄດລາງ...">
         </div>
         
-        <div class="flex items-center gap-2">
+        <div id="wrap-code-small" class="flex items-center gap-2">
             <span class="text-xs font-bold text-gray-600 w-16">ແພັກ/ຫໍ່:</span>
-            <input type="text" id="stock-in-code-small" class="flex-1 border rounded-lg px-2 py-1.5 text-xs font-mono font-bold text-blue-700 outline-none focus:ring-2 focus:ring-pink-500 bg-gray-50" placeholder="ບາໂຄດແພັກ...">
+            <input type="text" id="stock-in-code-small" onkeydown="handleBarcodeEnter(event, 'stock-in-code-single')" class="flex-1 border rounded-lg px-2 py-1.5 text-xs font-mono font-bold text-blue-700 outline-none focus:ring-2 focus:ring-pink-500 bg-gray-50" placeholder="ບາໂຄດແພັກ...">
         </div>
         
-        <div class="flex items-center gap-2">
+        <div id="wrap-code-single" class="flex items-center gap-2">
             <span class="text-xs font-bold text-gray-600 w-16">ຂວດ/ປ໋ອງ:</span>
-            <input type="text" id="stock-in-code-single" class="flex-1 border rounded-lg px-2 py-1.5 text-xs font-mono font-bold text-blue-700 outline-none focus:ring-2 focus:ring-pink-500 bg-gray-50" placeholder="ບາໂຄດຂວດ...">
+            <input type="text" id="stock-in-code-single" onkeydown="handleBarcodeEnter(event, 'stock-in-custom-name')" class="flex-1 border rounded-lg px-2 py-1.5 text-xs font-mono font-bold text-blue-700 outline-none focus:ring-2 focus:ring-pink-500 bg-gray-50" placeholder="ບາໂຄດຂວດ...">
         </div>
-        <p class="text-[10px] text-gray-500 italic">* ຖ້າສິນຄ້າມີຊັ້ນດຽວ ໃຫ້ປ້ອນແຕ່ຊ່ອງລຸ່ມສຸດກໍ່ໄດ້</p>
+        <p id="barcode-hint-text" class="text-[10px] text-gray-500 italic">* ເມື່ອໃຊ້ເຄື່ອງສະແກນມືຍິງ ລະບົບຈະເລື່ອນໄປກ່ອງຕໍ່ໄປອັດຕະໂນມັດ</p>
     </div>
     
     <div class="flex justify-between items-center bg-amber-50 p-2.5 rounded-xl border border-amber-200 mt-2">
@@ -1136,7 +1155,7 @@
                         <label class="block font-bold text-blue-900 text-xs border-b border-blue-200 pb-1">📦 ການຈັດບັນຈຸ (ນອນໃນກັນ) ແລະ ລາຄາຂາຍ:</label>
                         
                         <!-- ຊັ້ນທີ 1: ລາງ -->
-                        <div class="flex items-center gap-2">
+                        <div id="wrap-price-large" class="flex items-center gap-2">
                             <span class="text-[11px] font-bold text-gray-700 w-16">1 ລາງ ມີ:</span>
                             <input type="number" id="qty-small-per-large" value="1" min="1" oninput="calculateTotalUnit3Level()" class="w-16 border rounded-lg px-2 py-1.5 text-center font-bold text-blue-700 outline-none focus:ring-2 focus:ring-blue-500">
                             <span class="text-[11px] font-bold text-gray-700">ແພັກ</span>
@@ -1146,7 +1165,7 @@
                         </div>
 
                         <!-- ຊັ້ນທີ 2: ແພັກ -->
-                        <div class="flex items-center gap-2">
+                        <div id="wrap-price-small" class="flex items-center gap-2">
                             <span class="text-[11px] font-bold text-gray-700 w-16">1 ແພັກ ມີ:</span>
                             <input type="number" id="qty-single-per-small" value="1" min="1" oninput="calculateTotalUnit3Level()" class="w-16 border rounded-lg px-2 py-1.5 text-center font-bold text-blue-700 outline-none focus:ring-2 focus:ring-blue-500">
                             <span class="text-[11px] font-bold text-gray-700">ຂວດ</span>
@@ -3011,9 +3030,25 @@ function handleStockInBarcodeScanned(code) {
     closeStockInScanner();
     currentStockInCode = code;
     
-    // 1. ເອົາບາໂຄດໄປຍັດໃສ່ຊ່ອງ "ຂວດ/ປ໋ອງ" ເປັນຄ່າເລີ່ມຕົ້ນ
-    let codeSingleInput = document.getElementById('stock-in-code-single');
-    if(codeSingleInput) codeSingleInput.value = code;
+    // ກຽມຊ່ອງປ້ອນຂໍ້ມູນ
+    let inputLarge = document.getElementById('stock-in-code-large');
+    let inputSmall = document.getElementById('stock-in-code-small');
+    let inputSingle = document.getElementById('stock-in-code-single');
+    
+    // 1. ກຳນົດຄ່າເລີ່ມຕົ້ນໃຫ້ບາໂຄດໄປຢູ່ຊ່ອງທຳອິດທີ່ຖືກຕ້ອງ ຕາມຊັ້ນທີ່ເລືອກ
+    if (currentStockInLevel === 3 && inputLarge) {
+        inputLarge.value = code;
+        if(inputSmall) inputSmall.value = '';
+        if(inputSingle) inputSingle.value = '';
+    } else if (currentStockInLevel === 2 && inputSmall) {
+        if(inputLarge) inputLarge.value = '';
+        inputSmall.value = code;
+        if(inputSingle) inputSingle.value = '';
+    } else if (inputSingle) {
+        if(inputLarge) inputLarge.value = '';
+        if(inputSmall) inputSmall.value = '';
+        inputSingle.value = code;
+    }
     
     let importDateInput = document.getElementById('stock-in-import-date');
     let today = new Date();
@@ -3033,12 +3068,12 @@ function handleStockInBarcodeScanned(code) {
     );
 
     if (foundItem) {
-        // ຖ້າພົບສິນຄ້າ ໃຫ້ດຶງຂໍ້ມູນ 3 ຊັ້ນມາສະແດງ
+        // ຖ້າພົບສິນຄ້າ ໃຫ້ດຶງຂໍ້ມູນທຸກຊັ້ນມາສະແດງທັງໝົດ
         if(document.getElementById('stock-in-custom-name')) document.getElementById('stock-in-custom-name').value = foundItem.name || '';
         
-        if(document.getElementById('stock-in-code-large')) document.getElementById('stock-in-code-large').value = foundItem.code_large || '';
-        if(document.getElementById('stock-in-code-small')) document.getElementById('stock-in-code-small').value = foundItem.code_small || '';
-        if(document.getElementById('stock-in-code-single')) document.getElementById('stock-in-code-single').value = foundItem.code_single || foundItem.code || '';
+        if(inputLarge) inputLarge.value = foundItem.code_large || '';
+        if(inputSmall) inputSmall.value = foundItem.code_small || '';
+        if(inputSingle) inputSingle.value = foundItem.code_single || foundItem.code || '';
         
         if(document.getElementById('price-large')) document.getElementById('price-large').value = formatNumberWithCommas(foundItem.price_large || 0);
         if(document.getElementById('price-small')) document.getElementById('price-small').value = formatNumberWithCommas(foundItem.price_small || 0);
@@ -3046,7 +3081,7 @@ function handleStockInBarcodeScanned(code) {
         
         if(document.getElementById('stock-in-cost')) document.getElementById('stock-in-cost').value = formatNumberWithCommas(foundItem.cost || 0);
         
-        // ດຶງຕົວຄູນມາສະແດງ (ຖ້າບໍ່ມີໃຫ້ຕັ້ງຄ່າເລີ່ມຕົ້ນ)
+        // ດຶງຕົວຄູນມາສະແດງ
         let qLarge = parseInt(foundItem.qty_in_large) || 24;
         let qSmall = parseInt(foundItem.qty_in_small) || 6;
         let packPerBox = Math.floor(qLarge / qSmall);
@@ -3059,18 +3094,18 @@ function handleStockInBarcodeScanned(code) {
         
         if(typeof calculateTotalUnit3Level === 'function') calculateTotalUnit3Level();
     } else {
-        // ຖ້າເປັນສິນຄ້າໃໝ່ ໃຫ້ລ້າງຊ່ອງໃຫ້ວ່າງ ພ້ອມຕັ້ງຄ່າຕົວຄູນເລີ່ມຕົ້ນ
+        // ຖ້າເປັນສິນຄ້າໃໝ່ (ບໍ່ພົບໃນສາງ)
         if(document.getElementById('stock-in-custom-name')) document.getElementById('stock-in-custom-name').value = '';
-        if(document.getElementById('stock-in-code-large')) document.getElementById('stock-in-code-large').value = '';
-        if(document.getElementById('stock-in-code-small')) document.getElementById('stock-in-code-small').value = '';
+        
+        // ໝາຍເຫດ: ປ່ອຍໃຫ້ບາໂຄດຢູ່ຊ່ອງທີ່ເຮົາຕັ້ງຄ່າໄວ້ໃນຂັ້ນຕອນທີ 1 ເພື່ອໃຫ້ພ້ອມສະແກນຊ່ອງຕໍ່ໄປ
         
         if(document.getElementById('price-large')) document.getElementById('price-large').value = '';
         if(document.getElementById('price-small')) document.getElementById('price-small').value = '';
         if(document.getElementById('price-single')) document.getElementById('price-single').value = '';
         if(document.getElementById('stock-in-cost')) document.getElementById('stock-in-cost').value = '';
         
-        if(document.getElementById('qty-small-per-large')) document.getElementById('qty-small-per-large').value = '4'; // ເຊັ່ນ: 1 ລາງ ມີ 4 ແພັກ
-        if(document.getElementById('qty-single-per-small')) document.getElementById('qty-single-per-small').value = '6'; // ເຊັ່ນ: 1 ແພັກ ມີ 6 ຂວດ
+        if(document.getElementById('qty-small-per-large')) document.getElementById('qty-small-per-large').value = '4'; 
+        if(document.getElementById('qty-single-per-small')) document.getElementById('qty-single-per-small').value = '6'; 
         if(document.getElementById('stock-in-qty')) document.getElementById('stock-in-qty').value = '1';
         
         if(typeof calculateTotalUnit3Level === 'function') calculateTotalUnit3Level();
@@ -3081,8 +3116,38 @@ function handleStockInBarcodeScanned(code) {
         if(expDate) expDate.value = '';
     }
 
-    // ⭐️ ເປີດປ໋ອບອັບຂຶ້ນມາ
+    // ⭐️ ໃຊ້ການຕັ້ງຄ່າຊັ້ນທີ່ເລືອກ ແລ້ວເປີດປ໋ອບອັບຂຶ້ນມາ
+    applyStockInLevelUI();
     document.getElementById('stock-in-modal').classList.remove('hidden');
+    
+    // ໂຟກັສໄປຫາກ່ອງຕໍ່ໄປອັດຕະໂນມັດ ຖ້າມີຫຼາຍຊັ້ນ ເພື່ອໃຫ້ພ້ອມຍິງສະແກນຄັ້ງທີ 2 (ເຄື່ອງສະແກນມື)
+    setTimeout(() => {
+        if (!foundItem) {
+            if (currentStockInLevel === 3 && inputSmall) inputSmall.focus();
+            else if (currentStockInLevel === 2 && inputSingle) inputSingle.focus();
+            else if (currentStockInLevel === 1 && document.getElementById('stock-in-custom-name')) document.getElementById('stock-in-custom-name').focus();
+        } else {
+            // ຖ້າພົບສິນຄ້າແລ້ວ ໃຫ້ໄປໂຟກັສທີ່ຈຳນວນນຳເຂົ້າເລີຍ
+            let qtyInput = document.getElementById('stock-in-qty');
+            if (qtyInput) qtyInput.focus();
+        }
+    }, 500);
+}
+
+// ⭐️ ຟັງຊັນໃໝ່ສຳລັບຈັດການກົດ Enter (ເຄື່ອງສະແກນຍິງເຂົ້າ) ໃຫ້ເລື່ອນໄປກ່ອງຕໍ່ໄປອັດຕະໂນມັດ
+function handleBarcodeEnter(event, nextInputId) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        let nextInput = document.getElementById(nextInputId);
+        
+        // ຖ້າກ່ອງຕໍ່ໄປຖືກເຊື່ອງໄວ້ ໃຫ້ຂ້າມໄປຊ່ອງຊື່ສິນຄ້າແທນ
+        if (nextInput && !nextInput.closest('.hidden') && !nextInput.classList.contains('hidden')) {
+            nextInput.focus();
+        } else {
+            let nameInput = document.getElementById('stock-in-custom-name');
+            if (nameInput) nameInput.focus();
+        }
+    }
 }
 
         function closeStockInModal() { document.getElementById('stock-in-modal').classList.add('hidden'); }
@@ -5157,6 +5222,91 @@ async function processStockIn(shouldMerge) {
                 resultDiv.classList.add('hidden');
             }
         }
+
+        // ⭐️ ລະບົບເລືອກຊັ້ນສິນຄ້າກ່ອນນຳເຂົ້າ
+        let currentStockInLevel = 3;
+        let tempIsExpiryMode = false;
+
+        function promptStockInLevel(withExpiry) {
+            tempIsExpiryMode = withExpiry;
+            document.getElementById('stock-in-level-modal').classList.remove('hidden');
+        }
+
+        function closeStockInLevelModal() {
+            document.getElementById('stock-in-level-modal').classList.add('hidden');
+        }
+
+        function selectStockInLevel(level) {
+            currentStockInLevel = level;
+            closeStockInLevelModal();
+            openStockInScannerWithExpiry(tempIsExpiryMode);
+        }
+
+        function applyStockInLevelUI() {
+            let wrapCodeLarge = document.getElementById('wrap-code-large');
+            let wrapCodeSmall = document.getElementById('wrap-code-small');
+            let wrapCodeSingle = document.getElementById('wrap-code-single');
+            
+            let wrapPriceLarge = document.getElementById('wrap-price-large');
+            let wrapPriceSmall = document.getElementById('wrap-price-small');
+            
+            let unitSelect = document.getElementById('import-unit-type');
+            let labelBarcode = document.getElementById('barcode-level-label');
+            let hintText = document.getElementById('barcode-hint-text');
+
+            if(labelBarcode) labelBarcode.innerHTML = `🏷️ ຈັດການບາໂຄດ ${currentStockInLevel} ຊັ້ນ (ສະແກນ ຫຼື ພິມໃສ່):`;
+
+            if (currentStockInLevel === 1) {
+                // 1 ຊັ້ນ: ໂຊສະເພາະຂວດ/ປ໋ອງ (Single)
+                if (wrapCodeLarge) wrapCodeLarge.classList.add('hidden');
+                if (wrapCodeSmall) wrapCodeSmall.classList.add('hidden');
+                if (wrapCodeSingle) wrapCodeSingle.classList.remove('hidden');
+                
+                if (wrapPriceLarge) wrapPriceLarge.classList.add('hidden');
+                if (wrapPriceSmall) wrapPriceSmall.classList.add('hidden');
+                if (hintText) hintText.classList.add('hidden');
+                
+                document.getElementById('qty-small-per-large').value = 1;
+                document.getElementById('qty-single-per-small').value = 1;
+                
+                if (unitSelect) {
+                    Array.from(unitSelect.options).forEach(opt => opt.hidden = (opt.value !== 'single'));
+                    unitSelect.value = 'single';
+                }
+            } else if (currentStockInLevel === 2) {
+                // 2 ຊັ້ນ: ໂຊແພັກ/ຫໍ່ (Small) ແລະ ຂວດ/ປ໋ອງ (Single)
+                if (wrapCodeLarge) wrapCodeLarge.classList.add('hidden');
+                if (wrapCodeSmall) wrapCodeSmall.classList.remove('hidden');
+                if (wrapCodeSingle) wrapCodeSingle.classList.remove('hidden');
+                
+                if (wrapPriceLarge) wrapPriceLarge.classList.add('hidden');
+                if (wrapPriceSmall) wrapPriceSmall.classList.remove('hidden');
+                if (hintText) hintText.classList.add('hidden');
+                
+                document.getElementById('qty-small-per-large').value = 1;
+                
+                if (unitSelect) {
+                    Array.from(unitSelect.options).forEach(opt => opt.hidden = (opt.value === 'large'));
+                    if (unitSelect.value === 'large') unitSelect.value = 'small';
+                }
+            } else {
+                // 3 ຊັ້ນ: ໂຊຄົບທັງໝົດ ລາງ, ແພັກ, ຂວດ
+                if (wrapCodeLarge) wrapCodeLarge.classList.remove('hidden');
+                if (wrapCodeSmall) wrapCodeSmall.classList.remove('hidden');
+                if (wrapCodeSingle) wrapCodeSingle.classList.remove('hidden');
+                
+                if (wrapPriceLarge) wrapPriceLarge.classList.remove('hidden');
+                if (wrapPriceSmall) wrapPriceSmall.classList.remove('hidden');
+                if (hintText) hintText.classList.remove('hidden');
+                
+                if (unitSelect) {
+                    Array.from(unitSelect.options).forEach(opt => opt.hidden = false);
+                }
+            }
+            
+            if(typeof calculateTotalUnit3Level === 'function') calculateTotalUnit3Level();
+        }
+
     </script>
 </body>
 </html>
