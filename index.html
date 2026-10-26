@@ -948,15 +948,15 @@
 
         <div id="stock-in-scanner-container" class="hidden mb-6 bg-white p-4 rounded-xl shadow border">
             <div class="flex justify-between items-center mb-2">
-                <h3 class="font-bold text-lg text-pink-700">📷 ສະແກນ Barcode ສິນຄ້າ (ນຳເຂົ້າ)</h3>
-                <span class="text-xs bg-pink-100 text-pink-700 px-2 py-1 rounded font-semibold">ກຳລັງເປີດກ້ອງ...</span>
+                <h3 id="stock-in-scanner-title" class="font-bold text-lg text-pink-700">📷 ສະແກນ Barcode ສິນຄ້າ</h3>
+                <span id="stock-in-scanner-status" class="text-xs bg-pink-100 text-pink-700 px-2 py-1 rounded font-semibold">ກຳລັງເປີດກ້ອງ...</span>
             </div>
             <div id="stock-in-reader" class="w-full max-w-md mx-auto"></div>
             
             <div class="mt-4 p-3 bg-pink-50 rounded-xl border border-pink-200 text-left space-y-2">
-                <label class="block text-xs font-bold text-pink-900">⌨️ ຫຼື ພິມ/ຍິງບາໂຄດດ້ວຍມື ແລ້ວກົດ Enter:</label>
+                <label id="stock-in-scanner-hint" class="block text-xs font-bold text-pink-900">⌨️ ຫຼື ພິມ/ຍິງບາໂຄດດ້ວຍມື ແລ້ວກົດ Enter:</label>
                 <div class="flex items-center gap-2 w-full">
-                    <input type="text" id="manual-barcode-input" list="existing-product-names-list" onkeydown="handleManualBarcodeInput(event)" placeholder="ປ້ອນລະຫັດ Barcode ຫຼື ຊື່ສິນຄ້າ..." class="flex-1 w-full border rounded-lg px-3 py-2.5 text-xs font-bold outline-none focus:ring-2 focus:ring-pink-500 bg-white">
+                    <input type="text" id="manual-barcode-input" list="existing-product-names-list" onkeydown="handleManualBarcodeInput(event)" placeholder="ປ້ອນລະຫັດ Barcode ໃສ່ນີ້..." class="flex-1 w-full border rounded-lg px-3 py-2.5 text-xs font-bold outline-none focus:ring-2 focus:ring-pink-500 bg-white">
                     <button type="button" onclick="submitManualBarcode()" class="bg-pink-600 hover:bg-pink-700 text-white px-6 py-2.5 rounded-lg text-xs font-bold cursor-pointer shadow whitespace-nowrap">ຕົກລົງ</button>
                 </div>
             </div>
@@ -2993,10 +2993,54 @@ function initFirebaseRealtime() {
 
         function closeCustomAlert() { document.getElementById('custom-alert-modal').classList.add('hidden'); }
 
+        let currentScanStep = 1;
+        let tempScanCodes = { large: '', small: '', single: '' };
+        let isStockInScannerLocked = false;
+
+        function updateStockInScannerTitle() {
+            let titleEl = document.getElementById('stock-in-scanner-title');
+            let hintEl = document.getElementById('stock-in-scanner-hint');
+            let modeText = isExpiryMode ? "(ມີວັນໝົດອາຍຸ)" : "(ບໍ່ມີວັນໝົດອາຍຸ)";
+            
+            if (currentStockInLevel === 3) {
+                if (currentScanStep === 1) {
+                    if(titleEl) titleEl.innerText = `📷 1/3: ສະແກນ ລາງ/ແພັກໃຫຍ່ ${modeText}`;
+                    if(hintEl) hintEl.innerText = `⌨️ 1/3: ພິມ/ຍິງບາໂຄດ ລາງ/ແພັກໃຫຍ່:`;
+                } else if (currentScanStep === 2) {
+                    if(titleEl) titleEl.innerText = `📷 2/3: ສະແກນ ແພັກ/ຫໍ່ ${modeText}`;
+                    if(hintEl) hintEl.innerText = `⌨️ 2/3: ພິມ/ຍິງບາໂຄດ ແພັກ/ຫໍ່:`;
+                } else {
+                    if(titleEl) titleEl.innerText = `📷 3/3: ສະແກນ ຂວດ/ປ໋ອງ ${modeText}`;
+                    if(hintEl) hintEl.innerText = `⌨️ 3/3: ພິມ/ຍິງບາໂຄດ ຂວດ/ປ໋ອງ:`;
+                }
+            } else if (currentStockInLevel === 2) {
+                if (currentScanStep === 1) {
+                    if(titleEl) titleEl.innerText = `📷 1/2: ສະແກນ ແພັກ/ຫໍ່ ${modeText}`;
+                    if(hintEl) hintEl.innerText = `⌨️ 1/2: ພິມ/ຍິງບາໂຄດ ແພັກ/ຫໍ່:`;
+                } else {
+                    if(titleEl) titleEl.innerText = `📷 2/2: ສະແກນ ຂວດ/ປ໋ອງ ${modeText}`;
+                    if(hintEl) hintEl.innerText = `⌨️ 2/2: ພິມ/ຍິງບາໂຄດ ຂວດ/ປ໋ອງ:`;
+                }
+            } else {
+                if(titleEl) titleEl.innerText = `📷 1/1: ສະແກນ ຂວດ/ປ໋ອງ ${modeText}`;
+                if(hintEl) hintEl.innerText = `⌨️ 1/1: ພິມ/ຍິງບາໂຄດ ຂວດ/ປ໋ອງ:`;
+            }
+        }
+
         function openStockInScannerWithExpiry(withExpiry) {
             isExpiryMode = withExpiry;
+            currentScanStep = 1;
+            tempScanCodes = { large: '', small: '', single: '' };
+            isStockInScannerLocked = false;
+            
             document.getElementById('stock-in-title').innerText = withExpiry ? "📥 ນຳເຂົ້າສິນຄ້າ (ມີວັນໝົດອາຍຸ)" : "📥 ນຳເຂົ້າສິນຄ້າ (ບໍ່ມີວັນໝົດອາຍຸ)";
             document.getElementById('expiry-input-group').classList.toggle('hidden', !withExpiry);
+            
+            updateStockInScannerTitle();
+            
+            let manualInput = document.getElementById('manual-barcode-input');
+            if (manualInput) { manualInput.value = ''; manualInput.focus(); }
+            
             document.getElementById('stock-in-scanner-container').classList.remove('hidden');
             startStockInScanner();
         }
@@ -3025,114 +3069,153 @@ function closeStockInScanner() {
             }
         }
 
-function handleStockInBarcodeScanned(code) {
-    playBeepSound(); 
-    closeStockInScanner();
-    currentStockInCode = code;
-    
-    // ກຽມຊ່ອງປ້ອນຂໍ້ມູນ
-    let inputLarge = document.getElementById('stock-in-code-large');
-    let inputSmall = document.getElementById('stock-in-code-small');
-    let inputSingle = document.getElementById('stock-in-code-single');
-    
-    // 1. ກຳນົດຄ່າເລີ່ມຕົ້ນໃຫ້ບາໂຄດໄປຢູ່ຊ່ອງທຳອິດທີ່ຖືກຕ້ອງ ຕາມຊັ້ນທີ່ເລືອກ
-    if (currentStockInLevel === 3 && inputLarge) {
-        inputLarge.value = code;
-        if(inputSmall) inputSmall.value = '';
-        if(inputSingle) inputSingle.value = '';
-    } else if (currentStockInLevel === 2 && inputSmall) {
-        if(inputLarge) inputLarge.value = '';
-        inputSmall.value = code;
-        if(inputSingle) inputSingle.value = '';
-    } else if (inputSingle) {
-        if(inputLarge) inputLarge.value = '';
-        if(inputSmall) inputSmall.value = '';
-        inputSingle.value = code;
-    }
-    
-    let importDateInput = document.getElementById('stock-in-import-date');
-    let today = new Date();
-    let dd = String(today.getDate()).padStart(2, '0');
-    let mm = String(today.getMonth() + 1).padStart(2, '0');
-    let yyyy = today.getFullYear();
-    if (importDateInput) importDateInput.value = `${dd}/${mm}/${yyyy}`;
-
-    let cleanCode = String(code).trim().toLowerCase();
-    
-    // 2. ຄົ້ນຫາວ່າກົງກັບບາໂຄດຊັ້ນໃດຊັ້ນໜຶ່ງ ຫຼື ຊື່ໃນສາງ ຫຼື ບໍ່
-    let foundItem = excelRows.find(item => 
-        String(item.code_single || item.code || '').trim().toLowerCase() === cleanCode ||
-        String(item.code_small || '').trim().toLowerCase() === cleanCode ||
-        String(item.code_large || '').trim().toLowerCase() === cleanCode ||
-        String(item.name || '').trim().toLowerCase() === cleanCode
-    );
-
-    if (foundItem) {
-        // ຖ້າພົບສິນຄ້າ ໃຫ້ດຶງຂໍ້ມູນທຸກຊັ້ນມາສະແດງທັງໝົດ
-        if(document.getElementById('stock-in-custom-name')) document.getElementById('stock-in-custom-name').value = foundItem.name || '';
-        
-        if(inputLarge) inputLarge.value = foundItem.code_large || '';
-        if(inputSmall) inputSmall.value = foundItem.code_small || '';
-        if(inputSingle) inputSingle.value = foundItem.code_single || foundItem.code || '';
-        
-        if(document.getElementById('price-large')) document.getElementById('price-large').value = formatNumberWithCommas(foundItem.price_large || 0);
-        if(document.getElementById('price-small')) document.getElementById('price-small').value = formatNumberWithCommas(foundItem.price_small || 0);
-        if(document.getElementById('price-single')) document.getElementById('price-single').value = formatNumberWithCommas(foundItem.price_single || foundItem.price || 0);
-        
-        if(document.getElementById('stock-in-cost')) document.getElementById('stock-in-cost').value = formatNumberWithCommas(foundItem.cost || 0);
-        
-        // ດຶງຕົວຄູນມາສະແດງ
-        let qLarge = parseInt(foundItem.qty_in_large) || 24;
-        let qSmall = parseInt(foundItem.qty_in_small) || 6;
-        let packPerBox = Math.floor(qLarge / qSmall);
-        if(packPerBox < 1) packPerBox = 1;
-        
-        if(document.getElementById('qty-small-per-large')) document.getElementById('qty-small-per-large').value = packPerBox;
-        if(document.getElementById('qty-single-per-small')) document.getElementById('qty-single-per-small').value = qSmall;
-        
-        if(document.getElementById('stock-in-qty')) document.getElementById('stock-in-qty').value = '1';
-        
-        if(typeof calculateTotalUnit3Level === 'function') calculateTotalUnit3Level();
-    } else {
-        // ຖ້າເປັນສິນຄ້າໃໝ່ (ບໍ່ພົບໃນສາງ)
-        if(document.getElementById('stock-in-custom-name')) document.getElementById('stock-in-custom-name').value = '';
-        
-        // ໝາຍເຫດ: ປ່ອຍໃຫ້ບາໂຄດຢູ່ຊ່ອງທີ່ເຮົາຕັ້ງຄ່າໄວ້ໃນຂັ້ນຕອນທີ 1 ເພື່ອໃຫ້ພ້ອມສະແກນຊ່ອງຕໍ່ໄປ
-        
-        if(document.getElementById('price-large')) document.getElementById('price-large').value = '';
-        if(document.getElementById('price-small')) document.getElementById('price-small').value = '';
-        if(document.getElementById('price-single')) document.getElementById('price-single').value = '';
-        if(document.getElementById('stock-in-cost')) document.getElementById('stock-in-cost').value = '';
-        
-        if(document.getElementById('qty-small-per-large')) document.getElementById('qty-small-per-large').value = '4'; 
-        if(document.getElementById('qty-single-per-small')) document.getElementById('qty-single-per-small').value = '6'; 
-        if(document.getElementById('stock-in-qty')) document.getElementById('stock-in-qty').value = '1';
-        
-        if(typeof calculateTotalUnit3Level === 'function') calculateTotalUnit3Level();
-        
-        let mfgDate = document.getElementById('stock-in-mfg-date');
-        if(mfgDate) mfgDate.value = '';
-        let expDate = document.getElementById('stock-in-exp-date');
-        if(expDate) expDate.value = '';
-    }
-
-    // ⭐️ ໃຊ້ການຕັ້ງຄ່າຊັ້ນທີ່ເລືອກ ແລ້ວເປີດປ໋ອບອັບຂຶ້ນມາ
-    applyStockInLevelUI();
-    document.getElementById('stock-in-modal').classList.remove('hidden');
-    
-    // ໂຟກັສໄປຫາກ່ອງຕໍ່ໄປອັດຕະໂນມັດ ຖ້າມີຫຼາຍຊັ້ນ ເພື່ອໃຫ້ພ້ອມຍິງສະແກນຄັ້ງທີ 2 (ເຄື່ອງສະແກນມື)
-    setTimeout(() => {
-        if (!foundItem) {
-            if (currentStockInLevel === 3 && inputSmall) inputSmall.focus();
-            else if (currentStockInLevel === 2 && inputSingle) inputSingle.focus();
-            else if (currentStockInLevel === 1 && document.getElementById('stock-in-custom-name')) document.getElementById('stock-in-custom-name').focus();
-        } else {
-            // ຖ້າພົບສິນຄ້າແລ້ວ ໃຫ້ໄປໂຟກັສທີ່ຈຳນວນນຳເຂົ້າເລີຍ
-            let qtyInput = document.getElementById('stock-in-qty');
-            if (qtyInput) qtyInput.focus();
+function lockStockInScannerBriefly(statusBadge) {
+        isStockInScannerLocked = true;
+        if(statusBadge) {
+            statusBadge.innerText = "⏳ ພັກກ້ອງ 1.5 ວິ...";
+            statusBadge.className = "text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded font-semibold";
         }
-    }, 500);
-}
+        setTimeout(() => { 
+            isStockInScannerLocked = false; 
+            if(statusBadge) {
+                statusBadge.innerText = "ກຳລັງສະແກນ...";
+                statusBadge.className = "text-xs bg-pink-100 text-pink-700 px-2 py-1 rounded font-semibold";
+            }
+        }, 1500);
+    }
+
+    function handleStockInBarcodeScanned(code) {
+        if (isStockInScannerLocked) return;
+        playBeepSound(); 
+        currentStockInCode = code;
+        
+        let manualInput = document.getElementById('manual-barcode-input');
+        if (manualInput) { manualInput.value = ''; manualInput.focus(); }
+
+        let statusBadge = document.getElementById('stock-in-scanner-status');
+
+        // ກວດສອບຊັ້ນ ແລະ ບັນທຶກລະຫັດໄວ້ຊົ່ວຄາວ
+        if (currentStockInLevel === 3) {
+            if (currentScanStep === 1) {
+                tempScanCodes.large = code;
+                currentScanStep = 2;
+                updateStockInScannerTitle();
+                lockStockInScannerBriefly(statusBadge);
+                return; // ຍັງບໍ່ຄົບ ໃຫ້ສະແກນຕໍ່
+            } else if (currentScanStep === 2) {
+                tempScanCodes.small = code;
+                currentScanStep = 3;
+                updateStockInScannerTitle();
+                lockStockInScannerBriefly(statusBadge);
+                return; // ຍັງບໍ່ຄົບ ໃຫ້ສະແກນຕໍ່
+            } else {
+                tempScanCodes.single = code;
+            }
+        } else if (currentStockInLevel === 2) {
+            if (currentScanStep === 1) {
+                tempScanCodes.small = code;
+                currentScanStep = 2;
+                updateStockInScannerTitle();
+                lockStockInScannerBriefly(statusBadge);
+                return; // ຍັງບໍ່ຄົບ ໃຫ້ສະແກນຕໍ່
+            } else {
+                tempScanCodes.single = code;
+            }
+        } else {
+            tempScanCodes.single = code;
+        }
+
+        // 🟢 ມາຮອດຈຸດນີ້ ຄືສະແກນຄົບທຸກຊັ້ນຕາມທີ່ເລືອກແລ້ວ!
+        closeStockInScanner();
+        
+        let inputLarge = document.getElementById('stock-in-code-large');
+        let inputSmall = document.getElementById('stock-in-code-small');
+        let inputSingle = document.getElementById('stock-in-code-single');
+        
+        // ເອົາຄ່າທີ່ສະແກນທັງໝົດໄປຍັດໃສ່ກ່ອງສີແດງໃນ Modal
+        if(inputLarge) inputLarge.value = tempScanCodes.large;
+        if(inputSmall) inputSmall.value = tempScanCodes.small;
+        if(inputSingle) inputSingle.value = tempScanCodes.single;
+        
+        let importDateInput = document.getElementById('stock-in-import-date');
+        let today = new Date();
+        let dd = String(today.getDate()).padStart(2, '0');
+        let mm = String(today.getMonth() + 1).padStart(2, '0');
+        let yyyy = today.getFullYear();
+        if (importDateInput) importDateInput.value = `${dd}/${mm}/${yyyy}`;
+
+        // ຄົ້ນຫາສິນຄ້າຈາກບາໂຄດໜ່ວຍຍ່ອຍສຸດ ຫຼື ບາໂຄດອື່ນໆທີ່ຫາກໍ່ສະແກນມາ
+        let searchCode = tempScanCodes.single || tempScanCodes.small || tempScanCodes.large || code;
+        let cleanCode = String(searchCode).trim().toLowerCase();
+        
+        let foundItem = excelRows.find(item => 
+            String(item.code_single || item.code || '').trim().toLowerCase() === cleanCode ||
+            String(item.code_small || '').trim().toLowerCase() === cleanCode ||
+            String(item.code_large || '').trim().toLowerCase() === cleanCode ||
+            String(item.name || '').trim().toLowerCase() === cleanCode
+        );
+
+        if (foundItem) {
+            // ຖ້າພົບສິນຄ້າເກົ່າ ໃຫ້ດຶງຂໍ້ມູນມາສະແດງທັງໝົດ
+            if(document.getElementById('stock-in-custom-name')) document.getElementById('stock-in-custom-name').value = foundItem.name || '';
+            
+            // ຖ້າກ່ອງໃດຫວ່າງເປົ່າ ແຕ່ໃນຖານຂໍ້ມູນມີ ກໍໃຫ້ດຶງມາໃສ່
+            if(inputLarge && !inputLarge.value) inputLarge.value = foundItem.code_large || '';
+            if(inputSmall && !inputSmall.value) inputSmall.value = foundItem.code_small || '';
+            if(inputSingle && !inputSingle.value) inputSingle.value = foundItem.code_single || foundItem.code || '';
+            
+            if(document.getElementById('price-large')) document.getElementById('price-large').value = formatNumberWithCommas(foundItem.price_large || 0);
+            if(document.getElementById('price-small')) document.getElementById('price-small').value = formatNumberWithCommas(foundItem.price_small || 0);
+            if(document.getElementById('price-single')) document.getElementById('price-single').value = formatNumberWithCommas(foundItem.price_single || foundItem.price || 0);
+            
+            if(document.getElementById('stock-in-cost')) document.getElementById('stock-in-cost').value = formatNumberWithCommas(foundItem.cost || 0);
+            
+            let qLarge = parseInt(foundItem.qty_in_large) || 24;
+            let qSmall = parseInt(foundItem.qty_in_small) || 6;
+            let packPerBox = Math.floor(qLarge / qSmall);
+            if(packPerBox < 1) packPerBox = 1;
+            
+            if(document.getElementById('qty-small-per-large')) document.getElementById('qty-small-per-large').value = packPerBox;
+            if(document.getElementById('qty-single-per-small')) document.getElementById('qty-single-per-small').value = qSmall;
+            
+            if(document.getElementById('stock-in-qty')) document.getElementById('stock-in-qty').value = '1';
+            
+            if(typeof calculateTotalUnit3Level === 'function') calculateTotalUnit3Level();
+        } else {
+            // ຖ້າເປັນສິນຄ້າໃໝ່ ໃຫ້ລ້າງຊ່ອງອື່ນໆให้ຫວ່າງ (ຍົກເວັ້ນບາໂຄດທີ່ເຮົາຍັດໃສ່ກ່ອງໄວ້ແລ້ວ)
+            if(document.getElementById('stock-in-custom-name')) document.getElementById('stock-in-custom-name').value = '';
+            if(document.getElementById('price-large')) document.getElementById('price-large').value = '';
+            if(document.getElementById('price-small')) document.getElementById('price-small').value = '';
+            if(document.getElementById('price-single')) document.getElementById('price-single').value = '';
+            if(document.getElementById('stock-in-cost')) document.getElementById('stock-in-cost').value = '';
+            
+            if(document.getElementById('qty-small-per-large')) document.getElementById('qty-small-per-large').value = '4'; 
+            if(document.getElementById('qty-single-per-small')) document.getElementById('qty-single-per-small').value = '6'; 
+            if(document.getElementById('stock-in-qty')) document.getElementById('stock-in-qty').value = '1';
+            
+            if(typeof calculateTotalUnit3Level === 'function') calculateTotalUnit3Level();
+            
+            let mfgDate = document.getElementById('stock-in-mfg-date');
+            if(mfgDate) mfgDate.value = '';
+            let expDate = document.getElementById('stock-in-exp-date');
+            if(expDate) expDate.value = '';
+        }
+
+        // ເປີດປ໋ອບອັບ Modal ສຸດທ້າຍຫຼັງຈາກສະແກນຄົບ
+        applyStockInLevelUI();
+        document.getElementById('stock-in-modal').classList.remove('hidden');
+        
+        // ໃຫ້ Cursor ໄປກະພິບລໍຖ້າຢູ່ຊ່ອງຈຳນວນ ຫຼື ຊ່ອງຊື່ສິນຄ້າ
+        setTimeout(() => {
+            if (foundItem) {
+                let qtyInput = document.getElementById('stock-in-qty');
+                if (qtyInput) qtyInput.focus();
+            } else {
+                let nameInput = document.getElementById('stock-in-custom-name');
+                if (nameInput) nameInput.focus();
+            }
+        }, 500);
+    }
 
 // ⭐️ ຟັງຊັນໃໝ່ສຳລັບຈັດການກົດ Enter (ເຄື່ອງສະແກນຍິງເຂົ້າ) ໃຫ້ເລື່ອນໄປກ່ອງຕໍ່ໄປອັດຕະໂນມັດ
 function handleBarcodeEnter(event, nextInputId) {
