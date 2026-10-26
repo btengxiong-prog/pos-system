@@ -3209,10 +3209,21 @@ function initFirebaseRealtime() {
             let val = input.value ? input.value.trim().toLowerCase() : "";
             if (val !== "") {
                 let exactMatches = excelRows.filter(item => {
-                    let itemCode = String(item.code || '').trim().toLowerCase();
-                    let itemName = String(item.name || '').trim().toLowerCase();
-                    return itemCode === val || itemName === val;
-                });
+    let itemName = String(item.name || '').trim().toLowerCase();
+    let isNameMatch = itemName === cleanCode;
+    
+    let isLargeMatch = String(item.code_large || '').trim().toLowerCase() === cleanCode;
+    let isSmallMatch = String(item.code_small || '').trim().toLowerCase() === cleanCode;
+    let isSingleMatch = String(item.code_single || '').trim().toLowerCase() === cleanCode;
+    
+    // ຖ້າກົງກັບອັນໃດອັນໜຶ່ງ ໃຫ້ບັນທຶກໄວ້ວ່າສະແກນຖືກຊັ້ນໃດ ເພື່ອດຶງລາຄາຖືກຕ້ອງ
+    if (isLargeMatch) item.scanned_level = 'large';
+    else if (isSmallMatch) item.scanned_level = 'small';
+    else if (isSingleMatch) item.scanned_level = 'single';
+    else if (isNameMatch) item.scanned_level = 'single'; // ຄ່າເລີ່ມຕົ້ນຖ້າພິມຊື່
+    
+    return isLargeMatch || isSmallMatch || isSingleMatch || isNameMatch;
+});
 
                 if (exactMatches.length > 1) {
                     let modal = document.getElementById('select-price-modal');
@@ -3336,51 +3347,79 @@ function initFirebaseRealtime() {
         }
 
         function processAndAddToCart(foundItem, addQty) {
-            let exactSellingPrice = parseFloat(String(foundItem.currentSellingPrice || foundItem.price || 0).replace(/,/g, '')) || 0;
-            let exactCost = parseFloat(String(foundItem.currentNewCost || foundItem.cost || 0).replace(/,/g, '')) || 0;
-            let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
+    let finalPrice = 0;
+    let finalCost = 0;
+    let deductQtyBase = 0; // ຈຳນວນຫົວໜ່ວຍຍ່ອຍສຸດ (ຂວດ/ປ໋ອງ) ທີ່ຈະຖືກຕັດອອກຈາກສະຕັອກ
+    let levelLabel = '';
 
-            let finalPrice = exactSellingPrice;
-            let finalCost = exactCost;
-            if (currentSaleType === 'retail' && unitPerPack > 1) {
-                let retailRawPrice = exactSellingPrice / unitPerPack;
-                finalPrice = Math.ceil(retailRawPrice / 1000) * 1000;
-                finalCost = exactCost / unitPerPack; // ⭐️ ແກ້ໄຂ: ຫານຕົ້ນທຶນສຳລັບຂາຍຍ່ອຍ
-            }
+    // 1. ກວດສອບວ່າບາໂຄດທີ່ສະແກນເຂົ້າມາ ກົງກັບຊັ້ນໃດ (ໄດ້ມາຈາກ handleSalesBarcodeScanned)
+    if (foundItem.scanned_level === 'large') {
+        finalPrice = parseFloat(String(foundItem.price_large || 0).replace(/,/g, '')) || 0;
+        finalCost = parseFloat(String(foundItem.cost_large || 0).replace(/,/g, '')) || 0;
+        deductQtyBase = (parseInt(foundItem.qty_in_large) || 24) * addQty; // ຕົວຢ່າງ: 1 ລາງ ມີ 24 ຂວດ
+        levelLabel = '(ແພັກໃຫຍ່/ລາງ)';
+        
+    } else if (foundItem.scanned_level === 'small') {
+        finalPrice = parseFloat(String(foundItem.price_small || 0).replace(/,/g, '')) || 0;
+        finalCost = parseFloat(String(foundItem.cost_small || 0).replace(/,/g, '')) || 0;
+        deductQtyBase = (parseInt(foundItem.qty_in_small) || 6) * addQty; // ຕົວຢ່າງ: 1 ແພັກ ມີ 6 ຂວດ
+        levelLabel = '(ແພັກນ້ອຍ/ຫໍ່)';
+        
+    } else {
+        // ກໍລະນີເປັນຂວດດ່ຽວ (single) ຫຼື ສະແກນບໍ່ກົງແຕ່ພິມຊື່ເອົາ
+        finalPrice = parseFloat(String(foundItem.price_single || foundItem.price || 0).replace(/,/g, '')) || 0;
+        finalCost = parseFloat(String(foundItem.cost_single || foundItem.cost || 0).replace(/,/g, '')) || 0;
+        deductQtyBase = 1 * addQty; // 1 ຂວດ = ຕັດສະຕັອກ 1
+        levelLabel = '(ຂວດ/ປ໋ອງ)';
+    }
 
-            let processedItem = {
-                ...foundItem,
-                cost: finalCost,    
-                price: finalPrice, 
-                saleType: currentSaleType
-            };
+    // 2. ສ້າງ Object ສິນຄ້າທີ່ຈະເອົາລົງກະຕ່າ
+    let processedItem = {
+        ...foundItem,
+        name: (foundItem.name || '') + " " + levelLabel,
+        cost: finalCost,    
+        price: finalPrice, 
+        saleType: foundItem.scanned_level || 'single', // ເກັບຊັ້ນຂອງການຂາຍແທນ currentSaleType ແບບເກົ່າ
+        deductBase: deductQtyBase // ⭐️ ສຳຄັນ: ເກັບຈຳນວນຍ່ອຍທີ່ຈະເອົາໄປຕັດສະຕັອກຕອນຈ່າຍເງິນ
+    };
 
-            let existingCartItem = continuousCart.find(i => i.id === processedItem.id && i.saleType === currentSaleType);
-            if (existingCartItem) {
-                existingCartItem.price = finalPrice; 
-                existingCartItem.qty += addQty;
-            } else {
-                continuousCart.push({ ...processedItem, qty: addQty });
-            }
+    // 3. ກວດສອບວ່າເຄີຍສະແກນລົງກະຕ່າແລ້ວບໍ່ (ຖ້າຊັ້ນດຽວກັນໃຫ້ບວກຈຳນວນຂຶ້ນ)
+    let existingCartItem = continuousCart.find(i => i.id === processedItem.id && i.saleType === processedItem.saleType);
+    if (existingCartItem) {
+        existingCartItem.price = finalPrice; 
+        existingCartItem.qty += addQty;
+        existingCartItem.deductBase += deductQtyBase; // ບວກຍອດຕັດສະຕັອກຂຶ້ນ
+    } else {
+        continuousCart.push({ ...processedItem, qty: addQty });
+    }
 
-            updateContinuousCartUI();
-            
-            // ⭐️ ດຶງຍອດເຕັມໃນສາງມາສະແດງຜົນ ໂດຍບໍ່ແອບລົບຫຍັງທັງສິ້ນ
-            let currentQty = parseFloat(String(foundItem.qty !== undefined ? foundItem.qty : 0).replace(/,/g, '')) || 0;
-            let totalAvailableSingles = Math.round(currentQty * unitPerPack);
-            
-            let packsX = Math.floor(totalAvailableSingles / unitPerPack);
-            let singlesY = totalAvailableSingles % unitPerPack;
-            let stockNoteDisplay = unitPerPack > 1 ? `${packsX}/${singlesY}` : `${packsX}`;
-            
-            let input = document.getElementById('scan-barcode-input');
-            let qtyInput = document.getElementById('scan-qty-input');
-            let stockDisplay = document.getElementById('scan-stock-display');
-            
-            if (input) input.value = foundItem.name || foundItem.code;
-            if (qtyInput) qtyInput.value = ""; // ຫວ່າງໄວ້ ເພື່ອໃຫ້ເປັນ 1 ອັດຕະໂນມັດ
-            if (stockDisplay) stockDisplay.value = stockNoteDisplay; // ຈະສະແດງ 90/0 ເຕັມໆ
-        }
+    // 4. ອັບເດດໜ້າຈໍກະຕ່າ
+    updateContinuousCartUI();
+    
+    // 5. ດຶງຍອດເຕັມໃນສາງມາສະແດງຜົນ (ຄຳນວນແຍກເປັນ ລາງ / ແພັກ / ຂວດ ໃຫ້ເຫັນຊັດເຈນ)
+    let currentTotalBaseQty = parseFloat(String(foundItem.stock_base_qty || foundItem.qty || 0).replace(/,/g, '')) || 0;
+    let qtyLarge = parseInt(foundItem.qty_in_large) || 24;
+    let qtySmall = parseInt(foundItem.qty_in_small) || 6;
+    
+    let remainingBase = currentTotalBaseQty;
+    let displayLarge = Math.floor(remainingBase / qtyLarge);
+    remainingBase = remainingBase % qtyLarge;
+    
+    let displaySmall = Math.floor(remainingBase / qtySmall);
+    let displaySingle = remainingBase % qtySmall;
+    
+    // ຮູບແບບສະແດງຜົນ: "10 ລາງ / 2 ແພັກ / 5 ຂວດ"
+    let stockNoteDisplay = `${displayLarge} ລາງ / ${displaySmall} ແພັກ / ${displaySingle} ຍ່ອຍ`;
+    
+    // 6. ອັບເດດຊ່ອງ Input ເທິງໜ້າຈໍ
+    let input = document.getElementById('scan-barcode-input');
+    let qtyInput = document.getElementById('scan-qty-input');
+    let stockDisplay = document.getElementById('scan-stock-display');
+    
+    if (input) input.value = processedItem.name;
+    if (qtyInput) qtyInput.value = ""; // ຫວ່າງໄວ້ ເພື່ອໃຫ້ສະແກນອັນຕໍ່ໄປເປັນ 1 ອັດຕະໂນມັດ
+    if (stockDisplay) stockDisplay.value = stockNoteDisplay;
+}
 
         function openSelectPriceModal(items, qty, queryStr) {
             pendingMultiPriceItems = items;
