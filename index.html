@@ -1144,8 +1144,8 @@
                         <input type="text" id="stock-in-custom-name" list="existing-product-names-list" class="w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-pink-500 font-semibold text-gray-800 bg-white" placeholder="ປ້ອນຊື່ສິນຄ້າ (ຖ້າມີ)">
                     </div>
 
-                    <!-- ⭐️ ສ່ວນຈຳນວນນຳເຂົ້າ ແລະ ຕົວຄູນ (1 ແພັກ ມີ: 24 ຂວດ) -->
-                    <div class="bg-gray-50 p-3 rounded-xl border border-gray-200 space-y-2 mt-2">
+                    <!-- ⭐️ ສ່ວນຈຳນວນນຳເຂົ້າ ແລະ ຕົວຄູນ (ຮອງຮັບ 1, 2 ແລະ 3 ຊັ້ນ) -->
+                    <div id="multiplier-section" class="bg-gray-50 p-3 rounded-xl border border-gray-200 space-y-2 mt-2">
                         <div class="flex items-center gap-2">
                             <label class="block text-xs font-bold text-gray-700 w-24">ຈຳນວນນຳເຂົ້າ:</label>
                             <input type="number" id="stock-in-qty" value="1" min="1" oninput="calculateTotalUnit3Level()" class="flex-1 border rounded-lg px-3 py-2 outline-none font-bold text-gray-800 text-sm bg-white focus:ring-2 focus:ring-pink-500" placeholder="ປ້ອນຈຳນວນ">
@@ -1156,13 +1156,20 @@
                             </select>
                         </div>
                         
+                        <div id="wrap-qty-small-per-large" class="flex items-center gap-2">
+                            <span class="text-[11px] font-bold text-gray-700 w-24">1 ລາງໃຫຍ່:</span>
+                            <input type="number" id="qty-small-per-large" value="4" min="1" oninput="calculateTotalUnit3Level()" class="w-16 border rounded-lg px-2 py-1.5 text-center font-bold text-blue-700 outline-none focus:ring-2 focus:ring-blue-500 bg-white text-xs">
+                            <span class="text-[11px] font-bold text-gray-700">ແພັກ</span>
+                        </div>
+
                         <div id="wrap-qty-single-per-small" class="flex items-center gap-2">
                             <span class="text-[11px] font-bold text-gray-700 w-24">1 ແພັກ ມີ:</span>
                             <input type="number" id="qty-single-per-small" value="24" min="1" oninput="calculateTotalUnit3Level()" class="w-16 border rounded-lg px-2 py-1.5 text-center font-bold text-blue-700 outline-none focus:ring-2 focus:ring-blue-500 bg-white text-xs">
                             <span class="text-[11px] font-bold text-gray-700">ຂວດ/ປ໋ອງ</span>
                         </div>
 
-                        <div class="flex items-center gap-2">
+                        <!-- ⭐️ ເພີ່ມ id="wrap-total-calculated" ໄວ້ຄວບຄຸມການສະແດງຜົນ -->
+                        <div id="wrap-total-calculated" class="flex items-center gap-2">
                             <label class="block text-[11px] font-bold text-pink-800 w-24">ເຂົ້າສາງ (ຍ່ອຍສຸດ):</label>
                             <input type="text" id="stock-in-total-calculated" readonly class="flex-1 border rounded-lg px-2 py-1.5 text-center font-extrabold text-pink-700 text-sm bg-pink-100 cursor-not-allowed" value="1">
                             <span class="text-[11px] text-gray-600">ຂວດ/ປ໋ອງ</span>
@@ -3361,33 +3368,42 @@ function calculateStockInPrice() {
         }
 
 // ⭐️ ຟັງຊັນຄຳນວນຈຳນວນສະຕັອກຍ່ອຍສຸດ ອີງຕາມຕົວຄູນຊັ້ນຕ່າງໆ
-function calculateTotalUnit3Level() {
-    let qtyEl = document.getElementById('stock-in-qty');
-    if (!qtyEl) return;
+        function calculateTotalUnit3Level() {
+            let qtyEl = document.getElementById('stock-in-qty');
+            if (!qtyEl) return;
 
-    let qty = parseInt(qtyEl.value) || 0;
-    let unitTypeEl = document.getElementById('import-unit-type');
-    let unitType = unitTypeEl ? unitTypeEl.value : 'single';
-    
-    let smallPerLargeEl = document.getElementById('qty-small-per-large');
-    let smallPerLarge = smallPerLargeEl ? (parseInt(smallPerLargeEl.value) || 1) : 1;
-    
-    let singlePerSmallEl = document.getElementById('qty-single-per-small');
-    let singlePerSmall = singlePerSmallEl ? (parseInt(singlePerSmallEl.value) || 1) : 1;
+            let qty = parseInt(qtyEl.value) || 0;
+            let unitTypeEl = document.getElementById('import-unit-type');
+            let unitType = unitTypeEl ? unitTypeEl.value : 'single';
+            
+            let smallPerLargeEl = document.getElementById('qty-small-per-large');
+            let smallPerLarge = smallPerLargeEl ? (parseInt(smallPerLargeEl.value) || 1) : 1;
+            
+            let singlePerSmallEl = document.getElementById('qty-single-per-small');
+            let singlePerSmall = singlePerSmallEl ? (parseInt(singlePerSmallEl.value) || 1) : 1;
 
-    let totalBase = 0;
-    // ຄຳນວນຈຳນວນຂວດທັງໝົດ ຕາມຫົວໜ່ວຍທີ່ນຳເຂົ້າ
-    if (unitType === 'large') {
-        totalBase = qty * smallPerLarge * singlePerSmall;
-    } else if (unitType === 'small') {
-        totalBase = qty * singlePerSmall;
-    } else {
-        totalBase = qty;
-    }
+            let totalBase = 0;
+            if (currentStockInLevel === 3) {
+                if (unitType === 'large') {
+                    totalBase = qty * smallPerLarge * singlePerSmall;
+                } else if (unitType === 'small') {
+                    totalBase = qty * singlePerSmall;
+                } else {
+                    totalBase = qty;
+                }
+            } else if (currentStockInLevel === 2) {
+                if (unitType === 'small') {
+                    totalBase = qty * singlePerSmall;
+                } else {
+                    totalBase = qty;
+                }
+            } else {
+                totalBase = qty;
+            }
 
-    let targetEl = document.getElementById('stock-in-total-calculated');
-    if (targetEl) targetEl.value = formatNumberWithCommas(totalBase);
-}
+            let targetEl = document.getElementById('stock-in-total-calculated');
+            if (targetEl) targetEl.value = formatNumberWithCommas(totalBase);
+        }
 
         function calculateTotalUnit() {
             let qtyEl = document.getElementById('stock-in-qty');
@@ -3518,22 +3534,38 @@ function calculateTotalUnit3Level() {
             
             let unitPerPackVal = parseInt(document.getElementById('qty-single-per-small')?.value) || 24;
 
-            let data = {
-                code: primaryCode, code_large: codeLarge, code_small: codeSmall, code_single: codeSingle,
-                name: document.getElementById('stock-in-custom-name')?.value.trim() || primaryCode,
-                cost: costVal, 
-                price: priceSingle, 
-                price_large: 0, price_small: 0, price_single: priceSingle,
-                qty_in_large: 0, 
-                qty_in_small: unitPerPackVal, 
-                stock_base_qty: totalBaseQty, 
-                qty: qtyInputVal,
-                unit_per_pack: unitPerPackVal,
-                stock_level: activeLevel,
-                profit_pct: profitPctVal,
-                date_added: importDate, mfg_date: mfgDate, expiry_date: expDate,
-                device_id: deviceId, updated_at: new Date().toISOString()
-            };
+            // ⭐️ ປັບປຸງ: แปลงລາຄາຊື້ທີ່ປ້ອນ ໃຫ້ເປັນ "ຕົ້ນທຶນຕໍ່ 1 ຫົວໜ່ວຍຍ່ອຍສຸດ (ປ໋ອງ/ຂວດ)" ເພື່ອຄວາມຖືກຕ້ອງ
+    let unitType = document.getElementById('import-unit-type')?.value || 'single';
+    let qtySmallPerLarge = parseInt(document.getElementById('qty-small-per-large')?.value) || 1;
+    let qtySinglePerSmall = parseInt(document.getElementById('qty-single-per-small')?.value) || 24;
+    let totalSinglePerLarge = qtySmallPerLarge * qtySinglePerSmall;
+
+    let baseUnitCost = costVal;
+    if (unitType === 'large') {
+        baseUnitCost = totalSinglePerLarge > 0 ? costVal / totalSinglePerLarge : costVal;
+    } else if (unitType === 'small') {
+        baseUnitCost = qtySinglePerSmall > 0 ? costVal / qtySinglePerSmall : costVal;
+    } else {
+        baseUnitCost = costVal;
+    }
+
+    let data = {
+        code: primaryCode, code_large: codeLarge, code_small: codeSmall, code_single: codeSingle,
+        name: document.getElementById('stock-in-custom-name')?.value.trim() || primaryCode,
+        cost: baseUnitCost, // ⭐️ ບັນທຶກເປັນຕົ້ນທຶນຕໍ່ຫົວໜ່ວຍຍ່ອຍສຸດ
+        original_cost: baseUnitCost,
+        price: priceSingle, 
+        price_large: 0, price_small: 0, price_single: priceSingle,
+        qty_in_large: totalSinglePerLarge, 
+        qty_in_small: qtySinglePerSmall, 
+        stock_base_qty: totalBaseQty, 
+        qty: qtyInputVal,
+        unit_per_pack: totalSinglePerLarge,
+        stock_level: activeLevel,
+        profit_pct: profitPctVal,
+        date_added: importDate, mfg_date: mfgDate, expiry_date: expDate,
+        device_id: deviceId, updated_at: new Date().toISOString()
+    };
 
             if (db) await db.collection("products").add(data);
             closeStockInModal();
@@ -3702,7 +3734,8 @@ function calculateTotalUnit3Level() {
                 }
 
                 levelsToPrint.forEach((lvl, idx) => {
-                    let lvlOrigCost = originalCostVal * lvl.qtyMultiplier;
+                    // ⭐️ ປັບປຸງ: ເອົາຕົ້ນທຶນຕໍ່ຫົວໜ່ວຍຍ່ອຍສຸດ ມາຄູນກັບຕົວຄູນຂອງຊັ້ນນັ້ນໆຢ່າງຖືກຕ້ອງ
+                    let lvlOrigCost = Math.round(originalCostVal * lvl.qtyMultiplier);
                     let lvlNewCost = Math.ceil((lvlOrigCost * (importBuyRate > 0 ? currentBuyRate / importBuyRate : 1)) / 1000) * 1000;
                     
                     let lvlOrigPrice = lvl.origPrice;
@@ -6041,8 +6074,10 @@ async function processStockIn(shouldMerge) {
             let wrapCodeSmall = document.getElementById('wrap-code-small');
             let wrapCodeSingle = document.getElementById('wrap-code-single');
             
-            let wrapPriceLarge = document.getElementById('wrap-price-large');
-            let wrapPriceSmall = document.getElementById('wrap-price-small');
+            let wrapQtyLarge = document.getElementById('wrap-qty-small-per-large');
+            let wrapQtySmall = document.getElementById('wrap-qty-single-per-small');
+            let wrapTotalCalc = document.getElementById('wrap-total-calculated');
+            let multiplierSection = document.getElementById('multiplier-section');
             
             let unitSelect = document.getElementById('import-unit-type');
             let labelBarcode = document.getElementById('barcode-level-label');
@@ -6050,54 +6085,57 @@ async function processStockIn(shouldMerge) {
 
             if(labelBarcode) labelBarcode.innerHTML = `🏷️ ຈັດການບາໂຄດ ${currentStockInLevel} ຊັ້ນ (ສະແກນ ຫຼື ພິມໃສ່):`;
 
+            if (multiplierSection) multiplierSection.classList.remove('hidden');
+
             if (currentStockInLevel === 1) {
-                // 1 ຊັ້ນ: ໂຊສະເພາະຂວດ/ປ໋ອງ (Single)
+                // ⭐️ 1 ຊັ້ນ:
                 if (wrapCodeLarge) wrapCodeLarge.classList.add('hidden');
                 if (wrapCodeSmall) wrapCodeSmall.classList.add('hidden');
                 if (wrapCodeSingle) wrapCodeSingle.classList.remove('hidden');
-                
-                if (wrapPriceLarge) wrapPriceLarge.classList.add('hidden');
-                if (wrapPriceSmall) wrapPriceSmall.classList.add('hidden');
                 if (hintText) hintText.classList.add('hidden');
                 
-                document.getElementById('qty-small-per-large').value = 1;
-                document.getElementById('qty-single-per-small').value = 1;
+                if (wrapQtyLarge) wrapQtyLarge.classList.add('hidden');
+                if (wrapQtySmall) wrapQtySmall.classList.add('hidden');
+                
+                // ⭐️ ແກ້ໄຂ: ສຳລັບ 1 ຊັ້ນ, ໃຫ້ເຊື່ອງກ່ອງ "ເຂົ້າສາງ (ຍ່ອຍສຸດ)" ອອກໄປເລີຍ
+                if (wrapTotalCalc) wrapTotalCalc.classList.add('hidden'); 
                 
                 if (unitSelect) {
-                    Array.from(unitSelect.options).forEach(opt => opt.hidden = (opt.value !== 'single'));
+                    unitSelect.classList.add('hidden');
                     unitSelect.value = 'single';
                 }
             } else if (currentStockInLevel === 2) {
-                // 2 ຊັ້ນ: ໂຊແພັກ/ຫໍ່ (Small) ແລະ ຂວດ/ປ໋ອງ (Single)
+                // ⭐️ 2 ຊັ້ນ:
                 if (wrapCodeLarge) wrapCodeLarge.classList.add('hidden');
                 if (wrapCodeSmall) wrapCodeSmall.classList.remove('hidden');
                 if (wrapCodeSingle) wrapCodeSingle.classList.remove('hidden');
-                
-                if (wrapPriceLarge) wrapPriceLarge.classList.add('hidden');
-                if (wrapPriceSmall) wrapPriceSmall.classList.remove('hidden');
                 if (hintText) hintText.classList.add('hidden');
                 
-                document.getElementById('qty-small-per-large').value = 1;
+                if (wrapQtyLarge) wrapQtyLarge.classList.add('hidden');
+                if (wrapQtySmall) wrapQtySmall.classList.remove('hidden');
+                if (wrapTotalCalc) wrapTotalCalc.classList.remove('hidden');
                 
                 if (unitSelect) {
+                    unitSelect.classList.remove('hidden');
                     Array.from(unitSelect.options).forEach(opt => opt.hidden = (opt.value === 'large'));
                     if (unitSelect.value === 'large') unitSelect.value = 'small';
                 }
             } else {
-                // 3 ຊັ້ນ: ໂຊຄົບທັງໝົດ ລາງ, ແພັກ, ຂວດ
+                // ⭐️ 3 ຊັ້ນ:
                 if (wrapCodeLarge) wrapCodeLarge.classList.remove('hidden');
                 if (wrapCodeSmall) wrapCodeSmall.classList.remove('hidden');
                 if (wrapCodeSingle) wrapCodeSingle.classList.remove('hidden');
-                
-                if (wrapPriceLarge) wrapPriceLarge.classList.remove('hidden');
-                if (wrapPriceSmall) wrapPriceSmall.classList.remove('hidden');
                 if (hintText) hintText.classList.remove('hidden');
                 
+                if (wrapQtyLarge) wrapQtyLarge.classList.remove('hidden');
+                if (wrapQtySmall) wrapQtySmall.classList.remove('hidden');
+                if (wrapTotalCalc) wrapTotalCalc.classList.remove('hidden');
+                
                 if (unitSelect) {
+                    unitSelect.classList.remove('hidden');
                     Array.from(unitSelect.options).forEach(opt => opt.hidden = false);
                 }
             }
-            
             if(typeof calculateTotalUnit3Level === 'function') calculateTotalUnit3Level();
         }
 
@@ -6147,13 +6185,29 @@ async function processStockIn(shouldMerge) {
             let unitTypeEl = document.getElementById('import-unit-type');
             let unitType = unitTypeEl ? unitTypeEl.value : 'single';
             
+            let smallPerLargeEl = document.getElementById('qty-small-per-large');
+            let smallPerLarge = smallPerLargeEl ? (parseInt(smallPerLargeEl.value) || 1) : 1;
+            
             let singlePerSmallEl = document.getElementById('qty-single-per-small');
-            let singlePerSmall = singlePerSmallEl ? (parseInt(singlePerSmallEl.value) || 24) : 24;
+            let singlePerSmall = singlePerSmallEl ? (parseInt(singlePerSmallEl.value) || 1) : 1;
 
             let totalBase = 0;
-            if (unitType === 'large' || unitType === 'small') {
-                totalBase = qty * singlePerSmall;
+            if (currentStockInLevel === 3) {
+                if (unitType === 'large') {
+                    totalBase = qty * smallPerLarge * singlePerSmall;
+                } else if (unitType === 'small') {
+                    totalBase = qty * singlePerSmall;
+                } else {
+                    totalBase = qty;
+                }
+            } else if (currentStockInLevel === 2) {
+                if (unitType === 'small') {
+                    totalBase = qty * singlePerSmall;
+                } else {
+                    totalBase = qty;
+                }
             } else {
+                // 1 ຊັ້ນ: ຈຳນວນນຳເຂົ້າເທົ່າກັບເຂົ້າສາງຍ່ອຍສຸດໂດຍົງ
                 totalBase = qty;
             }
 
@@ -6166,27 +6220,48 @@ async function processStockIn(shouldMerge) {
             let wrapCodeLarge = document.getElementById('wrap-code-large');
             let wrapCodeSmall = document.getElementById('wrap-code-small');
             let wrapCodeSingle = document.getElementById('wrap-code-single');
+            
+            let wrapQtyLarge = document.getElementById('wrap-qty-small-per-large');
+            let wrapQtySmall = document.getElementById('wrap-qty-single-per-small');
+            let wrapTotalCalc = document.getElementById('wrap-total-calculated');
+            let multiplierSection = document.getElementById('multiplier-section');
+            
             let unitSelect = document.getElementById('import-unit-type');
             let labelBarcode = document.getElementById('barcode-level-label');
             let hintText = document.getElementById('barcode-hint-text');
 
             if(labelBarcode) labelBarcode.innerHTML = `🏷️ ຈັດການບາໂຄດ ${currentStockInLevel} ຊັ້ນ (ສະແກນ ຫຼື ພິມໃສ່):`;
 
+            if (multiplierSection) multiplierSection.classList.remove('hidden');
+
             if (currentStockInLevel === 1) {
                 if (wrapCodeLarge) wrapCodeLarge.classList.add('hidden');
                 if (wrapCodeSmall) wrapCodeSmall.classList.add('hidden');
                 if (wrapCodeSingle) wrapCodeSingle.classList.remove('hidden');
                 if (hintText) hintText.classList.add('hidden');
+                
+                if (wrapQtyLarge) wrapQtyLarge.classList.add('hidden');
+                if (wrapQtySmall) wrapQtySmall.classList.add('hidden');
+                
+                // ⭐️ ແກ້ໄຂແລ້ວ: ສຳລັບ 1 ຊັ້ນ ໃຫ້ເຊື່ອງກ່ອງ "ເຂົ້າສາງ (ຍ່ອຍສຸດ)" ອອກໄປເລີຍ
+                if (wrapTotalCalc) wrapTotalCalc.classList.add('hidden'); 
+                
                 if (unitSelect) {
-                    Array.from(unitSelect.options).forEach(opt => opt.hidden = (opt.value !== 'single'));
-                    unitSelect.value = 'single';
+                    unitSelect.classList.add('hidden');
+                    unitSelect.value = 'single'; 
                 }
             } else if (currentStockInLevel === 2) {
                 if (wrapCodeLarge) wrapCodeLarge.classList.add('hidden');
                 if (wrapCodeSmall) wrapCodeSmall.classList.remove('hidden');
                 if (wrapCodeSingle) wrapCodeSingle.classList.remove('hidden');
                 if (hintText) hintText.classList.add('hidden');
+                
+                if (wrapQtyLarge) wrapQtyLarge.classList.add('hidden');
+                if (wrapQtySmall) wrapQtySmall.classList.remove('hidden');
+                if (wrapTotalCalc) wrapTotalCalc.classList.remove('hidden');
+                
                 if (unitSelect) {
+                    unitSelect.classList.remove('hidden');
                     Array.from(unitSelect.options).forEach(opt => opt.hidden = (opt.value === 'large'));
                     if (unitSelect.value === 'large') unitSelect.value = 'small';
                 }
@@ -6195,7 +6270,13 @@ async function processStockIn(shouldMerge) {
                 if (wrapCodeSmall) wrapCodeSmall.classList.remove('hidden');
                 if (wrapCodeSingle) wrapCodeSingle.classList.remove('hidden');
                 if (hintText) hintText.classList.remove('hidden');
+                
+                if (wrapQtyLarge) wrapQtyLarge.classList.remove('hidden');
+                if (wrapQtySmall) wrapQtySmall.classList.remove('hidden');
+                if (wrapTotalCalc) wrapTotalCalc.classList.remove('hidden');
+                
                 if (unitSelect) {
+                    unitSelect.classList.remove('hidden');
                     Array.from(unitSelect.options).forEach(opt => opt.hidden = false);
                 }
             }
