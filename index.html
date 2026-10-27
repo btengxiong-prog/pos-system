@@ -858,17 +858,9 @@
             <div id="reader" class="w-full max-w-md mx-auto"></div>
             
             <div class="mt-4 p-3 bg-blue-50 rounded-xl border border-blue-200 text-left space-y-2">
-                <div class="flex justify-between items-center mb-1">
-                    <label class="block text-xs font-bold text-blue-900">⌨️ ປ້ອນລະຫັດ Barcode ແລະ ຈຳນວນທີ່ຕ້ອງການຂາຍ:</label>
-                    <div class="flex items-center gap-2">
-                        <button type="button" id="toggle-sale-mode-btn" onclick="toggleSaleMode()" class="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow transition flex items-center gap-1">
-                            📦 ຂາຍສົ່ງ
-                        </button>
-                        <button type="button" onclick="submitManualCartSale()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow transition">
-                            ✅ ຕົກລົງ
-                        </button>
-                    </div>
-                </div>
+            <div class="flex justify-between items-center mb-1">
+                <label class="block text-xs font-bold text-blue-900">⌨️ ສະແກນ QR Code / Barcode ຫຼື ປ້ອນລະຫັດ:</label>
+            </div>
                 
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <div>
@@ -4765,20 +4757,21 @@ function closeScanner() {
         function renderExcelTable() {
             let tbody = document.getElementById('excel-tbody');
             if (!tbody) return;
-            if (!excelRows || excelRows.length === 0) {
+            let printableItems = getPrintableCodesList();
+            if (printableItems.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນສາງ</td></tr>`;
                 return;
             }
             let html = '';
             let index = 1;
-            excelRows.forEach((row) => {
+            printableItems.forEach((row) => {
                 html += `
                     <tr class="border-b">
                         <td class="p-2.5 border-r text-center text-xs font-bold text-gray-500">${index++}</td>
                         <td class="p-2.5 border-r text-center font-mono font-bold text-blue-600 text-xs">${row.code || '-'}</td>
                         <td class="p-2.5 border-r font-bold text-gray-900 text-xs">${row.name || '-'}</td>
-                        <td class="p-2.5 border-r text-center font-semibold text-xs">${Math.round(parseFloat(row.initial_qty !== undefined ? row.initial_qty : row.qty) || 1)}</td>
-                        <td class="p-2.5 border-r text-right font-semibold text-blue-700 text-xs">${formatNumberWithCommas(row.cost || 0)}</td>
+                        <td class="p-2.5 border-r text-center font-semibold text-xs">1</td>
+                        <td class="p-2.5 border-r text-right font-semibold text-blue-700 text-xs">-</td>
                         <td class="p-2.5 text-right font-semibold text-green-700 text-xs">${formatNumberWithCommas(row.price || 0)}</td>
                     </tr>
                 `;
@@ -4790,13 +4783,14 @@ function closeScanner() {
         function generateExcelCodes() {
             let previewContainer = document.getElementById('excel-preview-cards');
             if (!previewContainer) return;
-            if (!excelRows || excelRows.length === 0) {
+            let printableItems = getPrintableCodesList();
+            if (printableItems.length === 0) {
                 previewContainer.innerHTML = `<p class="text-center text-gray-400 col-span-3">ບໍ່ມີຂໍ້ມູນສິນຄ້າສຳລັບສ້າງປ້າຍ</p>`;
                 return;
             }
 
             let html = '';
-            excelRows.forEach((row, idx) => {
+            printableItems.forEach((row, idx) => {
                 let codeVal = row.code || 'POS000';
                 let nameVal = row.name || 'ສິນຄ້າ';
                 let canvasId = `code-canvas-${idx}`;
@@ -4813,7 +4807,7 @@ function closeScanner() {
             });
             previewContainer.innerHTML = html;
 
-            excelRows.forEach((row, idx) => {
+            printableItems.forEach((row, idx) => {
                 let codeVal = row.code || 'POS000';
                 let canvasId = `code-canvas-${idx}`;
                 if (currentCodeType === 'qrcode') {
@@ -6456,6 +6450,50 @@ let previousUnitType = 'large';
             if (lblCost) lblCost.innerText = `ລາຄາຊື້ຕໍ່ 1 ${unitName} (ກີບ):`;
             if (lblPrice) lblPrice.innerText = `ລາຄາຂາຍຕໍ່ 1 ${unitName} (ກີບ):`;
         }
+
+function getPrintableCodesList() {
+            let list = [];
+            if (!excelRows || excelRows.length === 0) return list;
+
+            excelRows.forEach(row => {
+                let activeLevel = parseInt(row.stock_level);
+                if (isNaN(activeLevel)) {
+                    if ((row.code_large && row.code_large.trim() !== '' && row.code_large !== '-')) activeLevel = 3;
+                    else if ((row.code_small && row.code_small.trim() !== '' && row.code_small !== '-')) activeLevel = 2;
+                    else activeLevel = 1;
+                }
+
+                let codeLargeStr = (row.code_large || '').trim();
+                let codeSmallStr = (row.code_small || '').trim();
+                let codeSingleStr = (row.code_single || row.code || '').trim();
+
+                if (activeLevel === 3) {
+                    if (codeLargeStr && codeLargeStr !== '-') {
+                        list.push({ code: codeLargeStr, name: `${row.name || '-'} (ລາງ/ແພັກໃຫຍ່)`, price: row.price_large || row.price || 0 });
+                    }
+                    if (codeSmallStr && codeSmallStr !== '-') {
+                        list.push({ code: codeSmallStr, name: `${row.name || '-'} (ແພັກ/ຫໍ່)`, price: row.price_small || row.price || 0 });
+                    }
+                    if (codeSingleStr && codeSingleStr !== '-') {
+                        list.push({ code: codeSingleStr, name: `${row.name || '-'} (ຂວດ/ປ໋ອງ)`, price: row.price_single || row.price || 0 });
+                    }
+                } else if (activeLevel === 2) {
+                    let topCode = codeSmallStr !== '' ? codeSmallStr : (codeLargeStr !== '' ? codeLargeStr : '');
+                    if (topCode && topCode !== '-') {
+                        list.push({ code: topCode, name: `${row.name || '-'} (ແພັກ/ຫໍ່)`, price: row.price_small || row.price || 0 });
+                    }
+                    if (codeSingleStr && codeSingleStr !== '-') {
+                        list.push({ code: codeSingleStr, name: `${row.name || '-'} (ຂວດ/ປ໋ອງ)`, price: row.price_single || row.price || 0 });
+                    }
+                } else {
+                    if (codeSingleStr && codeSingleStr !== '-') {
+                        list.push({ code: codeSingleStr, name: `${row.name || '-'} (ຂວດ/ປ໋ອງ)`, price: row.price_single || row.price || 0 });
+                    }
+                }
+            });
+            return list;
+        }
+
     </script>
 </body>
 </html>
