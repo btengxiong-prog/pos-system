@@ -4277,10 +4277,8 @@ function closeScanner() {
             let qtyInput = document.getElementById('scan-qty-input');
             let input = document.getElementById('scan-barcode-input');
             
-            // ⭐️ ຖ້າສະແກນຜ່ານກ້ອງ (inputQty ເປັນ null) ແມ່ນໃຫ້ຖືວ່າເປັນສິນຄ້າໃໝ່ທັນທີ
-            // ລ້າງປ່ອງຈຳນວນຖິ້ມ ເພື່ອໃຫ້ລາຍການໃໝ່ເລີ່ມຕົ້ນທີ່ 1 ສະເໝີ (ແກ້ໄຂບັນຫາຈຳນວນຄ້າງ)
+            // ⭐️ ໃຫ້ລ້າງສະເພາະຊ່ອງປ້ອນຊື່ສິນຄ້າ/ບາໂຄດ ແຕ່ຮັກສາຄ່າຈຳນວນ (qtyInput) ໄວ້ ເພື່ອໃຫ້ຜູ້ໃຊ້ປ້ອນຈຳນວນຫຼາຍກວ່າ 1 ໄດ້
             if (inputQty === null) {
-                if (qtyInput) qtyInput.value = "";
                 if (input) input.value = ""; // ລ້າງຊື່ເກົ່າອອກເພື່ອກຽມຮັບຊື່ໃໝ່
             }
 
@@ -5344,21 +5342,47 @@ function checkLowStockAlertStatus() {
                     }
                 }
 
-                // 2. ຄິດໄລ່ສະຕັອກສະແດງຜົນໜ້າຈໍ (ດຶງຍອດເຕັມມາເລີຍ ບໍ່ລົບຈຳນວນໃນກະຕ່າ)
+                // 2. ຄິດໄລ່ສະຕັອກສະແດງຜົນໜ້າຈໍ ຕາມຊັ້ນສິນຄ້າ (3 ຊັ້ນ, 2 ຊັ້ນ ຫຼື 1 ຊັ້ນ) ໃຫ້ກົງກັບຕາຕະລາງສາງ 100%
                 let currentQty = parseFloat(String(foundItem.qty !== undefined ? foundItem.qty : 0).replace(/,/g, '')) || 0;
                 let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
-                let totalAvailableSingles = Math.round(currentQty * unitPerPack);
                 
-                // ຖ້າຊ່ອງຫວ່າງເປົ່າ ໃຫ້ລົບອອກ 0 (ເພື່ອໃຫ້ເຫັນຍອດເຕັມ 90/0)
-                let visualDeduct = (rawQtyText === "" || isNaN(rawQtyText)) ? 0 : parseFloat(rawQtyText);
-                let inputSingles = currentSaleType === 'wholesale' ? (visualDeduct * unitPerPack) : visualDeduct;
+                let totalSingles = 0;
+                if (foundItem.stock_base_qty !== undefined && foundItem.stock_base_qty !== null && foundItem.stock_base_qty !== '') {
+                    totalSingles = parseFloat(foundItem.stock_base_qty);
+                } else {
+                    totalSingles = Math.round(currentQty * unitPerPack);
+                }
 
-                // ຍອດທີ່ຈະສະແດງ = ຍອດເຕັມໃນສາງ - ຕົວເລກທີ່ພິມໃນຊ່ອງ
-                let remainingSingles = Math.max(0, totalAvailableSingles - inputSingles);
+                let qtyLarge = parseInt(foundItem.qty_in_large) || 24;
+                let qtySmall = parseInt(foundItem.qty_in_small) || 6;
                 
-                let packsX = Math.floor(remainingSingles / unitPerPack);
-                let singlesY = remainingSingles % unitPerPack;
-                stockDisplay.value = unitPerPack > 1 ? `${packsX}/${singlesY}` : `${packsX}`;
+                let activeLevel = parseInt(foundItem.stock_level);
+                if (isNaN(activeLevel)) {
+                    if ((foundItem.code_large && foundItem.code_large.trim() !== '' && foundItem.code_large !== '-')) activeLevel = 3;
+                    else if ((foundItem.code_small && foundItem.code_small.trim() !== '' && foundItem.code_small !== '-')) activeLevel = 2;
+                    else activeLevel = 1;
+                }
+
+                let visualDeduct = (rawQtyText === "" || isNaN(rawQtyText)) ? 0 : parseFloat(rawQtyText);
+                let remainingSingles = Math.max(0, totalSingles - visualDeduct);
+                
+                let dispLarge = 0, dispSmall = 0, dispSingle = 0;
+                if (activeLevel === 3) {
+                    dispLarge = Math.floor(remainingSingles / qtyLarge);
+                    let rem = remainingSingles % qtyLarge;
+                    dispSmall = Math.floor(rem / qtySmall);
+                    dispSingle = rem % qtySmall;
+                    stockDisplay.value = `${dispLarge} ລາງ / ${dispSmall} ແພັກ / ${dispSingle} ຍ່ອຍ`;
+                } else if (activeLevel === 2) {
+                    let packDivisor = (qtySmall > 0) ? qtySmall : unitPerPack;
+                    if (packDivisor <= 1) packDivisor = 6;
+                    dispSmall = Math.floor(remainingSingles / packDivisor);
+                    dispSingle = remainingSingles % packDivisor;
+                    stockDisplay.value = `${dispSmall} ແພັກ / ${dispSingle} ຍ່ອຍ`;
+                } else {
+                    dispSingle = remainingSingles;
+                    stockDisplay.value = `${dispSingle} ຍ່ອຍ`;
+                }
             } else {
                 stockDisplay.value = "-";
             }
