@@ -4247,16 +4247,16 @@ function closeScanner() {
             let qtyInput = document.getElementById('scan-qty-input');
             let stockDisplay = document.getElementById('scan-stock-display');
             
-            // ຢືນຢັນອັບເດດຄ່າລົງກະຕ່າຄັ້ງສຸດທ້າຍ
             updateStockDisplayOnQtyChange();
             
-            // ລ້າງຊ່ອງປ້ອນຂໍ້ມູນ ເພື່ອກຽມສະແກນສິນຄ້າຕົວຕໍ່ໄປ
+            // ⭐️ ລ້າງຄ່າ active ເພື່ອກຽມຮັບການສະແກນລາຍການໃໝ່
+            window.activeScanItem = null;
+            window.explicitlySelectedItemId = null;
+            
             if (input) input.value = "";
             if (qtyInput) qtyInput.value = "";
             if (stockDisplay) stockDisplay.value = "";
-            window.explicitlySelectedItemId = null;
             
-            // ໃຫ້ Cursor กลับໄປກະພິບຢູ່ຊ່ອງສະແກນບາໂຄດພ້ອມສະແກນຕໍ່ທັນທີ
             if (input) input.focus();
         }
 
@@ -4356,10 +4356,13 @@ function closeScanner() {
         }
 
         function processAndAddToCart(foundItem, addQty) {
-    let finalPrice = 0;
-    let finalCost = 0;
-    let deductQtyBase = 0; // ຈຳນວນຫົວໜ່ວຍຍ່ອຍສຸດ (ຂວດ/ປ໋ອງ) ທີ່ຈະຖືກຕັດອອກຈາກສະຕັອກ
-    let levelLabel = '';
+        window.activeScanItem = foundItem; // ⭐️ ຈື່ຈຳສິນຄ້າທີ່ກຳລັງສະແກນຢູ່ປັດຈຸບັນຢ່າງແນ່ນອນ 100%
+        window.explicitlySelectedItemId = foundItem.id;
+
+        let finalPrice = 0;
+        let finalCost = 0;
+        let deductQtyBase = 0;
+        let levelLabel = '';
 
     // 1. ກວດສອບວ່າບາໂຄດທີ່ສະແກນເຂົ້າມາ ກົງກັບຊັ້ນໃດ (ໄດ້ມາຈາກ handleSalesBarcodeScanned)
     if (foundItem.scanned_level === 'large') {
@@ -5330,21 +5333,20 @@ function checkLowStockAlertStatus() {
             let input = document.getElementById('scan-barcode-input');
             let stockDisplay = document.getElementById('scan-stock-display');
             let qtyInput = document.getElementById('scan-qty-input');
-            if (!input || !stockDisplay) return;
+            if (!stockDisplay) return;
 
-            let val = input.value ? input.value.trim().toLowerCase() : "";
-            
             let foundItem = null;
-            if (window.explicitlySelectedItemId) {
+            if (window.activeScanItem) {
+                foundItem = window.activeScanItem; // ດຶງຈາກສິນຄ້າທີ່ກຳລັງສະແກນປັດຈຸບັນ
+            } else if (window.explicitlySelectedItemId) {
                 foundItem = excelRows.find(i => i.id === window.explicitlySelectedItemId);
-            }
-            if (!foundItem && val !== "") {
+            } else if (input && input.value.trim() !== "") {
+                let val = input.value.trim().toLowerCase();
                 foundItem = excelRows.find(item => 
                     String(item.code).trim().toLowerCase() === val || 
                     (item.name && item.name.trim().toLowerCase() === val)
                 );
-            }
-            if (!foundItem && continuousCart.length > 0) {
+            } else if (continuousCart.length > 0) {
                 let lastCartItem = continuousCart[continuousCart.length - 1];
                 foundItem = excelRows.find(i => i.id === lastCartItem.id);
             }
@@ -5352,11 +5354,11 @@ function checkLowStockAlertStatus() {
             if (foundItem) {
                 let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
                 
-                // 1. ⭐️ ອັບເດດຈຳນວນໃນກະຕ່າທັນທີໂດຍອ້າງອີງຕາມ ID (ບໍ່ຈຳກັດ saleType ເພື່ອໃຫ້ອັບເດດໄດ້ສະເໝີ)
+                // 1. ອັບເດດຈຳນວນລົງໃນກະຕ່າທັນທີແບບ Realtime
                 let typingQty = (rawQtyText === "" || isNaN(rawQtyText) || parseFloat(rawQtyText) <= 0) ? 1 : parseFloat(rawQtyText);
                 
                 if (typeof continuousCart !== 'undefined' && continuousCart.length > 0) {
-                    let targetCartItem = continuousCart.find(i => i.id === foundItem.id) || continuousCart[continuousCart.length - 1];
+                    let targetCartItem = continuousCart.find(i => i.id === foundItem.id);
                     if (targetCartItem) {
                         targetCartItem.qty = typingQty; 
                         updateContinuousCartUI(); 
