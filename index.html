@@ -2148,7 +2148,19 @@ function initFirebaseRealtime() {
                             mfg_date: item.mfg_date || item.mfgDate || '',
                             expiry_date: item.expiry_date || item.expiryDate || '',
                             currency: item.currency || 'ກີບ',
-                            device_id: rowDevId
+                            device_id: rowDevId,
+                            
+                            // ⭐️ ເພີ່ມຂໍ້ມູນຊັ້ນສິນຄ້າ (3 ຊັ້ນ) ເພື່ອໃຫ້ຕາຕະລາງ Inventory ແລະ ການຂາຍ ສະແດງຜົນແຖວໄດ້ຖືກຕ້ອງ 100%
+                            code_large: item.code_large || '',
+                            code_small: item.code_small || '',
+                            code_single: item.code_single || item.code || '',
+                            price_large: parseFloat(item.price_large) || 0,
+                            price_small: parseFloat(item.price_small) || 0,
+                            price_single: parseFloat(item.price_single || item.price) || 0,
+                            qty_in_large: parseInt(item.qty_in_large) || 0,
+                            qty_in_small: parseInt(item.qty_in_small) || 0,
+                            stock_level: item.stock_level !== undefined ? parseInt(item.stock_level) : undefined,
+                            stock_base_qty: item.stock_base_qty !== undefined ? parseFloat(item.stock_base_qty) : undefined
                         });
                     });
 
@@ -2830,6 +2842,13 @@ function initFirebaseRealtime() {
                     if (lvlOrigPrice === 0) lvlOrigPrice = Math.ceil((lvlOrigCost * (1 + profitPct / 100)) / 1000) * 1000;
                     let lvlNewPrice = Math.ceil((lvlNewCost * (1 + profitPct / 100)) / 1000) * 1000;
 
+                    // ⭐️ ກວດສອບ: ຖ້າຈຳນວນໃນຊັ້ນນີ້ເປັນ 0, ໃຫ້ສະແດງເຄື່ອງໝາຍ "-" ບໍ່ໃຫ້ສະແດງຈຳນວນເງິນ
+                    let hasStock = lvl.displayQtyNum > 0;
+                    let strOrigCost = hasStock ? formatNumberWithCommas(lvlOrigCost) : '-';
+                    let strOrigPrice = hasStock ? formatNumberWithCommas(lvlOrigPrice) : '-';
+                    let strNewCost = hasStock ? formatNumberWithCommas(lvlNewCost) : '-';
+                    let strNewPrice = hasStock ? formatNumberWithCommas(lvlNewPrice) : '-';
+
                     let isFirstInGroup = (idx === 0);
                     let codeHtml = `<span class="text-[11px] text-gray-500 mr-1">${lvl.label}</span> <span class="text-blue-600 font-mono">${lvl.code}</span>`;
 
@@ -2853,10 +2872,10 @@ function initFirebaseRealtime() {
                         html += `<td class="p-2 border-r"></td><td class="p-2 border-r"></td><td class="p-2 border-r"></td><td class="p-2 border-r"></td><td class="p-2 border-r"></td>`;
                     }
 
-                    html += `<td class="p-2 border-r text-right text-blue-600 font-semibold">${formatNumberWithCommas(lvlOrigCost)}</td>`;
-                    html += `<td class="p-2 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(lvlOrigPrice)}</td>`;
-                    html += `<td class="p-2 border-r text-right font-bold text-blue-800 bg-blue-50/30">${formatNumberWithCommas(lvlNewCost)}</td>`;
-                    html += `<td class="p-2 border-r text-right font-bold text-green-800 bg-green-50/30">${formatNumberWithCommas(lvlNewPrice)}</td>`;
+                    html += `<td class="p-2 border-r text-right text-blue-600 font-semibold">${strOrigCost}</td>`;
+                    html += `<td class="p-2 border-r text-right text-green-600 font-semibold">${strOrigPrice}</td>`;
+                    html += `<td class="p-2 border-r text-right font-bold text-blue-800 bg-blue-50/30">${strNewCost}</td>`;
+                    html += `<td class="p-2 border-r text-right font-bold text-green-800 bg-green-50/30">${strNewPrice}</td>`;
                     
                     if (isFirstInGroup) {
                         html += `<td class="p-2 border-r text-gray-500 font-normal text-[11px]">${row.note || '-'}</td>`;
@@ -3708,6 +3727,13 @@ function calculateTotalUnit3Level() {
                     if (lvlOrigPrice === 0) lvlOrigPrice = Math.ceil((lvlOrigCost * (1 + profitPct / 100)) / 1000) * 1000;
                     let lvlNewPrice = Math.ceil((lvlNewCost * (1 + profitPct / 100)) / 1000) * 1000;
 
+                    // ⭐️ ກວດສອບ: ຖ້າຈຳນວນໃນຊັ້ນນີ້ເປັນ 0, ໃຫ້ສະແດງເຄື່ອງໝາຍ "-"
+                    let hasStock = lvl.displayQtyNum > 0;
+                    let strOrigCost = hasStock ? formatNumberWithCommas(lvlOrigCost) : '-';
+                    let strOrigPrice = hasStock ? formatNumberWithCommas(lvlOrigPrice) : '-';
+                    let strNewCost = hasStock ? formatNumberWithCommas(lvlNewCost) : '-';
+                    let strNewPrice = hasStock ? formatNumberWithCommas(lvlNewPrice) : '-';
+
                     let isFirstInGroup = (idx === 0);
                     let codeHtml = `<span class="text-[11px] text-gray-500 mr-1">${lvl.label}</span> <span class="text-blue-600 font-mono">${lvl.code}</span>`;
 
@@ -3731,10 +3757,11 @@ function calculateTotalUnit3Level() {
                         html += `<td class="p-2 border-r"></td><td class="p-2 border-r"></td><td class="p-2 border-r"></td><td class="p-2 border-r"></td><td class="p-2 border-r"></td>`;
                     }
 
-                    html += `<td class="p-2 border-r text-right text-blue-600 font-semibold">${formatNumberWithCommas(lvlOrigCost)}</td>`;
-                    html += `<td class="p-2 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(lvlOrigPrice)}</td>`;
-                    html += `<td class="p-2 border-r text-right font-bold text-blue-800 bg-blue-50/30">${formatNumberWithCommas(lvlNewCost)}</td>`;
-                    html += `<td class="p-2 border-r text-right font-bold text-green-800 bg-green-50/30">${formatNumberWithCommas(lvlNewPrice)}</td>`;
+                    // ⭐️ ໃຊ້ຕົວແປ str... ທີ່ກວດສອບ hasStock ແລ້ວ ເພື່ອໃຫ້ສະແດງ "-" ຖ້າຈຳນວນເປັນ 0
+                    html += `<td class="p-2 border-r text-right text-blue-600 font-semibold">${strOrigCost}</td>`;
+                    html += `<td class="p-2 border-r text-right text-green-600 font-semibold">${strOrigPrice}</td>`;
+                    html += `<td class="p-2 border-r text-right font-bold text-blue-800 bg-blue-50/30">${strNewCost}</td>`;
+                    html += `<td class="p-2 border-r text-right font-bold text-green-800 bg-green-50/30">${strNewPrice}</td>`;
                     
                     if (isFirstInGroup) {
                         html += `<td class="p-2 border-r text-gray-500 font-normal text-[11px]">${row.note || '-'}</td>`;
@@ -3926,6 +3953,13 @@ function calculateTotalUnit3Level() {
                     if (lvlOrigPrice === 0) lvlOrigPrice = Math.ceil((lvlOrigCost * (1 + profitPct / 100)) / 1000) * 1000;
                     let lvlNewPrice = Math.ceil((lvlNewCost * (1 + profitPct / 100)) / 1000) * 1000;
 
+                    // ⭐️ ກວດສອບຢ່າງເຂັ້ມງວດ: ຖ້າຈຳນວນໃນຊັ້ນນີ້ເປັນ 0 (ຫຼື ໜ້ອຍກວ່າ 0) ໃຫ້ສະແດງເປັນ "-" ທັນທີ
+                    let hasStock = Number(lvl.displayQtyNum) > 0;
+                    let strOrigCost = hasStock ? formatNumberWithCommas(lvlOrigCost) : '-';
+                    let strOrigPrice = hasStock ? formatNumberWithCommas(lvlOrigPrice) : '-';
+                    let strNewCost = hasStock ? formatNumberWithCommas(lvlNewCost) : '-';
+                    let strNewPrice = hasStock ? formatNumberWithCommas(lvlNewPrice) : '-';
+
                     let isFirstInGroup = (idx === 0);
                     let codeHtml = `<span class="text-[11px] text-gray-500 mr-1">${lvl.label}</span> <span class="text-blue-600 font-mono">${lvl.code}</span>`;
 
@@ -3949,10 +3983,11 @@ function calculateTotalUnit3Level() {
                         html += `<td class="p-2 border-r"></td><td class="p-2 border-r"></td><td class="p-2 border-r"></td><td class="p-2 border-r"></td><td class="p-2 border-r"></td>`;
                     }
 
-                    html += `<td class="p-2 border-r text-right text-blue-600 font-semibold">${formatNumberWithCommas(lvlOrigCost)}</td>`;
-                    html += `<td class="p-2 border-r text-right text-green-600 font-semibold">${formatNumberWithCommas(lvlOrigPrice)}</td>`;
-                    html += `<td class="p-2 border-r text-right font-bold text-blue-800 bg-blue-50/30">${formatNumberWithCommas(lvlNewCost)}</td>`;
-                    html += `<td class="p-2 border-r text-right font-bold text-green-800 bg-green-50/30">${formatNumberWithCommas(lvlNewPrice)}</td>`;
+                    // ⭐️ ໃຊ້ຕົວແປ str... ທີ່ກວດສອບ hasStock ແລ້ວ ຮັບຮອງວ່າອອກເປັນ "-" แน่นอน
+                    html += `<td class="p-2 border-r text-right text-blue-600 font-semibold">${strOrigCost}</td>`;
+                    html += `<td class="p-2 border-r text-right text-green-600 font-semibold">${strOrigPrice}</td>`;
+                    html += `<td class="p-2 border-r text-right font-bold text-blue-800 bg-blue-50/30">${strNewCost}</td>`;
+                    html += `<td class="p-2 border-r text-right font-bold text-green-800 bg-green-50/30">${strNewPrice}</td>`;
                     
                     if (isFirstInGroup) {
                         html += `<td class="p-2 border-r text-gray-500 font-normal text-[11px]">${row.note || '-'}</td>`;
@@ -4537,14 +4572,39 @@ function closeScanner() {
                         let docSnap = await docRef.get();
                         if (docSnap.exists) {
                             let pData = docSnap.data();
-                            let currentStockQty = parseFloat(pData.qty) || 0;
-                            let unitPerPack = parseInt(it.unitPerPack || it.unit_per_pack) || 1;
-                            let totalAvailableSingles = Math.round(currentStockQty * unitPerPack);
-                            let soldSingles = it.saleType === 'retail' ? it.qty : (it.qty * unitPerPack);
-                            let newTotalSingles = Math.max(0, totalAvailableSingles - soldSingles);
                             
-                            let newStockQty = newTotalSingles / unitPerPack;
-                            await docRef.update({ qty: newStockQty });
+                            // 1. ດຶງຈຳນວນຖານຍ່ອຍສຸດ (ຂວດ/ປ໋ອງ) ທີ່ເຫຼືອໃນສາງ
+                            let currentStockBaseQty = 0;
+                            if (pData.stock_base_qty !== undefined && pData.stock_base_qty !== null && pData.stock_base_qty !== '') {
+                                currentStockBaseQty = parseFloat(pData.stock_base_qty);
+                            } else {
+                                let currentStockQty = parseFloat(pData.qty) || 0;
+                                let unitPerPack = parseInt(pData.unit_per_pack || 1) || 1;
+                                currentStockBaseQty = Math.round(currentStockQty * unitPerPack);
+                            }
+
+                            // 2. ກວດສອບຊັ້ນສິນຄ້າທີ່ຂາຍ ເພື່ອຕັດຈຳນວນໃຫ້ຖືກຕ້ອງ
+                            let soldSingles = 0;
+                            if (it.saleType === 'large') {
+                                soldSingles = (parseInt(pData.qty_in_large) || 24) * parseInt(it.qty);
+                            } else if (it.saleType === 'small') {
+                                soldSingles = (parseInt(pData.qty_in_small) || 6) * parseInt(it.qty);
+                            } else if (it.saleType === 'single' || it.saleType === 'retail') {
+                                soldSingles = 1 * parseInt(it.qty);
+                            } else {
+                                let unitPerPack = parseInt(pData.unit_per_pack || 1) || 1;
+                                soldSingles = parseInt(it.qty) * unitPerPack;
+                            }
+
+                            // 3. ຄຳນວນຍອດເຫຼືອ ແລະ ບັນທຶກກັບຄືນ Firebase
+                            let newTotalSingles = Math.max(0, currentStockBaseQty - soldSingles);
+                            let unitPerPackForQty = parseInt(pData.unit_per_pack || 1) || 1;
+                            let newStockQty = newTotalSingles / unitPerPackForQty;
+                            
+                            await docRef.update({ 
+                                qty: newStockQty,
+                                stock_base_qty: newTotalSingles 
+                            });
                         }
                     }
                 } catch (e) {
@@ -5086,21 +5146,43 @@ function closeScanner() {
                         created_at: new Date().toISOString()
                     });
 
-                    // ດຶງຂໍ້ມູນສິນຄ້າມາຕັດ Stock ພ້ອມກັນ
+                    // ດຶງຂໍ້ມູນສິນຄ້າມາຕັດ Stock ພ້ອມກັນຢ່າງຖືກຕ້ອງຕາມຊັ້ນ (ລາງ/ແພັກ/ຂວດ)
                     for (let it of itemsToSave) {
                         if (it.id) {
                             let docRef = db.collection("products").doc(it.id);
                             let docSnap = await docRef.get();
                             if (docSnap.exists) {
                                 let pData = docSnap.data();
-                                let currentStockQty = parseFloat(pData.qty) || 0;
-                                let unitPerPack = parseInt(it.unitPerPack || pData.unit_per_pack || 1) || 1;
-                                let totalAvailableSingles = Math.round(currentStockQty * unitPerPack);
-                                let soldSingles = it.saleType === 'retail' ? parseInt(it.qty) : (parseInt(it.qty) * unitPerPack);
-                                let newTotalSingles = Math.max(0, totalAvailableSingles - soldSingles);
-                                let newStockQty = newTotalSingles / unitPerPack;
                                 
-                                batch.update(docRef, { qty: newStockQty });
+                                let currentStockBaseQty = 0;
+                                if (pData.stock_base_qty !== undefined && pData.stock_base_qty !== null && pData.stock_base_qty !== '') {
+                                    currentStockBaseQty = parseFloat(pData.stock_base_qty);
+                                } else {
+                                    let currentStockQty = parseFloat(pData.qty) || 0;
+                                    let unitPerPack = parseInt(pData.unit_per_pack || 1) || 1;
+                                    currentStockBaseQty = Math.round(currentStockQty * unitPerPack);
+                                }
+
+                                let soldSingles = 0;
+                                if (it.saleType === 'large') {
+                                    soldSingles = (parseInt(pData.qty_in_large) || 24) * parseInt(it.qty);
+                                } else if (it.saleType === 'small') {
+                                    soldSingles = (parseInt(pData.qty_in_small) || 6) * parseInt(it.qty);
+                                } else if (it.saleType === 'single' || it.saleType === 'retail') {
+                                    soldSingles = 1 * parseInt(it.qty);
+                                } else {
+                                    let unitPerPack = parseInt(pData.unit_per_pack || 1) || 1;
+                                    soldSingles = parseInt(it.qty) * unitPerPack;
+                                }
+
+                                let newTotalSingles = Math.max(0, currentStockBaseQty - soldSingles);
+                                let unitPerPackForQty = parseInt(pData.unit_per_pack || 1) || 1;
+                                let newStockQty = newTotalSingles / unitPerPackForQty;
+                                
+                                batch.update(docRef, { 
+                                    qty: newStockQty,
+                                    stock_base_qty: newTotalSingles 
+                                });
                             }
                         }
                     }
@@ -5767,14 +5849,36 @@ async function processStockIn(shouldMerge) {
                             let docSnap = await docRef.get();
                             if (docSnap.exists) {
                                 let pData = docSnap.data();
-                                let currentStockQty = parseFloat(pData.qty) || 0;
-                                let unitPerPack = parseInt(it.unitPerPack || pData.unit_per_pack || 1) || 1;
-                                let totalAvailableSingles = Math.round(currentStockQty * unitPerPack);
-                                let soldSingles = it.saleType === 'retail' ? parseInt(it.qty) : (parseInt(it.qty) * unitPerPack);
-                                let newTotalSingles = Math.max(0, totalAvailableSingles - soldSingles);
-                                let newStockQty = newTotalSingles / unitPerPack;
                                 
-                                batch.update(docRef, { qty: newStockQty });
+                                let currentStockBaseQty = 0;
+                                if (pData.stock_base_qty !== undefined && pData.stock_base_qty !== null && pData.stock_base_qty !== '') {
+                                    currentStockBaseQty = parseFloat(pData.stock_base_qty);
+                                } else {
+                                    let currentStockQty = parseFloat(pData.qty) || 0;
+                                    let unitPerPack = parseInt(pData.unit_per_pack || 1) || 1;
+                                    currentStockBaseQty = Math.round(currentStockQty * unitPerPack);
+                                }
+
+                                let soldSingles = 0;
+                                if (it.saleType === 'large') {
+                                    soldSingles = (parseInt(pData.qty_in_large) || 24) * parseInt(it.qty);
+                                } else if (it.saleType === 'small') {
+                                    soldSingles = (parseInt(pData.qty_in_small) || 6) * parseInt(it.qty);
+                                } else if (it.saleType === 'single' || it.saleType === 'retail') {
+                                    soldSingles = 1 * parseInt(it.qty);
+                                } else {
+                                    let unitPerPack = parseInt(pData.unit_per_pack || 1) || 1;
+                                    soldSingles = parseInt(it.qty) * unitPerPack;
+                                }
+
+                                let newTotalSingles = Math.max(0, currentStockBaseQty - soldSingles);
+                                let unitPerPackForQty = parseInt(pData.unit_per_pack || 1) || 1;
+                                let newStockQty = newTotalSingles / unitPerPackForQty;
+                                
+                                batch.update(docRef, { 
+                                    qty: newStockQty,
+                                    stock_base_qty: newTotalSingles 
+                                });
                             }
                         }
                     }
