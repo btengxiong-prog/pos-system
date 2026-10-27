@@ -1149,7 +1149,7 @@
                         <div class="flex items-center gap-2">
                             <label class="block text-xs font-bold text-gray-700 w-24">ຈຳນວນນຳເຂົ້າ:</label>
                             <input type="number" id="stock-in-qty" value="1" min="1" oninput="calculateTotalUnit3Level()" class="flex-1 border rounded-lg px-3 py-2 outline-none font-bold text-gray-800 text-sm bg-white focus:ring-2 focus:ring-pink-500" placeholder="ປ້ອນຈຳນວນ">
-                            <select id="import-unit-type" onchange="calculateTotalUnit3Level()" class="border rounded-lg px-1 py-2 outline-none font-bold text-gray-700 text-xs bg-white">
+                            <select id="import-unit-type" onchange="handleUnitTypeChange(); calculateTotalUnit3Level()" class="border rounded-lg px-1 py-2 outline-none font-bold text-gray-700 text-xs bg-white">
                                 <option value="large">ລາງ/ແພັກໃຫຍ່</option>
                                 <option value="small">ແພັກ/ຫໍ່</option>
                                 <option value="single">ຂວດ/ປ໋ອງ</option>
@@ -1182,7 +1182,7 @@
                         
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
                             <div>
-                                <span class="block text-[10px] font-bold text-gray-700 mb-0.5">ລາຄາຊື້ (ກີບ):</span>
+                                <span id="label-cost-unit" class="block text-[10px] font-bold text-gray-700 mb-0.5">ລາຄາຊື້ຕໍ່ 1 ລາງ (ກີບ):</span>
                                 <input type="text" id="stock-in-unit-cost" oninput="formatInputMoney(this); calculateSellingPrice();" class="w-full border rounded-lg px-2.5 py-1.5 text-right font-bold text-blue-700 outline-none focus:ring-2 focus:ring-amber-500 bg-white text-xs" placeholder="0">
                             </div>
                             <div>
@@ -1190,11 +1190,11 @@
                                 <input type="number" id="stock-in-sales-rate" value="23.90" step="0.01" oninput="calculateSellingPrice()" class="w-full border rounded-lg px-2.5 py-1.5 text-center font-bold text-amber-800 outline-none focus:ring-2 focus:ring-amber-500 bg-white text-xs" placeholder="23.90">
                             </div>
                             <div>
-                                <span class="block text-[10px] font-bold text-gray-700 mb-0.5">ລາຄາຂາຍ (ກີບ):</span>
+                                <span id="label-price-unit" class="block text-[10px] font-bold text-gray-700 mb-0.5">ລາຄາຂາຍຕໍ່ 1 ລາງ (ກີບ):</span>
                                 <input type="text" id="stock-in-selling-price" oninput="formatInputMoney(this); calculateRateFromPrice();" class="w-full border rounded-lg px-2.5 py-1.5 text-right font-bold text-green-700 outline-none focus:ring-2 focus:ring-green-500 bg-white text-xs" placeholder="0">
                             </div>
                         </div>
-                        <p class="text-[10px] text-gray-500 italic">💡 ໝາຍເຫດ: ສາມາດປັບປ່ຽນໄດ້ທັງອັດຕາ (%) ແລະ ລາຄາຂາຍ ລະບົບຈະຄຳນວນໃຫ້ເຊິ່ງກັນແລະກັນອັດຕະໂນມັດ</p>
+                        <p class="text-[10px] text-gray-500 italic">💡 ໝາຍເຫດ: ລະບົບຄຳນວນລາຄາຕາມໜ່ວຍທີ່ເລືອກໃນກ່ອງສີແດງທີ່ 1 ອັດຕະໂນມັດ</p>
                     </div>
 
                     <div id="expiry-input-group" class="hidden space-y-3">
@@ -6363,21 +6363,32 @@ async function processStockIn(shouldMerge) {
             
             let primaryCode = codeSingle || codeSmall || codeLarge || currentStockInCode;
             let costVal = parseFloat(document.getElementById('stock-in-unit-cost')?.value.replace(/,/g, '')) || 0;
-            let priceSingle = parseFloat(document.getElementById('stock-in-selling-price')?.value.replace(/,/g, '')) || 0;
+            let priceVal = parseFloat(document.getElementById('stock-in-selling-price')?.value.replace(/,/g, '')) || 0;
             
-            let unitPerPackVal = parseInt(document.getElementById('qty-single-per-small')?.value) || 24;
+            let unitType = document.getElementById('import-unit-type')?.value || 'single';
+            let currentMultiplier = getUnitMultiplier(unitType);
+
+            // ແປງລາຄາຕໍ່ໜ່ວຍທີ່ປ້ອນ ໃຫ້ເປັນລາຄາຕໍ່ຫົວໜ່ວຍຍ່ອຍສຸດ (Base Unit) ສຳລັບເກັບໃນ Database
+            let baseUnitCost = currentMultiplier > 0 ? costVal / currentMultiplier : costVal;
+            let baseUnitPrice = currentMultiplier > 0 ? priceVal / currentMultiplier : priceVal;
+
+            let qtySmallPerLarge = parseInt(document.getElementById('qty-small-per-large')?.value) || 1;
+            let qtySinglePerSmall = parseInt(document.getElementById('qty-single-per-small')?.value) || 24;
+            let totalSinglePerLarge = qtySmallPerLarge * qtySinglePerSmall;
 
             let data = {
                 code: primaryCode, code_large: codeLarge, code_small: codeSmall, code_single: codeSingle,
                 name: document.getElementById('stock-in-custom-name')?.value.trim() || primaryCode,
-                cost: costVal, 
-                price: priceSingle, 
-                price_large: 0, price_small: 0, price_single: priceSingle,
-                qty_in_large: 0, 
-                qty_in_small: unitPerPackVal, 
+                cost: baseUnitCost, 
+                price: baseUnitPrice, 
+                price_large: unitType === 'large' ? priceVal : 0, 
+                price_small: unitType === 'small' ? priceVal : 0, 
+                price_single: baseUnitPrice,
+                qty_in_large: totalSinglePerLarge, 
+                qty_in_small: qtySinglePerSmall, 
                 stock_base_qty: totalBaseQty, 
                 qty: qtyInputVal,
-                unit_per_pack: unitPerPackVal,
+                unit_per_pack: totalSinglePerLarge,
                 stock_level: activeLevel,
                 profit_pct: profitPctVal,
                 date_added: importDate, mfg_date: mfgDate, expiry_date: expDate,
@@ -6389,7 +6400,62 @@ async function processStockIn(shouldMerge) {
             showAlert("ສຳເລັດ", "ນຳເຂົ້າສິນຄ້າໃໝ່ສຳເລັດຮຽບຮ້ອຍ!", "📦");
             setTimeout(() => { closeCustomAlert(); openStockInScannerWithExpiry(isExpiryMode); }, 1500);
         }
+let previousUnitType = 'large';
 
+        function getUnitMultiplier(unitType) {
+            let smallPerLarge = parseInt(document.getElementById('qty-small-per-large')?.value) || 1;
+            let singlePerSmall = parseInt(document.getElementById('qty-single-per-small')?.value) || 1;
+            
+            if (unitType === 'large') {
+                return smallPerLarge * singlePerSmall;
+            } else if (unitType === 'small') {
+                return singlePerSmall;
+            } else {
+                return 1;
+            }
+        }
+
+        function handleUnitTypeChange() {
+            let unitSelect = document.getElementById('import-unit-type');
+            if (!unitSelect) return;
+            let newUnitType = unitSelect.value;
+
+            let oldMultiplier = getUnitMultiplier(previousUnitType);
+            let newMultiplier = getUnitMultiplier(newUnitType);
+
+            let costInput = document.getElementById('stock-in-unit-cost');
+            let priceInput = document.getElementById('stock-in-selling-price');
+
+            if (costInput && costInput.value.trim() !== '') {
+                let currentCost = parseFloat(costInput.value.replace(/,/g, '')) || 0;
+                let baseCost = currentCost / oldMultiplier;
+                let newCost = baseCost * newMultiplier;
+                costInput.value = formatNumberWithCommas(Math.round(newCost));
+            }
+
+            if (priceInput && priceInput.value.trim() !== '') {
+                let currentPrice = parseFloat(priceInput.value.replace(/,/g, '')) || 0;
+                let basePrice = currentPrice / oldMultiplier;
+                let newPrice = basePrice * newMultiplier;
+                priceInput.value = formatNumberWithCommas(Math.round(newPrice));
+            }
+
+            previousUnitType = newUnitType;
+            updatePriceLabels(newUnitType);
+        }
+
+        function updatePriceLabels(unitType) {
+            let unitName = "ລາງ";
+            if (unitType === 'large') unitName = "ລາງ/ແພັກໃຫຍ່";
+            else if (unitType === 'small') unitName = "ແພັກ/ຫໍ່";
+            else if (unitType === 'single') unitName = "ຂວດ/ປ໋ອງ";
+
+            let lblCost = document.getElementById('label-cost-unit');
+            let lblPrice = document.getElementById('label-price-unit');
+
+            if (lblCost) lblCost.innerText = `ລາຄາຊື້ຕໍ່ 1 ${unitName} (ກີບ):`;
+            if (lblPrice) lblPrice.innerText = `ລາຄາຂາຍຕໍ່ 1 ${unitName} (ກີບ):`;
+        }
     </script>
 </body>
 </html>
