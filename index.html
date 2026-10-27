@@ -62,9 +62,15 @@
                 z-index: 999999 !important;
             }
             @page {
-                size: auto;
-                margin: 5mm;
-            }
+            size: auto;
+            margin: 5mm;
+        }
+
+        /* ⭐️ <u>ເອົາໂຄດນີ້ມາເພີ່ມໄວ້ໃນສ່ວນ @media print ນີ້ໄດ້เลย</u>: */
+        .print-hidden-card {
+            display: none !important;
+        }
+    }
         }
         .submenu {
             background: white !important;
@@ -1667,20 +1673,36 @@
         </div>
     </div>
 
-    <!-- Excel Generator Modal -->
+    <!-- ⭐️ Excel Generator Modal ພ້ອມລະບົບເລືອກຕິກພິມສະເພາະປ້າຍ -->
     <div id="excel-generator-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-xl max-w-5xl w-full p-6 max-h-[85vh] overflow-y-auto space-y-4">
             <div class="flex justify-between items-center border-b pb-3 flex-wrap gap-2">
                 <h3 id="excel-modal-title" class="text-xl font-bold text-gray-800 flex items-center gap-2">
-                    <span id="excel-modal-title-text">📱 ຕາຕະລາງສ້າງ QR Code ສິນຄ້າ</span>
+                    <span id="excel-modal-title-text">📱 ຕາຕະລາງສ້າງ QR Code / Barcode ສິນຄ້າ</span>
                 </h3>
+                
+                <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold text-gray-700">ເລືອກປະເພດ:</span>
+                        <select id="code-type-selector" onchange="changeCodeTypeFromModal(this.value)" class="border border-blue-300 bg-blue-50 text-blue-900 text-xs font-bold px-3 py-1.5 rounded-lg outline-none shadow cursor-pointer">
+                            <option value="qrcode" selected>📱 QR Code</option>
+                            <option value="barcode">📊 Barcode (CODE128)</option>
+                        </select>
+                    </div>
+                </div>
             </div>
 
-            <div class="bg-blue-50 border border-blue-200 text-blue-800 text-xs p-2.5 rounded-lg">
-                💡 <b>ຄຳແນະນຳ:</b> ລະບົບດຶງຂໍ້ມູນສິນຄ້າຈາກສາງມາສະແດງໂດຍອັດຕະໂນມັດ.
+            <div class="bg-blue-50 border border-blue-200 text-blue-800 text-xs p-2.5 rounded-lg flex justify-between items-center flex-wrap gap-2">
+                <div>
+                    💡 <b>ຄຳແນະນຳ:</b> ຕິກເລືອກ Checkbox ທີ່ປ້າຍສິນຄ້າທີ່ຕ້ອງການພິມ (ຫຼືກົດປຸ່ມເລືອກທັງໝົດດ້ານລຸ່ມ) ແລ້ວກົດປຸ່ມພິມ.
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="toggleSelectAllPrintCards(true)" class="bg-blue-600 text-white px-2.5 py-1 rounded-md text-[11px] font-bold cursor-pointer shadow">✅ ເລືອກທັງໝົດ</button>
+                    <button type="button" onclick="toggleSelectAllPrintCards(false)" class="bg-gray-300 text-gray-800 px-2.5 py-1 rounded-md text-[11px] font-bold cursor-pointer">❌ ບໍ່ເລືອກເລີຍ</button>
+                </div>
             </div>
 
-            <div class="overflow-x-auto border rounded-xl shadow-inner max-h-[50vh]">
+            <div class="overflow-x-auto border rounded-xl shadow-inner max-h-[35vh]">
                 <table class="w-full border-collapse bg-white min-w-[700px]">
                     <thead>
                         <tr class="bg-gray-100 text-gray-700 text-xs uppercase sticky top-0 border-b">
@@ -1698,17 +1720,15 @@
             </div>
 
             <div id="excel-print-area" class="bg-gray-50 p-4 rounded-xl border space-y-4">
-                <h4 id="print-area-title" class="font-bold text-gray-800 text-sm text-center">🖨️ ຕົວຢ່າງປ້າຍລະຫັດສິນຄ້າ</h4>
+                <h4 id="print-area-title" class="font-bold text-gray-800 text-sm text-center">🖨️ ຕົວຢ່າງປ້າຍລະຫັດສິນຄ້າ (ຕິກເລືອກປ້າຍທີ່ຕ້ອງການພິມ)</h4>
+                <!-- ⭐️ ໃຊ້ Grid ພ້ອມ Checkbox ຕິກເລືອກ -->
                 <div id="excel-preview-cards" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 </div>
             </div>
 
             <div class="flex gap-2 pt-2 flex-wrap">
-                <button onclick="window.print()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">
-                    🖨️ ພິມປ້າຍລະຫັດທັງໝົດ
-                </button>
-                <button onclick="generateExcelCodes()" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow">
-                    ⚙️ ສ້າງ QR Code / Barcode ທັງໝົດ
+                <button onclick="printSelectedCodes()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition cursor-pointer shadow flex items-center justify-center gap-1">
+                    🖨️ ພິມສະເພາະປ້າຍທີ່ເລືອກອອກເຄື່ອງປຼີ້ນເຕີ
                 </button>
                 <button onclick="closeExcelGenerator()" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 px-6 rounded-xl transition cursor-pointer">ປິດ</button>
             </div>
@@ -4949,6 +4969,7 @@ function closeScanner() {
             generateExcelCodes();
         }
 
+        // ⭐️ ຟັງຊັນສ້າງການາດສະແດງຜົນ ພ້ອມ Checkbox ເລືອກພິມ
         function generateExcelCodes() {
             let previewContainer = document.getElementById('excel-preview-cards');
             if (!previewContainer) return;
@@ -4965,9 +4986,15 @@ function closeScanner() {
                 let canvasId = `code-canvas-${idx}`;
 
                 html += `
-                    <div class="bg-white p-4 rounded-xl border shadow-sm text-center space-y-2 flex flex-col items-center justify-center">
-                        <div class="font-bold text-gray-800 text-xs truncate max-w-[200px]">${nameVal}</div>
-                        <div class="py-1 bg-gray-50 border rounded-lg w-full flex justify-center items-center min-h-[90px]">
+                    <div class="bg-white p-3 rounded-xl border shadow-sm text-center space-y-2 flex flex-col items-center justify-between relative group hover:border-blue-400 transition">
+                        <!-- ⭐️ Checkbox ຕິກເລືອກພິມ -->
+                        <div class="absolute top-2 left-2 z-10 flex items-center gap-1 bg-blue-50/90 px-2 py-1 rounded-lg border border-blue-200">
+                            <input type="checkbox" id="print-chk-${idx}" data-index="${idx}" checked class="print-card-checkbox w-4 h-4 cursor-pointer accent-blue-600">
+                            <label for="print-chk-${idx}" class="text-[11px] font-bold text-blue-900 cursor-pointer">ພິມປ້າຍນີ້</label>
+                        </div>
+
+                        <div class="font-bold text-gray-800 text-xs truncate max-w-[180px] mt-6">${nameVal}</div>
+                        <div class="py-2 bg-gray-50 border rounded-lg w-full flex justify-center items-center min-h-[90px]">
                             ${currentCodeType === 'qrcode' ? `<div id="${canvasId}-qr" class="inline-block"></div>` : `<canvas id="${canvasId}-barcode" class="max-w-full"></canvas>`}
                         </div>
                         <div class="font-mono text-xs font-bold text-blue-600">${codeVal}</div>
@@ -4976,6 +5003,7 @@ function closeScanner() {
             });
             previewContainer.innerHTML = html;
 
+            // ວາດຮູບ Barcode ຫຼື QR Code ລົງໄປ
             printableItems.forEach((row, idx) => {
                 let codeVal = row.code || 'POS000';
                 let canvasId = `code-canvas-${idx}`;
@@ -4990,12 +5018,59 @@ function closeScanner() {
                 } else {
                     let barcodeEl = document.getElementById(`${canvasId}-barcode`);
                     if (barcodeEl && window.JsBarcode) {
-                        try { JsBarcode(barcodeEl, codeVal, { format: "CODE128", width: 1.5, height: 40, displayValue: false }); } catch (e) {}
+                        try { 
+                            JsBarcode(barcodeEl, codeVal, { 
+                                format: "CODE128", 
+                                width: 1.8, 
+                                height: 45, 
+                                displayValue: false 
+                            }); 
+                        } catch (e) {}
                     }
                 }
             });
         }
+        // ⭐️ ຟັງຊັນເລືອກ ຫຼື ບໍ່ເລືອກທັງໝົດ
+        function toggleSelectAllPrintCards(selectState) {
+            document.querySelectorAll('.print-card-checkbox').forEach(chk => {
+                chk.checked = selectState;
+            });
+        }
 
+        // ⭐️ ຟັງຊັນສັ່ງພິມສະເພາະປ້າຍທີ່ຕິກເລືອກ (ເຊື່ອງປ້າຍທີ່ບໍ່ໄດ້ຕິກຊົ່ວຄາວຕອນພິມ)
+        function printSelectedCodes() {
+            let checkboxes = document.querySelectorAll('.print-card-checkbox');
+            let anyChecked = Array.from(checkboxes).some(chk => chk.checked);
+            
+            if (!anyChecked) {
+                showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາຕິກເລືອກປ້າຍທີ່ຕ້ອງການພິມຢ່າງໜ້ອຍ 1 ປ້າຍ!", "⚠️");
+                return;
+            }
+
+            // ເຊື່ອງປ້າຍທີ່ບໍ່ໄດ້ຕິກຊົ່ວຄາวก่อนสั่ง window.print()
+            checkboxes.forEach(chk => {
+                let cardDiv = chk.closest('.bg-white.p-3');
+                if (cardDiv) {
+                    if (!chk.checked) {
+                        cardDiv.classList.add('print-hidden-card');
+                    } else {
+                        cardDiv.classList.remove('print-hidden-card');
+                    }
+                }
+            });
+
+            window.print();
+        }
+
+        // ⭐️ ຟັງຊັນປ່ຽນປະເພດ QR / Barcode
+        function changeCodeTypeFromModal(type) {
+            currentCodeType = type;
+            let titleTextEl = document.getElementById('excel-modal-title-text');
+            if (titleTextEl) {
+                titleTextEl.innerText = type === 'qrcode' ? "📱 ຕາຕະລາງສ້າງ QR Code ສິນຄ້າ" : "📊 ຕາຕະລາງສ້າງ Barcode ສິນຄ້າ";
+            }
+            generateExcelCodes();
+        }
         function openRateAnalysisModal() { document.getElementById('rate-analysis-modal').classList.remove('hidden'); loadRateAnalysis(); }
         function closeRateAnalysisModal() { document.getElementById('rate-analysis-modal').classList.add('hidden'); }
 
@@ -6751,7 +6826,18 @@ function closeGenericModal(modalId) {
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',setup); else setup();
 })();
-
+// ⭐️ ຟັງຊັນສຳລັບປ່ຽນປະເພດ Code (QR Code ຫຼື Barcode) ທັນທີເມື່ອຜູ້ໃຊ້ເລືອກໃນ Dropdown
+function changeCodeTypeFromModal(type) {
+    currentCodeType = type; // ປ່ຽນຕົວແປ Global
+    
+    let titleTextEl = document.getElementById('excel-modal-title-text');
+    if (titleTextEl) {
+        titleTextEl.innerText = type === 'qrcode' ? "📱 ຕາຕະລາງສ້າງ QR Code ສິນຄ້າ" : "📊 ຕາຕະລາງສ້າງ Barcode ສິນຄ້າ";
+    }
+    
+    // ຣີເຟຣບສະແດງຜົນການາດ/ບາໂຄດໃໝ່ທັນທີ
+    generateExcelCodes();
+}
 </script>
 </body>
 </html>
