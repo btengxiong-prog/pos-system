@@ -4379,17 +4379,22 @@ function closeScanner() {
             }
         }
 
+        // ⭐️ ແກ້ໄຂຟັງຊັນ confirmQtyAndReset ໃຫ້ເພີ່ມສິນຄ້າລົງກະຕ່າຢ່າງຖືກຕ້ອງ ໂດຍບໍ່ລ້າງກະຕ່າຖິ້ມ
         function confirmQtyAndReset() {
             let input = document.getElementById('scan-barcode-input');
             let qtyInput = document.getElementById('scan-qty-input');
             let stockDisplay = document.getElementById('scan-stock-display');
             
-            updateStockDisplayOnQtyChange();
+            if (input && input.value.trim() !== "") {
+                let code = input.value.trim();
+                let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
+                let customQty = (rawQtyText === "" || isNaN(rawQtyText) || parseFloat(rawQtyText) <= 0) ? 1 : parseFloat(rawQtyText);
+                
+                // ເອີ້ນຟັງຊັນເພີ່ມສິນຄ້າລົງກະຕ່າ
+                handleSalesBarcodeScanned(code, customQty);
+            }
             
-            // ⭐️ ລ້າງຄ່າ active ເພື່ອກຽມຮັບການສະແກນລາຍການໃໝ່
-            window.activeScanItem = null;
-            window.explicitlySelectedItemId = null;
-            
+            // ລ້າງສະເພາະຊ່ອງປ້ອນ ແຕ່ຮັກສากະຕ່າ (continuousCart) ໄວ້ໃຫ້ຜູ້ໃຊ້ເລືອກວິທີຈ່າຍເງິນ
             if (input) input.value = "";
             if (qtyInput) qtyInput.value = "";
             if (stockDisplay) stockDisplay.value = "";
@@ -5901,6 +5906,7 @@ async function processStockIn(shouldMerge) {
 
         let currentInlinePaymentMode = 'cash';
 
+        // ⭐️ ປັບປຸງຟັງຊັນເລືອກວິທີຊຳລະເງິນ ( Radio Change ) ໃຫ້ປ່ຽນແຄ່ໂໝດ ໂດຍບໍ່ລ້າງກະຕ່າ
         function selectInlinePaymentMode(mode, labelElement) {
             currentInlinePaymentMode = mode;
             
@@ -5916,7 +5922,7 @@ async function processStockIn(shouldMerge) {
                 labelElement.classList.add('border-blue-600', 'bg-blue-50/50');
             }
 
-            // ⭐️ ສັ່ງອັບເດດທັງ "ກະຕ່າຕົວຈິງ" ແລະ "ພຣີວິວ" ພ້ອມກັນ
+            // ⭐️ ພຽງແຕ່ອັບເດດການສະແດງຜົນໃນກະຕ່າ (ຖ້າມີການປ່ຽນສະກຸນເງິນ) ໂດຍຫ้ามລ້າງ continuousCart ເດັດຂາດ!
             updateContinuousCartUI();
             updateCartItemPreview();
         }
