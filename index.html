@@ -5312,29 +5312,30 @@ function checkLowStockAlertStatus() {
             if (!input || !stockDisplay) return;
 
             let val = input.value ? input.value.trim().toLowerCase() : "";
-            if (val === "" && !window.explicitlySelectedItemId) {
-                stockDisplay.value = "";
-                return;
-            }
-
+            
+            // ຖ້າຊ່ອງຊື່ສິນຄ້າຫວ່າງ ໃຫ້ຄົ້ນຫາຈາກສິນຄ້າຕົວລ້າສຸດໃນກະຕ່າແທນ
             let foundItem = null;
             if (window.explicitlySelectedItemId) {
                 foundItem = excelRows.find(i => i.id === window.explicitlySelectedItemId);
             }
-            if (!foundItem) {
+            if (!foundItem && val !== "") {
                 foundItem = excelRows.find(item => 
                     String(item.code).trim().toLowerCase() === val || 
                     (item.name && item.name.trim().toLowerCase() === val)
                 );
             }
+            if (!foundItem && continuousCart.length > 0) {
+                let lastCartItem = continuousCart[continuousCart.length - 1];
+                foundItem = excelRows.find(i => i.id === lastCartItem.id);
+            }
 
             if (foundItem) {
                 let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
                 
-                // 1. ອັບເດດລົງກະຕ່າ (ຖ້າຊ່ອງຫວ່າງ ໃຫ້ຖືເປັນ 1 ຊິ້ນໃນກະຕ່າ)
+                // 1. ອັບເດດຈຳນວນລົງໃນກະຕ່າທັນທີແບບ Realtime
                 let typingQty = (rawQtyText === "" || isNaN(rawQtyText) || parseFloat(rawQtyText) <= 0) ? 1 : parseFloat(rawQtyText);
                 
-                if (typeof continuousCart !== 'undefined') {
+                if (typeof continuousCart !== 'undefined' && continuousCart.length > 0) {
                     let existingCartItem = continuousCart.find(i => i.id === foundItem.id && i.saleType === currentSaleType);
                     if (existingCartItem) {
                         existingCartItem.qty = typingQty; 
@@ -5342,7 +5343,7 @@ function checkLowStockAlertStatus() {
                     }
                 }
 
-                // 2. ຄິດໄລ່ສະຕັອກສະແດງຜົນໜ້າຈໍ ຕາມຊັ້ນສິນຄ້າ (3 ຊັ້ນ, 2 ຊັ້ນ ຫຼື 1 ຊັ້ນ) ໃຫ້ກົງກັບຕາຕະລາງສາງ 100%
+                // 2. ຄິດໄລ່ສະຕັອກສະແດງຜົນໜ້າຈໍ ຢ່າງຖືກຕ້ອງ ບໍ່ໃຫ້ຕິດລົບ
                 let currentQty = parseFloat(String(foundItem.qty !== undefined ? foundItem.qty : 0).replace(/,/g, '')) || 0;
                 let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
                 
@@ -5364,6 +5365,7 @@ function checkLowStockAlertStatus() {
                 }
 
                 let visualDeduct = (rawQtyText === "" || isNaN(rawQtyText)) ? 0 : parseFloat(rawQtyText);
+                // ປ້ອງກັນບໍ່ໃຫ້ຫັກຈຳນວນເກินຍອດທີ່ມີໃນສາງ
                 let remainingSingles = Math.max(0, totalSingles - visualDeduct);
                 
                 let dispLarge = 0, dispSmall = 0, dispSingle = 0;
