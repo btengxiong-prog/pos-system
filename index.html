@@ -4395,15 +4395,12 @@ function closeScanner() {
         deductBase: deductQtyBase // ⭐️ ສຳຄັນ: ເກັບຈຳນວນຍ່ອຍທີ່ຈະເອົາໄປຕັດສະຕັອກຕອນຈ່າຍເງິນ
     };
 
-    // 3. ກວດສອບວ່າເຄີຍສະແກນລົງກະຕ່າແລ້ວບໍ່ (ຖ້າຊັ້ນດຽວກັນໃຫ້ບວກຈຳນວນຂຶ້ນ)
-    let existingCartItem = continuousCart.find(i => i.id === processedItem.id && i.saleType === processedItem.saleType);
-    if (existingCartItem) {
-        existingCartItem.price = finalPrice; 
-        existingCartItem.qty += addQty;
-        existingCartItem.deductBase += deductQtyBase; // ບວກຍອດຕັດສະຕັອກຂຶ້ນ
-    } else {
-        continuousCart.push({ ...processedItem, qty: addQty });
-    }
+    // 3. ⭐️ ເພີ່ມລົງກະຕ່າແບບແຍກເປັນແຕ່ລະຄັ້ງທີ່ສະແກນ (ບໍ່ລວມເຂົ້າກັນ ໃຫ້ເປັນແຖວໃໝ່ຕະຫຼອດ)
+    continuousCart.push({ 
+        ...processedItem, 
+        qty: addQty, 
+        uniqueKey: Date.now() + Math.random() // ສสร้าง ID ພິເສດໃຫ້ແຕ່ລະແຖວແຍກຈາກກັນຢ່າງເດັດຂາດ
+    });
 
     // 4. ອັບເດດໜ້າຈໍກະຕ່າ
     updateContinuousCartUI();
@@ -5354,11 +5351,11 @@ function checkLowStockAlertStatus() {
             if (foundItem) {
                 let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
                 
-                // 1. ອັບເດດຈຳນວນລົງໃນກະຕ່າທັນທີແບບ Realtime
+                // 1. ⭐️ ອັບເດດຈຳນວນສະເພາະລາຍການຫຼ້າສຸດ (ແຖວລຸ່ມສຸດ) ທີ່ກຳລັງພິມຢູ່
                 let typingQty = (rawQtyText === "" || isNaN(rawQtyText) || parseFloat(rawQtyText) <= 0) ? 1 : parseFloat(rawQtyText);
                 
                 if (typeof continuousCart !== 'undefined' && continuousCart.length > 0) {
-                    let targetCartItem = continuousCart.find(i => i.id === foundItem.id);
+                    let targetCartItem = continuousCart[continuousCart.length - 1]; // ເລືອກແຖວຫຼ້າສຸດທີ່ຫາກໍ່ສະແກນ
                     if (targetCartItem) {
                         targetCartItem.qty = typingQty; 
                         updateContinuousCartUI(); 
