@@ -2140,9 +2140,9 @@ function initFirebaseRealtime() {
                             code_large: item.code_large || '',
                             code_small: item.code_small || '',
                             code_single: item.code_single || item.code || '',
-                            price_large: parseFloat(item.price_large) || 0,
-                            price_small: parseFloat(item.price_small) || 0,
-                            price_single: parseFloat(item.price_single || item.price) || 0,
+                            price_large: Math.ceil((parseFloat(item.price_large) || 0) / 1000) * 1000,
+                            price_small: Math.ceil((parseFloat(item.price_small) || 0) / 1000) * 1000,
+                            price_single: Math.ceil((parseFloat(item.price_single || item.price) || 0) / 1000) * 1000,
                             qty_in_large: parseInt(item.qty_in_large) || 0,
                             qty_in_small: parseInt(item.qty_in_small) || 0,
                             stock_level: item.stock_level !== undefined ? parseInt(item.stock_level) : undefined,
@@ -6373,6 +6373,7 @@ async function processStockIn(shouldMerge) {
             // ແປງລາຄາຕໍ່ໜ່ວຍທີ່ປ້ອນ ໃຫ້ເປັນລາຄາຕໍ່ຫົວໜ່ວຍຍ່ອຍສຸດ (Base Unit) ສຳລັບເກັບໃນ Database
             let baseUnitCost = currentMultiplier > 0 ? costVal / currentMultiplier : costVal;
             let baseUnitPrice = currentMultiplier > 0 ? priceVal / currentMultiplier : priceVal;
+            baseUnitPrice = Math.ceil(baseUnitPrice / 1000) * 1000; // ⭐️ ປັດເສດຂຶ້ນເປັນຫຼັກພັນ (ປ້ອງກັນເລກເສດທົດສະນິຍົມ)
 
             let qtySmallPerLarge = parseInt(document.getElementById('qty-small-per-large')?.value) || 1;
             let qtySinglePerSmall = parseInt(document.getElementById('qty-single-per-small')?.value) || 24;
@@ -6477,25 +6478,31 @@ function getPrintableCodesList() {
 
                 if (activeLevel === 3) {
                     if (codeLargeStr && codeLargeStr !== '-') {
-                        list.push({ code: codeLargeStr, name: `${row.name || '-'} (ລາງ/ແພັກໃຫຍ່)`, price: row.price_large || row.price || 0 });
+                        let pLarge = Math.ceil((parseFloat(row.price_large || row.price) || 0) / 1000) * 1000;
+                        list.push({ code: codeLargeStr, name: `${row.name || '-'} (ລາງ/ແພັກໃຫຍ່)`, price: pLarge });
                     }
                     if (codeSmallStr && codeSmallStr !== '-') {
-                        list.push({ code: codeSmallStr, name: `${row.name || '-'} (ແພັກ/ຫໍ່)`, price: row.price_small || row.price || 0 });
+                        let pSmall = Math.ceil((parseFloat(row.price_small || row.price) || 0) / 1000) * 1000;
+                        list.push({ code: codeSmallStr, name: `${row.name || '-'} (ແພັກ/ຫໍ່)`, price: pSmall });
                     }
                     if (codeSingleStr && codeSingleStr !== '-') {
-                        list.push({ code: codeSingleStr, name: `${row.name || '-'} (ຂວດ/ປ໋ອງ)`, price: row.price_single || row.price || 0 });
+                        let pSingle = Math.ceil((parseFloat(row.price_single || row.price) || 0) / 1000) * 1000;
+                        list.push({ code: codeSingleStr, name: `${row.name || '-'} (ຂວດ/ປ໋ອງ)`, price: pSingle });
                     }
                 } else if (activeLevel === 2) {
                     let topCode = codeSmallStr !== '' ? codeSmallStr : (codeLargeStr !== '' ? codeLargeStr : '');
                     if (topCode && topCode !== '-') {
-                        list.push({ code: topCode, name: `${row.name || '-'} (ແພັກ/ຫໍ່)`, price: row.price_small || row.price || 0 });
+                        let pSmall = Math.ceil((parseFloat(row.price_small || row.price_large || row.price) || 0) / 1000) * 1000;
+                        list.push({ code: topCode, name: `${row.name || '-'} (ແພັກ/ຫໍ່)`, price: pSmall });
                     }
                     if (codeSingleStr && codeSingleStr !== '-') {
-                        list.push({ code: codeSingleStr, name: `${row.name || '-'} (ຂວດ/ປ໋ອງ)`, price: row.price_single || row.price || 0 });
+                        let pSingle = Math.ceil((parseFloat(row.price_single || row.price) || 0) / 1000) * 1000;
+                        list.push({ code: codeSingleStr, name: `${row.name || '-'} (ຂວດ/ປ໋ອງ)`, price: pSingle });
                     }
                 } else {
                     if (codeSingleStr && codeSingleStr !== '-') {
-                        list.push({ code: codeSingleStr, name: `${row.name || '-'} (ຂວດ/ປ໋ອງ)`, price: row.price_single || row.price || 0 });
+                        let pSingle = Math.ceil((parseFloat(row.price_single || row.price) || 0) / 1000) * 1000;
+                        list.push({ code: codeSingleStr, name: `${row.name || '-'} (ຂວດ/ປ໋ອງ)`, price: pSingle });
                     }
                 }
             });
