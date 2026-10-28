@@ -284,35 +284,54 @@
         width: 36px;
     }
 }
-/* ⭐️ CSS ສຳລັບການປັບຂະໜາດຄໍລຳ ແລະ ແຖວແບບ Excel */
+
+/* ⭐️ CSS ລະບົບລາກປັບຂະໜາດຄໍລຳ ແລະ ແຖວແບບ Excel (Drag Resizer) */
 .table-window-card table {
-    table-layout: fixed; /* ບັງຄັບໃຫ້ຄໍລຳຍຶດຕາມຂະໜາດທີ່ກຳນົດ */
+    table-layout: fixed !important;
     width: 100%;
 }
 
 .table-window-card th, 
 .table-window-card td {
-    position: relative;
+    position: relative !important;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
-/* ມືจับສຳລັບລາກປັບຄວາມກວ້າງຄໍລຳ */
-.resizer {
+/* ມືຈັບສຳລັບລາກຂະຫຍາຍຄໍລຳ (ຢູ່ຂອບຂວາຂອງ TH) */
+.col-resizer {
     position: absolute;
     top: 0;
     right: 0;
-    width: 5px;
+    width: 6px;
     cursor: col-resize;
     user-select: none;
     touch-action: none;
     height: 100%;
-    z-index: 20;
+    z-index: 30;
+    background: transparent;
+}
+.col-resizer:hover, .col-resizer.resizing {
+    background-color: #3b82f6 !important; /* ສີຟ້າເວລາເອົາເມົ້າໄປຈັບ */
 }
 
-.resizer:hover, .resizing {
-    background-color: #3b82f6; /* ສີຟ້າເວລາເອົ້າເມົ້າໄປຈັບ ຫຼື ກຳລັງລາກ */
+/* ມືຈັບສຳລັບລາກເພີ່ມຄວາມສູງແຖວ (ຢູ່ຂອບລຸ່ມຂອງ TR) */
+tr {
+    position: relative;
+}
+.row-resizer {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: 5px;
+    cursor: row-resize;
+    user-select: none;
+    z-index: 20;
+    background: transparent;
+}
+.row-resizer:hover, .row-resizer.resizing {
+    background-color: #3b82f6 !important;
 }
 
 /* ມືจับສຳລັບລາກປັບຄວາມສູງແຖວ (ຢູ່ຂອບລຸ່ມຂອງແຖວ) */
@@ -3742,6 +3761,11 @@ function calculateStockInPrice() {
     `;
 
     tbody.innerHTML = html;
+
+    // ⭐️ ເອີ້ນໃຊ້ງານລະບົບລາກປັບຂະໜາດຫຼັງຈາກຕາຕະລາງໂຫຼດແລ້ວ
+    setTimeout(() => {
+        initExcelTableResizer();
+    }, 200);
 }
 
 async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal, codeLarge, codeSmall, codeSingle) {
@@ -6457,6 +6481,81 @@ function enableTableResizing(tableElement) {
         };
 
         rowResizer.addEventListener('mousedown', rowMouseDownHandler);
+    });
+}
+/* ⭐️ ຟັງຊັນເປີດໃຊ້ງານການລາກປັບຂະໜາດຄໍລຳ ແລະ ຄວາມສູງແຖວ */
+function initExcelTableResizer() {
+    // 1. ຈັດການລາກຄວາມກว้างຄໍລຳ (Column Resizing)
+    const headers = document.querySelectorAll('#inventory-modal th');
+    headers.forEach(th => {
+        // ປ້ອງກັນບໍ່ให้ສ້າງ resizer ຊ້ຳກັນ
+        if (th.querySelector('.col-resizer')) return;
+
+        const resizer = document.createElement('div');
+        resizer.className = 'col-resizer';
+        th.appendChild(resizer);
+
+        let startX = 0;
+        let startWidth = 0;
+
+        resizer.addEventListener('mousedown', function(e) {
+            startX = e.clientX;
+            startWidth = th.offsetWidth;
+            resizer.classList.add('resizing');
+
+            function onMouseMove(e) {
+                const dx = e.clientX - startX;
+                if (startWidth + dx > 40) { // កຳນົດຄວາມກว้างຂັ້ນຕ່ຳ 40px
+                    th.style.width = `${startWidth + dx}px`;
+                }
+            }
+
+            function onMouseUp() {
+                resizer.classList.remove('resizing');
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+            }
+
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+            e.stopPropagation();
+        });
+    });
+
+    // 2. ຈັດການລາກຄວາມສູງແຖວ (Row Height Resizing)
+    const rows = document.querySelectorAll('#inventory-modal tbody tr');
+    rows.forEach(tr => {
+        if (tr.querySelector('.row-resizer')) return;
+
+        const rowResizer = document.createElement('div');
+        rowResizer.className = 'row-resizer';
+        tr.appendChild(rowResizer);
+
+        let startY = 0;
+        let startHeight = 0;
+
+        rowResizer.addEventListener('mousedown', function(e) {
+            startY = e.clientY;
+            startHeight = tr.offsetHeight;
+            rowResizer.classList.add('resizing');
+
+            function onRowMouseMove(e) {
+                const dy = e.clientY - startY;
+                if (startHeight + dy > 25) { // ກຳນົດຄວາມສູງຂັ້ນຕ່ຳ 25px
+                    tr.style.height = `${startHeight + dy}px`;
+                }
+            }
+
+            function onRowMouseUp() {
+                rowResizer.classList.remove('resizing');
+                document.removeEventListener('mousemove', onRowMouseMove);
+                document.removeEventListener('mouseup', onRowMouseUp);
+            }
+
+            document.addEventListener('mousemove', onRowMouseMove);
+            document.addEventListener('mouseup', onRowMouseUp);
+            e.stopPropagation();
+        });
     });
 }
 </script>
