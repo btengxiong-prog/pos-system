@@ -1156,7 +1156,13 @@ tr {
                 </div>
             </div>
 
-            <button onclick="closeStockInScanner()" class="mt-3 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded w-full font-bold cursor-pointer">ປິດກ້ອງ</button>
+            <div class="flex flex-col gap-2 mt-3">
+                <button type="button" onclick="scanTextWithOCR('stock-in')" class="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-2.5 rounded-lg text-sm transition shadow cursor-pointer flex items-center justify-center gap-2">
+                    <span>🔍</span> ກົດເພື່ອສະແກນຕົວເລກດ້ວຍ AI (OCR)
+                </button>
+                <p id="ocr-status-stock-in" class="text-xs text-center text-pink-700 font-bold hidden bg-pink-50 py-1.5 rounded-lg border border-pink-200">ກຳລັງອ່ານຕົວເລກ... ກະລຸນາຖືນິ້ງໆ ⏳</p>
+                <button onclick="closeStockInScanner()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2.5 rounded-lg w-full font-bold cursor-pointer">ປິດກ້ອງ</button>
+            </div>
         </div>
 
         <!-- Sales Popup Modal -->
@@ -6520,19 +6526,23 @@ async function scanTextWithOCR(mode) {
     let videoEl;
     let statusEl;
     
+    // 1. ກວດສອບວ່າກຳລັງໃຊ້ກ້ອງຈາກໜ້າໃດ
     if (mode === 'sale') {
         videoEl = document.querySelector('#reader video');
         statusEl = document.getElementById('ocr-status-sale');
+    } else if (mode === 'stock-in') {
+        videoEl = document.querySelector('#stock-in-reader video');
+        statusEl = document.getElementById('ocr-status-stock-in');
     }
 
     if (!videoEl) {
-        showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເປີດກ້ອງກ່ອນໃຊ້ງານ OCR!", "⚠️");
+        showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາລໍຖ້າໃຫ້ກ້ອງເປີດສຳເລັດກ່ອນ!", "⚠️");
         return;
     }
 
     if (statusEl) statusEl.classList.remove('hidden');
 
-    // 1. ແຄັບເຈີພາບຈາກກ້ອງສົດ (Capture current frame)
+    // 2. ແຄັບເຈີພາບຈາກກ້ອງສົດ
     let canvas = document.createElement('canvas');
     canvas.width = videoEl.videoWidth;
     canvas.height = videoEl.videoHeight;
@@ -6540,22 +6550,23 @@ async function scanTextWithOCR(mode) {
     ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
 
     try {
-        // 2. ສົ່ງພາບເຂົ້າ AI Tesseract ເພື່ອອ່ານອັກສອນ
+        // 3. ສົ່ງພາບເຂົ້າ AI
         let result = await Tesseract.recognize(canvas, 'eng', {
-            // ບັງຄັບໃຫ້ AI ຈັບແຕ່ຕົວເລກເທົ່ານັ້ນ ເພື່ອຄວາມຖືກຕ້ອງ ແລະ ວ່ອງໄວ
             tessedit_char_whitelist: '0123456789' 
         });
 
-        // 3. ກັ່ນຕອງເອົາແຕ່ຕົວເລກ ແລະ ຕັດຍະຫວ່າງຖິ້ມ
         let text = result.data.text.replace(/\D/g, '').trim(); 
         
         if (statusEl) statusEl.classList.add('hidden');
 
-        if (text.length >= 3) { // ກຳນົດໃຫ້ມີຕົວເລກຢ່າງໜ້ອຍ 3 ຕົວ
+        if (text.length >= 3) {
             playBeepSound();
+            
+            // 4. ສົ່ງຕົວເລກເຂົ້າໄປເຮັດວຽກຕາມໜ້າທີ່ກຳລັງເປີດຢູ່
             if (mode === 'sale') {
-                // ສົ່ງຕົວເລກທີ່ໄດ້ ໄປເຂົ້າລະບົບຂາຍເໝືອນກັບການຍິງບາໂຄດທົ່ວໄປ
                 handleSalesBarcodeScanned(text);
+            } else if (mode === 'stock-in') {
+                handleStockInBarcodeScanned(text);
             }
             showAlert("ອ່ານສຳເລັດ", `AI ອ່ານຕົວເລກໄດ້: ${text}`, "🤖");
         } else {
