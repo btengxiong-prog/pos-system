@@ -16,6 +16,8 @@
     <!-- JsBarcode & QRCode CDN -->
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+    <!-- Tesseract.js (OCR AI) CDN ສຳລັບອ່ານຕົວເລກ -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <!-- Google Fonts -->
     <style>        
         @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Lao:wght@400;700&display=swap');
@@ -1122,13 +1124,19 @@ tr {
                 </label>
             </div>
 
-            <div class="flex gap-2 pt-2 items-center">
-                <button onclick="confirmInlineCheckout()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl text-sm transition shadow cursor-pointer flex items-center justify-center gap-1">
-                    <span>💰</span> ຊຳລະເງິນທັງໝົດ
+            <div class="flex flex-col gap-2 pt-2">
+                <button type="button" onclick="scanTextWithOCR('sale')" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl text-sm transition shadow cursor-pointer flex items-center justify-center gap-2">
+                    <span>🔍</span> ກົດເພື່ອສະແກນຕົວເລກດ້ວຍ AI (OCR)
                 </button>
-                <button onclick="closeScanner()" class="bg-gray-500 hover:bg-gray-600 text-white font-bold px-6 py-3 rounded-xl text-sm transition cursor-pointer flex items-center justify-center gap-1">
-                    <span>✕</span> ປິດກ້ອງ
-                </button>
+                <p id="ocr-status-sale" class="text-xs text-center text-purple-700 font-bold hidden bg-purple-50 py-1.5 rounded-lg border border-purple-200">ກຳລັງອ່ານຕົວເລກ... ກະລຸນາຖືນິ້ງໆ ⏳</p>
+                <div class="flex gap-2 items-center">
+                    <button onclick="confirmInlineCheckout()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl text-sm transition shadow cursor-pointer flex items-center justify-center gap-1">
+                        <span>💰</span> ຊຳລະເງິນທັງໝົດ
+                    </button>
+                    <button onclick="closeScanner()" class="bg-gray-500 hover:bg-gray-600 text-white font-bold px-6 py-3 rounded-xl text-sm transition cursor-pointer flex items-center justify-center gap-1">
+                        <span>✕</span> ປິດກ້ອງ
+                    </button>
+                </div>
             </div>
         </div>
         </div>
@@ -6506,6 +6514,58 @@ function initExcelTableResizer() {
             e.stopPropagation();
         });
     });
+}
+/* ⭐️ ຟັງຊັນ OCR ອ່ານຕົວເລກຈາກກ້ອງ (AI Tesseract.js) */
+async function scanTextWithOCR(mode) {
+    let videoEl;
+    let statusEl;
+    
+    if (mode === 'sale') {
+        videoEl = document.querySelector('#reader video');
+        statusEl = document.getElementById('ocr-status-sale');
+    }
+
+    if (!videoEl) {
+        showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາເປີດກ້ອງກ່ອນໃຊ້ງານ OCR!", "⚠️");
+        return;
+    }
+
+    if (statusEl) statusEl.classList.remove('hidden');
+
+    // 1. ແຄັບເຈີພາບຈາກກ້ອງສົດ (Capture current frame)
+    let canvas = document.createElement('canvas');
+    canvas.width = videoEl.videoWidth;
+    canvas.height = videoEl.videoHeight;
+    let ctx = canvas.getContext('2d');
+    ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+
+    try {
+        // 2. ສົ່ງພາບເຂົ້າ AI Tesseract ເພື່ອອ່ານອັກສອນ
+        let result = await Tesseract.recognize(canvas, 'eng', {
+            // ບັງຄັບໃຫ້ AI ຈັບແຕ່ຕົວເລກເທົ່ານັ້ນ ເພື່ອຄວາມຖືກຕ້ອງ ແລະ ວ່ອງໄວ
+            tessedit_char_whitelist: '0123456789' 
+        });
+
+        // 3. ກັ່ນຕອງເອົາແຕ່ຕົວເລກ ແລະ ຕັດຍະຫວ່າງຖິ້ມ
+        let text = result.data.text.replace(/\D/g, '').trim(); 
+        
+        if (statusEl) statusEl.classList.add('hidden');
+
+        if (text.length >= 3) { // ກຳນົດໃຫ້ມີຕົວເລກຢ່າງໜ້ອຍ 3 ຕົວ
+            playBeepSound();
+            if (mode === 'sale') {
+                // ສົ່ງຕົວເລກທີ່ໄດ້ ໄປເຂົ້າລະບົບຂາຍເໝືອນກັບການຍິງບາໂຄດທົ່ວໄປ
+                handleSalesBarcodeScanned(text);
+            }
+            showAlert("ອ່ານສຳເລັດ", `AI ອ່ານຕົວເລກໄດ້: ${text}`, "🤖");
+        } else {
+            showAlert("ອ່ານບໍ່ຊັດເຈນ", "ກ້ອງບໍ່ສາມາດຈັບຕົວເລກໄດ້ຊັດເຈນ, ກະລຸນາຈັບກ້ອງໃຫ້ນິ້ງໆ ແລ້ວລອງໃໝ່", "⚠️");
+        }
+    } catch (error) {
+        if (statusEl) statusEl.classList.add('hidden');
+        console.error("OCR Error:", error);
+        showAlert("ຜິດພາດ", "ລະບົບ AI OCR ຂັດຂ້ອງ", "❌");
+    }
 }
 </script>
 </body>
