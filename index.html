@@ -6521,12 +6521,11 @@ function initExcelTableResizer() {
         });
     });
 }
-/* ⭐️ ຟັງຊັນ OCR ອ່ານຕົວເລກຈາກກ້ອງ (AI Tesseract.js) */
+/* ⭐️ ຟັງຊັນ OCR ອ່ານຕົວເລກຈາກກ້ອງ (AI Tesseract.js) ໂດຍບັງຄັບອ່ານແຕ່ເລກ 0-9 ເທົ່ານັ້ນ */
 async function scanTextWithOCR(mode) {
     let videoEl;
     let statusEl;
     
-    // 1. ກວດສອບວ່າກຳລັງໃຊ້ກ້ອງຈາກໜ້າໃດ
     if (mode === 'sale') {
         videoEl = document.querySelector('#reader video');
         statusEl = document.getElementById('ocr-status-sale');
@@ -6540,9 +6539,12 @@ async function scanTextWithOCR(mode) {
         return;
     }
 
-    if (statusEl) statusEl.classList.remove('hidden');
+    if (statusEl) {
+        statusEl.innerText = "ກຳລັງກຽມລະບົບ AI... ⏳";
+        statusEl.classList.remove('hidden');
+    }
 
-    // 2. ແຄັບເຈີພາບຈາກກ້ອງສົດ
+    // 1. ແຄັບເຈີພາບຈາກກ້ອງ
     let canvas = document.createElement('canvas');
     canvas.width = videoEl.videoWidth;
     canvas.height = videoEl.videoHeight;
@@ -6550,32 +6552,50 @@ async function scanTextWithOCR(mode) {
     ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
 
     try {
-        // 3. ສົ່ງພາບເຂົ້າ AI
-        let result = await Tesseract.recognize(canvas, 'eng', {
-            tessedit_char_whitelist: '0123456789' 
+        // 2. ສ້າງ Worker ຂອງ Tesseract (ໃຊ້ພຽງພາສາອັງກິດ eng ເພື່ອຄວາມໄວສູງສຸດ)
+        const worker = await Tesseract.createWorker('eng', 1, {
+            logger: m => {
+                if (statusEl) {
+                    if (m.status === 'recognizing text') {
+                        statusEl.innerText = `ກຳລັງວິເຄາະຕົວເລກ: ${Math.round(m.progress * 100)}% ⏳`;
+                    } else {
+                        statusEl.innerText = `ກຳລັງໂຫຼດໂມເດວ AI... ⏳`;
+                    }
+                }
+            }
         });
 
-        let text = result.data.text.replace(/\D/g, '').trim(); 
+        // 3. ບັງຄັບໃຫ້ອ່ານສະເພາະຕົວເລກ 0-9 ເທົ່ານັ້ນ (ແກ້ບັນຫາອ່ານຜິດພາດ 100%)
+        await worker.setParameters({
+            tessedit_char_whitelist: '0123456789',
+        });
+
+        // 4. ສັ່ງໃຫ້ອ່ານ
+        const { data: { text } } = await worker.recognize(canvas);
+        
+        // 5. ປິດ Worker ເພື່ອຄືນຄວາມຈຳໃຫ້ເຄື່ອງ
+        await worker.terminate();
+
+        // ຕັດຊ່ອງຫວ່າງ ແລະ ເອົາແຕ່ຕົວເລກລ້ວນໆ
+        let cleanText = text.replace(/\D/g, '').trim(); 
         
         if (statusEl) statusEl.classList.add('hidden');
 
-        if (text.length >= 3) {
+        if (cleanText.length >= 3) {
             playBeepSound();
-            
-            // 4. ສົ່ງຕົວເລກເຂົ້າໄປເຮັດວຽກຕາມໜ້າທີ່ກຳລັງເປີດຢູ່
             if (mode === 'sale') {
-                handleSalesBarcodeScanned(text);
+                handleSalesBarcodeScanned(cleanText);
             } else if (mode === 'stock-in') {
-                handleStockInBarcodeScanned(text);
+                handleStockInBarcodeScanned(cleanText);
             }
-            showAlert("ອ່ານສຳເລັດ", `AI ອ່ານຕົວເລກໄດ້: ${text}`, "🤖");
+            showAlert("ອ່ານສຳເລັດ", `AI ອ່ານຕົວເລກໄດ້: ${cleanText}`, "🤖");
         } else {
-            showAlert("ອ່ານບໍ່ຊັດເຈນ", "ກ້ອງບໍ່ສາມາດຈັບຕົວເລກໄດ້ຊັດເຈນ, ກະລຸນາຈັບກ້ອງໃຫ້ນິ້ງໆ ແລ້ວລອງໃໝ່", "⚠️");
+            showAlert("ອ່ານບໍ່ຊັດເຈນ", "ກ້ອງຈັບຕົວເລກບໍ່ຊັດເຈນ, ກະລຸນາຈັບກ້ອງໃຫ້ນິ້ງໆ ໃຫ້ຕົວເລກຢູ່ເຄິ່ງກາງ ແລ້ວລອງໃໝ່.", "⚠️");
         }
     } catch (error) {
         if (statusEl) statusEl.classList.add('hidden');
         console.error("OCR Error:", error);
-        showAlert("ຜິດພາດ", "ລະບົບ AI OCR ຂັດຂ້ອງ", "❌");
+        showAlert("ຜິດພາດ", "ລະບົບ AI OCR ຂັດຂ້ອງ, ລອງກວດສອບອິນເຕີເນັດ ແລ້ວກົດໃໝ່ອີກຄັ້ງ.", "❌");
     }
 }
 </script>
