@@ -16,8 +16,6 @@
     <!-- JsBarcode & QRCode CDN -->
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
-    <!-- Tesseract.js (OCR AI) CDN ສຳລັບອ່ານຕົວເລກ -->
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <!-- Google Fonts -->
     <style>        
         @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Lao:wght@400;700&display=swap');
@@ -1124,19 +1122,13 @@ tr {
                 </label>
             </div>
 
-            <div class="flex flex-col gap-2 pt-2">
-                <button type="button" onclick="scanTextWithOCR('sale')" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl text-sm transition shadow cursor-pointer flex items-center justify-center gap-2">
-                    <span>🔍</span> ກົດເພື່ອສະແກນຕົວເລກດ້ວຍ AI (OCR)
+            <div class="flex gap-2 pt-2 items-center">
+                <button onclick="confirmInlineCheckout()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl text-sm transition shadow cursor-pointer flex items-center justify-center gap-1">
+                    <span>💰</span> ຊຳລະເງິນທັງໝົດ
                 </button>
-                <p id="ocr-status-sale" class="text-xs text-center text-purple-700 font-bold hidden bg-purple-50 py-1.5 rounded-lg border border-purple-200">ກຳລັງອ່ານຕົວເລກ... ກະລຸນາຖືນິ້ງໆ ⏳</p>
-                <div class="flex gap-2 items-center">
-                    <button onclick="confirmInlineCheckout()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl text-sm transition shadow cursor-pointer flex items-center justify-center gap-1">
-                        <span>💰</span> ຊຳລະເງິນທັງໝົດ
-                    </button>
-                    <button onclick="closeScanner()" class="bg-gray-500 hover:bg-gray-600 text-white font-bold px-6 py-3 rounded-xl text-sm transition cursor-pointer flex items-center justify-center gap-1">
-                        <span>✕</span> ປິດກ້ອງ
-                    </button>
-                </div>
+                <button onclick="closeScanner()" class="bg-gray-500 hover:bg-gray-600 text-white font-bold px-6 py-3 rounded-xl text-sm transition cursor-pointer flex items-center justify-center gap-1">
+                    <span>✕</span> ປິດກ້ອງ
+                </button>
             </div>
         </div>
         </div>
@@ -1156,13 +1148,7 @@ tr {
                 </div>
             </div>
 
-            <div class="flex flex-col gap-2 mt-3">
-                <button type="button" onclick="scanTextWithOCR('stock-in')" class="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-2.5 rounded-lg text-sm transition shadow cursor-pointer flex items-center justify-center gap-2">
-                    <span>🔍</span> ກົດເພື່ອສະແກນຕົວເລກດ້ວຍ AI (OCR)
-                </button>
-                <p id="ocr-status-stock-in" class="text-xs text-center text-pink-700 font-bold hidden bg-pink-50 py-1.5 rounded-lg border border-pink-200">ກຳລັງອ່ານຕົວເລກ... ກະລຸນາຖືນິ້ງໆ ⏳</p>
-                <button onclick="closeStockInScanner()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2.5 rounded-lg w-full font-bold cursor-pointer">ປິດກ້ອງ</button>
-            </div>
+            <button onclick="closeStockInScanner()" class="mt-3 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded w-full font-bold cursor-pointer">ປິດກ້ອງ</button>
         </div>
 
         <!-- Sales Popup Modal -->
@@ -6520,83 +6506,6 @@ function initExcelTableResizer() {
             e.stopPropagation();
         });
     });
-}
-/* ⭐️ ຟັງຊັນ OCR ອ່ານຕົວເລກຈາກກ້ອງ (AI Tesseract.js) ໂດຍບັງຄັບອ່ານແຕ່ເລກ 0-9 ເທົ່ານັ້ນ */
-async function scanTextWithOCR(mode) {
-    let videoEl;
-    let statusEl;
-    
-    if (mode === 'sale') {
-        videoEl = document.querySelector('#reader video');
-        statusEl = document.getElementById('ocr-status-sale');
-    } else if (mode === 'stock-in') {
-        videoEl = document.querySelector('#stock-in-reader video');
-        statusEl = document.getElementById('ocr-status-stock-in');
-    }
-
-    if (!videoEl) {
-        showAlert("ແຈ້ງເຕືອນ", "ກະລຸນາລໍຖ້າໃຫ້ກ້ອງເປີດສຳເລັດກ່ອນ!", "⚠️");
-        return;
-    }
-
-    if (statusEl) {
-        statusEl.innerText = "ກຳລັງກຽມລະບົບ AI... ⏳";
-        statusEl.classList.remove('hidden');
-    }
-
-    // 1. ແຄັບເຈີພາບຈາກກ້ອງ
-    let canvas = document.createElement('canvas');
-    canvas.width = videoEl.videoWidth;
-    canvas.height = videoEl.videoHeight;
-    let ctx = canvas.getContext('2d');
-    ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
-
-    try {
-        // 2. ສ້າງ Worker ຂອງ Tesseract (ໃຊ້ພຽງພາສາອັງກິດ eng ເພື່ອຄວາມໄວສູງສຸດ)
-        const worker = await Tesseract.createWorker('eng', 1, {
-            logger: m => {
-                if (statusEl) {
-                    if (m.status === 'recognizing text') {
-                        statusEl.innerText = `ກຳລັງວິເຄາະຕົວເລກ: ${Math.round(m.progress * 100)}% ⏳`;
-                    } else {
-                        statusEl.innerText = `ກຳລັງໂຫຼດໂມເດວ AI... ⏳`;
-                    }
-                }
-            }
-        });
-
-        // 3. ບັງຄັບໃຫ້ອ່ານສະເພາະຕົວເລກ 0-9 ເທົ່ານັ້ນ (ແກ້ບັນຫາອ່ານຜິດພາດ 100%)
-        await worker.setParameters({
-            tessedit_char_whitelist: '0123456789',
-        });
-
-        // 4. ສັ່ງໃຫ້ອ່ານ
-        const { data: { text } } = await worker.recognize(canvas);
-        
-        // 5. ປິດ Worker ເພື່ອຄືນຄວາມຈຳໃຫ້ເຄື່ອງ
-        await worker.terminate();
-
-        // ຕັດຊ່ອງຫວ່າງ ແລະ ເອົາແຕ່ຕົວເລກລ້ວນໆ
-        let cleanText = text.replace(/\D/g, '').trim(); 
-        
-        if (statusEl) statusEl.classList.add('hidden');
-
-        if (cleanText.length >= 3) {
-            playBeepSound();
-            if (mode === 'sale') {
-                handleSalesBarcodeScanned(cleanText);
-            } else if (mode === 'stock-in') {
-                handleStockInBarcodeScanned(cleanText);
-            }
-            showAlert("ອ່ານສຳເລັດ", `AI ອ່ານຕົວເລກໄດ້: ${cleanText}`, "🤖");
-        } else {
-            showAlert("ອ່ານບໍ່ຊັດເຈນ", "ກ້ອງຈັບຕົວເລກບໍ່ຊັດເຈນ, ກະລຸນາຈັບກ້ອງໃຫ້ນິ້ງໆ ໃຫ້ຕົວເລກຢູ່ເຄິ່ງກາງ ແລ້ວລອງໃໝ່.", "⚠️");
-        }
-    } catch (error) {
-        if (statusEl) statusEl.classList.add('hidden');
-        console.error("OCR Error:", error);
-        showAlert("ຜິດພາດ", "ລະບົບ AI OCR ຂັດຂ້ອງ, ລອງກວດສອບອິນເຕີເນັດ ແລ້ວກົດໃໝ່ອີກຄັ້ງ.", "❌");
-    }
 }
 </script>
 </body>
