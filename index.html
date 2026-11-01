@@ -2212,9 +2212,12 @@ tr {
 
             let uniqueNames = new Set();
             filteredRows.forEach(row => {
-                if (row.name && row.name.trim() !== '') {
-                    uniqueNames.add(row.name.trim());
-                }
+                if (row.name && row.name.trim() !== '') uniqueNames.add(row.name.trim());
+                // ⭐️ ເພີ່ມລະຫັດທຸກຊັ້ນລົງໄປໃນລາຍຊື່ແນະນຳ
+                if (row.code_large && row.code_large.trim() !== '') uniqueNames.add(row.code_large.trim());
+                if (row.code_small && row.code_small.trim() !== '') uniqueNames.add(row.code_small.trim());
+                if (row.code_single && row.code_single.trim() !== '') uniqueNames.add(row.code_single.trim());
+                else if (row.code && row.code.trim() !== '') uniqueNames.add(row.code.trim());
             });
 
             let html = '';
@@ -3966,22 +3969,23 @@ function closeScanner() {
 
             let val = input.value ? input.value.trim().toLowerCase() : "";
             if (val !== "") {
-                let exactMatches = excelRows.filter(item => {
-    let itemName = String(item.name || '').trim().toLowerCase();
-    let isNameMatch = itemName === cleanCode;
+            let exactMatches = excelRows.filter(item => {
+                    let itemName = String(item.name || '').trim().toLowerCase();
+                    // ⭐️ ປ່ຽນຈາກ cleanCode ມາເປັນ val ໃຫ້ຖືກຕ້ອງ
+                    let isNameMatch = itemName === val; 
+                    
+                    let isLargeMatch = String(item.code_large || '').trim().toLowerCase() === val;
+                    let isSmallMatch = String(item.code_small || '').trim().toLowerCase() === val;
+                    let isSingleMatch = String(item.code_single || item.code || '').trim().toLowerCase() === val;
     
-    let isLargeMatch = String(item.code_large || '').trim().toLowerCase() === cleanCode;
-    let isSmallMatch = String(item.code_small || '').trim().toLowerCase() === cleanCode;
-    let isSingleMatch = String(item.code_single || '').trim().toLowerCase() === cleanCode;
-    
-    // ຖ້າກົງກັບອັນໃດອັນໜຶ່ງ ໃຫ້ບັນທຶກໄວ້ວ່າສະແກນຖືກຊັ້ນໃດ ເພື່ອດຶງລາຄາຖືກຕ້ອງ
-    if (isLargeMatch) item.scanned_level = 'large';
-    else if (isSmallMatch) item.scanned_level = 'small';
-    else if (isSingleMatch) item.scanned_level = 'single';
-    else if (isNameMatch) item.scanned_level = 'single'; // ຄ່າເລີ່ມຕົ້ນຖ້າພິມຊື່
-    
-    return isLargeMatch || isSmallMatch || isSingleMatch || isNameMatch;
-});
+                    // ຖ້າກົງກັບອັນໃດອັນໜຶ່ງ ໃຫ້ບັນທຶກໄວ້ວ່າສະແກນຖືກຊັ້ນໃດ ເພື່ອດຶງລາຄາຖືກຕ້ອງ
+                    if (isLargeMatch) item.scanned_level = 'large';
+                    else if (isSmallMatch) item.scanned_level = 'small';
+                    else if (isSingleMatch) item.scanned_level = 'single';
+                    else if (isNameMatch) item.scanned_level = 'single'; // ຄ່າເລີ່ມຕົ້ນຖ້າພິມຊື່
+                    
+                    return isLargeMatch || isSmallMatch || isSingleMatch || isNameMatch;
+                });
 
                 if (exactMatches.length > 1) {
                     let modal = document.getElementById('select-price-modal');
@@ -4052,7 +4056,12 @@ function closeScanner() {
 
             // ⭐️ ກວດສອບ: ຖ້າສິນຄ້າຖືກອັບເດດລົງກະຕ່າອໍໂຕ້ແລ້ວ ໃຫ້ລ້າງປ່ອງຂໍ້ມູນເພື່ອກຽມສະແກນອັນຕໍ່ໄປເລີຍ
             let cleanCode = String(code).trim().toLowerCase();
-            let foundItem = excelRows.find(item => String(item.code).trim().toLowerCase() === cleanCode || (item.name && item.name.trim().toLowerCase() === cleanCode));
+            let foundItem = excelRows.find(item => 
+                String(item.code_large || '').trim().toLowerCase() === cleanCode ||
+                String(item.code_small || '').trim().toLowerCase() === cleanCode ||
+                String(item.code_single || item.code || '').trim().toLowerCase() === cleanCode ||
+                (item.name && item.name.trim().toLowerCase() === cleanCode)
+            );
             
             if (foundItem && typeof continuousCart !== 'undefined') {
                 let existingCartItem = continuousCart.find(i => i.id === foundItem.id && i.saleType === currentSaleType);
@@ -5233,36 +5242,49 @@ function checkExpiryAlertStatus() {
             if (!stockDisplay) return;
 
             let foundItem = null;
+            let scannedLvl = 'single'; // ⭐️ ເພີ່ມຕົວແປຈື່ຊັ້ນສິນຄ້າ (ລາງ/ແພັກ/ຂວດ)
+            let val = input && input.value ? input.value.trim().toLowerCase() : "";
+
             if (window.activeScanItem) {
-                foundItem = window.activeScanItem; // ດຶງຈາກສິນຄ້າທີ່ກຳລັງສະແກນປັດຈຸບັນ
+                foundItem = window.activeScanItem; 
+                scannedLvl = foundItem.scanned_level || 'single';
             } else if (window.explicitlySelectedItemId) {
                 foundItem = excelRows.find(i => i.id === window.explicitlySelectedItemId);
-            } else if (input && input.value.trim() !== "") {
-                let val = input.value.trim().toLowerCase();
-                foundItem = excelRows.find(item => 
-                    String(item.code).trim().toLowerCase() === val || 
-                    (item.name && item.name.trim().toLowerCase() === val)
-                );
+                if (foundItem) scannedLvl = foundItem.scanned_level || 'single';
+            } else if (val !== "") {
+                foundItem = excelRows.find(item => {
+                    let isL = String(item.code_large || '').trim().toLowerCase() === val;
+                    let isSm = String(item.code_small || '').trim().toLowerCase() === val;
+                    let isSi = String(item.code_single || item.code || '').trim().toLowerCase() === val;
+                    let isN = (item.name && item.name.trim().toLowerCase() === val);
+                    
+                    if (isL) scannedLvl = 'large';
+                    else if (isSm) scannedLvl = 'small';
+                    else if (isSi || isN) scannedLvl = 'single';
+
+                    return isL || isSm || isSi || isN;
+                });
             } else if (continuousCart.length > 0) {
                 let lastCartItem = continuousCart[continuousCart.length - 1];
                 foundItem = excelRows.find(i => i.id === lastCartItem.id);
+                scannedLvl = lastCartItem.saleType || 'single'; 
             }
 
             if (foundItem) {
                 let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
                 
-                // 1. ⭐️ ອັບເດດຈຳນວນສະເພາະລາຍການຫຼ້າສຸດ (ແຖວລຸ່ມສຸດ) ທີ່ກຳລັງພິມຢູ່
+                // 1. ອັບເດດຈຳນວນສະເພາະລາຍການຫຼ້າສຸດ (ແຖວລຸ່ມສຸດ) ທີ່ກຳລັງພິມຢູ່
                 let typingQty = (rawQtyText === "" || isNaN(rawQtyText) || parseFloat(rawQtyText) <= 0) ? 1 : parseFloat(rawQtyText);
                 
                 if (typeof continuousCart !== 'undefined' && continuousCart.length > 0) {
-                    let targetCartItem = continuousCart[continuousCart.length - 1]; // ເລືອກແຖວຫຼ້າສຸດທີ່ຫາກໍ່ສະແກນ
+                    let targetCartItem = continuousCart[continuousCart.length - 1]; 
                     if (targetCartItem) {
                         targetCartItem.qty = typingQty; 
                         updateContinuousCartUI(); 
                     }
                 }
 
-                // 2. ຄິດໄລ່ສະຕັອກສະແດງຜົນໜ້າຈໍ ຢ່າງຖືກຕ້ອງ ບໍ່ໃຫ້ຕິດລົບ
+                // 2. ຄິດໄລ່ສະຕັອກສະແດງຜົນໜ້າຈໍ ຢ່າງຖືກຕ້ອງ
                 let currentQty = parseFloat(String(foundItem.qty !== undefined ? foundItem.qty : 0).replace(/,/g, '')) || 0;
                 let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
                 
@@ -5283,9 +5305,22 @@ function checkExpiryAlertStatus() {
                     else activeLevel = 1;
                 }
 
+                // ⭐️ ຫາຕົວຄູນຈຳນວນຕາມຊັ້ນທີ່ສະແກນ (ລາງ/ແພັກ/ຂວດ)
+                let multiplier = 1;
+                if (scannedLvl === 'large') {
+                    multiplier = qtyLarge;
+                } else if (scannedLvl === 'small') {
+                    let packDiv = (qtySmall > 0) ? qtySmall : unitPerPack;
+                    multiplier = packDiv > 0 ? packDiv : 6;
+                } else {
+                    multiplier = 1;
+                }
+
                 let visualDeduct = (rawQtyText === "" || isNaN(rawQtyText)) ? 0 : parseFloat(rawQtyText);
-                // ປ້ອງກັນບໍ່ໃຫ້ຫັກຈຳນວນເກินຍອດທີ່ມີໃນສາງ
-                let remainingSingles = Math.max(0, totalSingles - visualDeduct);
+                
+                // ⭐️ ແກ້ໄຂບັກ: ເອົາຈຳນວນທີ່ປ້ອນ x ຕົວຄູນຂອງຊັ້ນນັ້ນໆ ກ່ອນໄປລົບອອກຈາກສາງຍ່ອຍ
+                let visualDeductBase = visualDeduct * multiplier;
+                let remainingSingles = Math.max(0, totalSingles - visualDeductBase);
                 
                 let dispLarge = 0, dispSmall = 0, dispSingle = 0;
                 if (activeLevel === 3) {
@@ -5333,30 +5368,50 @@ function checkExpiryAlertStatus() {
             }
 
             let foundItem = null;
+            let scannedLevel = 'single';
 
-            // ⭐️ ແກ້ໄຂບັກ: ຖ້າເລືອກຈາກປ໊ອບອັບມາແລ້ວ ໃຫ້ດຶງຂໍ້ມູນຈາກ ID ທີ່ເລືອກເລີຍ (ແກ້ບັນຫາລາຄາຊ້ຳກັນ)
             if (window.explicitlySelectedItemId) {
                 foundItem = excelRows.find(i => i.id === window.explicitlySelectedItemId);
+                if (foundItem) scannedLevel = foundItem.scanned_level || 'single';
             }
 
-            // ຖ້າບໍ່ມີການເລືອກຈາກປ໊ອບອັບ ຈຶ່ງຄ່ອຍຄົ້ນຫາປົກກະຕິ
             if (!foundItem) {
-                foundItem = excelRows.find(item => 
-                    String(item.code).trim().toLowerCase() === val || 
-                    (item.name && item.name.trim().toLowerCase() === val)
-                );
+                foundItem = excelRows.find(item => {
+                    let isLargeMatch = String(item.code_large || '').trim().toLowerCase() === val;
+                    let isSmallMatch = String(item.code_small || '').trim().toLowerCase() === val;
+                    let isSingleMatch = String(item.code_single || item.code || '').trim().toLowerCase() === val;
+                    let isNameMatch = (item.name && item.name.trim().toLowerCase() === val);
+                    
+                    if (isLargeMatch) scannedLevel = 'large';
+                    else if (isSmallMatch) scannedLevel = 'small';
+                    else if (isSingleMatch || isNameMatch) scannedLevel = 'single';
+
+                    return isLargeMatch || isSmallMatch || isSingleMatch || isNameMatch;
+                });
             }
 
             if (foundItem) {
-                let exactSellingPrice = parseFloat(String(foundItem.currentSellingPrice || foundItem.price || 0).replace(/,/g, '')) || 0;
-                let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
-                let finalPriceLAK = exactSellingPrice;
-
-                if (currentSaleType === 'retail' && unitPerPack > 1) {
-                    let retailRawPrice = exactSellingPrice / unitPerPack;
-                    finalPriceLAK = Math.ceil(retailRawPrice / 1000) * 1000;
-                }
+                // ⭐️ ດຶງລາຄາໃຫ້ກົງກັບຊັ້ນທີ່ສະແກນແທ້ໆ
+                let exactSellingPrice = 0;
+                let levelNameLabel = '';
                 
+                if (scannedLevel === 'large') {
+                    exactSellingPrice = parseFloat(String(foundItem.price_large || 0).replace(/,/g, '')) || 0;
+                    levelNameLabel = '(ລາງ/ແພັກໃຫຍ່)';
+                } else if (scannedLevel === 'small') {
+                    exactSellingPrice = parseFloat(String(foundItem.price_small || 0).replace(/,/g, '')) || 0;
+                    levelNameLabel = '(ແພັກ/ຫໍ່)';
+                } else {
+                    exactSellingPrice = parseFloat(String(foundItem.price_single || foundItem.price || 0).replace(/,/g, '')) || 0;
+                    levelNameLabel = '(ຂວດ/ປ໋ອງ)';
+                }
+
+                // ຖ້າລາຄາຍັງເປັນ 0 (ອາດຈະບໍ່ໄດ້ຕັ້ງຄ່າໄວ້) ໃຫ້ໃຊ້ລາຄາຕັ້ງຕົ້ນແທນ
+                if (exactSellingPrice === 0) {
+                     exactSellingPrice = parseFloat(String(foundItem.currentSellingPrice || foundItem.price || 0).replace(/,/g, '')) || 0;
+                }
+
+                let finalPriceLAK = exactSellingPrice;
                 let previewTotalLAK = finalPriceLAK * typingQty;
                 let saleModeLabel = currentSaleType === 'retail' ? '(ຂາຍຍ່ອຍ)' : '(ຂາຍສົ່ງ)';
 
@@ -5371,7 +5426,7 @@ function checkExpiryAlertStatus() {
                 container.innerHTML = `
                     <div class="flex justify-between items-center bg-blue-50/80 p-2 rounded-lg border border-blue-200 shadow-sm">
                         <div class="truncate max-w-[140px]">
-                            <span class="font-bold text-blue-900">${foundItem.name || foundItem.code}</span>
+                            <span class="font-bold text-blue-900">${foundItem.name || foundItem.code} <span class="text-[10px] text-gray-500">${levelNameLabel}</span></span>
                             <div class="text-[10px] text-gray-600">${formatNumberWithCommas(displayPrice)} ${currencyLabel} x ${typingQty} ${saleModeLabel}</div>
                         </div>
                         <div class="flex items-center gap-2">
@@ -5443,6 +5498,10 @@ function checkExpiryAlertStatus() {
             if (stockDisplay) stockDisplay.value = "";
             if (qtyInput) qtyInput.value = "";
 
+            // ⭐️ ເພີ່ມການລ້າງຄວາມຈຳ ເພື່ອບໍ່ໃຫ້ມັນຈື່ສິນຄ້າຄ້າງໄວ້
+            window.activeScanItem = null;
+            window.explicitlySelectedItemId = null;
+
             currentSaleType = 'wholesale';
             let toggleBtn = document.getElementById('toggle-sale-mode-btn');
             if (toggleBtn) {
@@ -5469,7 +5528,9 @@ function checkExpiryAlertStatus() {
                 let customQty = (rawQtyText === "" || parseFloat(rawQtyText) <= 0) ? 1 : parseFloat(rawQtyText);
                 
                 let foundItem = excelRows.find(item => 
-                    String(item.code).trim().toLowerCase() === code.toLowerCase() || 
+                    String(item.code_large || '').trim().toLowerCase() === code.toLowerCase() ||
+                    String(item.code_small || '').trim().toLowerCase() === code.toLowerCase() ||
+                    String(item.code_single || item.code || '').trim().toLowerCase() === code.toLowerCase() ||
                     (item.name && item.name.trim().toLowerCase() === code.toLowerCase())
                 );
 
@@ -5718,39 +5779,54 @@ async function processStockIn(shouldMerge) {
             container.innerHTML = html;
         }
         async function confirmInlineCheckout() {
-            // ⭐️ 1. ຖ້າໃນກະຕ່າ (continuousCart) ຍັງວ່າງ ແຕ່ຜູ້ໃຊ້ພິມຊື່ສິນຄ້າຄ້າງໄວ້ໃນຊ່ອງ input ໃຫ້ດຶງລົງກະຕ່າອັດຕະໂນມັດທັນที
             let barcodeInput = document.getElementById('scan-barcode-input');
             let qtyInput = document.getElementById('scan-qty-input');
-            let cashInput = document.getElementById('inline-cash-given'); // ⭐️ ເພີ່ມການດຶງຊ່ອງເງິນຈ່າຍຕົວຈິງ
+            let cashInput = document.getElementById('inline-cash-given'); 
 
             if ((!continuousCart || continuousCart.length === 0) && barcodeInput && barcodeInput.value.trim() !== "") {
                 let code = barcodeInput.value.trim();
                 let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
                 let customQty = (rawQtyText === "" || isNaN(rawQtyText) || parseFloat(rawQtyText) <= 0) ? 1 : parseFloat(rawQtyText);
                 
-                let foundItem = excelRows.find(item => 
-                    String(item.code).trim().toLowerCase() === code.toLowerCase() || 
-                    (item.name && item.name.trim().toLowerCase() === code.toLowerCase())
-                );
+                // ⭐️ ອັບເດດໃຫ້ຊອກຫາ 3 ຊັ້ນ ແລະ ດຶງລາຄາຖືກຕ້ອງເວລາກົດຈ່າຍເງິນເລີຍ
+                let scannedLvl = 'single';
+                let foundItem = excelRows.find(item => {
+                    let isL = String(item.code_large || '').trim().toLowerCase() === code.toLowerCase();
+                    let isSm = String(item.code_small || '').trim().toLowerCase() === code.toLowerCase();
+                    let isSi = String(item.code_single || item.code || '').trim().toLowerCase() === code.toLowerCase();
+                    let isN = (item.name && item.name.trim().toLowerCase() === code.toLowerCase());
+
+                    if (isL) scannedLvl = 'large';
+                    else if (isSm) scannedLvl = 'small';
+                    else if (isSi || isN) scannedLvl = 'single';
+
+                    return isL || isSm || isSi || isN;
+                });
 
                 if (foundItem) {
-                let exactSellingPrice = parseFloat(String(foundItem.currentSellingPrice || foundItem.price || 0).replace(/,/g, '')) || 0;
-                    let exactCost = parseFloat(String(foundItem.currentNewCost || foundItem.cost || 0).replace(/,/g, '')) || 0;
-                    let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
+                    let exactSellingPrice = 0;
+                    let exactCost = 0;
 
-                    let finalPrice = exactSellingPrice;
-                    let finalCost = exactCost;
-                    if (currentSaleType === 'retail' && unitPerPack > 1) {
-                        finalPrice = Math.ceil((exactSellingPrice / unitPerPack) / 1000) * 1000;
-                        finalCost = exactCost / unitPerPack; // ⭐️ ແກ້ໄຂ: ຫານຕົ້ນທຶນສຳລັບຂາຍຍ່ອຍ
+                    if (scannedLvl === 'large') {
+                        exactSellingPrice = parseFloat(String(foundItem.price_large || 0).replace(/,/g, '')) || 0;
+                        exactCost = parseFloat(String(foundItem.cost_large || 0).replace(/,/g, '')) || 0;
+                    } else if (scannedLvl === 'small') {
+                        exactSellingPrice = parseFloat(String(foundItem.price_small || 0).replace(/,/g, '')) || 0;
+                        exactCost = parseFloat(String(foundItem.cost_small || 0).replace(/,/g, '')) || 0;
+                    } else {
+                        exactSellingPrice = parseFloat(String(foundItem.price_single || foundItem.price || 0).replace(/,/g, '')) || 0;
+                        exactCost = parseFloat(String(foundItem.cost_single || foundItem.cost || 0).replace(/,/g, '')) || 0;
                     }
+                    
+                    if (exactSellingPrice === 0) exactSellingPrice = parseFloat(String(foundItem.currentSellingPrice || foundItem.price || 0).replace(/,/g, '')) || 0;
+                    if (exactCost === 0) exactCost = parseFloat(String(foundItem.currentNewCost || foundItem.cost || 0).replace(/,/g, '')) || 0;
 
                     continuousCart.push({
                         ...foundItem,
-                        cost: finalCost,    
-                        price: finalPrice, 
+                        cost: exactCost,    
+                        price: exactSellingPrice, 
                         qty: customQty,
-                        saleType: currentSaleType
+                        saleType: scannedLvl
                     });
                     updateContinuousCartUI();
                 }
@@ -5784,13 +5860,23 @@ async function processStockIn(shouldMerge) {
                 displayCurrency = 'ບາດ';
             }
 
-            // 3. ລ້າງກະຕ່າ ແລະ ຣີເຊັດຊ່ອງປ້ອນຂໍ້ມູນທັງໝົດ
+            // 3. ລ້າງກະຕ່າ ແລະ ຣີເຊັດຊ່ອງປ້ອນຂໍ້ມູນທັງໝົດຢ່າງເດັດຂາດ
             continuousCart = [];
-            updateContinuousCartUI();
+            window.activeScanItem = null;
+            window.explicitlySelectedItemId = null;
+
             if (barcodeInput) barcodeInput.value = "";
             if (qtyInput) qtyInput.value = "";
-            if (cashInput) cashInput.value = ""; // ⭐️ ລ້າງຊ່ອງເງິນຈ່າຍຕົວຈິງ
-            if (typeof calculateInlineChange === 'function') calculateInlineChange(); // ⭐️ ສັ່ງຣີເຊັດເງິນທອນໃຫ້ເປັນ 0 ອັດຕະໂນມັດ
+            if (cashInput) cashInput.value = ""; 
+            
+            let stockDisplay = document.getElementById('scan-stock-display');
+            if (stockDisplay) stockDisplay.value = "-"; // ຕັ້ງເປັນຂີດໄວ້ກ່ອນ
+
+            updateContinuousCartUI();
+            updateCartItemPreview(); // ⭐️ ບັງຄັບລ້າງໜ້າຈໍພຣີວິວກະຕ່າ
+            updateStockDisplayOnQtyChange(); // ⭐️ ບັງຄັບໃຫ້ລະບົບຄຳນວນສະຕັອກໃໝ່ (ເຊິ່ງມັນຈະເຫັນວ່າວ່າງເປົ່າ ແລ້ວລ້າງໂຕເລກເກົ່າຖິ້ມທັນທີ)
+            
+            if (typeof calculateInlineChange === 'function') calculateInlineChange();
 
             // 4. ⭐️ ສະແດງປ໊ອບອັບ "ສຳເລັດການຊຳລະເງິນ"
             showAlert(
@@ -5965,7 +6051,9 @@ async function processStockIn(shouldMerge) {
             
             // ຄົ້ນຫາສິນຄ້າຈາກຊື່ ຫຼື ລະຫັດບາໂຄດ
             let foundItem = excelRows.find(item => 
-                String(item.code).trim().toLowerCase() === cleanQuery || 
+                String(item.code_large || '').trim().toLowerCase() === cleanQuery ||
+                String(item.code_small || '').trim().toLowerCase() === cleanQuery ||
+                String(item.code_single || item.code || '').trim().toLowerCase() === cleanQuery ||
                 (item.name && item.name.trim().toLowerCase() === cleanQuery)
             );
 
