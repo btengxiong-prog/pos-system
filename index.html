@@ -4264,7 +4264,18 @@ async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal, co
         }
 
         // ⭐️ ແກ້ໄຂ: ບັງຄັບໃຫ້ກວດສອບສະຕັອກກ່ອນ ເອົາລົງກະຕ່າ
+        let lastAddedTimestamp = 0;
+        let lastAddedItemId = null;
+
         function processAndAddToCart(foundItem, addQty) {
+            // ⭐️ 1. ປ້ອງກັນບັກການຍິງບາໂຄດ ຫຼື ກົດ Enter ຊ້ຳກັນພາຍໃນ 0.4 ວິນາທີ 
+            let now = Date.now();
+            if (lastAddedItemId === foundItem.id && (now - lastAddedTimestamp) < 400) {
+                return; // ຖ້າກົດຊ້ຳໄວເກີນໄປ ໃຫ້ຍົກເລີກການເຮັດວຽກ
+            }
+            lastAddedItemId = foundItem.id;
+            lastAddedTimestamp = now;
+
             window.activeScanItem = foundItem; 
             window.explicitlySelectedItemId = foundItem.id;
 
@@ -4343,11 +4354,18 @@ async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal, co
                 deductBase: deductQtyBase
             };
 
-            continuousCart.push({ 
-                ...processedItem, 
-                qty: addQty, 
-                uniqueKey: Date.now() + Math.random() 
-            });
+            // ⭐️ 2. ກວດສອບວ່າມີສິນຄ້ານີ້ໃນກະຕ່າແລ້ວຫຼືບໍ່ ຖ້າມີໃຫ້ບວກຈຳນວນເພີ່ມ ແທນການແຍກແຖວໃໝ່
+            let existingCartItem = continuousCart.find(i => i.id === processedItem.id && i.saleType === processedItem.saleType);
+            if (existingCartItem) {
+                existingCartItem.qty += addQty;
+                existingCartItem.deductBase += deductQtyBase;
+            } else {
+                continuousCart.push({ 
+                    ...processedItem, 
+                    qty: addQty, 
+                    uniqueKey: Date.now() + Math.random() 
+                });
+            }
 
             updateContinuousCartUI();
             
