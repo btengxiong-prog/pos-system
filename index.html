@@ -917,14 +917,15 @@ tr {
                     <input type="date" id="input-custom-rate-date" onchange="handleRateDateChange(this.value)" class="w-full border rounded-lg px-3 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-orange-500 bg-white text-purple-700 cursor-pointer">
                 </div>
 
+                <!-- ⭐️ ປັບປຸງ: ປ່ຽນມາໃຊ້ formatDecimalInput ແທນ ເພື່ອຮອງຮັບເລກເສດ -->
                 <div class="flex items-center justify-between gap-3">
                     <label class="text-sm font-bold text-gray-800 w-28">Rate ຊື້:</label>
-                    <input type="text" id="input-custom-buy-rate" oninput="formatInputMoney(this)" placeholder="ຕົວຢ່າງ: 650" class="flex-1 border rounded-lg px-3 py-2.5 text-right text-base font-bold text-blue-600 outline-none focus:ring-2 focus:ring-orange-500 bg-white">
+                    <input type="text" id="input-custom-buy-rate" oninput="formatDecimalInput(this)" placeholder="ຕົວຢ່າງ: 665.25" class="flex-1 border rounded-lg px-3 py-2.5 text-right text-base font-bold text-blue-600 outline-none focus:ring-2 focus:ring-orange-500 bg-white">
                 </div>
 
                 <div class="flex items-center justify-between gap-3">
                     <label class="text-sm font-bold text-gray-800 w-28">Rate ຂາຍ:</label>
-                    <input type="text" id="input-custom-sell-rate" oninput="formatInputMoney(this)" placeholder="ຕົວຢ່າງ: 690" class="flex-1 border rounded-lg px-3 py-2.5 text-right text-base font-bold text-green-600 outline-none focus:ring-2 focus:ring-orange-500 bg-white">
+                    <input type="text" id="input-custom-sell-rate" oninput="formatDecimalInput(this)" placeholder="ຕົວຢ່າງ: 675.50" class="flex-1 border rounded-lg px-3 py-2.5 text-right text-base font-bold text-green-600 outline-none focus:ring-2 focus:ring-orange-500 bg-white">
                 </div>
             </div>
 
@@ -2033,6 +2034,35 @@ tr {
             input.value = Number(val).toLocaleString('en-US');
         }
 
+        // ⭐️ ຟັງຊັນໃໝ່ສຳລັບຈັດການຕົວເລກທີ່ມີຈຸດທົດສະນິຍົມ (ເລກເສດ)
+        function formatDecimalInput(input) {
+            // ອະນຸຍາດແຕ່ຕົວເລກ ແລະ ຈຸດ (ລຶບໂຕໜັງສື ແລະ ຈຸດຈຸລະພາກອອກກ່ອນຄຳນວນ)
+            let val = input.value.replace(/,/g, '').replace(/[^0-9.]/g, ''); 
+            
+            // ປ້ອງກັນການພິມຈຸດ ( . ) ຫຼາຍກວ່າ 1 ອັນ
+            let parts = val.split('.');
+            if (parts.length > 2) { 
+                val = parts[0] + '.' + parts.slice(1).join('');
+                parts = val.split('.');
+            }
+            
+            if (val === '') {
+                input.value = '';
+                return;
+            }
+            
+            let intPart = parts[0];
+            // ຈັດຮູບແບບຫຼັກພັນໃຫ້ຈຳນວນຖ້ວນ
+            let formattedInt = intPart === '' ? '0' : Number(intPart).toLocaleString('en-US');
+            
+            // ຖ້າມີເລກເສດ ກໍໃຫ້ເອົາມາຕໍ່ທ້າຍ
+            if (parts.length > 1) {
+                input.value = formattedInt + '.' + parts[1]; 
+            } else {
+                input.value = formattedInt;
+            }
+        }
+
         function autoSlashDateInput(input) {
             let v = input.value.replace(/\D/g, '');
             if (v.length > 8) v = v.substring(0, 8);
@@ -2349,7 +2379,8 @@ function initFirebaseRealtime() {
                     let rateDates = Object.keys(rateRecordsMap).sort((a, b) => new Date(a) - new Date(b));
                     let currentBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 0;
 
-                    snapshot.forEach((doc) => {
+                    snapshot.docChanges().forEach((change) => {
+                        let doc = change.doc;
                         let item = doc.data();
                         let docId = doc.id;
                         let rowDevId = String(item.device_id || '').trim().toUpperCase();
@@ -2365,34 +2396,36 @@ function initFirebaseRealtime() {
                         let profitPct = parseFloat(item.profit_pct !== undefined ? item.profit_pct : (item.profitPct !== undefined ? item.profitPct : 23.90));
                         if (isNaN(profitPct) || profitPct <= 0) profitPct = 23.90; 
 
-                        // ⭐️ ຊອກຫາ Rate ເດີມທີ່ແທ້ຈິງ (ບໍ່ໃຊ້ 650 ຕາຍຕົວອີກແລ້ວ)
                         let rawImportDate = item.date_added || item.dateAdded || '';
                         let formattedImportDate = rawImportDate ? (rawImportDate.includes('/') ? rawImportDate : formatDateToDDMMYYYY(rawImportDate)) : '-';
                         let importDateISO = parseDDMMYYYYToISO(formattedImportDate);
                         
                         let importBuyRate = 0;
-                        if (rateDates.length === 1) {
-                            importBuyRate = rateRecordsMap[rateDates[0]].buy;
-                            if(currentBuyRate <= 0) currentBuyRate = importBuyRate;
-                        } else if (rateDates.length >= 2) {
-                            let targetTime = new Date(importDateISO).getTime();
-                            let closestOldDate = rateDates.reduce((prev, curr) => {
-                                let currDiff = targetTime - new Date(curr).getTime();
-                                return (currDiff >= 0 && currDiff < (targetTime - new Date(prev).getTime())) ? curr : prev;
-                            }, rateDates[0]);
-                            importBuyRate = rateRecordsMap[closestOldDate] ? rateRecordsMap[closestOldDate].buy : 0;
-                            if(currentBuyRate <= 0) currentBuyRate = rateRecordsMap[rateDates[rateDates.length - 1]].buy;
+                        if (rateDates.length > 0) {
+                            if (currentBuyRate <= 0) {
+                                currentBuyRate = rateRecordsMap[rateDates[rateDates.length - 1]].buy;
+                            }
+                            if (rateRecordsMap[importDateISO]) {
+                                importBuyRate = rateRecordsMap[importDateISO].buy;
+                            } else {
+                                let importTime = new Date(importDateISO).getTime();
+                                let pastDates = rateDates.filter(d => new Date(d).getTime() <= importTime);
+                                if (pastDates.length > 0) {
+                                    importBuyRate = rateRecordsMap[pastDates[pastDates.length - 1]].buy;
+                                } else {
+                                    importBuyRate = rateRecordsMap[rateDates[0]].buy;
+                                }
+                            }
                         }
-                        if (!importBuyRate || importBuyRate <= 0) importBuyRate = 650;
+                        if (!importBuyRate || importBuyRate <= 0) importBuyRate = 1;
                         if (!currentBuyRate || currentBuyRate <= 0) currentBuyRate = importBuyRate;
 
-                        // ⭐️ ຄຳນວນລາຄາຂາຍໃໝ່ທີ່ຖືກຕ້ອງ 100% ໄວ້ໃນ Array (ເຊັ່ນ: 6,529,000) ເພື່ອໃຫ້ VLOOKUP ດຶງໄປໃຊ້
                         let calculatedNewCost = importBuyRate > 0 ? originalCostVal * (currentBuyRate / importBuyRate) : originalCostVal;
                         let newCost = Math.ceil(calculatedNewCost / 1000) * 1000;
                         let calculatedNewPrice = newCost * (1 + profitPct / 100);
                         let col15_newPrice = Math.ceil(calculatedNewPrice / 1000) * 1000; 
 
-                        tempArr.push({
+                        let processedItem = {
                             id: docId,
                             code: item.code || '',
                             name: item.name || '',
@@ -2400,7 +2433,7 @@ function initFirebaseRealtime() {
                             originalCost: originalCostVal,
                             profitPct: profitPct, 
                             price: col15_newPrice, 
-                            currentSellingPrice: col15_newPrice, // 🎯 ນີ້ຄືຕົວເລກທີ່ຖືກຕ້ອງທີ່ໜ້າຂາຍຈະດຶງໄປໃຊ້!
+                            currentSellingPrice: col15_newPrice,
                             currentNewCost: newCost,
                             qty: item.qty !== undefined ? item.qty : 1,
                             initial_qty: item.initial_qty !== undefined ? item.initial_qty : (item.qty || 1),
@@ -2410,8 +2443,6 @@ function initFirebaseRealtime() {
                             expiry_date: item.expiry_date || item.expiryDate || '',
                             currency: item.currency || 'ກີບ',
                             device_id: rowDevId,
-                            
-                            // ⭐️ ເພີ່ມຂໍ້ມູນຊັ້ນສິນຄ້າ (3 ຊັ້ນ) ເພື່ອໃຫ້ຕາຕະລາງ Inventory ແລະ ການຂາຍ ສະແດງຜົນແຖວໄດ້ຖືກຕ້ອງ 100%
                             code_large: item.code_large || '',
                             code_small: item.code_small || '',
                             code_single: item.code_single || item.code || '',
@@ -2422,14 +2453,23 @@ function initFirebaseRealtime() {
                             qty_in_small: parseInt(item.qty_in_small) || 0,
                             stock_level: item.stock_level !== undefined ? parseInt(item.stock_level) : undefined,
                             stock_base_qty: item.stock_base_qty !== undefined ? parseFloat(item.stock_base_qty) : undefined
-                        });
+                        };
+
+                        // ອັບເດດລົງ excelRows ແບບຈຸດຕໍ່ຈຸດ (O(1) Update) ແທນການສ້າງໃໝ່ໝົດ
+                        if (change.type === "added") {
+                            excelRows.push(processedItem);
+                        } else if (change.type === "modified") {
+                            let index = excelRows.findIndex(x => x.id === docId);
+                            if(index !== -1) excelRows[index] = processedItem;
+                        } else if (change.type === "removed") {
+                            excelRows = excelRows.filter(x => x.id !== docId);
+                        }
                     });
 
                     if (hasChanges) {
                         await batch.commit().catch(err => console.error(err));
                     }
 
-                    excelRows = tempArr;
                     updateExistingProductNamesDatalist();
                     checkExpiryAlertStatus();
                     // (ປິດການກວດສອບສະຕັອກໃກ້ໝົດ ເພື່ອບໍ່ໃຫ້ປຸ່ມຄ້າງສາງກະພິບ)
@@ -2593,18 +2633,13 @@ function initFirebaseRealtime() {
         }
 
         function closeStaffScanner() {
+            document.getElementById('staff-scanner-modal').classList.add('hidden');
             if (staffScanner) {
                 try {
                     staffScanner.stop().then(() => {
-                        document.getElementById('staff-scanner-modal').classList.add('hidden');
-                    }).catch(() => {
-                        document.getElementById('staff-scanner-modal').classList.add('hidden');
-                    });
-                } catch (e) {
-                    document.getElementById('staff-scanner-modal').classList.add('hidden');
-                }
-            } else {
-                document.getElementById('staff-scanner-modal').classList.add('hidden');
+                        staffScanner.clear();
+                    }).catch(() => {});
+                } catch (e) {}
             }
         }
 
@@ -3158,14 +3193,14 @@ function initFirebaseRealtime() {
             ).catch(err => {});
         }
 
-function closeStockInScanner() {
+        function closeStockInScanner() {
             document.getElementById('stock-in-scanner-container').classList.add('hidden');
             if (stockInScannerInstance) {
                 try {
-                    stockInScannerInstance.stop().catch(() => {});
-                } catch (e) {
-                    console.warn("Scanner stop ignored:", e);
-                }
+                    stockInScannerInstance.stop().then(() => {
+                        stockInScannerInstance.clear();
+                    }).catch(() => {});
+                } catch (e) {}
             }
         }
 
@@ -3601,7 +3636,7 @@ function calculateStockInPrice() {
             setTimeout(() => { closeCustomAlert(); openStockInScannerWithExpiry(isExpiryMode); }, 1500);
         }
 
-        async function loadInventory() {
+async function loadInventory() {
     let tbody = document.getElementById('inventory-tbody');
     if (!tbody) return;
 
@@ -3654,7 +3689,7 @@ function calculateStockInPrice() {
         return;
     }
 
-    let html = '';
+    let htmlArray = [];
     let countIndex = 1;
     let todayDateStr = new Date().toLocaleDateString('en-GB');
     let rateDates = Object.keys(rateRecordsMap).sort((a, b) => new Date(a) - new Date(b));
@@ -3662,6 +3697,7 @@ function calculateStockInPrice() {
     let sumOriginalCost = 0, sumOriginalPrice = 0, sumNewCost = 0, sumNewPrice = 0;
 
     displayRows.forEach((row) => {
+        // [ໝາຍເຫດ: ໂຄດຄິດໄລ່ກ່ອນໜ້ານີ້ຍັງຄົງເດີມ ປ່ອຍໃຫ້ມັນເຮັດວຽກປົກກະຕິ ລົງມາຫາ levelsToPrint ເລີຍ]
         let currentQty = parseFloat(String(row.qty !== undefined ? row.qty : 0).replace(/,/g, '')) || 0;
         let unitPerPack = parseInt(row.unitPerPack || row.unit_per_pack) || 1;
         
@@ -3676,7 +3712,6 @@ function calculateStockInPrice() {
         let qtyInSmall = parseInt(row.qty_in_small) || 0;
         let oldUnitPerPack = parseInt(row.unitPerPack || row.unit_per_pack) || 1;
 
-        // ⭐️ ບັງຄັບການອ່ານຊັ້ນ (1, 2 ຫຼື 3) ຢ່າງເດັດຂາດ
         let activeLevel = parseInt(row.stock_level);
         if (isNaN(activeLevel)) {
             if ((row.code_large && row.code_large.trim() !== '' && row.code_large !== '-') || parseFloat(row.price_large) > 0 || (qtyInLarge > qtyInSmall && qtyInSmall > 0 && qtyInLarge > 1)) {
@@ -3727,11 +3762,29 @@ function calculateStockInPrice() {
         let rawImportDate = row.date_added || row.dateAdded || '';
         let formattedImportDate = rawImportDate ? (rawImportDate.includes('/') ? rawImportDate : formatDateToDDMMYYYY(rawImportDate)) : '-';
         
-        let importBuyRate = 650, importSellRate = 670, currentBuyRate = 650, currentSellRate = 670;
-        if (rateDates.length >= 1) {
-            let latestRate = rateRecordsMap[rateDates[rateDates.length - 1]];
-            importBuyRate = latestRate.buy; importSellRate = latestRate.sell;
-            currentBuyRate = latestRate.buy; currentSellRate = latestRate.sell;
+        let importBuyRate = 0, importSellRate = 0, currentBuyRate = 0, currentSellRate = 0;
+
+        if (rateDates.length > 0) {
+            let latestDate = rateDates[rateDates.length - 1];
+            currentBuyRate = rateRecordsMap[latestDate].buy;
+            currentSellRate = rateRecordsMap[latestDate].sell;
+
+            let isoImportDate = parseDDMMYYYYToISO(formattedImportDate);
+            if (rateRecordsMap[isoImportDate]) {
+                importBuyRate = rateRecordsMap[isoImportDate].buy;
+                importSellRate = rateRecordsMap[isoImportDate].sell;
+            } else {
+                let importTime = new Date(isoImportDate).getTime();
+                let pastDates = rateDates.filter(d => new Date(d).getTime() <= importTime);
+                if (pastDates.length > 0) {
+                    let closestPastDate = pastDates[pastDates.length - 1];
+                    importBuyRate = rateRecordsMap[closestPastDate].buy;
+                    importSellRate = rateRecordsMap[closestPastDate].sell;
+                } else {
+                    importBuyRate = rateRecordsMap[rateDates[0]].buy;
+                    importSellRate = rateRecordsMap[rateDates[0]].sell;
+                }
+            }
         }
 
         let calculatedNewCost = importBuyRate > 0 ? originalCostVal * (currentBuyRate / importBuyRate) : originalCostVal;
@@ -3768,7 +3821,10 @@ function calculateStockInPrice() {
             let lvlNewCost = Math.ceil((lvlOrigCost * (importBuyRate > 0 ? currentBuyRate / importBuyRate : 1)) / 1000) * 1000;
             
             let lvlOrigPrice = lvl.origPrice;
-            if (lvlOrigPrice === 0) lvlOrigPrice = Math.ceil((lvlOrigCost * (1 + profitPct / 100)) / 1000) * 1000;
+            if (lvlOrigPrice <= lvlOrigCost || lvlOrigPrice === 0) {
+                lvlOrigPrice = Math.ceil((lvlOrigCost * (1 + profitPct / 100)) / 1000) * 1000;
+            }
+            
             let lvlNewPrice = Math.ceil((lvlNewCost * (1 + profitPct / 100)) / 1000) * 1000;
 
             let hasStock = Number(lvl.displayQtyNum) > 0;
@@ -3780,45 +3836,48 @@ function calculateStockInPrice() {
             let isFirstInGroup = (idx === 0);
             let codeHtml = `<span class="text-[11px] text-gray-500 mr-1">${lvl.label}</span> <span class="text-blue-600 font-mono">${lvl.code}</span>`;
 
-            html += `<tr class="hover:bg-gray-50 border-b text-center text-xs">`;
-            html += `<td class="p-2 border-r font-bold text-gray-700 bg-gray-100/50">${lvl.displayIndex}</td>`;
-            html += `<td class="p-2 border-r font-bold text-left whitespace-nowrap bg-gray-100/50">${codeHtml}</td>`;
-            
-            html += `<td class="p-2 border-r font-bold text-gray-900 text-left">${row.name || '-'}${isFirstInGroup ? shopLabel : ''}</td>`;
-            html += `<td class="p-2 border-r text-purple-700 font-semibold">${formattedImportDate}</td>`;
-            html += `<td class="p-2 border-r text-gray-700 font-semibold">${todayDateStr}</td>`;
-            
-            html += `<td class="p-2 border-r font-bold text-cyan-800 bg-cyan-50/30">${formatNumberWithCommas(lvl.displayQtyNum)} ${lvl.displayQtyUnit}</td>`;
+            // ⭐️ ສ້າງ String HTML ຊົ່ວຄາວສຳລັບແຖວນີ້
+            let rowHtml = `<tr class="hover:bg-gray-50 border-b text-center text-xs">`;
+            rowHtml += `<td class="p-2 border-r font-bold text-gray-700 bg-gray-100/50">${lvl.displayIndex}</td>`;
+            rowHtml += `<td class="p-2 border-r font-bold text-left whitespace-nowrap bg-gray-100/50">${codeHtml}</td>`;
+            rowHtml += `<td class="p-2 border-r font-bold text-gray-900 text-left">${row.name || '-'}${isFirstInGroup ? shopLabel : ''}</td>`;
+            rowHtml += `<td class="p-2 border-r text-purple-700 font-semibold">${formattedImportDate}</td>`;
+            rowHtml += `<td class="p-2 border-r text-gray-700 font-semibold">${todayDateStr}</td>`;
+            rowHtml += `<td class="p-2 border-r font-bold text-cyan-800 bg-cyan-50/30">${formatNumberWithCommas(lvl.displayQtyNum)} ${lvl.displayQtyUnit}</td>`;
             
             if (isFirstInGroup) {
-                html += `<td class="p-2 border-r text-blue-600 font-bold">${formatNumberWithCommas(importBuyRate)}</td>`;
-                html += `<td class="p-2 border-r text-blue-600 font-bold">${formatNumberWithCommas(importSellRate)}</td>`;
-                html += `<td class="p-2 border-r text-blue-800 font-bold">${formatNumberWithCommas(currentBuyRate)}</td>`;
-                html += `<td class="p-2 border-r text-blue-800 font-bold">${formatNumberWithCommas(currentSellRate)}</td>`;
-                html += `<td class="p-2 border-r text-purple-700 font-bold">${profitPct}%</td>`;
+                rowHtml += `<td class="p-2 border-r text-blue-600 font-bold">${formatNumberWithCommas(importBuyRate)}</td>`;
+                rowHtml += `<td class="p-2 border-r text-blue-600 font-bold">${formatNumberWithCommas(importSellRate)}</td>`;
+                rowHtml += `<td class="p-2 border-r text-blue-800 font-bold">${formatNumberWithCommas(currentBuyRate)}</td>`;
+                rowHtml += `<td class="p-2 border-r text-blue-800 font-bold">${formatNumberWithCommas(currentSellRate)}</td>`;
+                rowHtml += `<td class="p-2 border-r text-purple-700 font-bold">${profitPct}%</td>`;
             } else {
-                html += `<td class="p-2 border-r"></td><td class="p-2 border-r"></td><td class="p-2 border-r"></td><td class="p-2 border-r"></td><td class="p-2 border-r"></td>`;
+                rowHtml += `<td class="p-2 border-r"></td><td class="p-2 border-r"></td><td class="p-2 border-r"></td><td class="p-2 border-r"></td><td class="p-2 border-r"></td>`;
             }
 
-            html += `<td class="p-2 border-r text-right text-blue-600 font-semibold">${strOrigCost}</td>`;
-            html += `<td class="p-2 border-r text-right text-green-600 font-semibold">${strOrigPrice}</td>`;
-            html += `<td class="p-2 border-r text-right font-bold text-blue-800 bg-blue-50/30">${strNewCost}</td>`;
-            html += `<td class="p-2 border-r text-right font-bold text-green-800 bg-green-50/30">${strNewPrice}</td>`;
+            rowHtml += `<td class="p-2 border-r text-right text-blue-600 font-semibold">${strOrigCost}</td>`;
+            rowHtml += `<td class="p-2 border-r text-right text-green-600 font-semibold">${strOrigPrice}</td>`;
+            rowHtml += `<td class="p-2 border-r text-right font-bold text-blue-800 bg-blue-50/30">${strNewCost}</td>`;
+            rowHtml += `<td class="p-2 border-r text-right font-bold text-green-800 bg-green-50/30">${strNewPrice}</td>`;
             
             if (isFirstInGroup) {
-                html += `<td class="p-2 border-r text-gray-500 font-normal text-[11px]">${row.note || '-'}</td>`;
-                if (isAdminMaster) html += `<td class="p-2 text-center"><input type="checkbox" data-id="${row.id}" class="inventory-row-checkbox w-4 h-4 cursor-pointer accent-cyan-600"></td>`;
+                rowHtml += `<td class="p-2 border-r text-gray-500 font-normal text-[11px]">${row.note || '-'}</td>`;
+                if (isAdminMaster) rowHtml += `<td class="p-2 text-center"><input type="checkbox" data-id="${row.id}" class="inventory-row-checkbox w-4 h-4 cursor-pointer accent-cyan-600"></td>`;
             } else {
-                html += `<td class="p-2 border-r"></td>`;
-                if (isAdminMaster) html += `<td class="p-2 border-r text-center"></td>`;
+                rowHtml += `<td class="p-2 border-r"></td>`;
+                if (isAdminMaster) rowHtml += `<td class="p-2 border-r text-center"></td>`;
             }
-            html += `</tr>`;
+            rowHtml += `</tr>`;
+            
+            // ⭐️ ເອົາແຖວທີ່ສ້າງສຳເລັດແລ້ວ ຍັດລົງກ່ອງ Array
+            htmlArray.push(rowHtml);
         });
         countIndex++;
     });
 
     let totalColSpan = isAdminMaster ? 11 : 11;
-    html += `
+    // ⭐️ ສ້າງແຖວລວມຍອດ ແລ້ວຍັດລົງກ່ອງ Array ເຊັ່ນກັນ
+    let summaryHtml = `
         <tr class="bg-gray-100 font-bold text-gray-900 text-xs border-t-2 border-gray-400 text-center">
             <td colspan="${totalColSpan}" class="p-2.5 border-r text-right uppercase">ລວມທັງໝົດ (ສະເພາະຫົວໜ່ວຍຍ່ອຍສຸດ)</td>
             <td class="p-2.5 border-r text-right text-blue-700">${formatNumberWithCommas(sumOriginalCost)}</td>
@@ -3828,8 +3887,10 @@ function calculateStockInPrice() {
             <td colspan="${isAdminMaster ? 2 : 1}" class="p-2.5"></td>
         </tr>
     `;
+    htmlArray.push(summaryHtml);
 
-    tbody.innerHTML = html;
+    // ⭐️ ຈັບທຸກແຖວໃນກ່ອງ Array ມາລວມກັນເປັນ HTML ບາດດຽວ (ໄວທີ່ສຸດ!)
+    tbody.innerHTML = htmlArray.join('');
 
     // ⭐️ ເອີ້ນໃຊ້ງານລະບົບລາກປັບຂະໜາດຫຼັງຈາກຕາຕະລາງໂຫຼດແລ້ວ
     setTimeout(() => {
@@ -3970,14 +4031,14 @@ async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal, co
             ).catch(err => {});
         }
 
-function closeScanner() {
+        function closeScanner() {
             document.getElementById('scanner-container').classList.add('hidden');
             if (salesScannerInstance) {
                 try {
-                    salesScannerInstance.stop().catch(() => {});
-                } catch (e) {
-                    console.warn("Scanner stop ignored:", e);
-                }
+                    salesScannerInstance.stop().then(() => {
+                        salesScannerInstance.clear();
+                    }).catch(() => {});
+                } catch (e) {}
             }
         }
 
@@ -4019,13 +4080,29 @@ function closeScanner() {
             updateCartItemPreview();
         }
 
+        // ⭐️ ເພີ່ມຟັງຊັນ Debounce ເພື່ອບໍ່ໃຫ້ລະບົບກະຕຸກເວລາພິມຊອກຫາສິນຄ້າໄວໆ
+        function debounceSearch(func, wait) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+
         document.addEventListener("DOMContentLoaded", () => {
             let barcodeInput = document.getElementById('scan-barcode-input');
             if (barcodeInput) {
+                // ສ້າງຕົວແທນທີ່ໜ່ວງເວລາ 300ms
+                const debouncedSearch = debounceSearch(function(inputElement) {
+                    handleScanBarcodeInputChange(inputElement);
+                }, 300);
+
                 barcodeInput.addEventListener('input', function() {
-                    handleScanBarcodeInputChange(this);
+                    debouncedSearch(this);
                 });
+                
                 barcodeInput.addEventListener('change', function() {
+                    // ສໍາລັບ onchange ໃຫ້ເຮັດວຽກທັນທີ (ເຊັ່ນ: ກໍລະນີໃຊ້ເຄື່ອງສະແກນຍິງແລ້ວ Enter)
                     handleScanBarcodeInputChange(this);
                 });
             }
@@ -6129,10 +6206,10 @@ async function processStockIn(shouldMerge) {
             document.getElementById('price-check-modal').classList.add('hidden');
             if (priceCheckScanner) {
                 try {
-                    priceCheckScanner.stop().catch(() => {});
-                } catch (e) {
-                    console.warn("Scanner stop ignored:", e);
-                }
+                    priceCheckScanner.stop().then(() => {
+                        priceCheckScanner.clear();
+                    }).catch(() => {});
+                } catch (e) {}
             }
         }
 
