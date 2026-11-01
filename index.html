@@ -5314,6 +5314,7 @@ function checkExpiryAlertStatus() {
             let scannedLvl = 'single'; // ⭐️ ເພີ່ມຕົວແປຈື່ຊັ້ນສິນຄ້າ (ລາງ/ແພັກ/ຂວດ)
             let val = input && input.value ? input.value.trim().toLowerCase() : "";
 
+            // ⭐️ ປັບປຸງໃໝ່: ກວດສອບລະຫັດບາໂຄດໃຫ້ກົງກັບຊັ້ນຕົວຈິງ (Large, Small, Single) ຢ່າງแม่ນຍຳ
             if (window.activeScanItem) {
                 foundItem = window.activeScanItem; 
                 scannedLvl = foundItem.scanned_level || 'single';
@@ -5321,19 +5322,21 @@ function checkExpiryAlertStatus() {
                 foundItem = excelRows.find(i => i.id === window.explicitlySelectedItemId);
                 if (foundItem) scannedLvl = foundItem.scanned_level || 'single';
             } else if (val !== "") {
-                foundItem = excelRows.find(item => {
-                    let isL = String(item.code_large || '').trim().toLowerCase() === val;
-                    let isSm = String(item.code_small || '').trim().toLowerCase() === val;
-                    let isSi = String(item.code_single || item.code || '').trim().toLowerCase() === val;
-                    let isN = (item.name && item.name.trim().toLowerCase() === val);
-                    
-                    if (isL) scannedLvl = 'large';
-                    else if (isSm) scannedLvl = 'small';
-                    else if (isSi || isN) scannedLvl = 'single';
+                excelRows.forEach(item => {
+                    let cLarge = String(item.code_large || '').trim().toLowerCase();
+                    let cSmall = String(item.code_small || '').trim().toLowerCase();
+                    let cSingle = String(item.code_single || item.code || '').trim().toLowerCase();
+                    let cName = String(item.name || '').trim().toLowerCase();
 
-                    return isL || isSm || isSi || isN;
+                    if (cLarge === val) { foundItem = item; scannedLvl = 'large'; }
+                    else if (cSmall === val) { foundItem = item; scannedLvl = 'small'; }
+                    else if (cSingle === val) { foundItem = item; scannedLvl = 'single'; }
+                    else if (cName === val) { foundItem = item; scannedLvl = 'single'; }
                 });
-            } else if (continuousCart.length > 0) {
+                if (foundItem) foundItem.scanned_level = scannedLvl;
+            }
+
+            else if (continuousCart.length > 0) {
                 let lastCartItem = continuousCart[continuousCart.length - 1];
                 foundItem = excelRows.find(i => i.id === lastCartItem.id);
                 scannedLvl = lastCartItem.saleType || 'single'; 
