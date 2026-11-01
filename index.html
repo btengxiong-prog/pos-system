@@ -3982,42 +3982,35 @@ function closeScanner() {
         }
 
         function handleScanBarcodeInputChange(input) {
-            window.explicitlySelectedItemId = null; // ⭐️ ລ້າງຄ່າຄວາມຈຳເກົ່າຖິ້ມທຸກຄັ້ງທີ່ມີການພິມ ຫຼື ເລືອກໃໝ່
-
-            updateStockDisplayOnQtyChange();
-            updateCartItemPreview();
+            window.explicitlySelectedItemId = null; 
 
             let val = input.value ? input.value.trim().toLowerCase() : "";
             if (val !== "") {
-            let exactMatches = excelRows.filter(item => {
-                    let itemName = String(item.name || '').trim().toLowerCase();
-                    // ⭐️ ປ່ຽນຈາກ cleanCode ມາເປັນ val ໃຫ້ຖືກຕ້ອງ
-                    let isNameMatch = itemName === val; 
-                    
-                    let isLargeMatch = String(item.code_large || '').trim().toLowerCase() === val;
-                    let isSmallMatch = String(item.code_small || '').trim().toLowerCase() === val;
-                    let isSingleMatch = String(item.code_single || item.code || '').trim().toLowerCase() === val;
-    
-                    // ຖ້າກົງກັບອັນໃດອັນໜຶ່ງ ໃຫ້ບັນທຶກໄວ້ວ່າສະແກນຖືກຊັ້ນໃດ ເພື່ອດຶງລາຄາຖືກຕ້ອງ
-                    if (isLargeMatch) item.scanned_level = 'large';
-                    else if (isSmallMatch) item.scanned_level = 'small';
-                    else if (isSingleMatch) item.scanned_level = 'single';
-                    else if (isNameMatch) item.scanned_level = 'single'; // ຄ່າເລີ່ມຕົ້ນຖ້າພິມຊື່
-                    
-                    return isLargeMatch || isSmallMatch || isSingleMatch || isNameMatch;
+                let matchedItem = null;
+                let scannedLvl = 'single';
+
+                // ⭐️ ກວດສອບຊັ້ນບາໂຄດໃຫ້ຊັດເຈນທຸກຄັ້ງที่มีการປ້ອນຫຼືສະແກນ
+                excelRows.forEach(item => {
+                    let cLarge = String(item.code_large || '').trim().toLowerCase();
+                    let cSmall = String(item.code_small || '').trim().toLowerCase();
+                    let cSingle = String(item.code_single || item.code || '').trim().toLowerCase();
+                    let cName = String(item.name || '').trim().toLowerCase();
+
+                    if (cLarge === val) { matchedItem = item; scannedLvl = 'large'; }
+                    else if (cSmall === val) { matchedItem = item; scannedLvl = 'small'; }
+                    else if (cSingle === val) { matchedItem = item; scannedLvl = 'single'; }
+                    else if (cName === val) { matchedItem = item; scannedLvl = 'single'; }
                 });
 
-                if (exactMatches.length > 1) {
-                    let modal = document.getElementById('select-price-modal');
-                    if (modal && modal.classList.contains('hidden')) {
-                        let qtyInput = document.getElementById('scan-qty-input');
-                        let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
-                        let customQty = (rawQtyText === "" || isNaN(rawQtyText) || parseFloat(rawQtyText) <= 0) ? 1 : parseFloat(rawQtyText);
-                        
-                        openSelectPriceModal(exactMatches, customQty, input.value.trim());
-                    }
+                if (matchedItem) {
+                    matchedItem.scanned_level = scannedLvl;
+                    window.activeScanItem = matchedItem;
+                    window.explicitlySelectedItemId = matchedItem.id;
                 }
             }
+
+            updateStockDisplayOnQtyChange();
+            updateCartItemPreview();
         }
 
         document.addEventListener("DOMContentLoaded", () => {
