@@ -4268,13 +4268,24 @@ function closeScanner() {
 
             updateContinuousCartUI();
             
+            // ⭐️ ແກ້ໄຂທີ 1: ໃຫ້ສະແດງຜົນສະຕັອກຕາມຊັ້ນທີ່ສະແກນເຂົ້າມາ (scannedLvl)
             let remainingBase = currentTotalBaseQty;
-            let displayLarge = Math.floor(remainingBase / qtyLarge);
-            remainingBase = remainingBase % qtyLarge;
-            let displaySmall = Math.floor(remainingBase / qtySmall);
-            let displaySingle = remainingBase % qtySmall;
-            
-            let stockNoteDisplay = `${displayLarge} ລາງ / ${displaySmall} ແພັກ / ${displaySingle} ຍ່ອຍ`;
+            let stockNoteDisplay = "";
+
+            if (finalScannedLvl === 'large') {
+                let displayLarge = Math.floor(remainingBase / qtyLarge);
+                let rem = remainingBase % qtyLarge;
+                let displaySmall = Math.floor(rem / qtySmall);
+                let displaySingle = rem % qtySmall;
+                stockNoteDisplay = `${displayLarge} ລາງ / ${displaySmall} ແພັກ / ${displaySingle} ຍ່ອຍ`;
+            } else if (finalScannedLvl === 'small') {
+                let packDivisor = (qtySmall > 0) ? qtySmall : 6;
+                let displaySmall = Math.floor(remainingBase / packDivisor);
+                let displaySingle = remainingBase % packDivisor;
+                stockNoteDisplay = `${displaySmall} ແພັກ / ${displaySingle} ຍ່ອຍ`;
+            } else {
+                stockNoteDisplay = `${remainingBase} ຍ່ອຍ`;
+            }
             
             let input = document.getElementById('scan-barcode-input');
             let qtyInput = document.getElementById('scan-qty-input');
@@ -5394,28 +5405,22 @@ function checkExpiryAlertStatus() {
                 let visualDeductBase = visualDeduct * multiplier;
                 let remainingSingles = Math.max(0, totalSingles - visualDeductBase);
                 
-            let dispLarge = 0, dispSmall = 0, dispSingle = 0;
-                
-                // ⭐️ ປັບປຸງໃໝ່: ປ່ຽນຮູບແບບການສະແດງຜົນຍອດເຫຼືອໃນສາງ ໃຫ້ກົງກັບ "ຊັ້ນທີ່ກຳລັງສະແກນ (scannedLvl)" ໂດຍກົງ
+            // ⭐️ ແກ້ໄຂທີ 2: ໃຫ້ສະແດງຜົນສະຕັອກເວລາພິມຈຳນວນ ໃຫ້ກົງກັບຊັ້ນທີ່ກຳລັງສະແກນ (scannedLvl)
                 if (scannedLvl === 'large') {
-                    dispLarge = Math.floor(remainingSingles / qtyLarge);
+                    let dispLarge = Math.floor(remainingSingles / qtyLarge);
                     let rem = remainingSingles % qtyLarge;
-                    dispSmall = Math.floor(rem / qtySmall);
-                    dispSingle = rem % qtySmall;
+                    let dispSmall = Math.floor(rem / qtySmall);
+                    let dispSingle = rem % qtySmall;
                     stockDisplay.value = `${dispLarge} ລາງ / ${dispSmall} ແພັກ / ${dispSingle} ຍ່ອຍ`;
                 } else if (scannedLvl === 'small') {
                     let packDivisor = (qtySmall > 0) ? qtySmall : unitPerPack;
                     if (packDivisor <= 1) packDivisor = 6;
-                    dispSmall = Math.floor(remainingSingles / packDivisor);
-                    dispSingle = remainingSingles % packDivisor;
+                    let dispSmall = Math.floor(remainingSingles / packDivisor);
+                    let dispSingle = remainingSingles % packDivisor;
                     stockDisplay.value = `${dispSmall} ແພັກ / ${dispSingle} ຍ່ອຍ`;
                 } else {
-                    dispSingle = remainingSingles;
-                    stockDisplay.value = `${dispSingle} ຍ່ອຍ`;
+                    stockDisplay.value = `${remainingSingles} ຍ່ອຍ`;
                 }
-            } else {
-                stockDisplay.value = "-";
-            }
         }
 
         function updateCartItemPreview() {
