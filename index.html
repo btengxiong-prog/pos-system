@@ -4089,22 +4089,29 @@ async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal, co
             };
         }
 
+        // ⭐️ ເພີ່ມຟັງຊັນ Debounce ເພື່ອປ້ອງກັນການສະແກນຊ້ຳ ແລະ ຫຼຸດອາການກະຕຸກ
+        function debounceSearch(func, wait) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+
         document.addEventListener("DOMContentLoaded", () => {
             let barcodeInput = document.getElementById('scan-barcode-input');
             if (barcodeInput) {
-                // ສ້າງຕົວແທນທີ່ໜ່ວງເວລາ 300ms
+                // ສ້າງຕົວແທນທີ່ໜ່ວງເວລາ 300ms ໃຫ້ເຄື່ອງສະແກນຍິງໃຫ້ແລ້ວກ່ອນ
                 const debouncedSearch = debounceSearch(function(inputElement) {
                     handleScanBarcodeInputChange(inputElement);
                 }, 300);
 
+                // ໃຊ້ແຕ່ oninput ໂຕດຽວກໍພໍ ເພື່ອບໍ່ໃຫ້ Event ຕຳກັນກັບ onchange
                 barcodeInput.addEventListener('input', function() {
                     debouncedSearch(this);
                 });
                 
-                barcodeInput.addEventListener('change', function() {
-                    // ສໍາລັບ onchange ໃຫ້ເຮັດວຽກທັນທີ (ເຊັ່ນ: ກໍລະນີໃຊ້ເຄື່ອງສະແກນຍິງແລ້ວ Enter)
-                    handleScanBarcodeInputChange(this);
-                });
+                // ລຶບ event listener 'change' ອອກ ເພື່ອປ້ອງກັນການເອີ້ນໃຊ້ງານ 2 ຄັ້ງ
             }
         });
 
@@ -4190,8 +4197,11 @@ async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal, co
                 }
             }
 
-            // ຖ້າເປັນການພິມຊື່ສິນຄ້າໃໝ່ (ທີ່ບໍ່ມີໃນກະຕ່າ) ໃຫ້ເພີ່ມລົງກະຕ່າປົກກະຕິ
-            handleSalesBarcodeScanned(code, customQty);
+            // ⭐️ ແກ້ໄຂ: ກ່ອນຈະເພີ່ມລົງກະຕ່າໃໝ່, ກວດສອບໃຫ້ແນ່ໃຈວ່າບໍ່ມີລາຍການນີ້ຄ້າງຢູ່ກ່ອນແລ້ວ
+            let existingInCart = continuousCart.find(i => i.id === foundItem.id && i.saleType === currentSaleType);
+            if (!existingInCart) {
+                handleSalesBarcodeScanned(code, customQty);
+            }
         }
 
         async function handleSalesBarcodeScanned(code, inputQty = null) {
