@@ -13,8 +13,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <!-- SheetJS (xlsx) for Excel Import -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <!-- ⭐️ Tesseract.js CDN ສຳລັບສະແກນອ່ານຕົວໜັງສື (OCR) -->
-    <script src="https://unpkg.com/tesseract.js@v5.1.0/dist/tesseract.min.js"></script>
     <!-- JsBarcode & QRCode CDN -->
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
@@ -1394,23 +1392,7 @@ tr {
                     <div>
                         <label class="block font-semibold text-gray-700 mb-1">🏷️ ຊື່ສິນຄ້າ (ບໍ່ປ້ອນກໍ່ໄດ້):</label>
                         <input type="text" id="stock-in-custom-name" list="existing-product-names-list" class="w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-pink-500 font-semibold text-gray-800 bg-white" placeholder="ປ້ອນຊື່ສິນຄ້າ (ຖ້າມີ)">
-                        
-                        <!-- ⭐️ ປຸ່ມຖ່າຍຮູບ ແລະ ອັບໂຫຼດ -->
-                        <div class="mt-2 grid grid-cols-2 gap-2">
-                            <!-- ປຸ່ມເປີດກ້ອງຖ່າຍສົດ -->
-                            <input type="file" id="ocr-camera-input" accept="image/*" capture="environment" class="hidden" onchange="handleOcrImageUpload(event)">
-                            <button type="button" onclick="document.getElementById('ocr-camera-input').click()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-xl text-xs transition shadow cursor-pointer flex items-center justify-center gap-1">
-                                📷 ຖ່າຍຮູບສຳລັບ OCR
-                            </button>
-
-                            <!-- ປຸ່ມອັບໂຫຼດຮູບຈາກເຄື່ອງ -->
-                            <input type="file" id="ocr-file-input" accept="image/*" class="hidden" onchange="handleOcrImageUpload(event)">
-                            <button type="button" onclick="document.getElementById('ocr-file-input').click()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 rounded-xl text-xs transition shadow cursor-pointer flex items-center justify-center gap-1">
-                                📁 ອັບໂຫຼດຮູບ
-                            </button>
-                        </div>
-                        <div id="ocr-status-text" class="text-[11px] text-gray-500 text-center mt-1"></div>
-                        </div>
+                    </div>
 
                     <!-- ⭐️ ສ່ວນຈຳນວນນຳເຂົ້າ ແລະ ຕົວຄູນ (ຮອງຮັບ 1, 2 ແລະ 3 ຊັ້ນ) -->
                     <div id="multiplier-section" class="bg-gray-50 p-3 rounded-xl border border-gray-200 space-y-2 mt-2">
@@ -6887,49 +6869,6 @@ function initExcelTableResizer() {
         });
     });
 }
-// ⭐️ ຟັງຊັນອ່ານຕົວໜັງສືຈາກຮູບພາບ (OCR) ດ້ວຍ Tesseract.js (ຮອງຮັບ ພາສາອັງກິດ, ໄທ, ລາວ)
-        async function handleOcrImageUpload(event) {
-            let file = event.target.files[0];
-            if (!file) return;
-
-            let statusEl = document.getElementById('ocr-status-text');
-            let nameInput = document.getElementById('stock-in-custom-name');
-
-            if (statusEl) statusEl.innerText = "⏳ กำลังประมวลผลอ่านตัวหนังสือจากรูปภาพ (OCR)...";
-
-            try {
-                // ໃຊ້ Tesseract.js ອ่านตัวหนังสือ (eng+tha+lao)
-                let result = await Tesseract.recognize(
-                    file,
-                    'eng+tha+lao', // ຮອງຮັບ 3 ภาษา: ອັງກິດ, ໄທ, ລາວ
-                    {
-                        logger: m => {
-                            if (m.status === 'recognizing text' && statusEl) {
-                                let prog = Math.round(m.progress * 100);
-                                statusEl.innerText = `⏳ กำลังอ่านข้อความ... (${prog}%)`;
-                            }
-                        }
-                    }
-                );
-
-                let text = result.data.text ? result.data.text.trim() : "";
-                // ເອົາສະເພາະບັນທັດທຳອິດ ຫຼື ຕັດຂຶ້ນບັນທັດໃໝ່ອອກໃຫ້ເປັນຊື່ສິນຄ້າທີ່ສະອາດ
-                let cleanText = text.split('\n')[0].trim();
-
-                if (cleanText) {
-                    if (nameInput) nameInput.value = cleanText;
-                    if (statusEl) statusEl.innerText = `✅ อ่านสำเร็จ: "${cleanText}"`;
-                } else {
-                    if (statusEl) statusEl.innerText = "⚠️ ไม่พบข้อความในรูปภาพ ลองใหม่อีกครั้ง";
-                }
-            } catch (error) {
-                console.error("OCR Error:", error);
-                if (statusEl) statusEl.innerText = "❌ เกิดข้อผิดพลาดในการอ่านรูปภาพ";
-            }
-
-            // ລ້າງຄ່າ File Input ເພື່ອໃຫ້ສາມາດອັບໂຫຼດຮູບເດີມຊ້ຳໄດ້
-            event.target.value = "";
-        }
 </script>
 <!-- ⭐️ ໂຄດໃໝ່: ພື້ນທີ່ສຳລັບສ້າງບິນໃບນ້ອຍ (Slip 80mm) ເຊື່ອງໄວ້ສະເໝີ ຈະເປີດສະເພາະຕອນພິມ -->
 <div id="slip-receipt-print-area" class="hidden"></div>
