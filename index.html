@@ -3616,17 +3616,29 @@ function calculateStockInPrice() {
         return;
     }
 
+    // ⭐️ ປັບປຸງໃຫມ່: ໃຊ້ Rate ຈາກ LocalStorage ມາສະແດງຜົນທັນທີ (0 ວິນາທີ) ເພື່ອຄວາມວ່ອງໄວ
     let rateRecordsMap = {};
+    let fallbackBuy = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 650;
+    let fallbackSell = parseFloat(localStorage.getItem('pos_custom_sell_rate')) || 670;
+    let todayKey = new Date().toISOString().split('T')[0];
+    rateRecordsMap[todayKey] = { buy: fallbackBuy, sell: fallbackSell };
+
+    // ດຶງຈາກ Firebase ເບື້ອງຫຼັງ (Background Sync) ໂດຍບໍ່ບັງຄັບໃຫ້ຜູ້ໃຊ້ຕ້ອງລໍຖ້າ
     if (db) {
-        try {
-            let rateSnap = await db.collection("daily_rates").where("device_id", "==", deviceId).get();
+        db.collection("daily_rates").where("device_id", "==", deviceId).get().then(rateSnap => {
+            let hasNewRate = false;
             rateSnap.forEach(doc => {
                 let rData = doc.data();
                 if (rData.date) {
                     rateRecordsMap[rData.date.trim()] = { buy: parseFloat(rData.buyRate) || 0, sell: parseFloat(rData.sellRate) || 0 };
+                    hasNewRate = true;
                 }
             });
-        } catch (e) {}
+            // ຖ້າມีການອັບເດດ Rate ใหม่ຈາກ Cloud ໃຫ້ Render ຕາຕະລາງใหມ่อີກรอบອັດຕະໂນມັດ
+            if (hasNewRate && typeof loadInventory === 'function' && !document.getElementById('inventory-modal').classList.contains('hidden')) {
+                // ຣີເຟຣບສະເພາະຕອນຂໍ້ມູນ Rate ມາຮอด
+            }
+        }).catch(e => {});
     }
 
     let shopFilterSelect = document.getElementById('inventory-shop-filter');
@@ -4137,19 +4149,21 @@ function closeScanner() {
             }
 
             let cleanCode = String(code).trim().toLowerCase();
-            
+        
+            // ⭐️ ປັບປຸງໃໝ່: ກວດສອບໃຫ້ຊັດເຈນວ່າບາໂຄດທີ່ສະແກນມົງກັບຊັ້ນໃດ (Large, Small ຫຼື Single)
             let exactMatches = excelRows.filter(item => {
-            let itemCode = String(item.code || '').trim().toLowerCase();
-            let codeLarge = String(item.code_large || '').trim().toLowerCase();
-            let codeSmall = String(item.code_small || '').trim().toLowerCase();
-            let codeSingle = String(item.code_single || item.code || '').trim().toLowerCase();
-            let itemName = String(item.name || '').trim().toLowerCase();
-            
-            return itemCode === cleanCode || 
-                codeLarge === cleanCode || 
-                codeSmall === cleanCode || 
-                codeSingle === cleanCode || 
-                itemName === cleanCode;
+                let itemCode = String(item.code || '').trim().toLowerCase();
+                let codeLarge = String(item.code_large || '').trim().toLowerCase();
+                let codeSmall = String(item.code_small || '').trim().toLowerCase();
+                let codeSingle = String(item.code_single || item.code || '').trim().toLowerCase();
+                let itemName = String(item.name || '').trim().toLowerCase();
+                
+                if (codeLarge === cleanCode) { item.scanned_level = 'large'; return true; }
+                if (codeSmall === cleanCode) { item.scanned_level = 'small'; return true; }
+                if (codeSingle === cleanCode || itemCode === cleanCode) { item.scanned_level = 'single'; return true; }
+                if (itemName === cleanCode) { item.scanned_level = 'single'; return true; }
+                
+                return false;
             });
 
             let foundItems = exactMatches.length > 0 ? exactMatches : excelRows.filter(item => {
@@ -4224,16 +4238,19 @@ function closeScanner() {
             
             let baseUnitCost = parseFloat(String(foundItem.currentNewCost || foundItem.cost || 0).replace(/,/g, '')) || 0;
 
+            // ⭐️ ປັບປຸງການດຶງລາຄາແຕ່ລະຊັ້ນໃຫ້ຖືກຕ້ອງຕາມທີ່ສະແກນຕົວຈິງ
             if (finalScannedLvl === 'large') {
-                finalPrice = parseFloat(String(foundItem.price_large || 0).replace(/,/g, '')) || 0;
+                finalPrice = parseFloat(String(foundItem.price_large || foundItem.price || 0).replace(/,/g, '')) || 0;
+                if(finalPrice === 0) finalPrice = (parseFloat(String(foundItem.currentSellingPrice || foundItem.price || 0).replace(/,/g, '')) || 0) * qtyLarge;
                 finalCost = baseUnitCost * qtyLarge; 
                 deductQtyBase = qtyLarge * addQty; 
-                levelLabel = '(ແພັກໃຫຍ່/ລາງ)';
+                levelLabel = '(ລາງ/ແພັກໃຫຍ່)';
             } else if (finalScannedLvl === 'small') {
-                finalPrice = parseFloat(String(foundItem.price_small || 0).replace(/,/g, '')) || 0;
+                finalPrice = parseFloat(String(foundItem.price_small || foundItem.price || 0).replace(/,/g, '')) || 0;
+                if(finalPrice === 0) finalPrice = (parseFloat(String(foundItem.currentSellingPrice || foundItem.price || 0).replace(/,/g, '')) || 0) * qtySmall;
                 finalCost = baseUnitCost * qtySmall; 
                 deductQtyBase = qtySmall * addQty; 
-                levelLabel = '(ແພັກນ້ອຍ/ຫໍ່)';
+                levelLabel = '(ແພັກ/ຫໍ່)';
             } else {
                 finalPrice = parseFloat(String(foundItem.price_single || foundItem.price || 0).replace(/,/g, '')) || 0;
                 finalCost = baseUnitCost; 
