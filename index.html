@@ -2868,6 +2868,10 @@ function initFirebaseRealtime() {
             localStorage.setItem('rate_current_value', sellRateVal);
 
             await saveRateHistoryRecord(dateVal, buyRateVal, sellRateVal);
+            
+            // ⭐️ ວາງເພີ່ມຢູ່ຈຸດນີ້ ເພື່ອລ້າງ Cache ໃຫ້ມັນດຶງ Rate ໃໝ່ທັນທີ
+            globalDailyRatesMap = {}; 
+
             closeRateInputModal();
             showAlert("ສຳເລັດ", `ບັນທຶກ Rate ສຳລັບວັນທີ [${dateVal}] ສຳເລັດຮຽບຮ້ອຍ!`, "💱");
         }
@@ -3615,31 +3619,24 @@ function calculateStockInPrice() {
         tbody.innerHTML = `<tr><td colspan="${colSpanCount}" class="p-6 text-center text-gray-400">ຍັງບໍ່ມີຂໍ້ມູນສິນຄ້າໃນລະບົບ</td></tr>`;
         return;
     }
+    let globalDailyRatesMap = {};
+    let cachedRatesLoaded = false; // ⭐️ ເພີ່ມຕົວແປຈື່ສະຖານະການໂຫຼດ
 
-    // ⭐️ ປັບປຸງໃຫມ່: ໃຊ້ Rate ຈາກ LocalStorage ມາສະແດງຜົນທັນທີ (0 ວິນາທີ) ເພື່ອຄວາມວ່ອງໄວ
     let rateRecordsMap = {};
-    let fallbackBuy = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 650;
-    let fallbackSell = parseFloat(localStorage.getItem('pos_custom_sell_rate')) || 670;
-    let todayKey = new Date().toISOString().split('T')[0];
-    rateRecordsMap[todayKey] = { buy: fallbackBuy, sell: fallbackSell };
-
-    // ດຶງຈາກ Firebase ເບື້ອງຫຼັງ (Background Sync) ໂດຍບໍ່ບັງຄັບໃຫ້ຜູ້ໃຊ້ຕ້ອງລໍຖ້າ
-    if (db) {
-        db.collection("daily_rates").where("device_id", "==", deviceId).get().then(rateSnap => {
-            let hasNewRate = false;
-            rateSnap.forEach(doc => {
-                let rData = doc.data();
-                if (rData.date) {
-                    rateRecordsMap[rData.date.trim()] = { buy: parseFloat(rData.buyRate) || 0, sell: parseFloat(rData.sellRate) || 0 };
-                    hasNewRate = true;
-                }
-            });
-            // ຖ້າມีການອັບເດດ Rate ใหม่ຈາກ Cloud ໃຫ້ Render ຕາຕະລາງใหມ่อີກรอบອັດຕະໂນມັດ
-            if (hasNewRate && typeof loadInventory === 'function' && !document.getElementById('inventory-modal').classList.contains('hidden')) {
-                // ຣີເຟຣບສະເພາະຕອນຂໍ້ມູນ Rate ມາຮอด
-            }
-        }).catch(e => {});
-    }
+        if (Object.keys(globalDailyRatesMap).length > 0) {
+            rateRecordsMap = globalDailyRatesMap; // ⚡ ດຶງຈາກໜ່ວຍຄວາມຈຳທັນທີ 0 ວິນາທີ
+        } else if (db) {
+            try {
+                let rateSnap = await db.collection("daily_rates").where("device_id", "==", deviceId).get();
+                rateSnap.forEach(doc => {
+                    let rData = doc.data();
+                    if (rData.date) {
+                        rateRecordsMap[rData.date.trim()] = { buy: parseFloat(rData.buyRate) || 0, sell: parseFloat(rData.sellRate) || 0 };
+                    }
+                });
+                globalDailyRatesMap = rateRecordsMap; // 💾 ບັນທຶກໃສ່ Cache Global ໄວ້ໃຊ້ຄັ້ງຕໍ່ໄປ
+            } catch (e) {}
+        }
 
     let shopFilterSelect = document.getElementById('inventory-shop-filter');
     let selectedShopFilter = shopFilterSelect ? shopFilterSelect.value : 'ALL';
