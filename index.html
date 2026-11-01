@@ -4080,16 +4080,7 @@ async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal, co
             updateCartItemPreview();
         }
 
-        // ⭐️ ເພີ່ມຟັງຊັນ Debounce ເພື່ອບໍ່ໃຫ້ລະບົບກະຕຸກເວລາພິມຊອກຫາສິນຄ້າໄວໆ
-        function debounceSearch(func, wait) {
-            let timeout;
-            return function(...args) {
-                clearTimeout(timeout);
-                timeout = setTimeout(() => func.apply(this, args), wait);
-            };
-        }
-
-        // ⭐️ ເພີ່ມຟັງຊັນ Debounce ເພື່ອປ້ອງກັນການສະແກນຊ້ຳ ແລະ ຫຼຸດອາການກະຕຸກ
+        // ⭐️ ເພີ່ມຟັງຊັນ Debounce
         function debounceSearch(func, wait) {
             let timeout;
             return function(...args) {
@@ -4101,17 +4092,21 @@ async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal, co
         document.addEventListener("DOMContentLoaded", () => {
             let barcodeInput = document.getElementById('scan-barcode-input');
             if (barcodeInput) {
-                // ສ້າງຕົວແທນທີ່ໜ່ວງເວລາ 300ms ໃຫ້ເຄື່ອງສະແກນຍິງໃຫ້ແລ້ວກ່ອນ
                 const debouncedSearch = debounceSearch(function(inputElement) {
                     handleScanBarcodeInputChange(inputElement);
                 }, 300);
 
-                // ໃຊ້ແຕ່ oninput ໂຕດຽວກໍພໍ ເພື່ອບໍ່ໃຫ້ Event ຕຳກັນກັບ onchange
                 barcodeInput.addEventListener('input', function() {
                     debouncedSearch(this);
                 });
                 
-                // ລຶບ event listener 'change' ອອກ ເພື່ອປ້ອງກັນການເອີ້ນໃຊ້ງານ 2 ຄັ້ງ
+                // ⭐️ ເພີ່ມການຈັບປຸ່ມ Enter: ເມື່ອປືນຍິງບາໂຄດຍິງສຳເລັດ ມັນຈະເພີ່ມລົງກະຕ່າທັນທີ
+                barcodeInput.addEventListener('keydown', function(event) {
+                    if (event.key === 'Enter') {
+                        event.preventDefault();
+                        confirmQtyAndReset(); // ໃຊ້ຄຳສັ່ງດຽວກັນກັບການກົດປຸ່ມ "ຕົກລົງ"
+                    }
+                });
             }
         });
 
@@ -4122,8 +4117,13 @@ async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal, co
             }
         }
 
-        // ⭐️ ແກ້ໄຂຟັງຊັນ confirmQtyAndReset ໃຫ້ເພີ່ມສິນຄ້າລົງກະຕ່າຢ່າງຖືກຕ້ອງ ໂດຍບໍ່ລ້າງກະຕ່າຖິ້ມ
+        // ⭐️ ຕົວແປລັອກລະບົບ ປ້ອງກັນປືນຍິງບາໂຄດຍິງເບິ້ນ 2 ຄັ້ງ
+        let isAddingToCart = false;
+
         function confirmQtyAndReset() {
+            if (isAddingToCart) return; 
+            isAddingToCart = true;
+
             let input = document.getElementById('scan-barcode-input');
             let qtyInput = document.getElementById('scan-qty-input');
             let stockDisplay = document.getElementById('scan-stock-display');
@@ -4131,77 +4131,34 @@ async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal, co
             if (input && input.value.trim() !== "") {
                 let code = input.value.trim();
                 let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
+                
+                // 1. ກຳນົດຈຳນວນ: ຖ້າບໍ່ປ້ອນ (ຫວ່າງເປົ່າ) = 1, ຖ້າປ້ອນ = ຕົວເລກທີ່ປ້ອນ
                 let customQty = (rawQtyText === "" || isNaN(rawQtyText) || parseFloat(rawQtyText) <= 0) ? 1 : parseFloat(rawQtyText);
                 
-                // ເອີ້ນຟັງຊັນເພີ່ມສິນຄ້າລົງກະຕ່າ
-                handleSalesBarcodeScanned(code, customQty);
-            }
-            
-            // ລ້າງຊ່ອງປ້ອນຂໍ້ມູນ
-            if (input) input.value = "";
-            if (qtyInput) qtyInput.value = "";
-            if (stockDisplay) stockDisplay.value = "";
-            
-            window.activeScanItem = null;
-            window.explicitlySelectedItemId = null;
-
-            // ⭐️ ບັງຄັບໃຫ້ລະບົບທຳຄວາມສະອາດໜ້າຈໍພຣີວິວໃຫ້ກາຍເປັນ 0 ແທ້ໆ
-            if (continuousCart.length === 0) {
-                let container = document.getElementById('continuous-cart-items-list');
-                let countEl = document.getElementById('cart-item-count');
-                let totalAmountEl = document.getElementById('cart-total-amount');
+                // 2. ລ້າງຊ່ອງປ້ອນຂໍ້ມູນທັນທີ! (ສຳຄັນຫຼາຍ ເພື່ອບໍ່ໃຫ້ Event ອື່ນມາອ່ານເລກເກົ່າຊ້ຳອີກຮອບ)
+                input.value = "";
+                if (qtyInput) qtyInput.value = "";
+                if (stockDisplay) stockDisplay.value = "";
+                window.activeScanItem = null;
+                window.explicitlySelectedItemId = null;
                 
-                if (countEl) countEl.innerText = "0";
-                if (totalAmountEl) totalAmountEl.innerText = "0 ກີບ";
-                if (container) container.innerHTML = `<p class="text-center text-gray-400 py-2">ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ</p>`;
+                // 3. ສົ່ງໄປເພີ່ມລົງກະຕ່າ
+                handleSalesBarcodeScanned(code, customQty);
             } else {
-                updateContinuousCartUI();
-                updateCartItemPreview();
+                isAddingToCart = false;
             }
+            
+            // ປົດລັອກຫຼັງຈາກ 0.3 ວິນາທີ ໃຫ້ພ້ອມສະແກນອັນຕໍ່ໄປ
+            setTimeout(() => {
+                isAddingToCart = false;
+            }, 300);
             
             if (input) input.focus();
         }
 
+        // ຖ້າມີຟັງຊັນນີ້ຖືກເອີ້ນໃຊ້ຢູ່ບ່ອນອື່ນ ໃຫ້ມັນມາດຶງໂຕດຽວກັນເລີຍ
         function submitManualCartSale() {
-            let input = document.getElementById('scan-barcode-input');
-            let qtyInput = document.getElementById('scan-qty-input');
-            
-            if (!input || input.value.trim() === "") {
-                return;
-            }
-
-            let code = input.value.trim();
-            let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
-            let customQty = (rawQtyText === "" || isNaN(rawQtyText) || parseFloat(rawQtyText) <= 0) ? 1 : parseFloat(rawQtyText);
-
-            // ⭐️ ກວດສອບ: ຖ້າສິນຄ້າຖືກອັບເດດລົງກະຕ່າອໍໂຕ້ແລ້ວ ໃຫ້ລ້າງປ່ອງຂໍ້ມູນເພື່ອກຽມສະແກນອັນຕໍ່ໄປເລີຍ
-            let cleanCode = String(code).trim().toLowerCase();
-            let foundItem = excelRows.find(item => 
-                String(item.code_large || '').trim().toLowerCase() === cleanCode ||
-                String(item.code_small || '').trim().toLowerCase() === cleanCode ||
-                String(item.code_single || item.code || '').trim().toLowerCase() === cleanCode ||
-                (item.name && item.name.trim().toLowerCase() === cleanCode)
-            );
-            
-            if (foundItem && typeof continuousCart !== 'undefined') {
-                let existingCartItem = continuousCart.find(i => i.id === foundItem.id && i.saleType === currentSaleType);
-                
-                // ຖ້າມີໃນກະຕ່າແລ້ວ ແລະ ຈຳນວນກົງກັບທີ່ພິມ ໝາຍຄວາມວ່າລະບົບອັບເດດອໍໂຕ້ໃຫ້ແລ້ວ
-                if (existingCartItem && existingCartItem.qty === customQty && rawQtyText !== "") {
-                    input.value = "";
-                    qtyInput.value = "";
-                    let stockDisplay = document.getElementById('scan-stock-display');
-                    if (stockDisplay) stockDisplay.value = "";
-                    input.focus();
-                    return; // ຢຸດການເຮັດວຽກ ບໍ່ໃຫ້ບວກເພີ່ມຊ້ຳອີກ
-                }
-            }
-
-            // ⭐️ ແກ້ໄຂ: ກ່ອນຈະເພີ່ມລົງກະຕ່າໃໝ່, ກວດສອບໃຫ້ແນ່ໃຈວ່າບໍ່ມີລາຍການນີ້ຄ້າງຢູ່ກ່ອນແລ້ວ
-            let existingInCart = continuousCart.find(i => i.id === foundItem.id && i.saleType === currentSaleType);
-            if (!existingInCart) {
-                handleSalesBarcodeScanned(code, customQty);
-            }
+            confirmQtyAndReset(); 
         }
 
         async function handleSalesBarcodeScanned(code, inputQty = null) {
