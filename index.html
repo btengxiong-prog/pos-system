@@ -4111,7 +4111,6 @@ async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal, co
             }
         }
 
-        // ⭐️ ຕົວແປລັອກລະບົບ ປ້ອງກັນປືນຍິງບາໂຄດຍິງເບິ້ນ 2 ຄັ້ງ
         let isAddingToCart = false;
 
         function confirmQtyAndReset() {
@@ -4125,7 +4124,6 @@ async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal, co
             if (input && input.value.trim() !== "") {
                 let code = input.value.trim();
                 let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
-                
                 let customQty = (rawQtyText === "" || isNaN(rawQtyText) || parseFloat(rawQtyText) <= 0) ? 1 : parseFloat(rawQtyText);
                 
                 input.value = "";
@@ -4136,7 +4134,36 @@ async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal, co
                 
                 handleSalesBarcodeScanned(code, customQty);
             } else {
-                // ⭐️ ແກ້ໄຂ: ຖ້າຊ່ອງບາໂຄດຫວ່າງເປົ່າ ແຕ່ຜູ້ໃຊ້ກົດຕົກລົງ ກໍຕ້ອງບັງຄັບລ້າງຊ່ອງຈຳນວນຖິ້ມໃຫ້ເປັນຊ່ອງຫວ່າງ!
+                // ⭐️ ຖ້າຊ່ອງບາໂຄດຫວ່າງ ແຕ່ກົດຕົກລົງ -> ໃຫ້ນຳເອົາຕົວເລກໄປຄູນກັບສິນຄ້າລ່າສຸດໃນກະຕ່າ (ແກ້ໄຂຕາມທີ່ຮ້ອງຂໍ)
+                let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
+                if (rawQtyText !== "" && !isNaN(rawQtyText) && parseFloat(rawQtyText) > 0) {
+                    let customQty = parseFloat(rawQtyText);
+                    if (typeof continuousCart !== 'undefined' && continuousCart.length > 0) {
+                        let targetCartItem = continuousCart[continuousCart.length - 1]; 
+                        
+                        // ກວດສອບສະຕັອກກ່ອນຈະອະນຸຍາດໃຫ້ເພີ່ມ
+                        let currentTotalBaseQty = parseFloat(String(targetCartItem.stock_base_qty || targetCartItem.qty || 0).replace(/,/g, '')) || 0;
+                        let qtyLarge = parseInt(targetCartItem.qty_in_large) || 24;
+                        let qtySmall = parseInt(targetCartItem.qty_in_small) || 6;
+                        let requiredBaseQty = 0;
+                        
+                        if (targetCartItem.saleType === 'large') requiredBaseQty = customQty * qtyLarge;
+                        else if (targetCartItem.saleType === 'small') requiredBaseQty = customQty * qtySmall;
+                        else requiredBaseQty = customQty;
+
+                        if (currentTotalBaseQty >= requiredBaseQty) {
+                            targetCartItem.qty = customQty;
+                            targetCartItem.deductBase = requiredBaseQty; 
+                            updateContinuousCartUI(); // ⭐️ ສັ່ງຄຳນວນເງິນ ແລະ ອັບເດດໜ້າຈໍທັນທີ
+                        } else {
+                            showAlert("ແຈ້ງເຕືອນ", "ສິນຄ້າໃນສາງບໍ່ພໍຂາຍ! (ເກີນຈຳນວນໃນສາງ)", "⚠️");
+                            isAddingToCart = false;
+                            return; 
+                        }
+                    }
+                }
+                
+                // ⭐️ ຫຼັງຈາກຄຳນວນສຳເລັດ ໃຫ້ຣີເຊັດເປັນຊ່ອງຫວ່າງ
                 if (qtyInput) qtyInput.value = "";
                 if (stockDisplay) stockDisplay.value = "-";
             }
@@ -5402,9 +5429,12 @@ function checkExpiryAlertStatus() {
                     else if (cSingle === val || cName === val) { foundItem = item; scannedLvl = 'single'; }
                 });
                 if (foundItem) foundItem.scanned_level = scannedLvl;
+            } else if (typeof continuousCart !== 'undefined' && continuousCart.length > 0) {
+                // ດຶງຂໍ້ມູນສິນຄ້າໂຕລ່າສຸດໃນກະຕ່າ ມາສະແດງຜົນສະຕັອກ
+                let lastCartItem = continuousCart[continuousCart.length - 1];
+                foundItem = excelRows.find(i => i.id === lastCartItem.id);
+                scannedLvl = lastCartItem.saleType || 'single'; 
             }
-
-            // ⭐️ ແກ້ໄຂ: ຕັດໂຄດທີ່ແອບດຶງສິນຄ້າໃນກະຕ່າມາອັບເດດອອກ ເພາະເຮົາຕ້ອງການແຄ່ Preview ຈຳນວນຊື່ໆ
 
             if (foundItem) {
                 let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
