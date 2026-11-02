@@ -4126,23 +4126,21 @@ async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal, co
                 let code = input.value.trim();
                 let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
                 
-                // 1. ກຳນົດຈຳນວນ: ຖ້າບໍ່ປ້ອນ (ຫວ່າງເປົ່າ) = 1, ຖ້າປ້ອນ = ຕົວເລກທີ່ປ້ອນ
                 let customQty = (rawQtyText === "" || isNaN(rawQtyText) || parseFloat(rawQtyText) <= 0) ? 1 : parseFloat(rawQtyText);
                 
-                // 2. ລ້າງຊ່ອງປ້ອນຂໍ້ມູນທັນທີ! (ສຳຄັນຫຼາຍ ເພື່ອບໍ່ໃຫ້ Event ອື່ນມາອ່ານເລກເກົ່າຊ້ຳອີກຮອບ)
                 input.value = "";
                 if (qtyInput) qtyInput.value = "";
                 if (stockDisplay) stockDisplay.value = "";
                 window.activeScanItem = null;
                 window.explicitlySelectedItemId = null;
                 
-                // 3. ສົ່ງໄປເພີ່ມລົງກະຕ່າ
                 handleSalesBarcodeScanned(code, customQty);
             } else {
-                isAddingToCart = false;
+                // ⭐️ ແກ້ໄຂ: ຖ້າຊ່ອງບາໂຄດຫວ່າງເປົ່າ ແຕ່ຜູ້ໃຊ້ກົດຕົກລົງ ກໍຕ້ອງບັງຄັບລ້າງຊ່ອງຈຳນວນຖິ້ມໃຫ້ເປັນຊ່ອງຫວ່າງ!
+                if (qtyInput) qtyInput.value = "";
+                if (stockDisplay) stockDisplay.value = "-";
             }
             
-            // ປົດລັອກຫຼັງຈາກ 0.3 ວິນາທີ ໃຫ້ພ້ອມສະແກນອັນຕໍ່ໄປ
             setTimeout(() => {
                 isAddingToCart = false;
             }, 300);
@@ -5404,24 +5402,14 @@ function checkExpiryAlertStatus() {
                     else if (cSingle === val || cName === val) { foundItem = item; scannedLvl = 'single'; }
                 });
                 if (foundItem) foundItem.scanned_level = scannedLvl;
-            } else if (continuousCart && continuousCart.length > 0) {
-                let lastCartItem = continuousCart[continuousCart.length - 1];
-                foundItem = excelRows.find(i => i.id === lastCartItem.id);
-                scannedLvl = lastCartItem.saleType || 'single'; 
             }
+
+            // ⭐️ ແກ້ໄຂ: ຕັດໂຄດທີ່ແອບດຶງສິນຄ້າໃນກະຕ່າມາອັບເດດອອກ ເພາະເຮົາຕ້ອງການແຄ່ Preview ຈຳນວນຊື່ໆ
 
             if (foundItem) {
                 let rawQtyText = qtyInput ? qtyInput.value.replace(/,/g, '').trim() : "";
                 let typingQty = (rawQtyText === "" || isNaN(rawQtyText) || parseFloat(rawQtyText) <= 0) ? 1 : parseFloat(rawQtyText);
                 
-                if (typeof continuousCart !== 'undefined' && continuousCart.length > 0) {
-                    let targetCartItem = continuousCart[continuousCart.length - 1]; 
-                    if (targetCartItem) {
-                        targetCartItem.qty = typingQty; 
-                        updateContinuousCartUI(); 
-                    }
-                }
-
                 let currentQty = parseFloat(String(foundItem.qty !== undefined ? foundItem.qty : 0).replace(/,/g, '')) || 0;
                 let unitPerPack = parseInt(foundItem.unitPerPack || foundItem.unit_per_pack) || 1;
                 
