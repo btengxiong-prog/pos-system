@@ -3075,18 +3075,27 @@ function initFirebaseRealtime() {
                     }
                 }
 
+                // ດຶງ Rate ມາໄວ້ຄຳນວນຍອດເງິນບາດ
+                let currentBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 650;
+
                 if (match && tx.items && Array.isArray(tx.items)) {
                     tx.items.forEach(it => {
                         let cost = (parseFloat(it.cost) || 0) * (parseInt(it.qty) || 1);
                         let price = (parseFloat(it.price) || 0) * (parseInt(it.qty) || 1);
-                        if (tx.currency === 'ບາດ') {
-                            totalCostThb += cost;
-                            totalPriceThb += price;
-                            if (tx.payMode.includes('transfer')) transferThb += price; else cashThb += price;
+                        
+                        let isTHB = tx.payMode && tx.payMode.includes('thb');
+                        if (tx.currency === 'ບາດ') isTHB = true;
+
+                        if (isTHB) {
+                            let convertedCost = Math.round(cost / currentBuyRate);
+                            let convertedPrice = Math.round(price / currentBuyRate);
+                            totalCostThb += convertedCost;
+                            totalPriceThb += convertedPrice;
+                            if (tx.payMode && tx.payMode.includes('transfer')) transferThb += convertedPrice; else cashThb += convertedPrice;
                         } else {
                             totalCostLak += cost;
                             totalPriceLak += price;
-                            if (tx.payMode.includes('transfer')) transferLak += price; else cashLak += price;
+                            if (tx.payMode && tx.payMode.includes('transfer')) transferLak += price; else cashLak += price;
                         }
                     });
                 }
@@ -5119,21 +5128,48 @@ async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal, co
             }
 
             salesHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
-            let html = '', countIndex = 1, totalCostAll = 0, totalPriceAll = 0, cashTotal = 0, transferTotal = 0;
+            let html = '', countIndex = 1;
+            
+            // ⭐️ ແກ້ໄຂ: ແຍກຕົວແປເກັບເງິນກີບ ແລະ ເງິນບາດອອກຈາກກັນ
+            let totalCostLak = 0, totalPriceLak = 0, cashLak = 0, transferLak = 0;
+            let totalCostThb = 0, totalPriceThb = 0, cashThb = 0, transferThb = 0;
 
             let userRole = localStorage.getItem('pos_user_role');
             let shopOwner = localStorage.getItem('pos_shop_owner');
             let isAdminMaster = (userRole === 'admin' || deviceId === 'POSXIONG' || (shopOwner === 'true' && deviceId === 'POSXIONG'));
+            
+            // ດຶງ Rate ມາໄວ້ຄຳນວນຍອດເງິນບາດ
+            let currentBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 650;
 
             salesHistory.forEach(tx => {
                 let formattedDate = formatDateToDDMMYYYY(tx.date);
+                
+                // ກວດສອບວ່າບິນນີ້ຈ່າຍເປັນເງິນບາດ ຫຼື ບໍ່
+                let isTHB = tx.payMode && tx.payMode.includes('thb');
+                if (tx.currency === 'ບາດ') isTHB = true;
+
                 if (tx.items && Array.isArray(tx.items)) {
                     tx.items.forEach(it => {
                         let cost = parseFloat(it.cost) || 0, price = parseFloat(it.price) || 0, qty = parseInt(it.qty) || 1;
                         let totalRow = price * qty;
-                        totalCostAll += cost * qty;
-                        totalPriceAll += totalRow;
-                        if (tx.payMode && tx.payMode.includes('transfer')) transferTotal += totalRow; else cashTotal += totalRow;
+                        let totalCostRow = cost * qty;
+                        
+                        // ຄຳນວນຕົວເລກສຳລັບສະແດງຜົນ (ຖ້າເປັນເງິນບາດ ໃຫ້ຫານ Rate)
+                        let displayCost = isTHB ? Math.round(cost / currentBuyRate) : cost;
+                        let displayPrice = isTHB ? Math.round(price / currentBuyRate) : price;
+                        let displayTotalRow = isTHB ? Math.round(totalRow / currentBuyRate) : totalRow;
+                        let displayCostRow = isTHB ? Math.round(totalCostRow / currentBuyRate) : totalCostRow;
+                        let currencySuffix = isTHB ? 'ບາດ' : 'ກີບ';
+
+                        if (isTHB) {
+                            totalCostThb += displayCostRow;
+                            totalPriceThb += displayTotalRow;
+                            if (tx.payMode && tx.payMode.includes('transfer')) transferThb += displayTotalRow; else cashThb += displayTotalRow;
+                        } else {
+                            totalCostLak += totalCostRow;
+                            totalPriceLak += totalRow;
+                            if (tx.payMode && tx.payMode.includes('transfer')) transferLak += totalRow; else cashLak += totalRow;
+                        }
 
                         let rightCellHtml = isAdminMaster ? `<td class="p-3 text-center"><input type="checkbox" data-id="${tx.id}" class="history-row-checkbox w-4 h-4 cursor-pointer accent-blue-600"></td>` : ``;
 
@@ -5143,10 +5179,10 @@ async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal, co
                                 <td class="p-3 border-r font-semibold text-purple-700 text-xs">${formattedDate}</td>
                                 <td class="p-3 border-r font-bold text-blue-600 font-mono text-xs">${it.code || '-'}</td>
                                 <td class="p-3 border-r font-bold text-gray-900 text-left text-xs">${it.name || '-'}</td>
-                                <td class="p-3 border-r text-right text-blue-600 text-xs">${formatNumberWithCommas(cost)}</td>
-                                <td class="p-3 border-r text-right text-green-600 text-xs">${formatNumberWithCommas(price)}</td>
+                                <td class="p-3 border-r text-right text-blue-600 text-xs">${formatNumberWithCommas(displayCost)} ${currencySuffix}</td>
+                                <td class="p-3 border-r text-right text-green-600 text-xs">${formatNumberWithCommas(displayPrice)} ${currencySuffix}</td>
                                 <td class="p-3 border-r text-center font-bold text-cyan-800 text-xs">${formatNumberWithCommas(qty)}</td>
-                                <td class="p-3 border-r text-right font-bold text-blue-800 bg-blue-50/30 text-xs">${formatNumberWithCommas(totalRow)}</td>
+                                <td class="p-3 border-r text-right font-bold text-blue-800 bg-blue-50/30 text-xs">${formatNumberWithCommas(displayTotalRow)} ${currencySuffix}</td>
                                 <td class="p-3 text-center text-xs font-semibold text-amber-600">${tx.payMode || 'cash'}</td>
                                 ${rightCellHtml}
                             </tr>
@@ -5155,15 +5191,25 @@ async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal, co
                 }
             });
 
-// ⭐️ ປັດມົນຕົວເລກຂຶ້ນເປັນຫຼັກພັນ (-3) ປ້ອງກັນເລກເສດທົດສະນິຍົມ
+            // ⭐️ ປັດມົນຕົວເລກຂຶ້ນເປັນຫຼັກພັນ (ສະເພາະເງິນກີບ)
             let roundLAK = (val) => Math.ceil(val / 1000) * 1000;
 
             tbody.innerHTML = html;
-            document.getElementById('sum-total-cost-lak').innerText = formatNumberWithCommas(roundLAK(totalCostAll)) + " ກີບ";
-            document.getElementById('sum-total-price-lak').innerText = formatNumberWithCommas(roundLAK(totalPriceAll)) + " ກີບ";
-            document.getElementById('sum-total-profit-lak').innerText = formatNumberWithCommas(roundLAK(totalPriceAll) - roundLAK(totalCostAll)) + " ກີບ";
-            document.getElementById('sum-cash-lak').innerText = formatNumberWithCommas(roundLAK(cashTotal)) + " ກີບ";
-            document.getElementById('sum-transfer-lak').innerText = formatNumberWithCommas(roundLAK(transferTotal)) + " ກີບ";
+            
+            // ສະແດງຜົນຍອດເງິນກີບ
+            document.getElementById('sum-total-cost-lak').innerText = formatNumberWithCommas(roundLAK(totalCostLak)) + " ກີບ";
+            document.getElementById('sum-total-price-lak').innerText = formatNumberWithCommas(roundLAK(totalPriceLak)) + " ກີບ";
+            document.getElementById('sum-total-profit-lak').innerText = formatNumberWithCommas(roundLAK(totalPriceLak) - roundLAK(totalCostLak)) + " ກີບ";
+            document.getElementById('sum-cash-lak').innerText = formatNumberWithCommas(roundLAK(cashLak)) + " ກີບ";
+            document.getElementById('sum-transfer-lak').innerText = formatNumberWithCommas(roundLAK(transferLak)) + " ກີບ";
+            
+            // ສະແດງຜົນຍອດເງິນບາດລົງກ່ອງສີແດງ
+            document.getElementById('sum-total-cost-thb').innerText = formatNumberWithCommas(totalCostThb) + " ບາດ";
+            document.getElementById('sum-total-price-thb').innerText = formatNumberWithCommas(totalPriceThb) + " ບາດ";
+            document.getElementById('sum-total-profit-thb').innerText = formatNumberWithCommas(totalPriceThb - totalCostThb) + " ບາດ";
+            document.getElementById('sum-cash-thb').innerText = formatNumberWithCommas(cashThb) + " ບາດ";
+            document.getElementById('sum-transfer-thb').innerText = formatNumberWithCommas(transferThb) + " ບາດ";
+            
             if (summaryContainer) summaryContainer.classList.remove('hidden');
         }
 
