@@ -4165,6 +4165,7 @@ async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal, co
             let qtyInput = document.getElementById('scan-qty-input');
             let input = document.getElementById('scan-barcode-input');
             
+            // ບັງຄັບລ້າງຊ່ອງປ້ອນໃຫ້ວ່າງເປົ່າ
             if (inputQty === null) {
                 if (input) input.value = ""; 
             }
@@ -4177,37 +4178,34 @@ async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal, co
                 addQty = parseFloat(rawQtyText);
             }
 
-            if (window.explicitlySelectedItemId) {
-                let specificItem = excelRows.find(i => i.id === window.explicitlySelectedItemId);
-                if (specificItem) {
-                    processAndAddToCart(specificItem, addQty);
-                    window.explicitlySelectedItemId = null;
-                    return;
-                }
-            }
-
             let cleanCode = String(code).trim().toLowerCase();
-        
+            if (cleanCode === "") return;
+
+            // 1. ຄົ້ນຫາແບບກົງເປະໆ (Exact Match) ກ່ອນສະເໝີ ປ້ອງກັນການດຶງສິນຄ້າຜິດ
             let exactMatches = excelRows.filter(item => {
-                let itemCode = String(item.code || '').trim().toLowerCase();
                 let codeLarge = String(item.code_large || '').trim().toLowerCase();
                 let codeSmall = String(item.code_small || '').trim().toLowerCase();
                 let codeSingle = String(item.code_single || item.code || '').trim().toLowerCase();
                 let itemName = String(item.name || '').trim().toLowerCase();
                 
-                if (codeLarge === cleanCode) { item.scanned_level = 'large'; return true; }
-                if (codeSmall === cleanCode) { item.scanned_level = 'small'; return true; }
-                if (codeSingle === cleanCode || itemCode === cleanCode) { item.scanned_level = 'single'; return true; }
+                if (codeLarge !== '' && codeLarge === cleanCode) { item.scanned_level = 'large'; return true; }
+                if (codeSmall !== '' && codeSmall === cleanCode) { item.scanned_level = 'small'; return true; }
+                if (codeSingle !== '' && codeSingle === cleanCode) { item.scanned_level = 'single'; return true; }
                 if (itemName === cleanCode) { item.scanned_level = 'single'; return true; }
                 return false;
             });
 
-            let foundItems = exactMatches.length > 0 ? exactMatches : excelRows.filter(item => {
-                let itemName = String(item.name || '').trim().toLowerCase();
-                return itemName.includes(cleanCode);
-            });
+            let foundItems = exactMatches;
 
-            if (!foundItems || foundItems.length === 0) {
+            // 2. ຖ້າບໍ່ພົບແບບກົງເປະ (ອາດພິມຊື່ຫຍໍ້) ຈຶ່ງຄ່ອຍຊອກຫາຈາກຄຳກ່ຽວຂ້ອງ
+            if (foundItems.length === 0) {
+                foundItems = excelRows.filter(item => {
+                    let itemName = String(item.name || '').trim().toLowerCase();
+                    return itemName.includes(cleanCode);
+                });
+            }
+
+            if (foundItems.length === 0) {
                 showAlert("ບໍ່ພົບສິນຄ້າ", `ບໍ່ພົບລະຫັດ ຫຼື ຊື່ສິນຄ້າ [${code}] ໃນສາງ!`, "⚠️");
                 return;
             }
@@ -4348,7 +4346,8 @@ async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal, co
             let qtyInput = document.getElementById('scan-qty-input');
             let stockDisplay = document.getElementById('scan-stock-display');
             
-            if (input) input.value = processedItem.name;
+            // ⭐️ ແກ້ໄຂ: ລ້າງຊ່ອງຄົ້ນຫາໃຫ້ວ່າງເປົ່າສະເໝີ ເພື່ອກຽມຮັບບາໂຄດອັນຕໍ່ໄປ
+            if (input) input.value = ""; 
             if (qtyInput) qtyInput.value = ""; 
             if (stockDisplay) stockDisplay.value = stockNoteDisplay;
         }
