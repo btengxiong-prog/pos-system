@@ -4662,8 +4662,22 @@ async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal, co
             if (db) {
                 try {
                     await db.collection("sales_history").add(saleRecord);
+                    // ⭐️ ແກ້ໄຂ: ຈັດກຸ່ມການຕັດສະຕັອກ (ສຳລັບໜ້າພິມບິນ)
+                    let groupedPrintDeductions = {};
                     for (let it of continuousCart) {
-                        let docRef = db.collection("products").doc(it.id);
+                        if (!it.id) continue;
+                        let soldSingles = 0;
+                        if (it.saleType === 'large') soldSingles = (parseInt(it.qty_in_large) || 24) * parseInt(it.qty);
+                        else if (it.saleType === 'small') soldSingles = (parseInt(it.qty_in_small) || 6) * parseInt(it.qty);
+                        else if (it.saleType === 'single' || it.saleType === 'retail') soldSingles = 1 * parseInt(it.qty);
+                        else soldSingles = parseInt(it.qty) * (parseInt(it.unit_per_pack || 1) || 1);
+                        
+                        groupedPrintDeductions[it.id] = (groupedPrintDeductions[it.id] || 0) + soldSingles;
+                    }
+
+                    for (let docId of Object.keys(groupedPrintDeductions)) {
+                        let totalSold = groupedPrintDeductions[docId];
+                        let docRef = db.collection("products").doc(docId);
                         let docSnap = await docRef.get();
                         if (docSnap.exists) {
                             let pData = docSnap.data();
@@ -4676,13 +4690,7 @@ async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal, co
                                 currentStockBaseQty = Math.round(currentStockQty * unitPerPack);
                             }
 
-                            let soldSingles = 0;
-                            if (it.saleType === 'large') soldSingles = (parseInt(pData.qty_in_large) || 24) * parseInt(it.qty);
-                            else if (it.saleType === 'small') soldSingles = (parseInt(pData.qty_in_small) || 6) * parseInt(it.qty);
-                            else if (it.saleType === 'single' || it.saleType === 'retail') soldSingles = 1 * parseInt(it.qty);
-                            else soldSingles = parseInt(it.qty) * (parseInt(pData.unit_per_pack || 1) || 1);
-
-                            let newTotalSingles = Math.max(0, currentStockBaseQty - soldSingles);
+                            let newTotalSingles = Math.max(0, currentStockBaseQty - totalSold);
                             let unitPerPackForQty = parseInt(pData.unit_per_pack || 1) || 1;
                             let newStockQty = newTotalSingles / unitPerPackForQty;
                             
@@ -5305,44 +5313,49 @@ async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal, co
                         created_at: new Date().toISOString()
                     });
 
-                    // ດຶງຂໍ້ມູນສິນຄ້າມາຕັດ Stock ພ້ອມກັນຢ່າງຖືກຕ້ອງຕາມຊັ້ນ (ລາງ/ແພັກ/ຂວດ)
+                    // ⭐️ ແກ້ໄຂ: ຈັດກຸ່ມການຕັດສະຕັອກຕາມ ID ກ່ອນ (ປ້ອງກັນບັກ Overwrite ຖ້າຂາຍສິນຄ້າດຽວກັນແຕ່ຫຼາຍຊັ້ນພ້ອມກັນ)
+                    let groupedDeductions = {};
                     for (let it of itemsToSave) {
-                        if (it.id) {
-                            let docRef = db.collection("products").doc(it.id);
-                            let docSnap = await docRef.get();
-                            if (docSnap.exists) {
-                                let pData = docSnap.data();
-                                
-                                let currentStockBaseQty = 0;
-                                if (pData.stock_base_qty !== undefined && pData.stock_base_qty !== null && pData.stock_base_qty !== '') {
-                                    currentStockBaseQty = parseFloat(pData.stock_base_qty);
-                                } else {
-                                    let currentStockQty = parseFloat(pData.qty) || 0;
-                                    let unitPerPack = parseInt(pData.unit_per_pack || 1) || 1;
-                                    currentStockBaseQty = Math.round(currentStockQty * unitPerPack);
-                                }
+                        if (!it.id) continue;
+                        let soldSingles = 0;
+                        if (it.saleType === 'large') {
+                            soldSingles = (parseInt(it.qty_in_large) || 24) * parseInt(it.qty);
+                        } else if (it.saleType === 'small') {
+                            soldSingles = (parseInt(it.qty_in_small) || 6) * parseInt(it.qty);
+                        } else if (it.saleType === 'single' || it.saleType === 'retail') {
+                            soldSingles = 1 * parseInt(it.qty);
+                        } else {
+                            let unitPerPack = parseInt(it.unit_per_pack || 1) || 1;
+                            soldSingles = parseInt(it.qty) * unitPerPack;
+                        }
+                        groupedDeductions[it.id] = (groupedDeductions[it.id] || 0) + soldSingles;
+                    }
 
-                                let soldSingles = 0;
-                                if (it.saleType === 'large') {
-                                    soldSingles = (parseInt(pData.qty_in_large) || 24) * parseInt(it.qty);
-                                } else if (it.saleType === 'small') {
-                                    soldSingles = (parseInt(pData.qty_in_small) || 6) * parseInt(it.qty);
-                                } else if (it.saleType === 'single' || it.saleType === 'retail') {
-                                    soldSingles = 1 * parseInt(it.qty);
-                                } else {
-                                    let unitPerPack = parseInt(pData.unit_per_pack || 1) || 1;
-                                    soldSingles = parseInt(it.qty) * unitPerPack;
-                                }
-
-                                let newTotalSingles = Math.max(0, currentStockBaseQty - soldSingles);
-                                let unitPerPackForQty = parseInt(pData.unit_per_pack || 1) || 1;
-                                let newStockQty = newTotalSingles / unitPerPackForQty;
-                                
-                                batch.update(docRef, { 
-                                    qty: newStockQty,
-                                    stock_base_qty: newTotalSingles 
-                                });
+                    // ດຶງຂໍ້ມູນສິນຄ້າມາຕັດ Stock ພ້ອມກັນຢ່າງຖືກຕ້ອງຕາມຊັ້ນ (ລາງ/ແພັກ/ຂວດ)
+                    for (let docId of Object.keys(groupedDeductions)) {
+                        let totalSold = groupedDeductions[docId];
+                        let docRef = db.collection("products").doc(docId);
+                        let docSnap = await docRef.get();
+                        if (docSnap.exists) {
+                            let pData = docSnap.data();
+                            
+                            let currentStockBaseQty = 0;
+                            if (pData.stock_base_qty !== undefined && pData.stock_base_qty !== null && pData.stock_base_qty !== '') {
+                                currentStockBaseQty = parseFloat(pData.stock_base_qty);
+                            } else {
+                                let currentStockQty = parseFloat(pData.qty) || 0;
+                                let unitPerPack = parseInt(pData.unit_per_pack || 1) || 1;
+                                currentStockBaseQty = Math.round(currentStockQty * unitPerPack);
                             }
+
+                            let newTotalSingles = Math.max(0, currentStockBaseQty - totalSold);
+                            let unitPerPackForQty = parseInt(pData.unit_per_pack || 1) || 1;
+                            let newStockQty = newTotalSingles / unitPerPackForQty;
+                            
+                            batch.update(docRef, { 
+                                qty: newStockQty,
+                                stock_base_qty: newTotalSingles 
+                            });
                         }
                     }
 
