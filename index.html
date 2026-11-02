@@ -4059,17 +4059,22 @@ async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal, co
 
             let val = input.value ? input.value.trim().toLowerCase() : "";
             if (val !== "") {
-                let exactMatches = excelRows.filter(item => {
+                let exactMatches = [];
+                excelRows.forEach(item => {
                     let cLarge = String(item.code_large || '').trim().toLowerCase();
                     let cSmall = String(item.code_small || '').trim().toLowerCase();
                     let cSingle = String(item.code_single || item.code || '').trim().toLowerCase();
                     let cName = String(item.name || '').trim().toLowerCase();
-                    
-                    if (cLarge === val) { item.scanned_level = 'large'; return true; }
-                    if (cSmall === val) { item.scanned_level = 'small'; return true; }
-                    if (cSingle === val) { item.scanned_level = 'single'; return true; }
-                    if (cName === val) { item.scanned_level = 'single'; return true; }
-                    return false;
+
+                    if (cLarge !== '' && cLarge === val) {
+                        exactMatches.push({...item, scanned_level: 'large'});
+                    } else if (cSmall !== '' && cSmall === val) {
+                        exactMatches.push({...item, scanned_level: 'small'});
+                    } else if (cSingle !== '' && cSingle === val) {
+                        exactMatches.push({...item, scanned_level: 'single'});
+                    } else if (cName === val) {
+                        exactMatches.push({...item, scanned_level: 'ask_unit'}); // ⭐️ ບັງຄັບໃຫ້ຖາມຫົວໜ່ວຍ
+                    }
                 });
 
                 if (exactMatches.length > 1) {
@@ -4081,8 +4086,13 @@ async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal, co
                         openSelectPriceModal(exactMatches, customQty, input.value.trim());
                     }
                 } else if (exactMatches.length === 1) {
-                    window.activeScanItem = exactMatches[0];
-                    window.explicitlySelectedItemId = exactMatches[0].id;
+                    if (exactMatches[0].scanned_level === 'ask_unit') {
+                        // ຖ້າເປັນ ask_unit ຈະໃຫ້ມັນໄປເດັ້ງຖາມໃນຟັງຊັນ confirmQtyAndReset ແທນ
+                        window.activeScanItem = exactMatches[0];
+                    } else {
+                        window.activeScanItem = exactMatches[0];
+                        window.explicitlySelectedItemId = exactMatches[0].id;
+                    }
                 }
             } else {
                 window.activeScanItem = null;
@@ -4202,7 +4212,6 @@ async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal, co
             let qtyInput = document.getElementById('scan-qty-input');
             let input = document.getElementById('scan-barcode-input');
             
-            // ບັງຄັບລ້າງຊ່ອງປ້ອນໃຫ້ວ່າງເປົ່າ
             if (inputQty === null) {
                 if (input) input.value = ""; 
             }
@@ -4218,27 +4227,30 @@ async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal, co
             let cleanCode = String(code).trim().toLowerCase();
             if (cleanCode === "") return;
 
-            // 1. ຄົ້ນຫາແບບກົງເປະໆ (Exact Match) ກ່ອນສະເໝີ ປ້ອງກັນການດຶງສິນຄ້າຜິດ
-            let exactMatches = excelRows.filter(item => {
+            let foundItems = [];
+            excelRows.forEach(item => {
                 let codeLarge = String(item.code_large || '').trim().toLowerCase();
                 let codeSmall = String(item.code_small || '').trim().toLowerCase();
                 let codeSingle = String(item.code_single || item.code || '').trim().toLowerCase();
                 let itemName = String(item.name || '').trim().toLowerCase();
-                
-                if (codeLarge !== '' && codeLarge === cleanCode) { item.scanned_level = 'large'; return true; }
-                if (codeSmall !== '' && codeSmall === cleanCode) { item.scanned_level = 'small'; return true; }
-                if (codeSingle !== '' && codeSingle === cleanCode) { item.scanned_level = 'single'; return true; }
-                if (itemName === cleanCode) { item.scanned_level = 'single'; return true; }
-                return false;
+
+                if (codeLarge !== '' && codeLarge === cleanCode) {
+                    foundItems.push({...item, scanned_level: 'large'});
+                } else if (codeSmall !== '' && codeSmall === cleanCode) {
+                    foundItems.push({...item, scanned_level: 'small'});
+                } else if (codeSingle !== '' && codeSingle === cleanCode) {
+                    foundItems.push({...item, scanned_level: 'single'});
+                } else if (itemName === cleanCode) {
+                    foundItems.push({...item, scanned_level: 'ask_unit'});
+                }
             });
 
-            let foundItems = exactMatches;
-
-            // 2. ຖ້າບໍ່ພົບແບບກົງເປະ (ອາດພິມຊື່ຫຍໍ້) ຈຶ່ງຄ່ອຍຊອກຫາຈາກຄຳກ່ຽວຂ້ອງ
             if (foundItems.length === 0) {
-                foundItems = excelRows.filter(item => {
+                excelRows.forEach(item => {
                     let itemName = String(item.name || '').trim().toLowerCase();
-                    return itemName.includes(cleanCode);
+                    if (itemName.includes(cleanCode)) {
+                        foundItems.push({...item, scanned_level: 'ask_unit'});
+                    }
                 });
             }
 
@@ -4247,8 +4259,47 @@ async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal, co
                 return;
             }
 
-            if (foundItems.length > 1) {
-                openSelectPriceModal(foundItems, addQty, code);
+            // ⭐️ ແກ້ໄຂໃຫ້ເດັ້ງ Modal ເລືອກຊັ້ນສິນຄ້າ ຖ້າພິມຊື່ແລ້ວສິນຄ້ານັ້ນມີຫຼາຍຊັ້ນ
+            if (foundItems.length > 1 || (foundItems.length === 1 && foundItems[0].scanned_level === 'ask_unit')) {
+                let itemsToSelect = [];
+                
+                if (foundItems.length === 1 && foundItems[0].scanned_level === 'ask_unit') {
+                    let fi = foundItems[0];
+                    let activeLevel = parseInt(fi.stock_level);
+                    if (isNaN(activeLevel)) {
+                        if (fi.code_large && fi.code_large !== '-') activeLevel = 3;
+                        else if (fi.code_small && fi.code_small !== '-') activeLevel = 2;
+                        else activeLevel = 1;
+                    }
+
+                    let baseUnitPrice = parseFloat(String(fi.price_single || fi.price || 0).replace(/,/g, '')) || 0;
+                    let totalSinglesInLarge = parseInt(fi.qty_in_large) || 24;
+                    let singlesInSmall = parseInt(fi.qty_in_small) || 6;
+
+                    let pLarge = parseFloat(String(fi.price_large || 0).replace(/,/g, '')) || (baseUnitPrice * totalSinglesInLarge);
+                    let pSmall = parseFloat(String(fi.price_small || 0).replace(/,/g, '')) || (baseUnitPrice * singlesInSmall);
+                    let pSingle = baseUnitPrice;
+
+                    if (activeLevel === 3) {
+                        itemsToSelect.push({...fi, virtual_id: fi.id + '_large', scanned_level: 'large', display_name: fi.name + ' (ລາງ/ແພັກໃຫຍ່)', currentSellingPrice: pLarge });
+                        itemsToSelect.push({...fi, virtual_id: fi.id + '_small', scanned_level: 'small', display_name: fi.name + ' (ແພັກ/ຫໍ່)', currentSellingPrice: pSmall });
+                        itemsToSelect.push({...fi, virtual_id: fi.id + '_single', scanned_level: 'single', display_name: fi.name + ' (ຂວດ/ປ໋ອງ)', currentSellingPrice: pSingle });
+                    } else if (activeLevel === 2) {
+                        itemsToSelect.push({...fi, virtual_id: fi.id + '_small', scanned_level: 'small', display_name: fi.name + ' (ແພັກ/ຫໍ່)', currentSellingPrice: pSmall });
+                        itemsToSelect.push({...fi, virtual_id: fi.id + '_single', scanned_level: 'single', display_name: fi.name + ' (ຂວດ/ປ໋ອງ)', currentSellingPrice: pSingle });
+                    } else {
+                        itemsToSelect.push({...fi, virtual_id: fi.id + '_single', scanned_level: 'single', display_name: fi.name + ' (ຂວດ/ປ໋ອງ)', currentSellingPrice: pSingle });
+                    }
+                    
+                    if (itemsToSelect.length === 1) {
+                        processAndAddToCart(itemsToSelect[0], addQty);
+                        return;
+                    }
+                } else {
+                    itemsToSelect = foundItems;
+                }
+                
+                openSelectPriceModal(itemsToSelect, addQty, code);
                 return; 
             }
 
@@ -4403,7 +4454,7 @@ async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal, co
         function openSelectPriceModal(items, qty, queryStr) {
             pendingMultiPriceItems = items;
             pendingMultiPriceQty = qty;
-            selectedMultiPriceItemId = items[0].id; // ຕັ້ງຄ່າເລີ່ມຕົ້ນໃຫ້ເລືອກອັນທຳອິດສະເໝີ
+            selectedMultiPriceItemId = items[0].virtual_id || items[0].id; 
             
             let codeLabel = document.getElementById('multi-price-code');
             if(codeLabel) codeLabel.innerText = queryStr;
@@ -4423,14 +4474,17 @@ async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal, co
                 
                 let currency = item.currency || 'ກີບ';
                 let qtyLabel = item.qty !== undefined ? item.qty : 0;
+                
+                let vid = item.virtual_id || item.id;
                 let isSelectedClass = index === 0 ? 'border-blue-600 bg-blue-50/50' : 'border-gray-200';
                 let isChecked = index === 0 ? 'checked' : '';
+                let displayName = item.display_name || item.name || item.code;
                 
                 html += `
-                    <label class="flex items-center gap-3 p-3 mb-2 border-2 rounded-xl cursor-pointer hover:bg-gray-50 transition ${isSelectedClass}" onclick="selectPriceOption('${item.id}', this)">
-                        <input type="radio" name="multi_price_option" value="${item.id}" ${isChecked} class="w-4 h-4 text-blue-600">
+                    <label class="flex items-center gap-3 p-3 mb-2 border-2 rounded-xl cursor-pointer hover:bg-gray-50 transition ${isSelectedClass}" onclick="selectPriceOption('${vid}', this)">
+                        <input type="radio" name="multi_price_option" value="${vid}" ${isChecked} class="w-4 h-4 text-blue-600">
                         <div class="flex-1">
-                            <div class="font-bold text-gray-800 text-sm truncate" title="${item.name || item.code}">${item.name || item.code}</div>
+                            <div class="font-bold text-gray-800 text-sm truncate" title="${displayName}">${displayName}</div>
                             <div class="text-[11px] text-gray-500">ຄ້າງສາງ: ${formatNumberWithCommas(qtyLabel)} | ລະຫັດ: ${item.code}</div>
                         </div>
                         <div class="font-bold text-green-600">${formatNumberWithCommas(finalPrice)} ${currency}</div>
@@ -4464,13 +4518,14 @@ async function saveNewStockInItem(importDate, mfgDate, expDate, profitPctVal, co
         function confirmSelectedPriceOption() {
             if (!selectedMultiPriceItemId) return;
             
-            let selectedItem = pendingMultiPriceItems.find(i => i.id === selectedMultiPriceItemId);
+            let selectedItem = pendingMultiPriceItems.find(i => (i.virtual_id || i.id) === selectedMultiPriceItemId);
             if (selectedItem) {
                 let input = document.getElementById('scan-barcode-input');
                 let qtyInput = document.getElementById('scan-qty-input');
                 
-                // ⭐️ ຈື່ ID ສິນຄ້າທີ່ຜູ້ໃຊ້ເລືອກໄວ້ ເພື່ອບໍ່ໃຫ້ລະບົບເດັ້ງຖາມອີກຕອນກົດຕົກລົງເພີ່ມລົງກະຕ່າ
-                window.explicitlySelectedItemId = selectedMultiPriceItemId;
+                // ⭐️ ຈື່ item ແລະ scanned_level ໄວ້ເພື່ອໄປຕັດສະຕັອກໃຫ້ຖືກຕ້ອງ
+                window.activeScanItem = selectedItem; 
+                window.explicitlySelectedItemId = selectedItem.id;
                 
                 if (input) {
                     input.value = selectedItem.code || selectedItem.name; 
