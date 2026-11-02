@@ -3765,12 +3765,17 @@ async function loadInventory() {
         let rawImportDate = row.date_added || row.dateAdded || '';
         let formattedImportDate = rawImportDate ? (rawImportDate.includes('/') ? rawImportDate : formatDateToDDMMYYYY(rawImportDate)) : '-';
         
-        let importBuyRate = 0, importSellRate = 0, currentBuyRate = 0, currentSellRate = 0;
+        let importBuyRate = 0, importSellRate = 0;
+        
+        // ⭐️ ແກ້ໄຂ: ດຶງອັດຕາແລກປ່ຽນປັດຈຸບັນ (ໃໝ່) ຈາກເຄື່ອງໂດຍກົງ (LocalStorage) ເພື່ອໃຫ້ໄດ້ຄ່າຫຼ້າສຸດສະເໝີ
+        let currentBuyRate = parseFloat(localStorage.getItem('pos_custom_buy_rate')) || 0;
+        let currentSellRate = parseFloat(localStorage.getItem('pos_custom_sell_rate')) || 0;
 
         if (rateDates.length > 0) {
             let latestDate = rateDates[rateDates.length - 1];
-            currentBuyRate = rateRecordsMap[latestDate].buy;
-            currentSellRate = rateRecordsMap[latestDate].sell;
+            // ຖ້າບໍ່ມີໃນເຄື່ອງ ຈຶ່ງໄປດຶງຄ່າຫຼ້າສຸດຈາກຖານຂໍ້ມູນ
+            if (currentBuyRate <= 0) currentBuyRate = rateRecordsMap[latestDate].buy;
+            if (currentSellRate <= 0) currentSellRate = rateRecordsMap[latestDate].sell;
 
             let isoImportDate = parseDDMMYYYYToISO(formattedImportDate);
             if (rateRecordsMap[isoImportDate]) {
@@ -3789,6 +3794,12 @@ async function loadInventory() {
                 }
             }
         }
+
+        // ປ້ອງກັນກໍລະນີອັດຕາແລກປ່ຽນເປັນ 0 ໃຫ້ໃຊ້ຄ່າເລີ່ມຕົ້ນທົດແທນ
+        if (!importBuyRate || importBuyRate <= 0) importBuyRate = currentBuyRate > 0 ? currentBuyRate : 650;
+        if (!importSellRate || importSellRate <= 0) importSellRate = currentSellRate > 0 ? currentSellRate : 670;
+        if (!currentBuyRate || currentBuyRate <= 0) currentBuyRate = importBuyRate;
+        if (!currentSellRate || currentSellRate <= 0) currentSellRate = importSellRate;
 
         let calculatedNewCost = importBuyRate > 0 ? originalCostVal * (currentBuyRate / importBuyRate) : originalCostVal;
         let newCost = Math.ceil(calculatedNewCost / 1000) * 1000;
